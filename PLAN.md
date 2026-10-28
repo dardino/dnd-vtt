@@ -343,13 +343,13 @@ Regole:
 
 - `build` dipende da `^build`: `shared` viene compilato prima di client e server, sempre, anche con cache fredda
 - la cache è **locale** in `.turbo/` e usa come chiave sorgenti, lockfile e variabili elencate. Niente remote cache: un solo sviluppatore, e la CI può permettersi di ricostruire
-- `dev` è `persistent`: Turbo non termina e tiene insieme i tre processi. `shared` gira con `tsup --watch`
+- `dev` è `persistent` e dipende da `^build`: Turbo non termina, ma prima di avviare `ng serve` e `tsx` il `shared/dist` esiste. `shared` gira con `tsup --watch` senza pulire `dist`, così Angular non vede mai un pacchetto senza tipi (che produrrebbe `TS7006` sparsi)
 - `typecheck` e `test` dipendono dal build di `shared` perché i tipi e i test importano il pacchetto compilato, non i sorgenti
 - `test:e2e` dipende anche da `@dnd-vtt/server#build`: il client non dipende dal server, ma Playwright avvia il server compilato. Senza questa dipendenza un `npm run test:e2e` da checkout pulito fallirebbe
 - le variabili runtime del server (`DATABASE_PATH`, `DM_PASSWORD`, `SESSION_SECRET`) **non** entrano nella cache: non cambiano il bundle
 - in CI `TURBO_UI=false` e `CI=true`, così l'output è lineare e leggibile nei log
 
-Limite noto: modificare `shared` mentre `ng serve` è attivo non sempre invalida il chunk nel dev server Angular, che pre-bundle le dipendenze del workspace. Dopo una modifica a `shared` si riavvia `npm run dev`. È accettabile perché `shared` cambia molto meno del client; l'alternativa (import dai sorgenti) romperebbe D7.
+Limite noto: modificare `shared` mentre `ng serve` è attivo non sempre invalida il chunk nel dev server Angular, che pre-bundle le dipendenze del workspace. Dopo una modifica a `shared` si riavvia `npm run dev`. Il watch non pulisce più `dist`, quindi il riavvio non deve più incontrare tipi mancanti; l'alternativa (import dai sorgenti) romperebbe D7.
 
 ### 5.5 TypeScript
 

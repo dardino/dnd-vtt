@@ -12,7 +12,7 @@
     }
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsup --clean",
     "dev": "tsup --watch",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
