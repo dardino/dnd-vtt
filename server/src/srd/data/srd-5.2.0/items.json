@@ -1,0 +1,2853 @@
+[
+  {
+    "id": "acid",
+    "name": "Acid",
+    "type": "Weapon",
+    "category": "gear",
+    "valueGp": 25,
+    "weightLb": 1,
+    "description": "When you take the Attack action, you can replace one of your attacks with throwing a vial of Acid. Target one creature or object you can see within 20 feet of yourself. The target must succeed on a Dexterity saving throw (DC 8 plus your Dexterity modifier and Proficiency Bonus) or take 2d6 Acid damage.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "alchemists-fire",
+    "name": "Alchemist's Fire",
+    "type": "Weapon",
+    "category": "gear",
+    "valueGp": 50,
+    "weightLb": 1,
+    "description": "When you take the Attack action, you can replace one of your attacks with throwing a flask of Alchemist's Fire. Target one creature or object you can see within 20 feet of yourself. The target must succeed on a Dexterity saving throw (DC 8 plus your Dexterity modifier and Proficiency Bonus) or take 1d4 Fire damage and start burning (see \"Rules Glossary\").",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "alchemists-supplies",
+    "name": "Alchemist's Supplies (50 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 50,
+    "weightLb": 8,
+    "description": "Ability: Intelligence. Utilize: Identify a substance (DC 15), or start a fire (DC 15). Craft: Acid, Alchemist's Fire, Component Pouch, Oil, Paper, Perfume",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "arrows-20",
+    "name": "Arrows (20)",
+    "type": "Ammunition",
+    "category": "ammunition",
+    "valueGp": 1,
+    "weightLb": 1,
+    "description": "Ammunition for weapons that use arrows. Comes in a pack of 20. Typically stored in a quiver.",
+    "data": {
+      "category": "ammunition"
+    }
+  },
+  {
+    "id": "backpack",
+    "name": "Backpack",
+    "type": "Equipment Pack",
+    "category": "pack",
+    "valueGp": 2,
+    "weightLb": 5,
+    "description": "A Backpack holds up to 30 pounds within 1 cubic foot. It can also serve as a saddlebag.",
+    "data": {
+      "category": "pack"
+    }
+  },
+  {
+    "id": "ball-bearings",
+    "name": "Ball Bearings",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 2,
+    "description": "As a Utilize action, you can spill Ball Bearings from their pouch. They spread to cover a level, 10-footsquare area within 10 feet of yourself. A creature that enters this area for the first time on a turn must succeed on a DC 10 Dexterity saving throw or have the Prone condition. It takes 10 minutes to recover the Ball Bearings.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "barrel",
+    "name": "Barrel",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 70,
+    "description": "A Barrel holds up to 40 gallons of liquid or up to 4 cubic feet of dry goods.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "basket",
+    "name": "Basket",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.4,
+    "weightLb": 2,
+    "description": "A Basket holds up to 40 pounds within 2 cubic feet.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "battleaxe",
+    "name": "Battleaxe",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 10,
+    "weightLb": 4,
+    "description": "A battleaxe.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "slashing"
+      },
+      "properties": [
+        "Topple",
+        "Versatile"
+      ],
+      "mastery": "Topple",
+      "versatile": "1d10",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "bedroll",
+    "name": "Bedroll",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 7,
+    "description": "A Bedroll sleeps one Small or Medium creature. While in a Bedroll, you automatically succeed on saving throws against extreme cold (see \"Gameplay Toolbox\").",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "bell",
+    "name": "Bell",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 0,
+    "description": "When rung as a Utilize action, a Bell produces a sound that can be heard up to 60 feet away.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "blanket",
+    "name": "Blanket",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.5,
+    "weightLb": 3,
+    "description": "While wrapped in a blanket, you have Advantage on saving throws against extreme cold (see \"Gameplay Toolbox\").",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "block-and-tackle",
+    "name": "Block and Tackle",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 5,
+    "description": "A Block and Tackle allows you to hoist up to four times the weight you can normally lift.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "blowgun",
+    "name": "Blowgun",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 10,
+    "weightLb": 1,
+    "description": "A blowgun.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1",
+        "type": "piercing"
+      },
+      "properties": [
+        "Ammunition",
+        "Loading",
+        "Vex"
+      ],
+      "mastery": "Vex",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "bolts-20",
+    "name": "Bolts (20)",
+    "type": "Ammunition",
+    "category": "ammunition",
+    "valueGp": 1,
+    "weightLb": 1.5,
+    "description": "Ammunition for weapons that use bolts. Comes in a pack of 20. Typically stored in a case.",
+    "data": {
+      "category": "ammunition"
+    }
+  },
+  {
+    "id": "book",
+    "name": "Book",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 25,
+    "weightLb": 5,
+    "description": "A Book contains fiction or nonfiction. If you consult an accurate nonfiction Book about its topic, you gain a +5 bonus to Intelligence (Arcana, History, Nature, or Religion) checks you make about that topic.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "bottle-glass",
+    "name": "Bottle, Glass",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 2,
+    "description": "A Glass Bottle holds up to 1 0.5 pints.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "breastplate",
+    "name": "Breastplate",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 400,
+    "weightLb": 20,
+    "description": "A breastplate.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "medium",
+      "baseAc": 14,
+      "dexCap": 2,
+      "shield": false
+    }
+  },
+  {
+    "id": "brewers-supplies",
+    "name": "Brewer's Supplies (20 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 20,
+    "weightLb": 9,
+    "description": "Ability: Intelligence. Utilize: Detect poisoned drink (DC 15), or identify alcohol (DC 10). Craft: Antitoxin",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "bucket",
+    "name": "Bucket",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.05,
+    "weightLb": 2,
+    "description": "A Bucket holds up to half a cubic foot of contents.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "bullets-firearm-10",
+    "name": "Bullets, Firearm (10)",
+    "type": "Ammunition",
+    "category": "ammunition",
+    "valueGp": 3,
+    "weightLb": 2,
+    "description": "Ammunition for weapons that use bullets, firearm. Comes in a pack of 10. Typically stored in a pouch.",
+    "data": {
+      "category": "ammunition"
+    }
+  },
+  {
+    "id": "bullets-sling-20",
+    "name": "Bullets, Sling (20)",
+    "type": "Ammunition",
+    "category": "ammunition",
+    "valueGp": 0.04,
+    "weightLb": 1.5,
+    "description": "Ammunition for weapons that use bullets, sling. Comes in a pack of 20. Typically stored in a pouch.",
+    "data": {
+      "category": "ammunition"
+    }
+  },
+  {
+    "id": "burglars-pack",
+    "name": "Burglar's Pack",
+    "type": "Equipment Pack",
+    "category": "pack",
+    "valueGp": 16,
+    "weightLb": 42,
+    "description": "A Burglar's Pack contains the following items: Backpack, Ball Bearings, Bell, 10 Candles, Crowbar, Hooded Lantern, 7 flasks of Oil, 5 days of Rations, Rope, Tinderbox, and Waterskin.",
+    "data": {
+      "category": "pack"
+    }
+  },
+  {
+    "id": "calligraphers-supplies",
+    "name": "Calligrapher's Supplies (10 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 10,
+    "weightLb": 5,
+    "description": "Ability: Dexterity. Utilize: Write text with impressive flourishes that guard against forgery (DC 15). Craft: Ink, *Spell Scroll*",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "caltrops",
+    "name": "Caltrops",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 2,
+    "description": "As a Utilize action, you can spread Caltrops from their bag to cover a 5-foot-square area within 5 feet of yourself. A creature that enters this area for the first time on a turn must succeed on a DC 15 Dexterity saving throw or take 1 Piercing damage and have its Speed reduced to 0 until the start of its next turn. It takes 10 minutes to recover the Caltrops.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "camel",
+    "name": "Camel",
+    "type": "Mount",
+    "category": "mount",
+    "valueGp": 50,
+    "weightLb": 0,
+    "description": "A desert-dwelling mount capable of carrying heavy loads.",
+    "data": {
+      "category": "mount"
+    }
+  },
+  {
+    "id": "candle",
+    "name": "Candle",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.01,
+    "weightLb": 0,
+    "description": "For 1 hour, a lit Candle sheds Bright Light in a 5-foot radius and Dim Light for an additional 5 feet.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "carpenters-tools",
+    "name": "Carpenter's Tools (8 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 8,
+    "weightLb": 6,
+    "description": "Ability: Strength. Utilize: Seal or pry open a door or container (DC 20). Craft: Club, Greatclub, Quarterstaff, Barrel, Chest, Ladder, Pole, Portable Ram, Torch",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "carriage",
+    "name": "Carriage",
+    "type": "Land Vehicle",
+    "category": "vehicle",
+    "valueGp": 100,
+    "weightLb": 600,
+    "description": "A four-wheeled vehicle pulled by horses, designed for passenger transport.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "cart",
+    "name": "Cart",
+    "type": "Land Vehicle",
+    "category": "vehicle",
+    "valueGp": 15,
+    "weightLb": 200,
+    "description": "A two-wheeled vehicle pulled by a single horse, designed for cargo transport.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "cartographers-tools",
+    "name": "Cartographer's Tools (15 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 15,
+    "weightLb": 6,
+    "description": "Ability: Wisdom. Utilize: Draft a map of a small area (DC 15). Craft: Map",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "case-crossbow-bolt",
+    "name": "Case, Crossbow Bolt",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 1,
+    "description": "A Crossbow Bolt Case holds up to 20 Bolts.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "chain",
+    "name": "Chain",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 10,
+    "description": "As a Utilize action, you can wrap a Chain around an unwilling creature within 5 feet of yourself that has the Grappled, Incapacitated, or Restrained condition if you succeed on a DC 13 Strength (Athletics) check. If the creature's legs are bound, the creature has the Restrained condition until it escapes. Escaping the Chain requires the creature to make a successful DC 18 Dexterity (Acrobatics) check as an action. Bursting the Chain requires a successful DC 20 Strength (Athletics) check as an action.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "chain-mail",
+    "name": "Chain Mail",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 75,
+    "weightLb": 55,
+    "description": "A chain mail.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "heavy",
+      "baseAc": 16,
+      "strength": 13,
+      "stealthDisadvantage": true,
+      "shield": false
+    }
+  },
+  {
+    "id": "chain-shirt",
+    "name": "Chain Shirt",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 50,
+    "weightLb": 20,
+    "description": "A chain shirt.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "medium",
+      "baseAc": 13,
+      "dexCap": 2,
+      "shield": false
+    }
+  },
+  {
+    "id": "chariot",
+    "name": "Chariot",
+    "type": "Land Vehicle",
+    "category": "vehicle",
+    "valueGp": 250,
+    "weightLb": 100,
+    "description": "A two-wheeled vehicle pulled by horses, designed for speed and combat.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "chest",
+    "name": "Chest",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 25,
+    "description": "A Chest holds up to 12 cubic feet of contents.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "climbers-kit",
+    "name": "Climber's Kit",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 25,
+    "weightLb": 12,
+    "description": "A Climber's Kit includes boot tips, gloves, pitons, and a harness. As a Utilize action, you can use the Climber's Kit to anchor yourself; when you do, you can't fall more than 25 feet from the anchor point, and you can't move more than 25 feet from there without undoing the anchor as a Bonus Action.",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "clothes-fine",
+    "name": "Clothes, Fine",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 15,
+    "weightLb": 6,
+    "description": "Fine Clothes are made of expensive fabrics and adorned with expertly crafted details. Some events and locations admit only people wearing these clothes.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "clothes-travelers",
+    "name": "Clothes, Traveler's",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 4,
+    "description": "Traveler's Clothes are resilient garments designed for travel in various environments.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "club",
+    "name": "Club",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 0.1,
+    "weightLb": 2,
+    "description": "A club.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d4",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Light",
+        "Slow"
+      ],
+      "mastery": "Slow",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "cobblers-tools",
+    "name": "Cobbler's Tools (5 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 5,
+    "weightLb": 5,
+    "description": "Ability: Dexterity. Utilize: Modify footwear to give Advantage on the wearer's next Dexterity (Acrobatics) check (DC 10). Craft: Climber's Kit",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "component-pouch",
+    "name": "Component Pouch",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 25,
+    "weightLb": 2,
+    "description": "A Component Pouch is watertight and filled with compartments that hold all the free Material components of your spells.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "cooks-utensils",
+    "name": "Cook's Utensils (1 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 1,
+    "weightLb": 8,
+    "description": "Ability: Wisdom. Utilize: Improve food's flavor (DC 10), or detect spoiled or poisoned food (DC 15). Craft: Rations",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "costume",
+    "name": "Costume",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 4,
+    "description": "While wearing a Costume, you have Advantage on any ability check you make to impersonate the person or type of person it represents.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "crowbar",
+    "name": "Crowbar",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 5,
+    "description": "Using a Crowbar gives you Advantage on Strength checks where the Crowbar's leverage can be applied.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "dagger",
+    "name": "Dagger",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 2,
+    "weightLb": 1,
+    "description": "A dagger.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d4",
+        "type": "piercing"
+      },
+      "properties": [
+        "Finesse",
+        "Light",
+        "Nick",
+        "Thrown"
+      ],
+      "mastery": "Nick",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "dart",
+    "name": "Dart",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 0.05,
+    "weightLb": 1,
+    "description": "A dart.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d4",
+        "type": "piercing"
+      },
+      "properties": [
+        "Finesse",
+        "Thrown",
+        "Vex"
+      ],
+      "mastery": "Vex",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "diplomats-pack",
+    "name": "Diplomat's Pack",
+    "type": "Equipment Pack",
+    "category": "pack",
+    "valueGp": 39,
+    "weightLb": 39,
+    "description": "A Diplomat's Pack contains the following items: Chest, Fine Clothes, Ink, 5 Ink Pens, Lamp, 2 Map or Scroll Cases, 4 flasks of Oil, 5 sheets of Paper, 5 sheets of Parchment, Perfume, and Tinderbox.",
+    "data": {
+      "category": "pack"
+    }
+  },
+  {
+    "id": "disguise-kit",
+    "name": "Disguise Kit",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 25,
+    "weightLb": 3,
+    "description": "Ability: Charisma. Utilize: Apply makeup (DC 10). Craft: Costume",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "druidic-focus-sprig-of-mistletoe",
+    "name": "Druidic Focus, Sprig of Mistletoe",
+    "type": "Spellcasting Focus",
+    "category": "focus",
+    "valueGp": 1,
+    "weightLb": 0,
+    "description": "A Druidic Focus is carved, tied with ribbon, or painted to channel primal magic. A Druid or Ranger can use such an object as a Spellcasting Focus.",
+    "data": {
+      "category": "focus"
+    }
+  },
+  {
+    "id": "druidic-focus-wooden-staff",
+    "name": "Druidic Focus, Wooden Staff",
+    "type": "Spellcasting Focus",
+    "category": "focus",
+    "valueGp": 5,
+    "weightLb": 4,
+    "description": "A Druidic Focus is carved, tied with ribbon, or painted to channel primal magic. A Druid or Ranger can use such an object as a Spellcasting Focus. This staff can also be used as a Quarterstaff.",
+    "data": {
+      "category": "focus"
+    }
+  },
+  {
+    "id": "druidic-focus-yew-wand",
+    "name": "Druidic Focus, Yew Wand",
+    "type": "Spellcasting Focus",
+    "category": "focus",
+    "valueGp": 10,
+    "weightLb": 1,
+    "description": "A Druidic Focus is carved, tied with ribbon, or painted to channel primal magic. A Druid or Ranger can use such an object as a Spellcasting Focus.",
+    "data": {
+      "category": "focus"
+    }
+  },
+  {
+    "id": "dungeoneers-pack",
+    "name": "Dungeoneer's Pack",
+    "type": "Equipment Pack",
+    "category": "pack",
+    "valueGp": 12,
+    "weightLb": 55,
+    "description": "A Dungeoneer's Pack contains the following items: Backpack, Caltrops, Crowbar, 2 flasks of Oil, 10 days of Rations, Rope, Tinderbox, 10 Torches, and Waterskin.",
+    "data": {
+      "category": "pack"
+    }
+  },
+  {
+    "id": "elephant",
+    "name": "Elephant",
+    "type": "Mount",
+    "category": "mount",
+    "valueGp": 200,
+    "weightLb": 0,
+    "description": "A massive mount capable of carrying extremely heavy loads.",
+    "data": {
+      "category": "mount"
+    }
+  },
+  {
+    "id": "entertainers-pack",
+    "name": "Entertainer's Pack",
+    "type": "Equipment Pack",
+    "category": "pack",
+    "valueGp": 40,
+    "weightLb": 58,
+    "description": "An Entertainer's Pack contains the following items: Backpack, Bedroll, Bell, Bullseye Lantern, 3 Costumes, Mirror, 8 flasks of Oil, 9 days of Rations, Tinderbox, and Waterskin.",
+    "data": {
+      "category": "pack"
+    }
+  },
+  {
+    "id": "explorers-pack",
+    "name": "Explorer's Pack",
+    "type": "Equipment Pack",
+    "category": "pack",
+    "valueGp": 10,
+    "weightLb": 55,
+    "description": "An Explorer's Pack contains the following items: Backpack, Bedroll, 2 flasks of Oil, 10 days of Rations, Rope, Tinderbox, 10 Torches, and Waterskin.",
+    "data": {
+      "category": "pack"
+    }
+  },
+  {
+    "id": "feed-per-day",
+    "name": "Feed (per day)",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.05,
+    "weightLb": 10,
+    "description": "Daily feed for a mount.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "flail",
+    "name": "Flail",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 10,
+    "weightLb": 2,
+    "description": "A flail.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Sap"
+      ],
+      "mastery": "Sap",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "flask",
+    "name": "Flask",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.02,
+    "weightLb": 1,
+    "description": "A Flask holds up to 1 pint.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "forgery-kit",
+    "name": "Forgery Kit",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 15,
+    "weightLb": 5,
+    "description": "Ability: Dexterity. Utilize: Mimic 10 or fewer words of someone else's handwriting (DC 15), or duplicate a wax seal (DC 20)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "galley",
+    "name": "Galley",
+    "type": "Waterborne Vehicle",
+    "category": "vehicle",
+    "valueGp": 30000,
+    "weightLb": 0,
+    "description": "A large warship propelled by oars and sails.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "gaming-set-dice",
+    "name": "Gaming Set, Dice",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 0.1,
+    "weightLb": 0,
+    "description": "Ability: Wisdom. Utilize: Discern whether someone is cheating (DC 10), or win the game (DC 20)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "gaming-set-dragonchess",
+    "name": "Gaming Set, Dragonchess",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 1,
+    "weightLb": 1,
+    "description": "Ability: Intelligence. Utilize: Discern an opponent's mood and intentions (DC 15), or win the game (DC 20)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "gaming-set-playing-cards",
+    "name": "Gaming Set, Playing Cards",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 0.5,
+    "weightLb": 0,
+    "description": "Ability: Charisma. Utilize: Discern an opponent's mood and intentions (DC 15), or win the game (DC 20)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "gaming-set-three-dragon-ante",
+    "name": "Gaming Set, Three-Dragon Ante",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 1,
+    "weightLb": 0,
+    "description": "Ability: Charisma. Utilize: Discern an opponent's mood and intentions (DC 15), or win the game (DC 20)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "glaive",
+    "name": "Glaive",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 20,
+    "weightLb": 6,
+    "description": "A glaive.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d10",
+        "type": "slashing"
+      },
+      "properties": [
+        "Graze",
+        "Heavy",
+        "Reach",
+        "Two-Handed"
+      ],
+      "mastery": "Graze",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "glassblowers-tools",
+    "name": "Glassblower's Tools (30 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 30,
+    "weightLb": 5,
+    "description": "Ability: Intelligence. Utilize: Discern what a glass object held in the past 24 hours (DC 15). Craft: Glass Bottle, Magnifying Glass, Spyglass, Vial",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "grappling-hook",
+    "name": "Grappling Hook",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 4,
+    "description": "As a Utilize action, you can throw the Grappling Hook at a railing, a ledge, or another catch within 50 feet of yourself, and the hook catches on if you succeed on a DC 13 Dexterity (Acrobatics) check. If you tied a Rope to the hook, you can then climb it.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "greataxe",
+    "name": "Greataxe",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 30,
+    "weightLb": 7,
+    "description": "A greataxe.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d12",
+        "type": "slashing"
+      },
+      "properties": [
+        "Cleave",
+        "Heavy",
+        "Two-Handed"
+      ],
+      "mastery": "Cleave",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "greatclub",
+    "name": "Greatclub",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 0.2,
+    "weightLb": 10,
+    "description": "A greatclub.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Push",
+        "Two-Handed"
+      ],
+      "mastery": "Push",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "greatsword",
+    "name": "Greatsword",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 50,
+    "weightLb": 6,
+    "description": "A greatsword.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "2d6",
+        "type": "slashing"
+      },
+      "properties": [
+        "Graze",
+        "Heavy",
+        "Two-Handed"
+      ],
+      "mastery": "Graze",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "halberd",
+    "name": "Halberd",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 20,
+    "weightLb": 6,
+    "description": "A halberd.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d10",
+        "type": "slashing"
+      },
+      "properties": [
+        "Cleave",
+        "Heavy",
+        "Reach",
+        "Two-Handed"
+      ],
+      "mastery": "Cleave",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "half-plate-armor",
+    "name": "Half Plate Armor",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 750,
+    "weightLb": 40,
+    "description": "A half plate armor.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "medium",
+      "baseAc": 15,
+      "dexCap": 2,
+      "stealthDisadvantage": true,
+      "shield": false
+    }
+  },
+  {
+    "id": "hand-crossbow",
+    "name": "Hand Crossbow",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 75,
+    "weightLb": 3,
+    "description": "A hand crossbow.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "piercing"
+      },
+      "properties": [
+        "Ammunition",
+        "Light",
+        "Loading",
+        "Vex"
+      ],
+      "mastery": "Vex",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "handaxe",
+    "name": "Handaxe",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 5,
+    "weightLb": 2,
+    "description": "A handaxe.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "slashing"
+      },
+      "properties": [
+        "Light",
+        "Thrown",
+        "Vex"
+      ],
+      "mastery": "Vex",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "healers-kit",
+    "name": "Healer's Kit",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 5,
+    "weightLb": 3,
+    "description": "A Healer's Kit has ten uses. As a Utilize action, you can expend one of its uses to stabilize an Unconscious creature that has 0 Hit Points without needing to make a Wisdom (Medicine) check.",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "heavy-crossbow",
+    "name": "Heavy Crossbow",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 50,
+    "weightLb": 18,
+    "description": "A heavy crossbow.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d10",
+        "type": "piercing"
+      },
+      "properties": [
+        "Ammunition",
+        "Heavy",
+        "Loading",
+        "Push",
+        "Two-Handed"
+      ],
+      "mastery": "Push",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "herbalism-kit",
+    "name": "Herbalism Kit",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 5,
+    "weightLb": 3,
+    "description": "Ability: Intelligence. Utilize: Identify a plant (DC 15). Craft: Antitoxin, Potion of Healing",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "hide-armor",
+    "name": "Hide Armor",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 10,
+    "weightLb": 12,
+    "description": "A hide armor.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "medium",
+      "baseAc": 12,
+      "dexCap": 2,
+      "shield": false
+    }
+  },
+  {
+    "id": "holy-symbol-amulet",
+    "name": "Holy Symbol, Amulet)",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 1,
+    "description": "A Holy Symbol Amulet is bejeweled or painted to channel divine magic. A Cleric or Paladin can use it as a Spellcasting Focus. It can be worn around the neck or held in hand.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "holy-symbol-emblem",
+    "name": "Holy Symbol, Emblem)",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 0,
+    "description": "A Holy Symbol Emblem is bejeweled or painted to channel divine magic. A Cleric or Paladin can use it as a Spellcasting Focus. It must be borne on fabric (such as a tabard or banner) or a Shield.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "holy-symbol-reliquary",
+    "name": "Holy Symbol, Reliquary",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 2,
+    "description": "A Holy Symbol Reliquary is bejeweled or painted to channel divine magic. A Cleric or Paladin can use it as a Spellcasting Focus. It must be held in hand.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "holy-water",
+    "name": "Holy Water",
+    "type": "Weapon",
+    "category": "gear",
+    "valueGp": 25,
+    "weightLb": 1,
+    "description": "When you take the Attack action, you can replace one of your attacks with throwing a flask of Holy Water. Target one creature you can see within 20 feet of yourself. The target must succeed on a Dexterity saving throw (DC 8 plus your Dexterity modifier and Proficiency Bonus) or take 2d8 Radiant damage if it is a Fiend or an Undead.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "horse-draft",
+    "name": "Horse (Draft)",
+    "type": "Mount",
+    "category": "mount",
+    "valueGp": 50,
+    "weightLb": 0,
+    "description": "A strong horse bred for pulling heavy loads.",
+    "data": {
+      "category": "mount"
+    }
+  },
+  {
+    "id": "horse-riding",
+    "name": "Horse (Riding)",
+    "type": "Mount",
+    "category": "mount",
+    "valueGp": 75,
+    "weightLb": 0,
+    "description": "A horse trained for riding and carrying moderate loads.",
+    "data": {
+      "category": "mount"
+    }
+  },
+  {
+    "id": "hunting-trap",
+    "name": "Hunting Trap",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 25,
+    "description": "As a Utilize action, you can set a Hunting Trap, which is a sawtooth steel ring that snaps shut when a creature steps on a pressure plate in the center. The trap is affixed by a heavy chain to an immobile object, such as a tree or a spike driven into the ground. A creature that steps on the plate must succeed on a DC 13 Dexterity saving throw or take 1d4 Piercing damage and have its Speed reduced to 0 until the start of its next turn. Thereafter, until the creature breaks free of the trap, its movement is limited by the length of the chain (typically 3 feet). A creature can use its action to make a DC 13 Strength (Athletics) check, freeing itself or another creature within its reach on a success. Each failed check deals 1 Piercing damage to the trapped creature.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "ink",
+    "name": "Ink",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 10,
+    "weightLb": 0,
+    "description": "Ink comes in a 1-ounce bottle, which provides enough ink to write about 500 pages.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "ink-pen",
+    "name": "Ink Pen",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.02,
+    "weightLb": 0,
+    "description": "Using Ink, an Ink Pen is used to write or draw.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "javelin",
+    "name": "Javelin",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 0.5,
+    "weightLb": 2,
+    "description": "A javelin.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "piercing"
+      },
+      "properties": [
+        "Slow",
+        "Thrown"
+      ],
+      "mastery": "Slow",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "jewelers-tools",
+    "name": "Jeweler's Tools (25 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 25,
+    "weightLb": 2,
+    "description": "Ability: Intelligence. Utilize: Discern a gem's value (DC 15). Craft: Arcane Focus, Holy Symbol",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "jug",
+    "name": "Jug",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.02,
+    "weightLb": 4,
+    "description": "A Jug holds up to 1 gallon.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "keelboat",
+    "name": "Keelboat",
+    "type": "Waterborne Vehicle",
+    "category": "vehicle",
+    "valueGp": 3000,
+    "weightLb": 0,
+    "description": "A small riverboat with a keel.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "ladder",
+    "name": "Ladder",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.1,
+    "weightLb": 25,
+    "description": "A Ladder is 10 feet tall. You must climb to move up or down it.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "lamp",
+    "name": "Lamp",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.5,
+    "weightLb": 1,
+    "description": "A Lamp burns Oil as fuel to cast Bright Light in a 15 foot radius and Dim Light for an additional 30 feet.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "lance",
+    "name": "Lance",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 10,
+    "weightLb": 6,
+    "description": "A lance.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d10",
+        "type": "piercing"
+      },
+      "properties": [
+        "Heavy",
+        "Reach",
+        "Topple",
+        "Two-Handed"
+      ],
+      "mastery": "Topple",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "lantern-bullseye",
+    "name": "Lantern, Bullseye",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 10,
+    "weightLb": 2,
+    "description": "A Bullseye Lantern burns Oil as fuel to cast Bright Light in a 60-foot Cone and Dim Light for an additional 60 feet.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "lantern-hooded",
+    "name": "Lantern, Hooded",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 2,
+    "description": "A Hooded Lantern burns Oil as fuel to cast Bright Light in a 30-foot radius and Dim Light for an additional 30 feet. As a Bonus Action, you can lower the hood, reducing the light to Dim Light in a 5-foot radius, or raise it again.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "leather-armor",
+    "name": "Leather Armor",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 10,
+    "weightLb": 10,
+    "description": "A leather armor.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "light",
+      "baseAc": 11,
+      "shield": false
+    }
+  },
+  {
+    "id": "leatherworkers-tools",
+    "name": "Leatherworker's Tools (5 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 5,
+    "weightLb": 5,
+    "description": "Ability: Dexterity. Utilize: Add a design to a leather item (DC 10). Craft: Sling, Whip, Hide Armor, Leather Armor, Studded Leather Armor, Backpack, Crossbow Bolt Case, Map or Scroll Case, Parchment, Pouch, Quiver, Waterskin",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "light-crossbow",
+    "name": "Light Crossbow",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 25,
+    "weightLb": 5,
+    "description": "A light crossbow.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "piercing"
+      },
+      "properties": [
+        "Ammunition",
+        "Loading",
+        "Slow",
+        "Two-Handed"
+      ],
+      "mastery": "Slow",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "light-hammer",
+    "name": "Light Hammer",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 2,
+    "weightLb": 2,
+    "description": "A light hammer.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d4",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Light",
+        "Nick",
+        "Thrown"
+      ],
+      "mastery": "Nick",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "lock",
+    "name": "Lock",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 10,
+    "weightLb": 1,
+    "description": "A Lock comes with a key. Without the key, a creature can use Thieves' Tools to pick this Lock with a successful DC 15 Dexterity (Sleight of Hand) check.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "longbow",
+    "name": "Longbow",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 50,
+    "weightLb": 2,
+    "description": "A longbow.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "piercing"
+      },
+      "properties": [
+        "Ammunition",
+        "Heavy",
+        "Slow",
+        "Two-Handed"
+      ],
+      "mastery": "Slow",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "longship",
+    "name": "Longship",
+    "type": "Waterborne Vehicle",
+    "category": "vehicle",
+    "valueGp": 10000,
+    "weightLb": 0,
+    "description": "A swift ship designed for raiding and exploration.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "longsword",
+    "name": "Longsword",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 15,
+    "weightLb": 3,
+    "description": "A longsword.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "slashing"
+      },
+      "properties": [
+        "Sap",
+        "Versatile"
+      ],
+      "mastery": "Sap",
+      "versatile": "1d10",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "mace",
+    "name": "Mace",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 5,
+    "weightLb": 4,
+    "description": "A mace.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Sap"
+      ],
+      "mastery": "Sap",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "magnifying-glass",
+    "name": "Magnifying Glass",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 100,
+    "weightLb": 0,
+    "description": "A Magnifying Glass grants Advantage on any ability check made to appraise or inspect a highly detailed item. Lighting a fire with a Magnifying Glass requires light as bright as sunlight to focus, tinder to ignite, and about 5 minutes for the fire to ignite.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "manacles",
+    "name": "Manacles",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 6,
+    "description": "As a Utilize action, you can use Manacles to bind an unwilling Small or Medium creature within 5 feet of yourself that has the Grappled, Incapacitated, or Restrained condition if you succeed on a DC 13 Dexterity (Sleight of Hand) check. While bound, a creature has Disadvantage on attack rolls, and the creature is Restrained if the Manacles are attached to a chain or hook that is fixed in place. Escaping the Manacles requires a successful DC 20 Dexterity (Sleight of Hand) check as an action. Bursting them requires a successful DC 25 Strength (Athletics) check as an action. Each set of Manacles comes with a key. Without the key, a creature can use Thieves' Tools to pick the Manacles' lock with a successful DC 15 Dexterity (Sleight of Hand) check.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "map",
+    "name": "Map",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 0,
+    "description": "If you consult an accurate Map, you gain a +5 bonus to Wisdom (Survival) checks you make to find your way in the place represented on it.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "masons-tools",
+    "name": "Mason's Tools (10 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 10,
+    "weightLb": 8,
+    "description": "Ability: Strength. Utilize: Chisel a symbol or hole in stone (DC 10). Craft: Block and Tackle",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "mastiff",
+    "name": "Mastiff",
+    "type": "Mount",
+    "category": "mount",
+    "valueGp": 25,
+    "weightLb": 0,
+    "description": "A large dog trained for combat and carrying small loads.",
+    "data": {
+      "category": "mount"
+    }
+  },
+  {
+    "id": "maul",
+    "name": "Maul",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 10,
+    "weightLb": 10,
+    "description": "A maul.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "2d6",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Heavy",
+        "Topple",
+        "Two-Handed"
+      ],
+      "mastery": "Topple",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "mirror",
+    "name": "Mirror",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 0.5,
+    "description": "A handheld steel Mirror is useful for personal cosmetics but also for peeking around corners and reflecting light as a signal.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "morningstar",
+    "name": "Morningstar",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 15,
+    "weightLb": 4,
+    "description": "A morningstar.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "piercing"
+      },
+      "properties": [
+        "Sap"
+      ],
+      "mastery": "Sap",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "mule",
+    "name": "Mule",
+    "type": "Mount",
+    "category": "mount",
+    "valueGp": 8,
+    "weightLb": 0,
+    "description": "A sturdy mount known for its reliability and carrying capacity.",
+    "data": {
+      "category": "mount"
+    }
+  },
+  {
+    "id": "musical-instrument-bagpipes",
+    "name": "Musical Instrument, Bagpipes",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 30,
+    "weightLb": 6,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-drum",
+    "name": "Musical Instrument, Drum",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 6,
+    "weightLb": 3,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-dulcimer",
+    "name": "Musical Instrument, Dulcimer",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 25,
+    "weightLb": 10,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-flute",
+    "name": "Musical Instrument, Flute",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 2,
+    "weightLb": 1,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-horn",
+    "name": "Musical Instrument, Horn",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 3,
+    "weightLb": 2,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-lute",
+    "name": "Musical Instrument, Lute",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 35,
+    "weightLb": 2,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-lyre",
+    "name": "Musical Instrument, Lyre",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 30,
+    "weightLb": 2,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-pan-flute",
+    "name": "Musical Instrument, Pan Flute",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 12,
+    "weightLb": 2,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-shawm",
+    "name": "Musical Instrument, Shawm",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 2,
+    "weightLb": 1,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musical-instrument-viol",
+    "name": "Musical Instrument, Viol",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 30,
+    "weightLb": 1,
+    "description": "Ability: Charisma. Utilize: Identify a musical piece (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "musket",
+    "name": "Musket",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 500,
+    "weightLb": 10,
+    "description": "A musket.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d12",
+        "type": "piercing"
+      },
+      "properties": [
+        "Ammunition",
+        "Loading",
+        "Slow",
+        "Two-Handed"
+      ],
+      "mastery": "Slow",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "navigators-tools",
+    "name": "Navigator's Tools",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 25,
+    "weightLb": 2,
+    "description": "Ability: Wisdom. Utilize: Plot a course (DC 15), or determine position (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "needles-50",
+    "name": "Needles (50)",
+    "type": "Ammunition",
+    "category": "ammunition",
+    "valueGp": 1,
+    "weightLb": 1,
+    "description": "Ammunition for weapons that use needles. Comes in a pack of 50. Typically stored in a pouch.",
+    "data": {
+      "category": "ammunition"
+    }
+  },
+  {
+    "id": "net",
+    "name": "Net",
+    "type": "Weapon",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 3,
+    "description": "When you take the Attack action, you can replace one of your attacks with throwing a Net. Target a creature you can see within 15 feet of yourself. The target must succeed on a Dexterity saving throw (DC 8 plus your Dexterity modifier and Proficiency Bonus) or have the Restrained condition until it escapes. The target succeeds automatically if it is Huge or larger. To escape, the target or a creature within 5 feet of it must take an action to make a DC 10 Strength (Athletics) check, freeing the Restrained creature on a success. Destroying the Net (AC 10; 5 HP; Immunity to Bludgeoning, Poison, and Psychic damage) also frees the target, ending the effect.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "oil",
+    "name": "Oil",
+    "type": "Weapon",
+    "category": "gear",
+    "valueGp": 0.1,
+    "weightLb": 1,
+    "description": "You can douse a creature, object, or space with Oil or use it as fuel, as detailed below. Dousing a Creature or an Object. When you take the Attack action, you can replace one of your attacks with throwing an Oil flask. Target one creature or object within 20 feet of yourself. The target must succeed on a Dexterity saving throw (DC 8 plus your Dexterity modifier and Proficiency Bonus) or be covered in oil. If the target takes Fire damage before the oil dries (after 1 minute), the target takes an extra 5 Fire damage from burning oil. Dousing a Space. You can take the Utilize action to pour an Oil flask on level ground to cover a 5-foot-square area within 5 feet of yourself. If lit, the oil burns until the end of the turn 2 rounds from when the oil was lit (or 12 seconds) and deals 5 Fire damage to any creature that enters the area or ends its turn there. A creature can take this damage only once per turn. Fuel. Oil serves as fuel for Lamps and Lanterns. Once lit, a flask of Oil burns for 6 hours in a Lamp or Lantern. That duration doesn't need to be consecutive; you can extinguish the burning Oil (as a Utilize action) and rekindle it again until it has burned for a total of 6 hours.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "padded-armor",
+    "name": "Padded Armor",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 5,
+    "weightLb": 8,
+    "description": "A padded armor.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "light",
+      "baseAc": 11,
+      "stealthDisadvantage": true,
+      "shield": false
+    }
+  },
+  {
+    "id": "painters-supplies",
+    "name": "Painter's Supplies (10 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 10,
+    "weightLb": 5,
+    "description": "Ability: Wisdom. Utilize: Paint a recognizable image of something you've seen (DC 10). Craft: Druidic Focus, Holy Symbol",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "paper",
+    "name": "Paper",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.2,
+    "weightLb": 0,
+    "description": "One sheet of Paper can hold about 250 handwritten words.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "parchment",
+    "name": "Parchment",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.1,
+    "weightLb": 0,
+    "description": "One sheet of Parchment can hold about 250 handwritten words.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "perfume",
+    "name": "Perfume",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 5,
+    "weightLb": 0,
+    "description": "Perfume comes in a 4-ounce vial. For 1 hour after applying Perfume to yourself, you have Advantage on Charisma (Persuasion) checks made to influence an Indifferent Humanoid within 5 feet of yourself.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "pike",
+    "name": "Pike",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 5,
+    "weightLb": 18,
+    "description": "A pike.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d10",
+        "type": "piercing"
+      },
+      "properties": [
+        "Heavy",
+        "Push",
+        "Reach",
+        "Two-Handed"
+      ],
+      "mastery": "Push",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "pistol",
+    "name": "Pistol",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 250,
+    "weightLb": 3,
+    "description": "A pistol.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d10",
+        "type": "piercing"
+      },
+      "properties": [
+        "Ammunition",
+        "Loading",
+        "Vex"
+      ],
+      "mastery": "Vex",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "plate-armor",
+    "name": "Plate Armor",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 1500,
+    "weightLb": 65,
+    "description": "A plate armor.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "heavy",
+      "baseAc": 18,
+      "strength": 15,
+      "stealthDisadvantage": true,
+      "shield": false
+    }
+  },
+  {
+    "id": "poison-basic",
+    "name": "Poison, Basic",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 100,
+    "weightLb": 0,
+    "description": "As a Bonus Action, you can use a vial of Basic Poison to coat one weapon or up to three pieces of ammunition. A creature that takes Piercing or Slashing damage from the poisoned weapon or ammunition takes an extra 1d4 Poison damage. Once applied, the poison retains potency for 1 minute or until its damage is dealt, whichever comes first.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "poisoners-kit",
+    "name": "Poisoner's Kit",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 50,
+    "weightLb": 2,
+    "description": "Ability: Intelligence. Utilize: Detect a poisoned object (DC 10). Craft: Basic Poison",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "pole",
+    "name": "Pole",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.05,
+    "weightLb": 7,
+    "description": "A Pole is 10 feet long. You can use it to touch something up to 10 feet away. If you must make a Strength (Athletics) check as part of a High or Long Jump, you can use the Pole to vault, giving yourself Advantage on the check.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "pony",
+    "name": "Pony",
+    "type": "Mount",
+    "category": "mount",
+    "valueGp": 30,
+    "weightLb": 0,
+    "description": "A small horse suitable for smaller riders and lighter loads.",
+    "data": {
+      "category": "mount"
+    }
+  },
+  {
+    "id": "pot-iron",
+    "name": "Pot, Iron",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 10,
+    "description": "An Iron Pot holds up to 1 gallon.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "potters-tools",
+    "name": "Potter's Tools (10 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 10,
+    "weightLb": 3,
+    "description": "Ability: Intelligence. Utilize: Discern what a ceramic object held in the past 24 hours (DC 15). Craft: Jug, Lamp",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "pouch",
+    "name": "Pouch",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.5,
+    "weightLb": 1,
+    "description": "A Pouch holds up to 6 pounds within one-fifth of a cubic foot.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "priests-pack",
+    "name": "Priest's Pack",
+    "type": "Equipment Pack",
+    "category": "pack",
+    "valueGp": 33,
+    "weightLb": 29,
+    "description": "A Priest's Pack contains the following items: Backpack, Blanket, Holy Water, Lamp, 7 days of Rations, Robe, and Tinderbox.",
+    "data": {
+      "category": "pack"
+    }
+  },
+  {
+    "id": "quarterstaff",
+    "name": "Quarterstaff",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 0.2,
+    "weightLb": 4,
+    "description": "A quarterstaff.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Topple",
+        "Versatile"
+      ],
+      "mastery": "Topple",
+      "versatile": "1d8",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "quiver",
+    "name": "Quiver",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 1,
+    "description": "A Quiver holds up to 20 Arrows.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "ram-portable",
+    "name": "Ram, Portable",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 4,
+    "weightLb": 35,
+    "description": "You can use a Portable Ram to break down doors. When doing so, you gain a +4 bonus to the Strength check. One other character can help you use the ram, giving you Advantage on this check.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "rapier",
+    "name": "Rapier",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 25,
+    "weightLb": 2,
+    "description": "A rapier.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "piercing"
+      },
+      "properties": [
+        "Finesse",
+        "Vex"
+      ],
+      "mastery": "Vex",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "rations",
+    "name": "Rations",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.5,
+    "weightLb": 2,
+    "description": "Rations consist of travel-ready food, including jerky, dried fruit, hardtack, and nuts. See \"Malnutrition\" in \"Rules Glossary\" for the risks of not eating.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "ring-mail",
+    "name": "Ring Mail",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 30,
+    "weightLb": 40,
+    "description": "A ring mail.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "heavy",
+      "baseAc": 14,
+      "stealthDisadvantage": true,
+      "shield": false
+    }
+  },
+  {
+    "id": "robe",
+    "name": "Robe",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 4,
+    "description": "A Robe has vocational or ceremonial significance. Some events and locations admit only people wearing a Robe bearing certain colors or symbols.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "rope",
+    "name": "Rope",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 5,
+    "description": "As a Utilize action, you can tie a knot with Rope if you succeed on a DC 10 Dexterity (Sleight of Hand) check. The Rope can be burst with a successful DC 20 Strength (Athletics) check. You can bind an unwilling creature with the Rope only if the creature has the Grappled, Incapacitated, or Restrained condition. If the creature's legs are bound, the creature has the Restrained condition until it escapes. Escaping the Rope requires the creature to make a successful DC 15 Dexterity (Acrobatics) check as an action.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "rowboat",
+    "name": "Rowboat",
+    "type": "Waterborne Vehicle",
+    "category": "vehicle",
+    "valueGp": 50,
+    "weightLb": 100,
+    "description": "A small boat propelled by oars.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "sack",
+    "name": "Sack",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.01,
+    "weightLb": 0.5,
+    "description": "A Sack holds up to 30 pounds within 1 cubic foot.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "saddle-exotic",
+    "name": "Saddle (Exotic)",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 60,
+    "weightLb": 40,
+    "description": "A saddle designed for unusual mounts, such as aquatic or flying creatures.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "saddle-military",
+    "name": "Saddle (Military)",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 20,
+    "weightLb": 30,
+    "description": "A saddle designed for combat, providing advantage on checks to remain mounted.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "saddle-riding",
+    "name": "Saddle (Riding)",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 10,
+    "weightLb": 25,
+    "description": "A standard saddle for riding mounts.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "sailing-ship",
+    "name": "Sailing Ship",
+    "type": "Waterborne Vehicle",
+    "category": "vehicle",
+    "valueGp": 10000,
+    "weightLb": 0,
+    "description": "A large ship propelled by sails.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "scale-mail",
+    "name": "Scale Mail",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 50,
+    "weightLb": 45,
+    "description": "A scale mail.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "medium",
+      "baseAc": 14,
+      "dexCap": 2,
+      "stealthDisadvantage": true,
+      "shield": false
+    }
+  },
+  {
+    "id": "scholars-pack",
+    "name": "Scholar's Pack",
+    "type": "Equipment Pack",
+    "category": "pack",
+    "valueGp": 40,
+    "weightLb": 22,
+    "description": "A Scholar's Pack contains the following items: Backpack, Book, Ink, Ink Pen, Lamp, 10 flasks of Oil, 10 sheets of Parchment, and Tinderbox.",
+    "data": {
+      "category": "pack"
+    }
+  },
+  {
+    "id": "scimitar",
+    "name": "Scimitar",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 25,
+    "weightLb": 3,
+    "description": "A scimitar.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "slashing"
+      },
+      "properties": [
+        "Finesse",
+        "Light",
+        "Nick"
+      ],
+      "mastery": "Nick",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "shield",
+    "name": "Shield",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 10,
+    "weightLb": 6,
+    "description": "A shield.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "shield",
+      "baseAc": 2,
+      "shield": true
+    }
+  },
+  {
+    "id": "shortbow",
+    "name": "Shortbow",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 25,
+    "weightLb": 2,
+    "description": "A shortbow.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "piercing"
+      },
+      "properties": [
+        "Ammunition",
+        "Two-Handed",
+        "Vex"
+      ],
+      "mastery": "Vex",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "shortsword",
+    "name": "Shortsword",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 10,
+    "weightLb": 2,
+    "description": "A shortsword.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "piercing"
+      },
+      "properties": [
+        "Finesse",
+        "Light",
+        "Vex"
+      ],
+      "mastery": "Vex",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "shovel",
+    "name": "Shovel",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 5,
+    "description": "Working for 1 hour, you can use a Shovel to dig a hole that is 5 feet on each side in soil or similar material.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "sickle",
+    "name": "Sickle",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 1,
+    "weightLb": 2,
+    "description": "A sickle.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d4",
+        "type": "slashing"
+      },
+      "properties": [
+        "Light",
+        "Nick"
+      ],
+      "mastery": "Nick",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "signal-whistle",
+    "name": "Signal Whistle",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.05,
+    "weightLb": 0,
+    "description": "When blown as a Utilize action, a Signal Whistle produces a sound that can be heard up to 600 feet away.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "sled",
+    "name": "Sled",
+    "type": "Land Vehicle",
+    "category": "vehicle",
+    "valueGp": 20,
+    "weightLb": 300,
+    "description": "A vehicle designed for travel over snow and ice.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "sling",
+    "name": "Sling",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 0.1,
+    "weightLb": 0,
+    "description": "A sling.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d4",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Ammunition",
+        "Slow"
+      ],
+      "mastery": "Slow",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "smiths-tools",
+    "name": "Smith's Tools (20 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 20,
+    "weightLb": 8,
+    "description": "Ability: Strength. Utilize: Pry open a door or container (DC 20). Craft: Any Melee weapon (except Club, Greatclub, Quarterstaff, and Whip), Medium armor (except Hide), Heavy armor, Ball Bearings, Bucket, Caltrops, Chain, Crowbar, Firearm Bullets, Grappling Hook, Iron Pot, Iron Spikes, Sling Bullets",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "spear",
+    "name": "Spear",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 1,
+    "weightLb": 3,
+    "description": "A spear.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d6",
+        "type": "piercing"
+      },
+      "properties": [
+        "Sap",
+        "Thrown",
+        "Versatile"
+      ],
+      "mastery": "Sap",
+      "versatile": "1d8",
+      "simple": true,
+      "martial": false
+    }
+  },
+  {
+    "id": "spikes-iron",
+    "name": "Spikes, Iron",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 5,
+    "description": "Iron Spikes come in bundles of ten. As a Utilize action, you can use a blunt object, such as a Light Hammer, to hammer a spike into wood, earth, or a similar material. You can do so to jam a door shut or to then tie a Rope or Chain to the Spike.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "splint-armor",
+    "name": "Splint Armor",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 200,
+    "weightLb": 60,
+    "description": "A splint armor.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "heavy",
+      "baseAc": 17,
+      "strength": 15,
+      "stealthDisadvantage": true,
+      "shield": false
+    }
+  },
+  {
+    "id": "spyglass",
+    "name": "Spyglass",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1000,
+    "weightLb": 1,
+    "description": "Objects viewed through a Spyglass are magnified to twice their size.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "string",
+    "name": "String",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.1,
+    "weightLb": 0,
+    "description": "String is 10 feet long. You can tie a knot in it as a Utilize action.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "studded-leather-armor",
+    "name": "Studded Leather Armor",
+    "type": "Armor",
+    "category": "armor",
+    "valueGp": 45,
+    "weightLb": 13,
+    "description": "A studded leather armor.",
+    "data": {
+      "category": "armor",
+      "armorCategory": "light",
+      "baseAc": 12,
+      "shield": false
+    }
+  },
+  {
+    "id": "tent",
+    "name": "Tent",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 2,
+    "weightLb": 20,
+    "description": "A Tent sleeps up to two Small or Medium creatures.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "thieves-tools",
+    "name": "Thieves' Tools",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 25,
+    "weightLb": 1,
+    "description": "Ability: Dexterity. Utilize: Pick a lock (DC 15), or disarm a trap (DC 15)",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "tinderbox",
+    "name": "Tinderbox",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.5,
+    "weightLb": 1,
+    "description": "A Tinderbox is a small container holding flint, fire steel, and tinder (usually dry cloth soaked in light oil) used to kindle a fire. Using it to light a Candle, Lamp, Lantern, or Torch—or anything else with exposed fuel—takes a Bonus Action. Lighting any other fire takes 1 minute.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "tinkers-tools",
+    "name": "Tinker's Tools (50 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 50,
+    "weightLb": 10,
+    "description": "Ability: Dexterity. Utilize: Assemble a Tiny item composed of scrap, which falls apart in 1 minute (DC 20). Craft: Musket, Pistol, Bell, Bullseye Lantern, Flask, Hooded Lantern, Hunting Trap, Lock, Manacles, Mirror, Shovel, Signal Whistle, Tinderbox",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "torch",
+    "name": "Torch",
+    "type": "Weapon",
+    "category": "gear",
+    "valueGp": 0.01,
+    "weightLb": 1,
+    "description": "A Torch burns for 1 hour, casting Bright Light in a 20-foot radius and Dim Light for an additional 20 feet. When you take the Attack action, you can attack with the Torch, using it as a Simple Melee weapon. On a hit, the target takes 1 Fire damage.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "trident",
+    "name": "Trident",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 5,
+    "weightLb": 4,
+    "description": "A trident.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "piercing"
+      },
+      "properties": [
+        "Thrown",
+        "Topple",
+        "Versatile"
+      ],
+      "mastery": "Topple",
+      "versatile": "1d10",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "vial",
+    "name": "Vial",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 1,
+    "weightLb": 0,
+    "description": "A Vial holds up to 4 ounces.",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "wagon",
+    "name": "Wagon",
+    "type": "Land Vehicle",
+    "category": "vehicle",
+    "valueGp": 35,
+    "weightLb": 400,
+    "description": "A four-wheeled vehicle pulled by horses, designed for heavy cargo transport.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "war-pick",
+    "name": "War Pick",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 5,
+    "weightLb": 2,
+    "description": "A war pick.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "piercing"
+      },
+      "properties": [
+        "Sap",
+        "Versatile"
+      ],
+      "mastery": "Sap",
+      "versatile": "1d10",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "warhammer",
+    "name": "Warhammer",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 15,
+    "weightLb": 5,
+    "description": "A warhammer.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d8",
+        "type": "bludgeoning"
+      },
+      "properties": [
+        "Push",
+        "Versatile"
+      ],
+      "mastery": "Push",
+      "versatile": "1d10",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "warhorse",
+    "name": "Warhorse",
+    "type": "Mount",
+    "category": "mount",
+    "valueGp": 400,
+    "weightLb": 0,
+    "description": "A horse trained for combat and carrying heavy loads.",
+    "data": {
+      "category": "mount"
+    }
+  },
+  {
+    "id": "warship",
+    "name": "Warship",
+    "type": "Waterborne Vehicle",
+    "category": "vehicle",
+    "valueGp": 25000,
+    "weightLb": 0,
+    "description": "A heavily armed ship designed for naval combat.",
+    "data": {
+      "category": "vehicle"
+    }
+  },
+  {
+    "id": "waterskin",
+    "name": "Waterskin",
+    "type": "Adventuring Gear",
+    "category": "gear",
+    "valueGp": 0.2,
+    "weightLb": 5,
+    "description": "A Waterskin holds up to 4 pints. If you don't drink sufficient water, you risk dehydration (see \"Rules Glossary\").",
+    "data": {
+      "category": "gear"
+    }
+  },
+  {
+    "id": "weavers-tools",
+    "name": "Weaver's Tools (1 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 1,
+    "weightLb": 5,
+    "description": "Ability: Dexterity. Utilize: Mend a tear in clothing (DC 10), or sew a Tiny design (DC 10). Craft: Padded Armor, Basket, Bedroll, Blanket, Fine Clothes, Net, Robe, Rope, Sack, String, Tent, Traveler's Clothes",
+    "data": {
+      "category": "tool"
+    }
+  },
+  {
+    "id": "whip",
+    "name": "Whip",
+    "type": "Weapon",
+    "category": "weapon",
+    "valueGp": 2,
+    "weightLb": 3,
+    "description": "A whip.",
+    "data": {
+      "category": "weapon",
+      "damage": {
+        "dice": "1d4",
+        "type": "slashing"
+      },
+      "properties": [
+        "Finesse",
+        "Reach",
+        "Slow"
+      ],
+      "mastery": "Slow",
+      "simple": false,
+      "martial": true
+    }
+  },
+  {
+    "id": "woodcarvers-tools",
+    "name": "Woodcarver's Tools (1 GP)",
+    "type": "Tools",
+    "category": "tool",
+    "valueGp": 1,
+    "weightLb": 5,
+    "description": "Ability: Dexterity. Utilize: Carve a pattern in wood (DC 10). Craft: Club, Greatclub, Quarterstaff, Ranged weapons (except Pistol, Musket, and Sling), Arcane Focus, Arrows, Bolts, Druidic Focus, Ink Pen, Needles",
+    "data": {
+      "category": "tool"
+    }
+  }
+]

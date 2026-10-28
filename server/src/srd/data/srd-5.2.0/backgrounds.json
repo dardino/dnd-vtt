@@ -1,0 +1,130 @@
+[
+  {
+    "id": "acolyte",
+    "name": "Acolyte",
+    "abilityScoreOptions": [
+      "int",
+      "wis",
+      "cha"
+    ],
+    "abilityScorePatterns": [
+      "2-1",
+      "1-1-1"
+    ],
+    "featId": "magic-initiate",
+    "skillProficiencies": [
+      "insight",
+      "religion"
+    ],
+    "toolProficiency": "calligraphers-supplies",
+    "startingGold": 50,
+    "startingEquipment": [
+      {
+        "option": "A",
+        "description": "Calligrapher's Supplies, Book (prayers), Holy Symbol, Parchment (10 sheets), Robe, 8 GP",
+        "gold": 8
+      },
+      {
+        "option": "B",
+        "description": "50 GP",
+        "gold": 50
+      }
+    ]
+  },
+  {
+    "id": "criminal",
+    "name": "Criminal",
+    "abilityScoreOptions": [
+      "dex",
+      "con",
+      "int"
+    ],
+    "abilityScorePatterns": [
+      "2-1",
+      "1-1-1"
+    ],
+    "featId": "alert",
+    "skillProficiencies": [
+      "sleightOfHand",
+      "stealth"
+    ],
+    "toolProficiency": "thieves-tools",
+    "startingGold": 50,
+    "startingEquipment": [
+      {
+        "option": "A",
+        "description": "2 Daggers, Thieves' Tools, Crowbar, 2 Pouches, Traveler's Clothes, 16 GP",
+        "gold": 16
+      },
+      {
+        "option": "B",
+        "description": "50 GP",
+        "gold": 50
+      }
+    ]
+  },
+  {
+    "id": "sage",
+    "name": "Sage",
+    "abilityScoreOptions": [
+      "con",
+      "int",
+      "wis"
+    ],
+    "abilityScorePatterns": [
+      "2-1",
+      "1-1-1"
+    ],
+    "featId": "magic-initiate",
+    "skillProficiencies": [
+      "arcana",
+      "history"
+    ],
+    "toolProficiency": "calligraphers-supplies",
+    "startingGold": 50,
+    "startingEquipment": [
+      {
+        "option": "A",
+        "description": "Quarterstaff, Calligrapher's Supplies, Book (history), Parchment (8 sheets), Robe, 8 GP",
+        "gold": 8
+      },
+      {
+        "option": "B",
+        "description": "50 GP",
+        "gold": 50
+      }
+    ]
+  },
+  {
+    "id": "soldier",
+    "name": "Soldier",
+    "abilityScoreOptions": [
+      "str",
+      "dex",
+      "con"
+    ],
+    "abilityScorePatterns": [
+      "2-1",
+      "1-1-1"
+    ],
+    "featId": "savage-attacker",
+    "skillProficiencies": [
+      "athletics",
+      "intimidation"
+    ],
+    "toolProficiency": "choose-one-kind-of-gaming-set",
+    "startingGold": 50,
+    "startingEquipment": [
+      {
+        "option": "A",
+        "description": "Spear, Shortbow, 20 Arrows, Gaming Set (same as above), Healer's Kit, Quiver, Traveler's Clothes, 14 GP",
+        "gold": 14
+      },
+      {
+        "option": "B",
+        "description": "50 GP",
+        "gold": 50
+      }
+    ]
+  }
+]

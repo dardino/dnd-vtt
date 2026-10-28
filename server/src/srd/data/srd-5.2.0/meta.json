@@ -1,0 +1,24 @@
+{
+  "version": "srd-5.2.0",
+  "name": "System Reference Document 5.2",
+  "license": {
+    "key": "CC-BY-4.0",
+    "name": "Creative Commons Attribution 4.0 International",
+    "url": "https://creativecommons.org/licenses/by/4.0/"
+  },
+  "source": {
+    "name": "System Reference Document 5.2",
+    "url": "https://dnd.wizards.com/resources/systems-reference-document",
+    "importedFrom": "Open5e",
+    "importedAt": "2026-10-28T15:58:37.880Z"
+  },
+  "counts": {
+    "classes": 12,
+    "species": 9,
+    "backgrounds": 4,
+    "feats": 17,
+    "spells": 339,
+    "items": 195,
+    "monsters": 331
+  }
+}

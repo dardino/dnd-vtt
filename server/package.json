@@ -1,0 +1,27 @@
+{
+  "name": "@dnd-vtt/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dnd-vtt/shared": "0.1.0",
+    "fastify": "5.12.7",
+    "fastify-type-provider-zod": "7.0.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "tsup": "9.0.0",
+    "tsx": "4.23.15",
+    "vitest": "5.0.5"
+  }
+}
