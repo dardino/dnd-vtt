@@ -6,7 +6,7 @@ coverage/
 .env
 .env.*
 !.env.example
-data/
+/data/
 playwright-report/
 test-results/
 .DS_Store
