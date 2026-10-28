@@ -350,7 +350,7 @@ Regole:
 - le variabili runtime del server (`DATABASE_PATH`, `DM_PASSWORD`, `SESSION_SECRET`) **non** entrano nella cache: non cambiano il bundle
 - in CI `TURBO_UI=false` e `CI=true`, così l'output è lineare e leggibile nei log
 
-Limite noto: modificare `shared` mentre `ng serve` è attivo non sempre invalida il chunk nel dev server Angular, che pre-bundle le dipendenze del workspace. Dopo una modifica a `shared` si riavvia `npm run dev`. Il watch non pulisce più `dist`, quindi il riavvio non deve più incontrare tipi mancanti; l'alternativa (import dai sorgenti) romperebbe D7.
+Limite noto: modificare `shared` mentre `ng serve` è attivo non sempre invalida il chunk nel dev server Angular, che pre-bundle le dipendenze del workspace. Per questo `@dnd-vtt/shared` è escluso dal prebundle (`prebundle.exclude` in `angular.json`): Vite lo tratta come codice dell'app e non può servire un export vecchio. Dopo una modifica a `shared` si riavvia comunque `npm run dev`; il watch non pulisce `dist`, quindi il riavvio non deve più incontrare tipi mancanti.
 
 ### 5.5 TypeScript
 
