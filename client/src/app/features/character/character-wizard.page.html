@@ -1,0 +1,627 @@
+<section class="wizard">
+  <aside class="wizard__steps surface">
+    <div class="wizard__steps-head">
+      <span class="eyebrow">Creazione personaggio</span>
+      <strong>SRD 5.2</strong>
+    </div>
+
+    <ol class="step-list">
+      @for (step of steps; track step; let index = $index) {
+        <li>
+          <button
+            type="button"
+            class="step"
+            [class.step--active]="store.step() === index"
+            [class.step--done]="errorCount(index) === 0 && index < store.step()"
+            (click)="store.setStep(index)"
+          >
+            <span class="step__num">{{ index + 1 }}</span>
+            <span class="step__label">{{ step }}</span>
+            @if (errorCount(index) > 0) {
+              <span class="step__errors" [attr.aria-label]="errorCount(index) + ' errori'">
+                {{ errorCount(index) }}
+              </span>
+            } @else if (index < store.step()) {
+              <span class="step__ok" aria-label="completato">✓</span>
+            }
+          </button>
+        </li>
+      }
+    </ol>
+
+    <div class="wizard__steps-foot">
+      <span class="eyebrow">Regole</span>
+      <span class="badge">{{ catalog()?.meta?.version ?? 'srd-5.2.0' }}</span>
+      @if (savedAt(); as timestamp) {
+        <span class="muted draft-state">bozza salvata {{ timestamp.slice(11, 16) }}</span>
+      }
+    </div>
+  </aside>
+
+  <div class="wizard__main">
+    @if (loading()) {
+      <div class="surface state">
+        <span class="spinner" aria-hidden="true"></span>
+        <p>Caricamento cataloghi SRD…</p>
+      </div>
+    } @else if (loadError(); as error) {
+      <div class="surface state state--error">
+        <h2>Cataloghi non disponibili</h2>
+        <p>{{ error }}</p>
+        <p class="muted">Avvia il server con <code>npm run dev</code> e verifica il proxy su <code>/api</code>.</p>
+      </div>
+    } @else {
+      <header class="wizard__header">
+        <div>
+          <span class="eyebrow">Passo {{ store.step() + 1 }} di {{ steps.length }}</span>
+          <h1>{{ steps[store.step()] }}</h1>
+        </div>
+        <div class="wizard__header-meta">
+          <span class="badge">{{ store.name() || 'Senza nome' }}</span>
+          @if (characterClass(); as cls) {
+            <span class="badge">{{ cls.name }} {{ store.build().level }}</span>
+          }
+        </div>
+      </header>
+
+      <div class="wizard__content">
+        @switch (store.step()) {
+          @case (0) {
+            <div class="panel-grid">
+              <section class="panel surface">
+                <h2>Identità</h2>
+                <div class="form-grid">
+                  <label class="field span-2">
+                    <span>Nome del personaggio</span>
+                    <input
+                      class="input"
+                      [value]="store.name()"
+                      (input)="store.setName(asText($event))"
+                      placeholder="Es. Kaelen Ombraverde"
+                    />
+                  </label>
+
+                  <label class="field">
+                    <span>Classe</span>
+                    <select class="select" [value]="store.build().classId" (change)="store.selectClass(asText($event))">
+                      <option value="">Scegli una classe</option>
+                      @for (entry of catalog()?.classes ?? []; track entry.id) {
+                        <option [value]="entry.id">{{ entry.name }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="field">
+                    <span>Specie</span>
+                    <select class="select" [value]="store.build().speciesId" (change)="store.selectSpecies(asText($event))">
+                      <option value="">Scegli una specie</option>
+                      @for (entry of catalog()?.species ?? []; track entry.id) {
+                        <option [value]="entry.id">{{ entry.name }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="field">
+                    <span>Background</span>
+                    <select class="select" [value]="store.build().backgroundId" (change)="store.selectBackground(asText($event))">
+                      <option value="">Scegli un background</option>
+                      @for (entry of catalog()?.backgrounds ?? []; track entry.id) {
+                        <option [value]="entry.id">{{ entry.name }}</option>
+                      }
+                    </select>
+                  </label>
+
+                  <label class="field">
+                    <span>Livello iniziale</span>
+                    <input
+                      class="input"
+                      type="number"
+                      min="1"
+                      max="20"
+                      [value]="store.build().level"
+                      (change)="store.setLevel(asNumber($event))"
+                    />
+                  </label>
+
+                  @if (characterClass(); as cls) {
+                    @if (store.build().level >= cls.subclassLevel) {
+                      <label class="field span-2">
+                        <span>Sottoclasse</span>
+                        <select class="select" [value]="store.build().subclassId ?? ''" (change)="store.setSubclass(asText($event))">
+                          @for (subclass of cls.subclasses; track subclass.id) {
+                            <option [value]="subclass.id">{{ subclass.name }}</option>
+                          }
+                        </select>
+                      </label>
+                    }
+                  }
+
+                  <label class="field">
+                    <span>Allineamento</span>
+                    <input
+                      class="input"
+                      [value]="store.alignment()"
+                      (input)="store.setAlignment(asText($event))"
+                      placeholder="Es. Neutrale buono"
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <aside class="panel panel--rail">
+                @if (characterClass(); as cls) {
+                  <section class="surface mini">
+                    <span class="eyebrow">Classe</span>
+                    <strong>{{ cls.name }}</strong>
+                    <dl>
+                      <div><dt>Dado vita</dt><dd>d{{ cls.hitDie }}</dd></div>
+                      <div><dt>TS</dt><dd>{{ cls.savingThrows.join(' · ') }}</dd></div>
+                      <div><dt>Competenze</dt><dd>{{ cls.skillChoices.count }}</dd></div>
+                      <div><dt>Maestrie</dt><dd>{{ masteryTarget() }}</dd></div>
+                    </dl>
+                  </section>
+                }
+                @if (species(); as race) {
+                  <section class="surface mini">
+                    <span class="eyebrow">Specie</span>
+                    <strong>{{ race.name }}</strong>
+                    <p class="muted">{{ race.speed }} ft · {{ race.sizes.join(' / ') }}</p>
+                    @if (race.darkvision) {
+                      <p class="muted">Scurovisione {{ race.darkvision }} ft</p>
+                    }
+                  </section>
+                }
+                @if (background(); as bg) {
+                  <section class="surface mini">
+                    <span class="eyebrow">Background</span>
+                    <strong>{{ bg.name }}</strong>
+                    <p class="muted">Talento: {{ bg.featId }}</p>
+                    <p class="muted">Competenze: {{ bg.skillProficiencies.join(', ') }}</p>
+                  </section>
+                }
+              </aside>
+            </div>
+          }
+
+          @case (1) {
+            <div class="panel-grid">
+              <section class="panel surface">
+                <div class="panel-head">
+                  <h2>Caratteristiche</h2>
+                  @if (pointBuyRemaining() !== null) {
+                    <span class="badge" [class.badge--warn]="pointBuyRemaining()! < 0">
+                      {{ pointBuyRemaining() }} punti rimasti
+                    </span>
+                  }
+                </div>
+
+                <label class="field method">
+                  <span>Metodo</span>
+                  <select class="select" [value]="store.build().abilityGeneration.method" (change)="store.setAbilityMethod(asAbilityMethod($event))">
+                    <option value="pointBuy">Point buy (27 punti)</option>
+                    <option value="standardArray">Standard array</option>
+                    <option value="rolled">Tiri 4d6kh3</option>
+                    <option value="manual">Inserimento manuale</option>
+                  </select>
+                </label>
+
+                <div class="scores">
+                  @for (ability of abilities; track ability) {
+                    <div class="score-row">
+                      <span class="score-row__label">{{ abilityLabels[ability] }}</span>
+                      <input
+                        class="input input--score"
+                        type="number"
+                        [min]="store.build().abilityGeneration.method === 'pointBuy' ? 8 : 3"
+                        [max]="store.build().abilityGeneration.method === 'pointBuy' ? 15 : 20"
+                        [value]="store.build().abilityGeneration.base[ability]"
+                        (change)="store.setAbilityScore(ability, asNumber($event))"
+                      />
+                      <span class="score-row__mod">{{ modifier(finalScores()[ability]) }}</span>
+                      <span class="muted score-row__final">finale {{ finalScores()[ability] }}</span>
+                    </div>
+                  }
+                </div>
+
+                @if (store.build().abilityGeneration.method === 'rolled') {
+                  <p class="hint">I tiri 4d6kh3 vengono eseguiti dal server in Fase 3b; per ora assegna i valori manualmente.</p>
+                }
+              </section>
+
+              <aside class="panel">
+                @if (background(); as bg) {
+                  <section class="surface mini">
+                    <span class="eyebrow">Aumenti del background</span>
+                    <p class="muted">{{ bg.name }} concede {{ bg.abilityScoreOptions.join(', ') }}.</p>
+                    <label class="field">
+                      <span>Pattern</span>
+                      <select class="select" (change)="store.setBackgroundPattern(asPattern($event))">
+                        <option value="2-1">+2 / +1</option>
+                        <option value="1-1-1">+1 / +1 / +1</option>
+                      </select>
+                    </label>
+                    <div class="increases">
+                      @for (increase of store.build().backgroundIncreases; track $index) {
+                        <div class="increase">
+                          <select class="select" [value]="increase.ability" (change)="store.setBackgroundIncrease($index, asAbility($event))">
+                            @for (ability of bg.abilityScoreOptions; track ability) {
+                              <option [value]="ability">{{ abilityLabels[ability] }}</option>
+                            }
+                          </select>
+                          <span class="badge">+{{ increase.amount }}</span>
+                        </div>
+                      }
+                    </div>
+                  </section>
+                } @else {
+                  <section class="surface mini">
+                    <p class="muted">Scegli un background nel primo passo per gli aumenti di caratteristica.</p>
+                  </section>
+                }
+              </aside>
+            </div>
+          }
+
+          @case (2) {
+            <div class="panel-grid">
+              <section class="panel surface">
+                <div class="panel-head">
+                  <h2>Competenze di classe</h2>
+                  @if (characterClass(); as cls) {
+                    <span class="badge">{{ store.build().proficiencies.classSkills.length }} / {{ cls.skillChoices.count }}</span>
+                  }
+                </div>
+                <div class="check-grid">
+                  @for (skill of classSkillOptions(); track skill) {
+                    <label class="check">
+                      <input type="checkbox" [checked]="isClassSkill(skill)" (change)="store.toggleClassSkill(skill)" />
+                      <span>{{ skill }}</span>
+                    </label>
+                  }
+                </div>
+
+                @if (speciesSkillOptions().length > 0) {
+                  <hr class="divider" />
+                  <div class="panel-head">
+                    <h2>Competenze di specie</h2>
+                    <span class="badge">{{ store.build().proficiencies.speciesSkills.length }} / {{ species()?.skillChoices?.count ?? 0 }}</span>
+                  </div>
+                  <div class="check-grid">
+                    @for (skill of speciesSkillOptions(); track skill) {
+                      <label class="check">
+                        <input type="checkbox" [checked]="isSpeciesSkill(skill)" (change)="store.toggleSpeciesSkill(skill)" />
+                        <span>{{ skill }}</span>
+                      </label>
+                    }
+                  </div>
+                }
+
+                <hr class="divider" />
+                <div class="panel-head">
+                  <h2>Expertise</h2>
+                  <span class="badge">{{ store.build().proficiencies.expertise.length }}</span>
+                </div>
+                <div class="check-grid">
+                  @for (skill of allSkills; track skill) {
+                    @if (grantedSkills().has(skill)) {
+                      <label class="check">
+                        <input type="checkbox" [checked]="isExpertise(skill)" (change)="store.toggleExpertise(skill)" />
+                        <span>{{ skill }}</span>
+                      </label>
+                    }
+                  }
+                </div>
+
+                <hr class="divider" />
+                <label class="field">
+                  <span>Lingue aggiuntive (separate da virgola)</span>
+                  <input class="input" [value]="store.build().proficiencies.languages.join(', ')" (change)="store.setLanguages(asText($event))" />
+                </label>
+              </section>
+
+              <aside class="panel">
+                <section class="surface mini">
+                  <div class="panel-head">
+                    <span class="eyebrow">Maestrie delle armi</span>
+                    <span class="badge">{{ store.build().weaponMasteries.length }} / {{ masteryTarget() }}</span>
+                  </div>
+                  <div class="mastery-list">
+                    @for (item of weaponItems(); track item.id) {
+                      <label class="check">
+                        <input type="checkbox" [checked]="isMastery(item.id)" (change)="store.toggleWeaponMastery(item.id)" />
+                        <span>{{ item.name }}</span>
+                      </label>
+                    }
+                  </div>
+                </section>
+
+                <section class="surface mini">
+                  <span class="eyebrow">Talenti</span>
+                  @if (store.build().feats.length === 0) {
+                    <p class="muted">Nessun talento registrato.</p>
+                  }
+                  @for (feat of store.build().feats; track feat.id) {
+                    <span class="badge">{{ feat.id }}</span>
+                  }
+                </section>
+
+                @if (store.build().asiChoices.length > 0) {
+                  <section class="surface mini">
+                    <span class="eyebrow">Aumenti di caratteristica</span>
+                    @for (choice of store.build().asiChoices; track choice.level) {
+                      <label class="field asi-row">
+                        <span>Livello {{ choice.level }}</span>
+                        <select class="select" [value]="choice.increases?.[0]?.ability ?? 'str'" (change)="store.setAsiAbility(choice.level, asAbility($event))">
+                          @for (ability of abilities; track ability) {
+                            <option [value]="ability">{{ abilityLabels[ability] }}</option>
+                          }
+                        </select>
+                      </label>
+                    }
+                  </section>
+                }
+              </aside>
+            </div>
+          }
+
+          @case (3) {
+            <div class="panel-grid panel-grid--shop">
+              <section class="panel surface">
+                <div class="panel-head">
+                  <h2>Negozio mundano</h2>
+                  <span class="badge">{{ shopItems().length }} oggetti</span>
+                </div>
+                <input class="input" [value]="search()" (input)="search.set(asText($event))" placeholder="Cerca un oggetto…" />
+                <div class="shop-list">
+                  @for (item of shopItems(); track item.id) {
+                    <article class="shop-item">
+                      <div>
+                        <strong>{{ item.name }}</strong>
+                        <p class="muted">{{ item.type }} · {{ item.valueGp }} mo</p>
+                      </div>
+                      <button type="button" class="btn" (click)="store.addItem(item.id)">Aggiungi</button>
+                    </article>
+                  }
+                </div>
+              </section>
+
+              <aside class="panel">
+                <section class="surface mini">
+                  <div class="panel-head">
+                    <span class="eyebrow">Budget</span>
+                    <span class="badge">{{ remainingGold() }} mo libere</span>
+                  </div>
+                  <label class="field">
+                    <span>Budget iniziale (mo)</span>
+                    <input class="input" type="number" min="0" [value]="store.build().budgetGp" (change)="store.setBudget(asNumber($event))" />
+                  </label>
+                  <p class="muted">Speso: {{ spent() }} mo</p>
+                </section>
+
+                <section class="surface mini">
+                  <span class="eyebrow">Inventario</span>
+                  @if (store.build().equipment.length === 0) {
+                    <p class="muted">Nessun oggetto acquistato.</p>
+                  }
+                  @for (entry of store.build().equipment; track entry.itemId) {
+                    <div class="cart-row">
+                      <div>
+                        <strong>{{ itemName(entry.itemId) }}</strong>
+                        <span class="muted"> × {{ entry.quantity }} · {{ itemValue(entry.itemId) }} mo</span>
+                      </div>
+                      <button type="button" class="btn btn--ghost" (click)="store.removeItem(entry.itemId)">Rimuovi</button>
+                    </div>
+                  }
+                </section>
+
+                <section class="surface mini">
+                  <span class="eyebrow">Monete residue</span>
+                  <label class="field">
+                    <span>Oro (mo)</span>
+                    <input class="input" type="number" min="0" [value]="store.build().currency.gp" (change)="store.setGold(asNumber($event))" />
+                  </label>
+                </section>
+              </aside>
+            </div>
+          }
+
+          @case (4) {
+            @if (characterClass()?.spellcasting) {
+              <div class="panel-grid">
+                <section class="panel surface">
+                  <div class="panel-head">
+                    <h2>Trucchetti</h2>
+                    <span class="badge">{{ store.build().spells.cantrips.length }} / {{ cantripTarget() }}</span>
+                  </div>
+                  <div class="spell-list">
+                    @for (spell of cantripOptions(); track spell.id) {
+                      <label class="check">
+                        <input type="checkbox" [checked]="isCantrip(spell.id)" (change)="store.toggleCantrip(spell.id)" />
+                        <span>{{ spell.name }} <span class="muted">· {{ spell.school }}</span></span>
+                      </label>
+                    }
+                  </div>
+                </section>
+
+                <section class="panel surface">
+                  <div class="panel-head">
+                    <h2>{{ preparedCaster() ? 'Incantesimi preparati' : 'Incantesimi conosciuti' }}</h2>
+                    <span class="badge">{{ store.build().spells.prepared.length + store.build().spells.known.length }} / {{ spellTarget() }}</span>
+                  </div>
+                  <p class="muted">Livello massimo disponibile: {{ maxSpellLevel() }} · CD e attacco calcolati nella scheda.</p>
+                  <div class="spell-list">
+                    @for (spell of leveledSpellOptions(); track spell.id) {
+                      <label class="check">
+                        <input type="checkbox" [checked]="isPrepared(spell.id)" (change)="store.toggleSpell(spell.id)" />
+                        <span>
+                          <span class="badge">{{ spell.level }}</span>
+                          {{ spell.name }}
+                          <span class="muted">· {{ spell.school }}{{ spell.concentration ? ' · concentrazione' : '' }}</span>
+                        </span>
+                      </label>
+                    }
+                  </div>
+                  @if (preparedCaster()) {
+                    <p class="hint">Il mago prepara dal libro degli incantesimi; le scelte vengono sincronizzate.</p>
+                  }
+                </section>
+              </div>
+            } @else {
+              <div class="surface empty">
+                <span class="eyebrow">Nessuna magia</span>
+                <p>La classe scelta non lancia incantesimi. Puoi passare al passo successivo.</p>
+              </div>
+            }
+          }
+
+          @case (5) {
+            <div class="panel-grid">
+              <section class="panel surface">
+                <h2>Dettagli</h2>
+                <div class="form-grid">
+                  <label class="field span-2">
+                    <span>Nome</span>
+                    <input class="input" [value]="store.name()" (input)="store.setName(asText($event))" />
+                  </label>
+                  <label class="field">
+                    <span>Allineamento</span>
+                    <input class="input" [value]="store.alignment()" (input)="store.setAlignment(asText($event))" />
+                  </label>
+                  <label class="field span-2">
+                    <span>Note del master</span>
+                    <textarea class="textarea" [value]="store.notes()" (input)="store.setNotes(asText($event))"></textarea>
+                  </label>
+                </div>
+              </section>
+              <aside class="panel">
+                <section class="surface mini">
+                  <span class="eyebrow">Privacy</span>
+                  <p class="muted">
+                    Le note del giocatore sono private e non vengono create qui. Il master vede solo la propria nota.
+                  </p>
+                </section>
+              </aside>
+            </div>
+          }
+
+          @case (6) {
+            <div class="panel-grid">
+              <section class="panel surface">
+                <div class="panel-head">
+                  <h2>Riepilogo</h2>
+                  @if (validation(); as check) {
+                    <span class="badge" [class.badge--ok]="check.ok" [class.badge--danger]="!check.ok">
+                      {{ check.ok ? 'Build valida' : check.errors.length + ' errori' }}
+                    </span>
+                  }
+                </div>
+
+                <div class="summary-grid">
+                  <div class="summary-cell">
+                    <span class="eyebrow">Identità</span>
+                    <strong>{{ store.name() || 'Senza nome' }}</strong>
+                    <p class="muted">
+                      {{ characterClass()?.name ?? '—' }} {{ store.build().level }}
+                      · {{ species()?.name ?? '—' }} · {{ background()?.name ?? '—' }}
+                    </p>
+                  </div>
+                  <div class="summary-cell">
+                    <span class="eyebrow">Punti ferita</span>
+                    <strong>{{ validation()?.expectedHpMax ?? '—' }}</strong>
+                    <p class="muted">Massimo calcolato dai tiri e dalla COS</p>
+                  </div>
+                  <div class="summary-cell">
+                    <span class="eyebrow">Caratteristiche</span>
+                    <div class="score-summary">
+                      @for (ability of abilities; track ability) {
+                        <span><b>{{ abilityLabels[ability].slice(0, 3) }}</b> {{ finalScores()[ability] }} ({{ modifier(finalScores()[ability]) }})</span>
+                      }
+                    </div>
+                  </div>
+                  <div class="summary-cell">
+                    <span class="eyebrow">Equipaggiamento</span>
+                    <strong>{{ spent() }} / {{ store.build().budgetGp }} mo</strong>
+                    <p class="muted">{{ store.build().equipment.length }} oggetti · {{ remainingGold() }} mo libere</p>
+                  </div>
+                </div>
+
+                <hr class="divider" />
+
+                @if (validation(); as check) {
+                  @if (check.errors.length > 0) {
+                    <div class="errors">
+                      <h3>Da correggere</h3>
+                      @for (step of stepOrder; track step) {
+                        @if (stepErrors(step).length > 0) {
+                          <div class="error-group">
+                            <span class="eyebrow">{{ stepLabel(step) }}</span>
+                            @for (error of stepErrors(step); track error.code + (error.field ?? '')) {
+                              <button type="button" class="error-row" (click)="store.setStep(stepIndex(step))">
+                                <span>{{ error.message }}</span>
+                                <span class="muted">{{ error.code }}</span>
+                              </button>
+                            }
+                          </div>
+                        }
+                      }
+                    </div>
+                  }
+                  @if (check.warnings.length > 0) {
+                    <div class="warnings">
+                      <h3>Avvisi</h3>
+                      @for (warning of check.warnings; track warning.code + warning.message) {
+                        <p class="warning-row"><span class="badge badge--warn">!</span> {{ warning.message }}</p>
+                      }
+                    </div>
+                  }
+                }
+
+                <div class="actions">
+                  <button type="button" class="btn" (click)="saveDraft()">Salva bozza</button>
+                  <button type="button" class="btn" [disabled]="store.checking()" (click)="verifyOnServer()">
+                    {{ store.checking() ? 'Verifica…' : 'Verifica sul server' }}
+                  </button>
+                  <button type="button" class="btn btn--primary" [disabled]="!canFinish() || store.checking()" (click)="saveDraft()">
+                    Crea personaggio
+                  </button>
+                </div>
+                @if (store.checkError(); as error) {
+                  <p class="state--error">{{ error }}</p>
+                }
+                @if (store.preview(); as preview) {
+                  <p class="hint">
+                    Verifica server: {{ preview.ok ? 'build valida' : preview.errors.length + ' errori' }}
+                    @if (preview.expectedHpMax !== undefined) {
+                      · {{ preview.expectedHpMax }} PF
+                    }
+                  </p>
+                }
+                <p class="hint">La creazione persistente arriva con l’API campagne della Fase 2.</p>
+              </section>
+
+              <aside class="panel">
+                <section class="surface mini">
+                  <span class="eyebrow">Note tecniche</span>
+                  <p class="muted">
+                    La bozza è locale e versionata. Il server rivalida la build con lo stesso codice di
+                    <code>shared</code>.
+                  </p>
+                </section>
+              </aside>
+            </div>
+          }
+        }
+      </div>
+
+      <footer class="wizard__footer">
+        <button type="button" class="btn" [disabled]="store.step() === 0" (click)="store.previous()">Indietro</button>
+        <span class="muted">Bozza locale · {{ steps[store.step()] }}</span>
+        @if (store.step() < steps.length - 1) {
+          <button type="button" class="btn btn--primary" (click)="store.next()">Avanti</button>
+        } @else {
+          <button type="button" class="btn btn--primary" [disabled]="!canFinish()">Fine</button>
+        }
+      </footer>
+    }
+  </div>
+</section>
