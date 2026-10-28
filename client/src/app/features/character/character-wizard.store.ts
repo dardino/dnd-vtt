@@ -6,6 +6,7 @@ import {
   averageHpGain,
   emptyCurrency,
   gpToCopper,
+  recommendEquipment,
   remainingCurrency,
   validatePcBuild,
   type Ability,
@@ -522,6 +523,26 @@ export const CharacterWizardStore = signalStore(
       setGold(value: number): void {
         updateBuild({
           currency: remainingCurrency(Math.max(0, value), 0),
+        });
+      },
+
+      autoEquip(abilities: Record<Ability, number>): void {
+        const data = catalog();
+        const info = characterClass();
+        if (data === null || info === undefined) {
+          return;
+        }
+        const budget = store.build().budgetGp;
+        const equipment = recommendEquipment({
+          characterClass: info,
+          items: data.items,
+          abilities,
+          budgetGp: budget,
+        });
+        const spentCopper = spentOf({ ...store.build(), equipment }, data);
+        updateBuild({
+          equipment,
+          currency: remainingCurrency(budget, spentCopper),
         });
       },
 

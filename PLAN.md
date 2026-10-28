@@ -161,6 +161,7 @@ Tooling monorepo
 | D62 | Budget iniziale **per personaggio**, precompilato dal valore di classe e modificabile dal DM; il negozio di creazione vende solo equipaggiamento mundano SRD | evita pacchetti rigidi e limita la creazione a oggetti appropriati; gli oggetti magici arrivano dal bottino |
 | D63 | La contabilità delle monete usa **rame interi** (`gpToCopper`, `currencyToCopper`, `currencyFromCopper`), mai somme in floating point di mo | aggiungere una flask da 0,02 mo lasciava 4.980000000000004 invece di 4,98; il totale si scompone in monete intere e la UI formatta al massimo due decimali |
 | D64 | Ogni pagina usa una **griglia a 12 colonne** (`@mixin grid-12`), **nessuna larghezza massima di pagina**, e occupa **almeno tutta l'altezza disponibile** sotto header e footer, con catena flex e `min-height: 0` | i pannelli non devono mai galleggiare su uno sfondo vuoto né cambiare larghezza in base al contenuto; la griglia a 12 colonne dà una sola regola di composizione a console, wizard e schermate future e sfrutta tutto lo spazio del monitor |
+| D65 | **Equipaggia automaticamente** nel wizard: euristica in `shared` che sceglie armatura, scudo, armi, focus, attrezzi e sacca in base a competenze, caratteristiche e budget | il tavolo parte con un kit coerente senza perdere tempo nel negozio; la scelta resta modificabile e il residuo è ricalcolato in rame |
 
 ## 5. Struttura monorepo
 
@@ -2620,6 +2621,7 @@ Legenda: ✅ criteri di accettazione.
 - **wizard PC a 7 step** (livello iniziale 1–20): identità, caratteristiche, competenze/talenti, equipaggiamento, magia, dettagli, riepilogo; bozza locale, errori per step
 - **wizard mostro/NPC a 6 step** con gli stessi componenti e import/duplicazione da SRD
 - negozio mundano con budget per personaggio precompilato dalla classe, inventario iniziale e monete
+- pulsante **Equipaggia automaticamente**: armatura e scudo consentiti, arma primaria e secondaria, focus, attrezzi di classe e sacca entro il budget; l'euristica vive in `shared` ed è coperta da test
 - **scheda console full-screen** con tab Combattimento, Abilità, Incantesimi, Equipaggiamento, Privilegi, Note; snapshot e `sheetVersion`
 - ✅ un `pc` di livello 5 con specie, background, sottoclasse, talenti, incantesimi ed equipaggiamento è creabile in una sessione, salvato e riaperto senza perdita di dati; un mostro 5e completo è creabile e rileggibile; il negozio non supera il budget e non vende oggetti magici; nessun `pc` senza campagna
 

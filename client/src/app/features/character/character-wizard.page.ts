@@ -360,6 +360,10 @@ export class CharacterWizardPage implements OnInit {
     await this.store.checkBuild();
   }
 
+  public autoEquip(): void {
+    this.store.autoEquip(this.finalScores());
+  }
+
   private classSpells(): readonly SrdSpell[] {
     const classId = this.store.build().classId;
     return (this.catalog()?.spells ?? []).filter((spell: SrdSpell) => spell.classes.includes(classId));

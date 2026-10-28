@@ -387,6 +387,20 @@
 
               <aside class="panel">
                 <section class="surface mini">
+                  <span class="eyebrow">Equipaggiamento consigliato</span>
+                  <p class="muted">
+                    Armi, armatura, focus e sacca adatti a {{ characterClass()?.name ?? 'questa classe' }}.
+                  </p>
+                  <button
+                    type="button"
+                    class="btn btn--primary auto-equip"
+                    [disabled]="characterClass() === null"
+                    (click)="autoEquip()"
+                  >Equipaggia automaticamente</button>
+                  <p class="muted">Sostituisce l'inventario attuale.</p>
+                </section>
+
+                <section class="surface mini">
                   <div class="panel-head">
                     <span class="eyebrow">Budget</span>
                     <span class="badge">{{ remainingGold() }} mo libere</span>

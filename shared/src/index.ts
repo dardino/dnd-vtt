@@ -7,6 +7,7 @@ export * from './schemas/campaign.js';
 export * from './schemas/actor.js';
 export * from './schemas/asset.js';
 export * from './lib/scene/actions.js';
+export * from './lib/equipment/recommend.js';
 export * from './lib/sheet/abilities.js';
 export * from './lib/sheet/progression.js';
 export * from './lib/sheet/skills.js';
