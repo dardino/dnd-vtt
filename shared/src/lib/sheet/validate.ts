@@ -1,5 +1,5 @@
 import type { Ability, Skill } from '../../schemas/common.js';
-import { abilities, currencyToGp, skills as allSkills } from '../../schemas/common.js';
+import { abilities, currencyToCopper, formatGp, gpToCopper, skills as allSkills } from '../../schemas/common.js';
 import type {
   AsiChoice,
   BuildError,
@@ -436,7 +436,7 @@ const validateProficiencies = (context: Context): void => {
 
 const validateEquipment = (context: Context): void => {
   const { build, characterClass } = context;
-  let spent = 0;
+  let spentCopper = 0;
   const seen = new Set<string>();
   for (const entry of build.equipment) {
     const item = context.itemById.get(entry.itemId);
@@ -448,7 +448,7 @@ const validateEquipment = (context: Context): void => {
       addError(context, 'equipment', 'item_duplicate', `Oggetto ripetuto: ${item.name}`, 'equipment');
     }
     seen.add(item.id);
-    spent += item.valueGp * entry.quantity;
+    spentCopper += gpToCopper(item.valueGp) * entry.quantity;
     if (item.category === 'weapon' && item.data.category === 'weapon') {
       const proficient = item.data.simple
         ? characterClass.weaponProficiencies.includes('simple')
@@ -475,7 +475,7 @@ const validateEquipment = (context: Context): void => {
     }
   }
 
-  if (build.level > 1 && Math.abs(build.budgetGp - characterClass.startingGold) < 0.001) {
+  if (build.level > 1 && gpToCopper(build.budgetGp) === gpToCopper(characterClass.startingGold)) {
     addWarning(
       context,
       'equipment',
@@ -484,19 +484,19 @@ const validateEquipment = (context: Context): void => {
     );
   }
 
-  const budget = build.budgetGp;
-  if (spent > budget + 0.001) {
+  const budgetCopper = gpToCopper(build.budgetGp);
+  if (spentCopper > budgetCopper) {
     addError(
       context,
       'equipment',
       'budget_exceeded',
-      `La spesa (${spent.toFixed(2)} mo) supera il budget (${budget.toFixed(2)} mo)`,
+      `La spesa (${formatGp(spentCopper)} mo) supera il budget (${formatGp(budgetCopper)} mo)`,
       'equipment',
     );
   }
-  const remaining = budget - spent;
-  const declaredGold = currencyToGp(build.currency);
-  if (declaredGold > remaining + 0.001) {
+  const remainingCopper = budgetCopper - spentCopper;
+  const declaredCopper = currencyToCopper(build.currency);
+  if (declaredCopper > remainingCopper) {
     addError(
       context,
       'equipment',
@@ -504,12 +504,12 @@ const validateEquipment = (context: Context): void => {
       'Le monete dichiarate superano il budget rimasto',
       'currency',
     );
-  } else if (remaining - declaredGold > 0.001) {
+  } else if (remainingCopper - declaredCopper > 0) {
     addWarning(
       context,
       'equipment',
       'budget_unspent',
-      `Restano ${(remaining - declaredGold).toFixed(2)} mo non assegnate`,
+      `Restano ${formatGp(remainingCopper - declaredCopper)} mo non assegnate`,
     );
   }
 };

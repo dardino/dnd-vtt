@@ -79,14 +79,41 @@ export type Currency = z.infer<typeof currencySchema>;
 
 export const emptyCurrency = (): Currency => ({ cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 });
 
-const ELECTRUM_TO_GP = 0.5;
-const SILVER_TO_GP = 0.1;
-const COPPER_TO_GP = 0.01;
-const PLATINUM_TO_GP = 10;
+/**
+ * La contabilità usa sempre il rame intero: sommare `valueGp` in floating
+ * point produce artefatti come 4.980000000000004. `1 mo = 100 mr`.
+ */
+export const COPPER_PER_GP = 100;
+
+export const gpToCopper = (gp: number): number => Math.round(gp * COPPER_PER_GP);
+
+export const currencyToCopper = (currency: Currency): number =>
+  currency.pp * 1000
+  + currency.gp * 100
+  + currency.ep * 50
+  + currency.sp * 10
+  + currency.cp;
+
+/** Riporta un totale in rame alle monete canoniche (niente elettro). */
+export const currencyFromCopper = (copper: number): Currency => {
+  const total = Math.max(0, Math.round(copper));
+  return {
+    pp: Math.floor(total / 1000),
+    gp: Math.floor((total % 1000) / 100),
+    ep: 0,
+    sp: Math.floor((total % 100) / 10),
+    cp: total % 10,
+  };
+};
+
+export const remainingCurrency = (budgetGp: number, spentCopper: number): Currency =>
+  currencyFromCopper(gpToCopper(budgetGp) - spentCopper);
+
+/** Formatta un totale in rame come mo con al massimo due decimali. */
+export const formatGp = (copper: number): string => {
+  const value = (Math.max(0, Math.round(copper)) / COPPER_PER_GP).toFixed(2);
+  return value.endsWith('.00') ? value.slice(0, -3) : value;
+};
 
 export const currencyToGp = (currency: Currency): number =>
-  currency.gp
-  + currency.pp * PLATINUM_TO_GP
-  + currency.ep * ELECTRUM_TO_GP
-  + currency.sp * SILVER_TO_GP
-  + currency.cp * COPPER_TO_GP;
+  currencyToCopper(currency) / COPPER_PER_GP;

@@ -159,6 +159,7 @@ Tooling monorepo
 | D60 | Scheda **operativa**: HP, slot spesi, dadi vita, death saves, condizioni, inventario e monete. I riposi li dichiara solo il DM e applicano gli effetti deterministici SRD 5.2: il **lungo** recupera tutti gli HP e tutti i dadi vita, riduce l'exhaustion di 1 e azzera i death saves; il **breve** ricarica i privilegi e gli slot pact. La spesa dei dadi vita resta manuale | gestione completa e fedele alle regole, senza automatizzare scelte o tiri che appartengono al tavolo |
 | D61 | Avanzamento per campagna: `milestone` (default) o `xp`, modificabile; gli XP si registrano **sempre**; il level-up lo conferma il DM e, se serve, allinea gli XP al minimo del nuovo livello | nessun cambio di scheda a sorpresa; il DM mantiene il controllo anche in modalità XP |
 | D62 | Budget iniziale **per personaggio**, precompilato dal valore di classe e modificabile dal DM; il negozio di creazione vende solo equipaggiamento mundano SRD | evita pacchetti rigidi e limita la creazione a oggetti appropriati; gli oggetti magici arrivano dal bottino |
+| D63 | La contabilità delle monete usa **rame interi** (`gpToCopper`, `currencyToCopper`, `currencyFromCopper`), mai somme in floating point di mo | aggiungere una flask da 0,02 mo lasciava 4.980000000000004 invece di 4,98; il totale si scompone in monete intere e la UI formatta al massimo due decimali |
 
 ## 5. Struttura monorepo
 
@@ -619,6 +620,7 @@ Regole trasversali, valide in tutti e tre i workspace:
 - lo schema Zod è la fonte del tipo (`z.infer`); non si mantengono interfacce parallele destinate a divergere
 - un solo barrel; niente import interni tra feature di `shared`
 - limiti e costanti condivisi (2.000 op fog, 1 MB scena, 50 azioni, durate mute, codici errore) vivono qui, così client e server non possono divergere
+- **denaro in rame interi**: i prezzi in mo si convertono con `gpToCopper`, i totali si scompongono con `currencyFromCopper` e si confrontano in rame; mai sommare `valueGp` in floating point (D63)
 - geometria e parser restituiscono nuovi valori, non mutano gli argomenti; gli errori di parsing sono tipi espliciti, non stringhe
 
 #### 5.11.5 Componenti e Sass
@@ -1504,6 +1506,7 @@ interface AttackProfile {
 - **Iniziativa**: ordine per `value` desc, pareggio su `tiebreak` desc, poi ordine di inserimento; round e turno gestiti da `turnIndex`
 - **Condizioni**: catalogo chiuso in `shared` (nome, descrizione, richiede livello, concentrazione) + durata in round
 - **HP**: `current`, `max`, `temp`; i danni consumano prima i `temp`
+- **Monete**: contabilità in rame interi (D63); `currencyFromCopper` produce monete canoniche e `formatGp` mostra al massimo due decimali, quindi una flask da 0,02 mo lascia 4,98 e non 4.980000000000004
 
 ## 8. Console del DM
 
