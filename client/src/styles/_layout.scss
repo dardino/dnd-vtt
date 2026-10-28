@@ -1,0 +1,14 @@
+/// Griglia di pagina unica del progetto: 12 colonne fluide, nessuna
+/// larghezza fissa. I figli dichiarano lo span con `grid-column`.
+@mixin grid-12($gap: var(--space-4)) {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: $gap;
+}
+
+/// Catena flex per far occupare a una route almeno tutta l'altezza
+/// disponibile sotto header e footer della shell.
+@mixin fill-height {
+  flex: 1 1 auto;
+  min-height: 0;
+}

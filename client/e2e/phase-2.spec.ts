@@ -94,3 +94,19 @@ test('cambia campagna e riapre la scelta', async ({ page }) => {
   await dialog.getByRole('button', { name: /E2E Campagna/ }).first().click();
   await expect(page.getByRole('heading', { level: 1, name: 'E2E Campagna' })).toBeVisible();
 });
+
+test('la console usa la griglia a 12 colonne e riempie l altezza', async ({ page }) => {
+  await openCampaign(page);
+  const layout = page.locator('.dm-layout');
+  const metrics = await layout.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    return {
+      columns: style.gridTemplateColumns.split(' ').filter((entry) => entry !== '').length,
+      bottom: rect.bottom,
+      viewport: window.innerHeight,
+    };
+  });
+  expect(metrics.columns).toBe(12);
+  expect(metrics.bottom).toBeGreaterThanOrEqual(metrics.viewport - 80);
+});
