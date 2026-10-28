@@ -2,7 +2,9 @@ import { Component, computed, effect, inject, input, signal, type OnInit } from 
 import {
   POINT_BUY_BUDGET,
   abilityModifier,
+  formatGp,
   formatModifier,
+  gpToCopper,
   pointBuyCost,
   skills as ALL_SKILLS,
   validatePcBuild,
@@ -187,19 +189,21 @@ export class CharacterWizardPage implements OnInit {
     return this.classSpells().filter((spell) => spell.level >= 1 && spell.level <= maxLevel);
   });
 
-  public readonly spent = computed(() => {
+  public readonly spentCopper = computed(() => {
     const catalog = this.catalog();
     if (catalog === null) {
       return 0;
     }
     return this.store.build().equipment.reduce((total, entry) => {
       const item = catalog.items.find((candidate) => candidate.id === entry.itemId);
-      return total + (item?.valueGp ?? 0) * entry.quantity;
+      return total + gpToCopper(item?.valueGp ?? 0) * entry.quantity;
     }, 0);
   });
 
+  public readonly spent = computed(() => formatGp(this.spentCopper()));
+
   public readonly remainingGold = computed(() =>
-    Math.round((this.store.build().budgetGp - this.spent()) * 100) / 100);
+    formatGp(gpToCopper(this.store.build().budgetGp) - this.spentCopper()));
 
   public readonly shopItems = computed<readonly SrdItem[]>(() => {
     const query = this.search().trim().toLowerCase();

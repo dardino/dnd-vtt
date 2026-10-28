@@ -417,8 +417,8 @@
                 <section class="surface mini">
                   <span class="eyebrow">Monete residue</span>
                   <label class="field">
-                    <span>Oro (mo)</span>
-                    <input class="input" type="number" min="0" [value]="store.build().currency.gp" (change)="store.setGold(asNumber($event))" />
+                    <span>Residuo (mo)</span>
+                    <input class="input" type="number" min="0" step="0.01" [value]="remainingGold()" (change)="store.setGold(asNumber($event))" />
                   </label>
                 </section>
               </aside>

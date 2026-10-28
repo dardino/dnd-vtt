@@ -5,6 +5,8 @@ import { firstValueFrom } from 'rxjs';
 import {
   averageHpGain,
   emptyCurrency,
+  gpToCopper,
+  remainingCurrency,
   validatePcBuild,
   type Ability,
   type AsiChoice,
@@ -191,7 +193,7 @@ const withClassDefaults = (
     ...build,
     classId: characterClass.id,
     budgetGp: characterClass.startingGold,
-    currency: { ...emptyCurrency(), gp: characterClass.startingGold },
+    currency: remainingCurrency(characterClass.startingGold, 0),
     equipment: [],
     hpRolls: Array.from({ length: level - 1 }, () => averageHpGain(characterClass.hitDie)),
     proficiencies: {
@@ -215,7 +217,7 @@ const withClassDefaults = (
 const spentOf = (build: PcBuild, catalog: SrdCatalog): number =>
   build.equipment.reduce((total, entry) => {
     const item = catalog.items.find((candidate) => candidate.id === entry.itemId);
-    return total + (item?.valueGp ?? 0) * entry.quantity;
+    return total + gpToCopper(item?.valueGp ?? 0) * entry.quantity;
   }, 0);
 
 export const CharacterWizardStore = signalStore(
@@ -510,16 +512,16 @@ export const CharacterWizardStore = signalStore(
       setBudget(value: number): void {
         const budget = Math.max(0, value);
         const data = catalog();
-        const spent = data === null ? 0 : spentOf(store.build(), data);
+        const spentCopper = data === null ? 0 : spentOf(store.build(), data);
         updateBuild({
           budgetGp: budget,
-          currency: { ...store.build().currency, gp: Math.max(0, budget - spent) },
+          currency: remainingCurrency(budget, spentCopper),
         });
       },
 
       setGold(value: number): void {
         updateBuild({
-          currency: { ...store.build().currency, gp: Math.max(0, value) },
+          currency: remainingCurrency(Math.max(0, value), 0),
         });
       },
 
@@ -536,20 +538,20 @@ export const CharacterWizardStore = signalStore(
           : current.map((entry) => entry.itemId === itemId
             ? { ...entry, quantity: entry.quantity + 1 }
             : entry);
-        const spent = spentOf({ ...store.build(), equipment }, data);
+        const spentCopper = spentOf({ ...store.build(), equipment }, data);
         updateBuild({
           equipment,
-          currency: { ...store.build().currency, gp: Math.max(0, store.build().budgetGp - spent) },
+          currency: remainingCurrency(store.build().budgetGp, spentCopper),
         });
       },
 
       removeItem(itemId: string): void {
         const data = catalog();
         const equipment = store.build().equipment.filter((entry) => entry.itemId !== itemId);
-        const spent = data === null ? 0 : spentOf({ ...store.build(), equipment }, data);
+        const spentCopper = data === null ? 0 : spentOf({ ...store.build(), equipment }, data);
         updateBuild({
           equipment,
-          currency: { ...store.build().currency, gp: Math.max(0, store.build().budgetGp - spent) },
+          currency: remainingCurrency(store.build().budgetGp, spentCopper),
         });
       },
 
