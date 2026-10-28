@@ -146,7 +146,19 @@ export const gameActionSchema = z.discriminatedUnion('type', [
     patch: tokenPatchSchema,
   }),
   z.strictObject({ type: z.literal('token.remove'), tokenId: z.string().min(1) }),
+  z.strictObject({
+    type: z.literal('token.hp'),
+    tokenId: z.string().min(1),
+    delta: z.number().int(),
+  }),
+  z.strictObject({
+    type: z.literal('token.condition'),
+    tokenId: z.string().min(1),
+    op: z.enum(['add', 'remove', 'update']),
+    condition: conditionSchema,
+  }),
   z.strictObject({ type: z.literal('fog.apply'), op: fogOpSchema }),
+  z.strictObject({ type: z.literal('grid.update'), grid: gridConfigSchema }),
 ]);
 export type GameAction = z.infer<typeof gameActionSchema>;
 

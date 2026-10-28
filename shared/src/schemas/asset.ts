@@ -8,6 +8,7 @@ export const assetSchema = z.strictObject({
   width: z.number().int().positive(),
   height: z.number().int().positive(),
   url: z.string().startsWith('/uploads/'),
+  previewUrl: z.string().startsWith('/uploads/'),
   thumbUrl: z.string().startsWith('/uploads/'),
   createdAt: z.string().datetime(),
 });

@@ -57,6 +57,34 @@ describe('applyAction', () => {
     });
     expect(state.fog.ops).toHaveLength(1);
   });
+
+  it('applica danni, condizioni e griglia', () => {
+    const state = applyAction(createDefaultSceneState(), { type: 'token.add', token: token() });
+    const damaged = applyAction(state, { type: 'token.hp', tokenId: 'token-1', delta: -3 });
+    expect(damaged.tokens[0]?.hp.current).toBe(4);
+
+    const poisoned = applyAction(damaged, {
+      type: 'token.condition',
+      tokenId: 'token-1',
+      op: 'add',
+      condition: { name: 'poisoned' },
+    });
+    expect(poisoned.tokens[0]?.conditions).toEqual([{ name: 'poisoned' }]);
+
+    const removed = applyAction(poisoned, {
+      type: 'token.condition',
+      tokenId: 'token-1',
+      op: 'remove',
+      condition: { name: 'poisoned' },
+    });
+    expect(removed.tokens[0]?.conditions).toEqual([]);
+
+    const hex = applyAction(removed, {
+      type: 'grid.update',
+      grid: { ...removed.grid, type: 'hex', cellSizePx: 64 },
+    });
+    expect(hex.grid).toMatchObject({ type: 'hex', cellSizePx: 64 });
+  });
 });
 
 describe('invertAction', () => {
@@ -99,5 +127,34 @@ describe('invertAction', () => {
       op: { id: 'op-1', op: 'reveal', shape: { type: 'rect', x: 0, y: 0, width: 2, height: 2 } },
     });
     expect(inverse).toMatchObject({ type: 'fog.apply', op: { op: 'hide' } });
+  });
+
+  it('inverte hp e condizioni ripristinando lo stato precedente', () => {
+    const base = applyAction(createDefaultSceneState(), { type: 'token.add', token: token() });
+    const withCondition = applyAction(base, {
+      type: 'token.condition',
+      tokenId: 'token-1',
+      op: 'add',
+      condition: { name: 'prone' },
+    });
+    const hpInverse = invertAction(withCondition, { type: 'token.hp', tokenId: 'token-1', delta: -2 });
+    expect(hpInverse).toEqual({ type: 'token.update', tokenId: 'token-1', patch: { hp: base.tokens[0]?.hp } });
+
+    const conditionInverse = invertAction(withCondition, {
+      type: 'token.condition',
+      tokenId: 'token-1',
+      op: 'remove',
+      condition: { name: 'prone' },
+    });
+    expect(conditionInverse).toMatchObject({ op: 'update', condition: { name: 'prone' } });
+  });
+
+  it('inverte grid.update con la griglia precedente', () => {
+    const state = createDefaultSceneState();
+    const next = { ...state.grid, type: 'hex' as const };
+    expect(invertAction(state, { type: 'grid.update', grid: next })).toEqual({
+      type: 'grid.update',
+      grid: state.grid,
+    });
   });
 });

@@ -1,4 +1,6 @@
+import type { Condition } from '../../schemas/common.js';
 import type { GameAction, SceneState, TokenPatch, TokenState } from '../../schemas/scene.js';
+import { applyHpDelta } from './hp.js';
 
 const withPatch = (token: TokenState, patch: TokenPatch): TokenState => ({
   ...token,
@@ -25,6 +27,18 @@ const findToken = (state: SceneState, tokenId: string): TokenState => {
   return token;
 };
 
+const findCondition = (token: TokenState, name: Condition['name']): Condition | undefined =>
+  token.conditions.find((condition) => condition.name === name);
+
+const replaceToken = (
+  state: SceneState,
+  tokenId: string,
+  update: (token: TokenState) => TokenState,
+): SceneState => ({
+  ...state,
+  tokens: state.tokens.map((token) => (token.id === tokenId ? update(token) : token)),
+});
+
 export const applyAction = (state: SceneState, action: GameAction): SceneState => {
   switch (action.type) {
     case 'token.add':
@@ -34,27 +48,44 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
       return { ...state, tokens: [...state.tokens, action.token] };
     case 'token.move': {
       findToken(state, action.tokenId);
-      return {
-        ...state,
-        tokens: state.tokens.map((token) =>
-          token.id === action.tokenId ? { ...token, x: action.x, y: action.y } : token),
-      };
+      return replaceToken(state, action.tokenId, (token) => ({ ...token, x: action.x, y: action.y }));
     }
     case 'token.update':
       findToken(state, action.tokenId);
-      return {
-        ...state,
-        tokens: state.tokens.map((token) =>
-          token.id === action.tokenId ? withPatch(token, action.patch) : token),
-      };
+      return replaceToken(state, action.tokenId, (token) => withPatch(token, action.patch));
     case 'token.remove':
       findToken(state, action.tokenId);
       return { ...state, tokens: state.tokens.filter((token) => token.id !== action.tokenId) };
+    case 'token.hp': {
+      const token = findToken(state, action.tokenId);
+      return replaceToken(state, action.tokenId, (entry) => ({
+        ...entry,
+        hp: applyHpDelta(token.hp, action.delta),
+      }));
+    }
+    case 'token.condition': {
+      findToken(state, action.tokenId);
+      return replaceToken(state, action.tokenId, (token) => {
+        const without = token.conditions.filter(
+          (condition) => condition.name !== action.condition.name,
+        );
+        if (action.op === 'remove') {
+          return { ...token, conditions: without };
+        }
+        const exists = findCondition(token, action.condition.name) !== undefined;
+        if (action.op === 'update' && !exists) {
+          throw new Error(`condizione inesistente: ${action.condition.name}`);
+        }
+        return { ...token, conditions: [...without, action.condition] };
+      });
+    }
     case 'fog.apply':
       return {
         ...state,
         fog: { ...state.fog, ops: [...state.fog.ops, action.op] },
       };
+    case 'grid.update':
+      return { ...state, grid: action.grid };
     default: {
       const exhaustive: never = action;
       throw new Error(`azione sconosciuta: ${String(exhaustive)}`);
@@ -81,6 +112,18 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
       const token = findToken(stateBefore, action.tokenId);
       return { type: 'token.add', token };
     }
+    case 'token.hp': {
+      const token = findToken(stateBefore, action.tokenId);
+      return { type: 'token.update', tokenId: action.tokenId, patch: { hp: token.hp } };
+    }
+    case 'token.condition': {
+      const token = findToken(stateBefore, action.tokenId);
+      const previous = findCondition(token, action.condition.name);
+      if (previous === undefined) {
+        return { type: 'token.condition', tokenId: action.tokenId, op: 'remove', condition: action.condition };
+      }
+      return { type: 'token.condition', tokenId: action.tokenId, op: 'update', condition: previous };
+    }
     case 'fog.apply':
       return {
         type: 'fog.apply',
@@ -89,6 +132,8 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
           op: action.op.op === 'reveal' ? 'hide' : 'reveal',
         },
       };
+    case 'grid.update':
+      return { type: 'grid.update', grid: stateBefore.grid };
     default: {
       const exhaustive: never = action;
       throw new Error(`azione sconosciuta: ${String(exhaustive)}`);
