@@ -9,6 +9,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       '**/coverage/**',
+      '**/.angular/**',
       '**/.turbo/**',
       'server/src/srd/data/**',
     ],
