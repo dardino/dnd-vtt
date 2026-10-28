@@ -9,8 +9,9 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import type { Campaign, Scene } from '@dnd-vtt/shared';
+import type { Campaign, Scene, Actor } from '@dnd-vtt/shared';
 import { AuthService } from '../../core/auth.service';
+import { ActorService } from '../../core/actor.service';
 import { CampaignService } from '../../core/campaign.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
 import { SceneStore } from '../../core/scene.store';
@@ -30,6 +31,7 @@ type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
 export class DmShellPage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly campaignsApi = inject(CampaignService);
+  private readonly actorsApi = inject(ActorService);
   private readonly lastCampaign = inject(LastCampaignService);
   private readonly router = inject(Router);
   public readonly theme = inject(ThemeService);
@@ -41,6 +43,7 @@ export class DmShellPage implements OnInit {
   public readonly campaigns = signal<Campaign[]>([]);
   public readonly activeCampaign = signal<Campaign | null>(null);
   public readonly scenes = signal<Scene[]>([]);
+  public readonly party = signal<Actor[]>([]);
   public readonly notice = signal<string | null>(null);
   public readonly busy = signal(false);
 
@@ -98,6 +101,7 @@ export class DmShellPage implements OnInit {
       this.mode.set('ready');
       this.notice.set(null);
       this.scenes.set(await this.campaignsApi.listScenes(campaign.id));
+      this.party.set(await this.actorsApi.listByCampaign(campaign.id));
       if (campaign.activeSceneId !== null) {
         await this.sceneStore.load(campaign.activeSceneId);
       }

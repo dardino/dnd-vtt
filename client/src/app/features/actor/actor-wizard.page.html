@@ -1,0 +1,215 @@
+<section class="actor-wizard">
+  <header class="actor-wizard__header">
+    <div>
+      <a class="back" [routerLink]="['/dm/campaigns', campaignId()]">← Console</a>
+      <span class="eyebrow">Crea {{ actorKind() === 'npc' ? 'NPC' : 'mostro' }}</span>
+      <h1>{{ step() + 1 }}. {{ steps[step()] }}</h1>
+    </div>
+    <ol class="step-dots" aria-label="Passi">
+      @for (label of steps; track label; let index = $index) {
+        <li [class.is-active]="step() === index">{{ index + 1 }}</li>
+      }
+    </ol>
+  </header>
+
+  @switch (step()) {
+    @case (0) {
+      <div class="panel-grid">
+        <section class="surface mini">
+          <h2>Tipo di attore</h2>
+          <div class="choice-row">
+            <label class="check">
+              <input type="radio" name="kind" [checked]="actorKind() === 'monster'" (change)="setKind('monster')" />
+              <span>Mostro</span>
+            </label>
+            <label class="check">
+              <input type="radio" name="kind" [checked]="actorKind() === 'npc'" (change)="setKind('npc')" />
+              <span>NPC</span>
+            </label>
+          </div>
+          <label class="field">
+            <span>Nome</span>
+            <input type="text" [value]="name()" (input)="setText(name, $event)" placeholder="Goblin" />
+          </label>
+          <label class="field">
+            <span>Tipo di creatura</span>
+            <input type="text" [value]="creatureType()" (input)="setText(creatureType, $event)" />
+          </label>
+          @if (actorKind() === 'npc') {
+            <label class="field">
+              <span>Ruolo</span>
+              <input type="text" [value]="role()" (input)="setText(role, $event)" placeholder="Capitano delle guardie" />
+            </label>
+          }
+        </section>
+        <section class="surface mini">
+          <h2>Dati di gioco</h2>
+          <label class="field">
+            <span>Grado di sfida</span>
+            <input type="text" [value]="cr()" (input)="setText(cr, $event)" />
+          </label>
+          <label class="field">
+            <span>Taglia</span>
+            <select [value]="size()" (change)="setSize($event)">
+              @for (entry of sizes; track entry) {
+                <option [value]="entry">{{ sizeLabels[entry] }}</option>
+              }
+            </select>
+          </label>
+          <p class="muted">Puoi importare un mostro SRD nel passo successivo e poi modificarlo.</p>
+        </section>
+      </div>
+    }
+
+    @case (1) {
+      <section class="surface mini">
+        <h2>Importa dal catalogo SRD</h2>
+        <input type="search" class="search" [value]="search()" (input)="setText(search, $event)" placeholder="Cerca un mostro…" />
+        @if (catalogService.loading()) {
+          <p class="muted">Caricamento cataloghi…</p>
+        } @else if (catalogService.error(); as error) {
+          <p class="state--error">{{ error }}</p>
+        } @else {
+          <div class="import-list">
+            @for (monster of importable(); track monster.id) {
+              <article class="import-row">
+                <div>
+                  <strong>{{ monster.name }}</strong>
+                  <span class="muted">CR {{ monster.cr }} · {{ monster.creatureType }} · {{ monster.hp.max }} PF</span>
+                </div>
+                <button type="button" class="btn" (click)="importMonster(monster)">Importa</button>
+              </article>
+            }
+          </div>
+        }
+      </section>
+    }
+
+    @case (2) {
+      <div class="panel-grid">
+        <section class="surface mini">
+          <h2>Caratteristiche</h2>
+          <div class="ability-grid">
+            @for (ability of abilityKeys; track ability) {
+              <label class="field">
+                <span>{{ abilityLabels[ability] }}</span>
+                <input type="number" min="1" max="30" [value]="abilities()[ability]" (input)="setAbility(ability, $event)" />
+              </label>
+            }
+          </div>
+        </section>
+        <section class="surface mini">
+          <h2>Combattimento</h2>
+          <label class="field">
+            <span>Punti ferita massimi</span>
+            <input type="number" min="1" [value]="hpMax()" (input)="setNumber(hpMax, $event)" />
+          </label>
+          <label class="field">
+            <span>Classe armatura</span>
+            <input type="number" min="0" [value]="ac()" (input)="setNumber(ac, $event)" />
+          </label>
+          <label class="field">
+            <span>Velocità (ft)</span>
+            <input type="number" min="0" [value]="speed()" (input)="setNumber(speed, $event)" />
+          </label>
+        </section>
+      </div>
+    }
+
+    @case (3) {
+      <div class="panel-grid">
+        <section class="surface mini">
+          <h2>Sensi</h2>
+          <label class="field">
+            <span>Scurovisione (ft)</span>
+            <input type="number" min="0" [value]="senses().darkvision" (input)="setSense('darkvision', $event)" />
+          </label>
+          <label class="field">
+            <span>Vista cieca (ft)</span>
+            <input type="number" min="0" [value]="senses().blindsight" (input)="setSense('blindsight', $event)" />
+          </label>
+          <label class="field">
+            <span>Percezione tellurica (ft)</span>
+            <input type="number" min="0" [value]="senses().tremorsense" (input)="setSense('tremorsense', $event)" />
+          </label>
+          <label class="field">
+            <span>Vista vera (ft)</span>
+            <input type="number" min="0" [value]="senses().truesight" (input)="setSense('truesight', $event)" />
+          </label>
+        </section>
+        <section class="surface mini">
+          <h2>Lingue</h2>
+          <label class="field">
+            <span>Lingue separate da virgola</span>
+            <input type="text" [value]="languages()" (input)="setText(languages, $event)" />
+          </label>
+        </section>
+      </div>
+    }
+
+    @case (4) {
+      <div class="feature-columns">
+        @for (group of featureGroups; track group.key) {
+          <section class="surface mini">
+            <div class="panel-head">
+              <h2>{{ group.label }}</h2>
+              <button type="button" class="btn" (click)="addFeature(group.key)">Aggiungi</button>
+            </div>
+            @for (feature of featureList(group.key); track $index) {
+              <div class="feature-edit">
+                <input type="text" [value]="feature.name" (input)="updateFeature(group.key, $index, 'name', $event)" placeholder="Nome" />
+                <textarea rows="2" [value]="feature.description" (input)="updateFeature(group.key, $index, 'description', $event)" placeholder="Descrizione"></textarea>
+                <div class="feature-edit__row">
+                  <select [value]="feature.recharge" (change)="updateFeature(group.key, $index, 'recharge', $event)">
+                    <option value="none">Sempre</option>
+                    <option value="short">Ricarica breve</option>
+                    <option value="long">Ricarica lunga</option>
+                  </select>
+                  <button type="button" class="btn btn--ghost" (click)="removeFeature(group.key, $index)">Rimuovi</button>
+                </div>
+              </div>
+            }
+          </section>
+        }
+      </div>
+    }
+
+    @case (5) {
+      <div class="panel-grid">
+        <section class="surface mini">
+          <h2>Riepilogo</h2>
+          <dl class="summary">
+            <div><dt>Nome</dt><dd>{{ name() || '—' }}</dd></div>
+            <div><dt>Tipo</dt><dd>{{ actorKind() === 'npc' ? 'NPC' : 'Mostro' }}</dd></div>
+            <div><dt>Creatura</dt><dd>{{ creatureType() }}</dd></div>
+            <div><dt>CR</dt><dd>{{ cr() }}</dd></div>
+            <div><dt>PF</dt><dd>{{ hpMax() }}</dd></div>
+            <div><dt>CA</dt><dd>{{ ac() }}</dd></div>
+            <div><dt>Tratti</dt><dd>{{ traits().length }} · {{ actions().length }} azioni · {{ reactions().length }} reazioni</dd></div>
+          </dl>
+        </section>
+        <section class="surface mini">
+          <h2>Note del DM</h2>
+          <textarea rows="6" class="notes" [value]="notes()" (input)="setText(notes, $event)"></textarea>
+          @if (saveError(); as error) {
+            <p class="state--error" role="alert">{{ error }}</p>
+          }
+          <button type="button" class="btn btn--primary create" [disabled]="!canSave() || saving()" (click)="save()">
+            {{ saving() ? 'Salvataggio…' : 'Crea attore' }}
+          </button>
+        </section>
+      </div>
+    }
+  }
+
+  <footer class="actor-wizard__footer">
+    <button type="button" class="btn" [disabled]="step() === 0" (click)="previous()">Indietro</button>
+    @if (step() < steps.length - 1) {
+      <button type="button" class="btn btn--primary" (click)="next()">Avanti</button>
+    } @else {
+      <button type="button" class="btn btn--primary" [disabled]="!canSave() || saving()" (click)="save()">
+        {{ saving() ? 'Salvataggio…' : 'Crea attore' }}
+      </button>
+    }
+  </footer>
+</section>

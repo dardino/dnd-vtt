@@ -64,6 +64,10 @@
                   class="dm-link-button"
                   [routerLink]="['/dm/campaigns', campaign.id, 'actors', 'new', 'pc']"
                 >Crea personaggio</a>
+                <a
+                  class="dm-link-button"
+                  [routerLink]="['/dm/campaigns', campaign.id, 'actors', 'new', 'monster']"
+                >Crea mostro</a>
               </div>
             </div>
 
@@ -113,12 +117,27 @@
       }
     </main>
 
-    <aside class="dm-panel dm-panel--right" aria-label="Contenuti">
-      <span class="eyebrow">In mappa</span>
-      <div class="skeleton skeleton--line skeleton--short"></div>
-      <div class="skeleton skeleton--block"></div>
-      <span class="eyebrow">Prossimi</span>
-      <div class="skeleton skeleton--line skeleton--short"></div>
+    <aside class="dm-panel dm-panel--right" aria-label="Attori della campagna">
+      <span class="eyebrow">Personaggi</span>
+      @if (party().length === 0) {
+        <p class="muted">Nessun attore ancora.</p>
+      }
+      <ul class="actor-list">
+        @for (actor of party(); track actor.id) {
+          <li>
+            <a
+              class="actor-row"
+              [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', actor.id, 'sheet']"
+            >
+              <span class="actor-row__name">{{ actor.name }}</span>
+              <span class="actor-row__meta">
+                {{ actor.kind === 'pc' ? 'PG' : actor.kind === 'monster' ? 'Mostro' : 'NPC' }}
+                @if (actor.hp !== null) { · {{ actor.hp.current }}/{{ actor.hp.max }} }
+              </span>
+            </a>
+          </li>
+        }
+      </ul>
     </aside>
   </div>
 </section>

@@ -224,7 +224,17 @@
                 </div>
 
                 @if (store.build().abilityGeneration.method === 'rolled') {
-                  <p class="hint">I tiri 4d6kh3 vengono eseguiti dal server in Fase 3b; per ora assegna i valori manualmente.</p>
+                  <div class="rolled">
+                    <button type="button" class="btn" [disabled]="rolling()" (click)="rollStats()">
+                      {{ rolling() ? 'Tiro…' : 'Tira 4d6kh3 dal server' }}
+                    </button>
+                    @if (store.build().abilityGeneration.rolls; as rolls) {
+                      <span class="muted">Tiri: {{ rolls.join(' · ') }}</span>
+                    }
+                    @if (rollError(); as error) {
+                      <span class="state--error">{{ error }}</span>
+                    }
+                  </div>
                 }
               </section>
 
@@ -595,10 +605,13 @@
                   <button type="button" class="btn" [disabled]="store.checking()" (click)="verifyOnServer()">
                     {{ store.checking() ? 'Verifica…' : 'Verifica sul server' }}
                   </button>
-                  <button type="button" class="btn btn--primary" [disabled]="!canFinish() || store.checking()" (click)="saveDraft()">
-                    Crea personaggio
+                  <button type="button" class="btn btn--primary" [disabled]="!canFinish() || saving()" (click)="save()">
+                    {{ saving() ? 'Salvataggio…' : 'Crea personaggio' }}
                   </button>
                 </div>
+                @if (saveError(); as error) {
+                  <p class="state--error" role="alert">{{ error }}</p>
+                }
                 @if (store.checkError(); as error) {
                   <p class="state--error">{{ error }}</p>
                 }
@@ -610,7 +623,6 @@
                     }
                   </p>
                 }
-                <p class="hint">La creazione persistente arriva con l’API campagne della Fase 2.</p>
               </section>
 
               <aside class="panel">
@@ -633,7 +645,9 @@
         @if (store.step() < steps.length - 1) {
           <button type="button" class="btn btn--primary" (click)="store.next()">Avanti</button>
         } @else {
-          <button type="button" class="btn btn--primary" [disabled]="!canFinish()">Fine</button>
+          <button type="button" class="btn btn--primary" [disabled]="!canFinish() || saving()" (click)="save()">
+            {{ saving() ? 'Salvataggio…' : 'Crea personaggio' }}
+          </button>
         }
       </footer>
     }

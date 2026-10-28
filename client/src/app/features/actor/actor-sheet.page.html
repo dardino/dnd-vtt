@@ -1,0 +1,244 @@
+<section class="sheet">
+  @if (loading()) {
+    <p class="muted">Caricamento scheda…</p>
+  } @else if (error() !== null) {
+    <div class="sheet-state">
+      <p class="state--error" role="alert">{{ error() }}</p>
+      <a class="btn" [routerLink]="['/dm/campaigns', campaignId()]">Torna alla console</a>
+    </div>
+  } @else if (view(); as sheet) {
+    <header class="sheet__header">
+      <div>
+        <a class="back" [routerLink]="['/dm/campaigns', campaignId()]">← Console</a>
+        <span class="eyebrow">
+          {{ sheet.actor.kind === 'pc' ? 'Personaggio' : sheet.actor.kind === 'monster' ? 'Mostro' : 'NPC' }}
+          · scheda v{{ sheet.sheetVersion }}
+        </span>
+        <h1>{{ sheet.actor.name }}</h1>
+        <p class="muted">
+          @if (sheet.statblock.kind === 'pc') {
+            {{ sheet.statblock.class.id }}
+            @if (sheet.statblock.class.subclassId) { · {{ sheet.statblock.class.subclassId }} }
+            · livello {{ sheet.statblock.class.level }}
+            · {{ sheet.statblock.species.id }}
+          } @else {
+            {{ sheet.statblock.creatureType }}
+            @if (sheet.statblock.kind === 'monster') { · CR {{ sheet.statblock.cr }} }
+            · {{ sheet.statblock.size }}
+          }
+        </p>
+      </div>
+      <div class="sheet__badges">
+        <span class="badge">HP {{ sheet.statblock.hp.current }}/{{ sheet.statblock.hp.max }}</span>
+        <span class="badge">CA {{ sheet.derived?.ac ?? '—' }}</span>
+      </div>
+    </header>
+
+    <nav class="sheet-tabs" aria-label="Sezioni scheda">
+      @for (tabItem of tabs(); track tabItem.key) {
+        <button
+          type="button"
+          class="sheet-tab"
+          [class.sheet-tab--active]="tab() === tabItem.key"
+          [attr.aria-selected]="tab() === tabItem.key"
+          (click)="setTab(tabItem.key)"
+        >{{ tabItem.label }}</button>
+      }
+    </nav>
+
+    @switch (tab()) {
+      @case ('combat') {
+        <div class="stat-grid">
+          <article class="surface stat">
+            <span class="eyebrow">Punti ferita</span>
+            <strong>{{ sheet.statblock.hp.current }} / {{ sheet.statblock.hp.max }}</strong>
+            <span class="muted">temp {{ sheet.statblock.hp.temp }}</span>
+          </article>
+          <article class="surface stat">
+            <span class="eyebrow">Classe armatura</span>
+            <strong>{{ sheet.derived?.ac ?? '—' }}</strong>
+          </article>
+          <article class="surface stat">
+            <span class="eyebrow">Iniziativa</span>
+            <strong>{{ sheet.derived?.initiative ?? '—' }}</strong>
+          </article>
+          <article class="surface stat">
+            <span class="eyebrow">Velocità</span>
+            <strong>{{ speedText(sheet.statblock.speed) }}</strong>
+          </article>
+        </div>
+
+        @if (sheet.derived; as derived) {
+          <div class="two-columns">
+            <section class="surface mini">
+              <h2>Tiri salvezza</h2>
+              <ul class="plain-list">
+                @for (save of saves(); track save.label) {
+                  <li><span>{{ save.label }}</span><strong>{{ save.value }}</strong></li>
+                }
+              </ul>
+            </section>
+            <section class="surface mini">
+              <h2>Attacchi</h2>
+              @if (derived.attacks.length === 0) {
+                <p class="muted">Nessun attacco dall'equipaggiamento.</p>
+              }
+              @for (attack of derived.attacks; track attack.itemId) {
+                <div class="attack-row">
+                  <strong>{{ attack.name }}</strong>
+                  <span class="muted">{{ attack.toHit >= 0 ? '+' : '' }}{{ attack.toHit }} · {{ attack.damage }}</span>
+                </div>
+              }
+            </section>
+          </div>
+        } @else {
+          <section class="surface mini">
+            <h2>Tratti</h2>
+            @if (sheet.statblock.kind !== 'pc' && sheet.statblock.traits.length > 0) {
+              @for (trait of sheet.statblock.traits; track trait.name) {
+                <p><strong>{{ trait.name }}.</strong> {{ trait.description }}</p>
+              }
+            } @else {
+              <p class="muted">Nessun tratto registrato.</p>
+            }
+          </section>
+        }
+
+        <section class="surface mini">
+          <h2>Condizioni</h2>
+          @if (sheet.statblock.conditions.length === 0) {
+            <p class="muted">Nessuna condizione attiva.</p>
+          } @else {
+            <div class="badges">
+              @for (condition of sheet.statblock.conditions; track $index) {
+                <span class="badge">{{ condition.name }}</span>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      @case ('abilities') {
+        <div class="ability-grid">
+          @for (ability of abilities(); track ability.key) {
+            <article class="surface stat">
+              <span class="eyebrow">{{ ability.label }}</span>
+              <strong>{{ ability.score }}</strong>
+              <span class="muted">mod {{ modifier(ability.score) }}</span>
+            </article>
+          }
+        </div>
+        @if (skills().length > 0) {
+          <section class="surface mini">
+            <h2>Abilità</h2>
+            <ul class="plain-list">
+              @for (skill of skills(); track skill.label) {
+                <li>
+                  <span>{{ skill.label }} @if (skill.proficient) { <span class="badge">competenza</span> }</span>
+                  <strong>{{ skill.value }}</strong>
+                </li>
+              }
+            </ul>
+          </section>
+        }
+      }
+
+      @case ('spells') {
+        @if (pc(); as pc) {
+          <section class="surface mini">
+            <h2>Slot incantesimo</h2>
+            @if (pc.spells.slots.length === 0) {
+              <p class="muted">Nessuno slot.</p>
+            } @else {
+              <div class="badges">
+                @for (slot of pc.spells.slots; track slot.level) {
+                  <span class="badge">Livello {{ slot.level }}: {{ slot.used }}/{{ slot.max }}</span>
+                }
+              </div>
+            }
+          </section>
+          <section class="surface mini">
+            <h2>Incantesimi</h2>
+            @if (pc.snapshot.spells.length === 0) {
+              <p class="muted">Nessun incantesimo.</p>
+            } @else {
+              <div class="spell-sheet">
+                @for (spell of pc.snapshot.spells; track spell.id) {
+                  <article class="spell-card">
+                    <header>
+                      <strong>{{ spell.name }}</strong>
+                      <span class="badge">{{ spell.level }}</span>
+                    </header>
+                    <p class="muted">{{ spell.school }} · {{ spell.castingTime }} · {{ spell.range }} · {{ spell.components }} · {{ spell.duration }}</p>
+                    <p>{{ spell.description }}</p>
+                  </article>
+                }
+              </div>
+            }
+          </section>
+        }
+      }
+
+      @case ('equipment') {
+        <section class="surface mini">
+          <h2>Inventario</h2>
+          @if (sheet.inventory.length === 0) {
+            <p class="muted">Nessun oggetto.</p>
+          } @else {
+            <ul class="plain-list">
+              @for (item of sheet.inventory; track item.id) {
+                <li><span>{{ item.name }}</span><strong>{{ item.valueGp ?? 0 }} mo</strong></li>
+              }
+            </ul>
+          }
+          <p class="muted">Monete: {{ currency() }} mo</p>
+        </section>
+      }
+
+      @case ('features') {
+        <section class="surface mini">
+          <h2>{{ sheet.statblock.kind === 'pc' ? 'Privilegi' : 'Tratti e azioni' }}</h2>
+          @if (sheet.statblock.kind === 'pc') {
+            @if (sheet.statblock.snapshot.features.length === 0) {
+              <p class="muted">Nessun privilegio.</p>
+            } @else {
+              @for (feature of sheet.statblock.snapshot.features; track feature.id) {
+                <article class="feature-row">
+                  <strong>{{ feature.name }}</strong>
+                  <span class="badge">{{ feature.source }}</span>
+                  <p class="muted">{{ feature.description }}</p>
+                </article>
+              }
+            }
+          } @else {
+            @for (feature of sheet.statblock.traits; track feature.name) {
+              <article class="feature-row"><strong>{{ feature.name }}.</strong> {{ feature.description }}</article>
+            }
+            @for (feature of sheet.statblock.actions; track feature.name) {
+              <article class="feature-row"><strong>Azione: {{ feature.name }}.</strong> {{ feature.description }}</article>
+            }
+            @for (feature of sheet.statblock.reactions; track feature.name) {
+              <article class="feature-row"><strong>Reazione: {{ feature.name }}.</strong> {{ feature.description }}</article>
+            }
+          }
+        </section>
+      }
+
+      @case ('notes') {
+        <section class="surface mini">
+          <h2>Note del DM</h2>
+          <p class="muted">Queste note non vengono mai inviate alla scheda giocatore.</p>
+          <textarea class="notes" rows="10" [value]="notesDraft()" (input)="setNotes($event)"></textarea>
+          <div class="actions">
+            <button type="button" class="btn btn--primary" [disabled]="savingNotes()" (click)="saveNotes()">
+              {{ savingNotes() ? 'Salvataggio…' : 'Salva note' }}
+            </button>
+            @if (notesSaved()) {
+              <span class="muted">Salvate.</span>
+            }
+          </div>
+        </section>
+      }
+    }
+  }
+</section>

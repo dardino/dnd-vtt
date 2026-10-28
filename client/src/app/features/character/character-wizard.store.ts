@@ -384,6 +384,25 @@ export const CharacterWizardStore = signalStore(
         patchState(store, { build: next, preview: null });
       },
 
+      applyRolledStats(values: number[], rollId: string): void {
+        const fallback = 10;
+        updateBuild({
+          abilityGeneration: {
+            method: 'rolled',
+            base: {
+              str: values[0] ?? fallback,
+              dex: values[1] ?? fallback,
+              con: values[2] ?? fallback,
+              int: values[3] ?? fallback,
+              wis: values[4] ?? fallback,
+              cha: values[5] ?? fallback,
+            },
+            rolls: [...values],
+            rollId,
+          },
+        });
+      },
+
       setAbilityMethod(method: PcBuild['abilityGeneration']['method']): void {
         const base = method === 'standardArray'
           ? { str: 15, dex: 14, con: 13, int: 12, wis: 10, cha: 8 }

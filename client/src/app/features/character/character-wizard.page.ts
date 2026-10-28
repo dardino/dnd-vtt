@@ -1,4 +1,6 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, input, signal, type OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   POINT_BUY_BUDGET,
   abilityModifier,
@@ -17,6 +19,7 @@ import {
   type SrdSpell,
 } from '@dnd-vtt/shared';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
+import { ActorService } from '../../core/actor.service';
 import {
   CharacterWizardStore,
   WIZARD_STEPS,
@@ -51,6 +54,8 @@ export class CharacterWizardPage implements OnInit {
   public readonly campaignId = input('demo');
   public readonly store = inject(CharacterWizardStore);
   public readonly catalogService = inject(SrdCatalogService);
+  private readonly actors = inject(ActorService);
+  private readonly router = inject(Router);
 
   public readonly steps = WIZARD_STEPS;
   public readonly stepOrder = STEP_ORDER;
@@ -67,6 +72,10 @@ export class CharacterWizardPage implements OnInit {
 
   public readonly search = signal('');
   public readonly savedAt = signal<string | null>(null);
+  public readonly saving = signal(false);
+  public readonly saveError = signal<string | null>(null);
+  public readonly rolling = signal(false);
+  public readonly rollError = signal<string | null>(null);
   private restored = false;
 
   public readonly catalog = this.catalogService.catalog;
@@ -360,8 +369,64 @@ export class CharacterWizardPage implements OnInit {
     await this.store.checkBuild();
   }
 
+  public async save(): Promise<void> {
+    if (!this.canFinish() || this.saving()) {
+      return;
+    }
+    this.saving.set(true);
+    this.saveError.set(null);
+    try {
+      const actor = await this.actors.createPc(this.campaignId(), {
+        name: this.store.name().trim(),
+        build: this.store.build(),
+        ...(this.store.alignment() === '' ? {} : { alignment: this.store.alignment() }),
+        ...(this.store.notes() === '' ? {} : { dmNotes: this.store.notes() }),
+      });
+      localStorage.removeItem(this.draftKey());
+      await this.router.navigate([
+        '/dm/campaigns', this.campaignId(), 'actors', actor.id, 'sheet',
+      ]);
+    } catch (error) {
+      this.saveError.set(this.saveErrorMessage(error));
+    } finally {
+      this.saving.set(false);
+    }
+  }
+
+  private saveErrorMessage(error: unknown): string {
+    if (error instanceof HttpErrorResponse && error.status === 422) {
+      return 'La build non è valida: controlla gli errori indicati nel riepilogo.';
+    }
+    if (error instanceof HttpErrorResponse && error.status === 404) {
+      return this.serverMessage(error) ?? 'La campagna non esiste più.';
+    }
+    return 'Salvataggio non riuscito. Controlla il server e riprova.';
+  }
+
+  private serverMessage(error: HttpErrorResponse): string | null {
+    const body: unknown = error.error;
+    if (typeof body !== 'object' || body === null || !('error' in body)) {
+      return null;
+    }
+    const inner = (body as { error?: { message?: unknown } }).error;
+    return typeof inner?.message === 'string' ? inner.message : null;
+  }
+
   public autoEquip(): void {
     this.store.autoEquip(this.finalScores());
+  }
+
+  public async rollStats(): Promise<void> {
+    this.rolling.set(true);
+    this.rollError.set(null);
+    try {
+      const result = await this.actors.rollStats(this.campaignId());
+      this.store.applyRolledStats(result.values, result.rollId);
+    } catch {
+      this.rollError.set('Tiro non riuscito: controlla il server e riprova.');
+    } finally {
+      this.rolling.set(false);
+    }
   }
 
   private classSpells(): readonly SrdSpell[] {

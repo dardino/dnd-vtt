@@ -1,0 +1,242 @@
+@use '../../../styles/layout' as layout;
+
+:host {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  padding: var(--space-4) var(--space-5);
+}
+
+.sheet {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 0;
+}
+
+.sheet__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--color-border);
+
+  h1 {
+    margin: var(--space-1) 0;
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  text-decoration: none;
+
+  &:hover {
+    color: var(--color-text);
+  }
+}
+
+.sheet__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.sheet-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  border-bottom: var(--border-width) solid var(--color-border);
+}
+
+.sheet-tab {
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+
+  &:hover {
+    color: var(--color-text);
+    background: var(--color-bg-hover);
+  }
+
+  &--active {
+    border-bottom-color: var(--color-accent);
+    color: var(--color-text);
+  }
+}
+
+.stat-grid {
+  @include layout.grid-12(var(--space-3));
+}
+
+.stat {
+  display: grid;
+  gap: var(--space-1);
+  grid-column: span 3;
+  padding: var(--space-3);
+
+  strong {
+    font-size: var(--text-xl);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.ability-grid {
+  @include layout.grid-12(var(--space-3));
+
+  .stat {
+    grid-column: span 2;
+    text-align: center;
+  }
+}
+
+.two-columns {
+  @include layout.grid-12(var(--space-3));
+
+  > * {
+    grid-column: span 6;
+  }
+}
+
+.surface {
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-raised);
+
+  &.mini {
+    padding: var(--space-3);
+  }
+
+  h2 {
+    margin-bottom: var(--space-2);
+    font-size: var(--text-lg);
+    font-weight: 600;
+  }
+}
+
+.plain-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: var(--space-1) 0;
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--text-sm);
+  }
+
+  li:last-child {
+    border-bottom: 0;
+  }
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.attack-row,
+.feature-row {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-border);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+}
+
+.spell-sheet {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.spell-card {
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+  }
+
+  p {
+    margin-top: var(--space-1);
+    font-size: var(--text-sm);
+  }
+}
+
+.notes {
+  width: 100%;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.sheet-state {
+  display: grid;
+  gap: var(--space-3);
+  justify-items: start;
+}
+
+.state--error {
+  color: var(--color-danger);
+}
+
+@media (max-width: 1050px) {
+  .stat,
+  .ability-grid .stat,
+  .two-columns > * {
+    grid-column: span 12;
+  }
+}
