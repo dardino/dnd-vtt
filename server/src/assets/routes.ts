@@ -48,7 +48,7 @@ export const assetRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
         throw notFound('Asset non trovato');
       }
       if (assetInUse(db, id)) {
-        throw new AppError('forbidden', 409, 'Asset referenziato da una scena o da un attore');
+        throw new AppError('asset_in_use', 409, 'Asset referenziato da una scena o da un attore');
       }
       deleteAsset(db, id);
       return reply.status(204).send();

@@ -6,6 +6,7 @@ export type ErrorCode
     | 'state_conflict'
     | 'action_stale'
     | 'action_not_undoable'
+    | 'asset_in_use'
     | 'payload_too_large'
     | 'unsupported_media_type'
     | 'misdirected_request'
