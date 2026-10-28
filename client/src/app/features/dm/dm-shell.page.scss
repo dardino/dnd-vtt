@@ -422,14 +422,12 @@
   }
 }
 
-.scene-list__button {
+.scene-list__info {
   display: grid;
   flex: 1;
   gap: 2px;
   min-width: 0;
   padding: var(--space-1);
-  border: 0;
-  background: transparent;
   color: var(--color-text);
   text-align: left;
 }

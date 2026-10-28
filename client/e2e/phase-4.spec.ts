@@ -254,6 +254,16 @@ test('le sezioni della sidebar sono accordion e ricordano lo stato', async ({ pa
 
   await reloaded.click();
   await expect(page.getByLabel('Forma')).toBeVisible();
+
+  const reserve = page.locator('.scene-list__item', { hasText: 'Scena di riserva' });
+  await reserve.locator('.scene-list__info').click();
+  await expect(page.locator('.scene-list__item.is-active')).toContainText('mappa-8k');
+  await reserve.getByRole('button', { name: 'Attiva scena Scena di riserva' }).click();
+  await expect(reserve.locator('.badge')).toHaveText('attiva');
+
+  const mapItem = page.locator('.scene-list__item', { hasText: 'mappa-8k' });
+  await mapItem.getByRole('button', { name: 'Attiva scena mappa-8k' }).click();
+  await expect(mapItem.locator('.badge')).toHaveText('attiva');
 });
 
 test('due console convergono senza conflitti', async ({ page, context, request }) => {

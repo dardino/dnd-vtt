@@ -124,10 +124,10 @@
                   <ul class="scene-list">
                     @for (scene of scenes(); track scene.id) {
                       <li class="scene-list__item" [class.is-active]="scene.id === activeScene()?.id">
-                        <button type="button" class="scene-list__button" (click)="selectScene(scene)">
+                        <span class="scene-list__info">
                           <span>{{ scene.name }}</span>
                           <span class="muted">{{ scene.widthPx }} × {{ scene.heightPx }}</span>
-                        </button>
+                        </span>
                         <span class="scene-list__actions">
                           @if (scene.id === activeScene()?.id) {
                             <span class="badge">attiva</span>
