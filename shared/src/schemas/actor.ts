@@ -1,5 +1,14 @@
 import { z } from 'zod';
-import { actorStatblockSchema, hpSchema } from './sheet.js';
+import { conditionSchema, currencySchema } from './common.js';
+import { pcBuildSchema } from './build.js';
+import {
+  actorStatblockSchema,
+  deathSavesSchema,
+  derivedSheetSchema,
+  hpSchema,
+  overridesSchema,
+  resolvedItemSchema,
+} from './sheet.js';
 
 export const actorKindSchema = z.enum(['monster', 'npc', 'pc']);
 export type ActorKind = z.infer<typeof actorKindSchema>;
@@ -62,3 +71,34 @@ export const actorListSchema = z.strictObject({
   nextCursor: z.string().nullable(),
 });
 export type ActorList = z.infer<typeof actorListSchema>;
+
+export const createPcSchema = z.strictObject({
+  name: z.string().trim().min(1).max(120),
+  alignment: z.string().max(80).optional(),
+  playerNotes: z.string().max(20000).optional(),
+  dmNotes: z.string().max(20000).optional(),
+  build: pcBuildSchema,
+});
+export type CreatePc = z.infer<typeof createPcSchema>;
+
+export const sheetPatchSchema = z.strictObject({
+  sheetVersion: z.number().int().min(1),
+  patch: z.strictObject({
+    hp: hpSchema.optional(),
+    conditions: z.array(conditionSchema).optional(),
+    deathSaves: deathSavesSchema.optional(),
+    currency: currencySchema.optional(),
+    overrides: overridesSchema.optional(),
+    dmNotes: z.string().max(20000).nullable().optional(),
+  }),
+});
+export type SheetPatch = z.infer<typeof sheetPatchSchema>;
+
+export const dmSheetViewSchema = z.strictObject({
+  actor: actorSchema,
+  statblock: actorStatblockSchema,
+  derived: derivedSheetSchema.nullable(),
+  inventory: z.array(resolvedItemSchema),
+  sheetVersion: z.number().int().min(1),
+});
+export type DmSheetView = z.infer<typeof dmSheetViewSchema>;

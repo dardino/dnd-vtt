@@ -12,4 +12,7 @@ export * from './lib/sheet/abilities.js';
 export * from './lib/sheet/progression.js';
 export * from './lib/sheet/skills.js';
 export * from './lib/sheet/derive.js';
+export * from './lib/sheet/hp.js';
+export * from './lib/sheet/build-statblock.js';
+export * from './lib/srd/monster.js';
 export * from './lib/sheet/validate.js';

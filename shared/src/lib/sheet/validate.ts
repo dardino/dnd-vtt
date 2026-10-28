@@ -8,9 +8,9 @@ import type {
   BuildWarning,
   PcBuild,
 } from '../../schemas/build.js';
-import type { AbilityIncrease } from '../../schemas/sheet.js';
 import type { SrdCatalog, SrdClass, SrdFeat, SrdItem, SrdSpell } from '../../schemas/srd.js';
-import { POINT_BUY_BUDGET, STANDARD_ARRAY, abilityModifier, pointBuyCost } from './abilities.js';
+import { POINT_BUY_BUDGET, STANDARD_ARRAY, pointBuyCost } from './abilities.js';
+import { pcAbilityScores, pcHpMax } from './hp.js';
 import { maxSpellLevel } from './progression.js';
 
 const PREPARED_CASTERS = new Set(['cleric', 'druid', 'paladin', 'wizard']);
@@ -667,19 +667,8 @@ const abilityCapFor = (build: PcBuild, featById: Map<string, SrdFeat>, ability: 
   return cap;
 };
 
-const totalScores = (context: Context): Record<Ability, number> => {
-  const { build } = context;
-  const background = build.backgroundIncreases;
-  const asi = build.asiChoices.flatMap((choice) => choice.increases ?? []);
-  const all: AbilityIncrease[] = [...background, ...asi];
-  return Object.fromEntries(
-    abilities.map((ability) => [
-      ability,
-      build.abilityGeneration.base[ability]
-      + all.filter((increase) => increase.ability === ability).reduce((sum, increase) => sum + increase.amount, 0),
-    ]),
-  ) as Record<Ability, number>;
-};
+const totalScores = (context: Context): Record<Ability, number> =>
+  pcAbilityScores(context.build);
 
 const validateAbilityCaps = (context: Context): void => {
   const scores = totalScores(context);
@@ -697,18 +686,8 @@ const validateAbilityCaps = (context: Context): void => {
   }
 };
 
-const expectedHp = (context: Context): number | undefined => {
-  const { build, characterClass, catalog } = context;
-  const species = catalog.species.find((candidate) => candidate.id === build.speciesId);
-  const conMod = abilityModifier(totalScores(context).con);
-  const speciesBonus = species?.hpPerLevelBonus ?? 0;
-  const first = Math.max(1, characterClass.hitDie + conMod + speciesBonus);
-  const levels = build.hpRolls.reduce(
-    (total, roll) => total + Math.max(1, roll + conMod + speciesBonus),
-    first,
-  );
-  return levels;
-};
+const expectedHp = (context: Context): number =>
+  pcHpMax(context.build, context.catalog);
 
 const validateHitPoints = (context: Context): void => {
   const { build, characterClass } = context;
