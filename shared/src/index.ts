@@ -2,6 +2,8 @@ export * from './schemas/common.js';
 export * from './schemas/sheet.js';
 export * from './schemas/srd.js';
 export * from './schemas/build.js';
+export * from './schemas/scene.js';
+export * from './lib/scene/actions.js';
 export * from './lib/sheet/abilities.js';
 export * from './lib/sheet/progression.js';
 export * from './lib/sheet/skills.js';
