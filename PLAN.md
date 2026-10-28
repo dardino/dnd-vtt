@@ -662,6 +662,7 @@ Regole trasversali, valide in tutti e tre i workspace:
 
 #### 5.11.8 Git, commit e commenti
 
+- **nessun commit senza gate verde**: `.githooks/pre-commit` esegue `npm run check` (lint, typecheck, test, build e `db:check`) e blocca il commit se uno dei passi fallisce; non si usa `--no-verify` e la CI ripete gli stessi controlli
 - **Conventional Commits** con descrizione in italiano: `feat(scene): crea il token trascinato sulla mappa`, `fix(program): non pubblica overlay riservati senza conferma`
 - tipi ammessi: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `build`, `ci`; scope = workspace o feature (`client`, `server`, `shared`, `scene`, `program`…)
 - un commit = una modifica logica; `main` sempre verde; storia lineare con rebase, niente merge commit

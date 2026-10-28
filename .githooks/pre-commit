@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+
+# Gate obbligatorio: nessun commit senza lint, typecheck, test, build e db:check.
+npm run check

@@ -37,6 +37,9 @@ I cataloghi SRD sono **committati**: l'import serve solo quando si aggiorna la
 versione dei dati. A runtime il server legge i JSON locali, senza chiamate
 esterne.
 
+Il repository installa un hook `pre-commit` che esegue `npm run check`:
+nessun commit se lint, typecheck, test, build o `db:check` falliscono.
+
 ## Struttura
 
 - `client/` - Angular 22 zoneless, Signals e `@ngrx/signals`; console DM con
