@@ -362,7 +362,7 @@ export class CharacterWizardPage implements OnInit {
 
   private classSpells(): readonly SrdSpell[] {
     const classId = this.store.build().classId;
-    return (this.catalog()?.spells ?? []).filter((spell) => spell.classes.includes(classId));
+    return (this.catalog()?.spells ?? []).filter((spell: SrdSpell) => spell.classes.includes(classId));
   }
 
   private draftKey(): string {
