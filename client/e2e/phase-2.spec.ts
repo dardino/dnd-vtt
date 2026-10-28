@@ -125,3 +125,10 @@ test('il wizard non si ferma a 1440 px su schermi larghi', async ({ page }) => {
   expect(metrics.width).toBeGreaterThan(1440);
   expect(metrics.width).toBeGreaterThanOrEqual(metrics.viewport - 80);
 });
+
+test('apre il wizard dalla console', async ({ page }) => {
+  await openCampaign(page);
+  await page.getByRole('link', { name: 'Crea personaggio' }).click();
+  await expect(page).toHaveURL(/\/dm\/campaigns\/[0-9a-f-]+\/actors\/new\/pc$/);
+  await expect(page.locator('.wizard')).toBeVisible();
+});
