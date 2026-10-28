@@ -98,10 +98,19 @@
               <div id="sidebar-scenes" class="accordion__body">
                 <input
                   #fileInput
+                  id="new-map-file"
                   class="file-input"
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
                   (change)="uploadMap($event)"
+                />
+                <input
+                  #replaceInput
+                  id="replace-map-file"
+                  class="file-input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  (change)="replaceMap($event)"
                 />
                 <button type="button" class="upload-button" [disabled]="uploading()" (click)="openFilePicker()">
                   {{ uploading() ? 'Caricamento mappa…' : 'Carica mappa' }}
@@ -119,9 +128,27 @@
                           <span>{{ scene.name }}</span>
                           <span class="muted">{{ scene.widthPx }} × {{ scene.heightPx }}</span>
                         </button>
-                        @if (scene.id === activeScene()?.id) {
-                          <span class="badge">attiva</span>
-                        }
+                        <span class="scene-list__actions">
+                          @if (scene.id === activeScene()?.id) {
+                            <span class="badge">attiva</span>
+                          } @else {
+                            <button
+                              type="button"
+                              class="icon-button"
+                              [attr.aria-label]="'Attiva scena ' + scene.name"
+                              title="Attiva scena"
+                              (click)="selectScene(scene)"
+                            >▶</button>
+                          }
+                          <button
+                            type="button"
+                            class="icon-button"
+                            [attr.aria-label]="'Sostituisci mappa di ' + scene.name"
+                            title="Sostituisci mappa"
+                            [disabled]="replacing()"
+                            (click)="startReplaceMap(scene)"
+                          >♻</button>
+                        </span>
                       </li>
                     }
                   </ul>
@@ -184,6 +211,35 @@
                 <a class="dm-link-button" [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'monster']">
                   Crea mostro o NPC
                 </a>
+                @if (offMapActors().length === 0) {
+                  <p class="muted">Nessun mostro o NPC fuori mappa.</p>
+                } @else {
+                  <ul class="available-actors">
+                    @for (actor of offMapActors(); track actor.id) {
+                      <li
+                        class="available-actor"
+                        [attr.draggable]="readOnly() ? null : 'true'"
+                        (dragstart)="onActorDragStart($event, actor)"
+                      >
+                        <span class="available-actor__text">
+                          <span class="available-actor__name">{{ actor.name }}</span>
+                          <span class="available-actor__meta">
+                            {{ actorSubtitle(actor) }} · {{ actor.hp?.current ?? 0 }}/{{ actor.hp?.max ?? 0 }} PF
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          class="icon-button"
+                          [attr.aria-label]="'Aggiungi ' + actor.name + ' alla mappa'"
+                          title="Aggiungi alla mappa"
+                          [disabled]="readOnly() || activeScene() === null"
+                          (click)="addActorToMap(actor)"
+                        >+</button>
+                      </li>
+                    }
+                  </ul>
+                  <p class="muted">Trascina un attore sulla mappa oppure usa +.</p>
+                }
               </div>
             }
           </section>
@@ -196,7 +252,8 @@
         @case ('ready') {
           @if (activeCampaign(); as campaign) {
             <div class="dm-scene" aria-label="Vista principale">
-              <nav class="scene-toolbar" aria-label="Strumenti scena">
+              <div class="dm-scene__workspace">
+                <nav class="scene-toolbar" aria-label="Strumenti scena">
                 <button
                   type="button"
                   class="tool"
@@ -257,6 +314,7 @@
                     <button type="button" class="upload-button" (click)="openFilePicker()">Carica mappa</button>
                   </div>
                 }
+              </div>
               </div>
 
               <section class="dock" [class.dock--collapsed]="!dockOpen()" aria-label="Dock">
@@ -365,7 +423,7 @@
             role="button"
             tabindex="0"
             [attr.draggable]="readOnly() ? null : 'true'"
-            (dragstart)="onSlotDragStart($event, actor)"
+            (dragstart)="onActorDragStart($event, actor)"
             (click)="selectActor(actor)"
             (keydown.enter)="selectActor(actor)"
             (keydown.space)="selectActor(actor); $event.preventDefault()"

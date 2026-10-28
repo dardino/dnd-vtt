@@ -86,6 +86,7 @@ export class DmShellPage implements OnInit {
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
+  private readonly replaceInput = viewChild<ElementRef<HTMLInputElement>>('replaceInput');
   private sessionTimer: ReturnType<typeof setInterval> | null = null;
 
   public readonly campaignId = input<string>();
@@ -101,7 +102,9 @@ export class DmShellPage implements OnInit {
   public readonly statusMessage = signal('Console pronta.');
   public readonly busy = signal(false);
   public readonly uploading = signal(false);
+  public readonly replacing = signal(false);
   public readonly uploadError = signal<string | null>(null);
+  public readonly replaceTarget = signal<Scene | null>(null);
 
   public readonly tool = signal<CanvasTool>('select');
   public readonly gridVisible = signal(true);
@@ -140,8 +143,15 @@ export class DmShellPage implements OnInit {
 
   public readonly readOnly = computed(() => this.actions.status() === 'read-only');
   public readonly slots = computed<(Actor | null)[]>(() => {
-    const actors = this.party().slice(0, 10);
+    const actors = this.party().filter((actor) => actor.kind === 'pc').slice(0, 10);
     return Array.from({ length: 10 }, (_, index) => actors[index] ?? null);
+  });
+
+  public readonly offMapActors = computed<Actor[]>(() => {
+    const tokens = this.tokens();
+    return this.party().filter(
+      (actor) => actor.kind !== 'pc' && !tokens.some((token) => token.actorId === actor.id),
+    );
   });
 
   public readonly zoomLabel = computed(() => `${Math.round(this.zoom() * 100)}%`);
@@ -364,6 +374,43 @@ export class DmShellPage implements OnInit {
     this.fileInput()?.nativeElement.click();
   }
 
+  public startReplaceMap(scene: Scene): void {
+    this.replaceTarget.set(scene);
+    this.uploadError.set(null);
+    this.replaceInput()?.nativeElement.click();
+  }
+
+  public async replaceMap(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    const scene = this.replaceTarget();
+    if (file === undefined || scene === null) {
+      return;
+    }
+    this.replacing.set(true);
+    this.uploadError.set(null);
+    try {
+      const asset = await this.assetsApi.upload(file);
+      const updated = await this.campaignsApi.updateScene(scene.id, {
+        imageAssetId: asset.id,
+        widthPx: asset.width,
+        heightPx: asset.height,
+      });
+      this.scenes.update((items) => items.map((entry) => (entry.id === updated.id ? updated : entry)));
+      if (this.activeScene()?.id === updated.id) {
+        this.activeScene.set(updated);
+        await this.loadMapAsset(updated);
+      }
+      this.statusMessage.set(`Mappa sostituita: ${asset.width} × ${asset.height} px`);
+    } catch (error) {
+      this.uploadError.set(messageFor(error));
+    } finally {
+      this.replacing.set(false);
+      this.replaceTarget.set(null);
+    }
+  }
+
   public async selectScene(scene: Scene): Promise<void> {
     const campaign = this.activeCampaign();
     if (campaign === null || scene.id === this.activeScene()?.id) {
@@ -419,10 +466,25 @@ export class DmShellPage implements OnInit {
   }
 
   public async onActorDropped(event: ActorDropEvent): Promise<void> {
+    const actor = this.party().find((entry) => entry.id === event.actorId);
+    if (actor === undefined) {
+      return;
+    }
+    await this.spawnActorToken(actor, event.pointX, event.pointY);
+  }
+
+  public async addActorToMap(actor: Actor): Promise<void> {
+    const scene = this.activeScene();
+    if (scene === null) {
+      return;
+    }
+    await this.spawnActorToken(actor, scene.widthPx / 2, scene.heightPx / 2);
+  }
+
+  private async spawnActorToken(actor: Actor, pointX: number, pointY: number): Promise<void> {
     const scene = this.activeScene();
     const grid = this.grid();
-    const actor = this.party().find((entry) => entry.id === event.actorId);
-    if (scene === null || grid === null || actor === undefined) {
+    if (scene === null || grid === null) {
       return;
     }
     if (actor.kind === 'pc') {
@@ -435,7 +497,7 @@ export class DmShellPage implements OnInit {
       }
     }
     const size = SIZE_CELLS[actor.statblock.size];
-    const cell = snapTokenCell(grid, { x: event.pointX, y: event.pointY }, size);
+    const cell = snapTokenCell(grid, { x: pointX, y: pointY }, size);
     const hp = actor.hp ?? { current: 1, max: 1, temp: 0 };
     const token: TokenState = {
       id: crypto.randomUUID(),
@@ -506,7 +568,7 @@ export class DmShellPage implements OnInit {
     this.statusMessage.set(`Cella: ${cellSizePx} px`);
   }
 
-  public onSlotDragStart(event: DragEvent, actor: Actor): void {
+  public onActorDragStart(event: DragEvent, actor: Actor): void {
     if (event.dataTransfer === null || this.readOnly()) {
       return;
     }

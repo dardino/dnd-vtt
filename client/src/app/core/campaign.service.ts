@@ -7,6 +7,7 @@ import type {
   Scene,
   SceneSnapshot,
   UpdateCampaign,
+  UpdateScene,
 } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
 
@@ -58,6 +59,10 @@ export class CampaignService {
 
   public async patch(id: string, patch: UpdateCampaign): Promise<Campaign> {
     return firstValueFrom(this.http.patch<Campaign>(`/api/v1/campaigns/${id}`, patch));
+  }
+
+  public async updateScene(sceneId: string, patch: UpdateScene): Promise<Scene> {
+    return firstValueFrom(this.http.patch<Scene>(`/api/v1/scenes/${sceneId}`, patch));
   }
 
   public async getSnapshot(sceneId: string): Promise<SceneSnapshot> {

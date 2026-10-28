@@ -286,10 +286,18 @@
   min-height: 0;
 }
 
+.dm-scene__workspace {
+  display: flex;
+  flex: 1;
+  gap: var(--space-2);
+  min-height: 0;
+}
+
 .dm-scene__body {
   display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   gap: var(--space-2);
 }
 
@@ -301,7 +309,8 @@
 
 .scene-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
+  flex-direction: column;
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1);
@@ -339,8 +348,8 @@
 }
 
 .tool-divider {
-  width: var(--border-width);
-  height: 1.4rem;
+  width: 1.4rem;
+  height: var(--border-width);
   background: var(--color-border);
 }
 
@@ -417,11 +426,88 @@
   display: grid;
   flex: 1;
   gap: 2px;
+  min-width: 0;
   padding: var(--space-1);
   border: 0;
   background: transparent;
   color: var(--color-text);
   text-align: left;
+}
+
+.scene-list__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 1.8rem;
+  height: 1.8rem;
+  padding: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+
+  &:hover:not(:disabled) {
+    color: var(--color-text);
+    background: var(--color-bg-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+.available-actors {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.available-actor {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.available-actor__text {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-width: 0;
+}
+
+.available-actor__name {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.available-actor__meta {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .badge {

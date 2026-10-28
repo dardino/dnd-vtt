@@ -79,8 +79,15 @@ const mapFile = async (): Promise<{ name: string; mimeType: string; buffer: Buff
   return { name: 'mappa-8k.png', mimeType: 'image/png', buffer };
 };
 
+const replacementMapFile = async (): Promise<{ name: string; mimeType: string; buffer: Buffer }> => {
+  const buffer = await sharp({
+    create: { width: 1024, height: 512, channels: 3, background: '#6b4a2e' },
+  }).png().toBuffer();
+  return { name: 'mappa-sostituta.png', mimeType: 'image/png', buffer };
+};
+
 const uploadMap = async (page: Page): Promise<void> => {
-  await page.locator('input[type=file]').setInputFiles(await mapFile());
+  await page.locator('#new-map-file').setInputFiles(await mapFile());
   const canvas = page.locator('.scene-canvas');
   await expect(canvas).toBeVisible({ timeout: 60_000 });
   await expect(canvas).toHaveAttribute('data-tiled', 'true', { timeout: 60_000 });
@@ -132,13 +139,13 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
 
   await uploadMap(page);
 
-  const slot = page.locator('.slot', { hasText: 'Goblin E2E' });
-  await expect(slot).toBeVisible();
+  const actorCard = page.locator('.available-actor', { hasText: 'Goblin E2E' });
+  await expect(actorCard).toBeVisible();
   const canvas = page.locator('.scene-canvas');
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
-  await slot.dispatchEvent('dragstart', { dataTransfer });
+  await actorCard.dispatchEvent('dragstart', { dataTransfer });
   const dropX = (box?.x ?? 0) + (box?.width ?? 0) / 2;
   const dropY = (box?.y ?? 0) + (box?.height ?? 0) / 2;
   await canvas.dispatchEvent('dragover', {
@@ -153,6 +160,8 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   });
 
   await expect(page.locator('.token-row', { hasText: 'Goblin E2E' })).toBeVisible();
+  await expect(page.locator('.available-actor', { hasText: 'Goblin E2E' })).toBeHidden();
+  await expect(page.locator('.slots')).not.toContainText('Goblin E2E');
   const first = await activeScene(request, id);
   const dropped = tokenOf(first.snapshot);
   expect(Number.isInteger(dropped.x)).toBe(true);
@@ -220,12 +229,18 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   await expect(page.locator('.scene-canvas__measure')).toContainText(`${measured.feet} ft`);
 });
 
-test('le sezioni della sidebar sono accordion e ricordano lo stato', async ({ page }) => {
+test('le sezioni della sidebar sono accordion e ricordano lo stato', async ({ page, request }) => {
+  const id = await campaignId(request);
+  await request.post(`/api/v1/campaigns/${id}/scenes`, {
+    data: { name: 'Scena di riserva', widthPx: 1024, heightPx: 768 },
+  });
   await openCampaign(page);
   const trigger = page.getByRole('button', { name: 'Griglia', exact: true });
   const form = page.getByLabel('Forma');
   await expect(form).toBeVisible();
   await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: 'Attiva scena Scena di riserva' })).toBeVisible();
+  await expect(page.locator('.scene-list__item.is-active .badge')).toHaveText('attiva');
 
   await trigger.click();
   await expect(form).toBeHidden();
@@ -275,4 +290,20 @@ test('due console convergono senza conflitti', async ({ page, context, request }
   await expect(second.locator('.statusbar')).not.toContainText('offline');
   await expect(second.locator('.statusbar')).not.toContainText('read-only');
   await expect(page.locator('.statusbar')).not.toContainText('offline');
+});
+
+test('sostituisce la mappa della scena attiva', async ({ page }) => {
+  test.setTimeout(60_000);
+  await openCampaign(page);
+  const activeItem = page.locator('.scene-list__item', { hasText: 'mappa-8k' });
+  await expect(activeItem).toContainText('8192 × 2048');
+
+  const chooserPromise = page.waitForEvent('filechooser');
+  await activeItem.getByRole('button', { name: /Sostituisci mappa/ }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles(await replacementMapFile());
+
+  await expect(activeItem).toContainText('1024 × 512');
+  await expect(page.locator('.statusbar')).toContainText('Mappa sostituita');
+  await expect(page.locator('.scene-canvas')).toHaveAttribute('data-tiled', 'false');
 });

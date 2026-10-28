@@ -76,3 +76,11 @@ test('crea un mostro importato dal catalogo SRD', async ({ page }) => {
   await expect(page).toHaveURL(/\/dm\/campaigns\/[0-9a-f-]+\/actors\/[0-9a-f-]+\/sheet$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Goblin' })).toBeVisible();
 });
+
+test('la console tiene i PG negli slot e i mostri fuori mappa', async ({ page }) => {
+  await openCampaign(page);
+  await expect(page.locator('.slot', { hasText: 'E2E Eroe' })).toBeVisible();
+  await expect(page.locator('.slot', { hasText: 'Goblin' })).toHaveCount(0);
+  await expect(page.locator('.available-actor', { hasText: 'Goblin' })).toBeVisible();
+  await expect(page.locator('.slots')).not.toContainText('Goblin');
+});
