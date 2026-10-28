@@ -404,6 +404,52 @@ describe('azioni e concorrenza', () => {
     expect(log.json().items).toHaveLength(50);
     await closeTestApp(testApp);
   });
+
+  it('applica hp, condizioni e griglia e li riallinea dal log', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const campaignId = await createCampaign(app);
+    const sceneId = await createScene(app, campaignId);
+    const send = (action: object) => app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/actions`,
+      payload: { id: uuidv7(), clientId: 'console-1', sceneId, action },
+    });
+
+    expect((await send({ type: 'token.add', token: token('goblin-1') })).statusCode).toBe(200);
+    const damaged = await send({ type: 'token.hp', tokenId: 'goblin-1', delta: -3 });
+    expect(damaged.statusCode).toBe(200);
+    const conditioned = await send({
+      type: 'token.condition',
+      tokenId: 'goblin-1',
+      op: 'add',
+      condition: { name: 'prone' },
+    });
+    expect(conditioned.statusCode).toBe(200);
+    const hex = await send({
+      type: 'grid.update',
+      grid: { ...createDefaultSceneState().grid, type: 'hex', cellSizePx: 64 },
+    });
+    expect(hex.statusCode).toBe(200);
+
+    const snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
+    const state = snapshot.json<{ state: { grid: { type: string }; tokens: TokenState[] } }>().state;
+    expect(state.grid).toMatchObject({ type: 'hex', cellSizePx: 64 });
+    expect(state.tokens[0]?.hp.current).toBe(4);
+    expect(state.tokens[0]?.conditions).toEqual([{ name: 'prone' }]);
+
+    const sync = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${campaignId}/actions?sinceVersion=2&sceneId=${sceneId}`,
+    });
+    expect(sync.statusCode).toBe(200);
+    expect(sync.json().items.map((entry: { type: string }) => entry.type)).toEqual([
+      'token.hp',
+      'token.condition',
+      'grid.update',
+    ]);
+    await closeTestApp(testApp);
+  });
 });
 
 describe('recovery dello stato', () => {
@@ -496,6 +542,48 @@ describe('upload asset', () => {
 
     const thumb = await app.inject({ method: 'GET', url: asset.thumbUrl });
     expect(thumb.statusCode).toBe(200);
+    await closeTestApp(testApp);
+  });
+
+  it('genera preview e piramide di tile per una mappa grande', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const png = await sharp({
+      create: { width: 2600, height: 400, channels: 3, background: '#224466' },
+    }).png().toBuffer();
+    const boundary = '----dnd-vtt-tiles';
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="mappa.png"\r\n`
+        + 'Content-Type: image/png\r\n\r\n',
+      ),
+      png,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const upload = await app.inject({
+      method: 'POST',
+      url: '/api/v1/assets',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+    expect(upload.statusCode).toBe(201);
+    const asset = upload.json<{ hash: string; previewUrl: string; width: number }>();
+    expect(asset.width).toBe(2600);
+
+    const preview = await app.inject({ method: 'GET', url: asset.previewUrl });
+    expect(preview.statusCode).toBe(200);
+    expect(preview.headers['content-type']).toBe('image/webp');
+
+    const tile = await app.inject({
+      method: 'GET',
+      url: `/uploads/tiles/${asset.hash}/0/0_0.webp`,
+    });
+    expect(tile.statusCode).toBe(200);
+    const lastLevel = await app.inject({
+      method: 'GET',
+      url: `/uploads/tiles/${asset.hash}/3/0_0.webp`,
+    });
+    expect(lastLevel.statusCode).toBe(200);
     await closeTestApp(testApp);
   });
 

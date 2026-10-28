@@ -69,6 +69,7 @@ export const toAsset = (row: typeof assets.$inferSelect): Asset => ({
   width: row.width,
   height: row.height,
   url: uploadUrl(row.webpPath),
+  previewUrl: `/uploads/previews/${row.hash}.webp`,
   thumbUrl: uploadUrl(row.thumbPath),
   createdAt: row.createdAt,
 });

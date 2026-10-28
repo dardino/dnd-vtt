@@ -58,7 +58,7 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   void app.register(rateLimit, {
     max: 300,
     timeWindow: '1 minute',
-    allowList: (request) => request.url.startsWith('/uploads/'),
+    allowList: (request) => request.method === 'GET' || request.url.startsWith('/uploads/'),
     errorResponseBuilder: (request, context) => new AppError(
       'rate_limited',
       429,

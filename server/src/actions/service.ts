@@ -10,7 +10,7 @@ import {
 } from '@dnd-vtt/shared';
 import { and, eq } from 'drizzle-orm';
 import type { AppDatabase } from '../db/client.js';
-import { findActionLogEntry, insertActionLog, listActionLog, pruneActionLog } from '../db/action-log.repository.js';
+import { findActionLogEntry, insertActionLog, listActionLog, listActionLogSince, pruneActionLog } from '../db/action-log.repository.js';
 import { scenes } from '../db/schema.js';
 import { AppError, notFound } from '../errors.js';
 
@@ -33,6 +33,18 @@ const describeAction = (state: SceneState, action: GameAction): string => {
       const token = state.tokens.find((entry) => entry.id === action.tokenId);
       return `${tokenLabel(token, action.tokenId)}: rimosso`;
     }
+    case 'token.hp': {
+      const token = state.tokens.find((entry) => entry.id === action.tokenId);
+      const change = action.delta < 0 ? `${action.delta}` : `+${action.delta}`;
+      return `${tokenLabel(token, action.tokenId)}: PF ${change}`;
+    }
+    case 'token.condition': {
+      const token = state.tokens.find((entry) => entry.id === action.tokenId);
+      const verb = action.op === 'add' ? 'aggiunta' : action.op === 'remove' ? 'rimossa' : 'aggiornata';
+      return `${tokenLabel(token, action.tokenId)}: condizione ${verb}`;
+    }
+    case 'grid.update':
+      return action.grid.type === 'hex' ? 'Griglia esagonale' : 'Griglia quadrata';
     case 'fog.apply':
       return action.op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta';
     default:
@@ -138,3 +150,10 @@ export const applySceneAction = (
 
 export const listCampaignActions = (db: AppDatabase, campaignId: string) =>
   listActionLog(db, campaignId);
+
+export const syncCampaignActions = (
+  db: AppDatabase,
+  campaignId: string,
+  sinceVersion: number,
+  sceneId?: string,
+) => listActionLogSince(db, campaignId, sinceVersion, sceneId);

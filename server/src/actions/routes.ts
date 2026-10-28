@@ -5,9 +5,13 @@ import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import { parse } from '../http/validation.js';
-import { applySceneAction, listCampaignActions } from '../actions/service.js';
+import { applySceneAction, listCampaignActions, syncCampaignActions } from '../actions/service.js';
 
 const idParamsSchema = z.strictObject({ id: z.string().uuid() });
+const syncQuerySchema = z.strictObject({
+  sinceVersion: z.coerce.number().int().min(0),
+  sceneId: z.string().uuid().optional(),
+});
 
 export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
@@ -29,6 +33,10 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallbac
 
     app.get('/campaigns/:id/actions', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
+      if (request.query !== null && typeof request.query === 'object' && 'sinceVersion' in request.query) {
+        const query = parse(syncQuerySchema, request.query);
+        return reply.send(syncCampaignActions(db, id, query.sinceVersion, query.sceneId));
+      }
       return reply.send(listCampaignActions(db, id));
     });
 

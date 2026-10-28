@@ -1,4 +1,4 @@
-import { and, desc, eq, notInArray } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, notInArray } from 'drizzle-orm';
 import type { ActionLogEntry, ActionLogList } from '@dnd-vtt/shared';
 import type { DbExecutor } from './client.js';
 import { toActionLogEntry } from './mappers.js';
@@ -35,6 +35,30 @@ export const listActionLog = (db: DbExecutor, campaignId: string): ActionLogList
     .from(actionLog)
     .where(eq(actionLog.campaignId, campaignId))
     .orderBy(desc(actionLog.createdAt), desc(actionLog.id))
+    .limit(50)
+    .all();
+  return { items: rows.map(toActionLogEntry) };
+};
+
+/**
+ * Azioni applicate dopo una versione nota, in ordine di applicazione: è il
+ * canale di riallineamento usato dalle console senza WebSocket (Fase 4).
+ */
+export const listActionLogSince = (
+  db: DbExecutor,
+  campaignId: string,
+  sinceVersion: number,
+  sceneId?: string,
+): ActionLogList => {
+  const rows = db
+    .select()
+    .from(actionLog)
+    .where(and(
+      eq(actionLog.campaignId, campaignId),
+      gt(actionLog.stateVersion, sinceVersion),
+      sceneId === undefined ? undefined : eq(actionLog.sceneId, sceneId),
+    ))
+    .orderBy(asc(actionLog.stateVersion), asc(actionLog.id))
     .limit(50)
     .all();
   return { items: rows.map(toActionLogEntry) };
