@@ -1,0 +1,19 @@
+<div
+  #host
+  class="scene-canvas"
+  [class.scene-canvas--measure]="tool() === 'measure'"
+  [attr.data-camera-scale]="camera().scale"
+  [attr.data-camera-x]="camera().x"
+  [attr.data-camera-y]="camera().y"
+  [attr.data-tiled]="tiled()"
+  [attr.data-tiles-ready]="tilesReady()"
+  [attr.data-cell-size]="state().grid.cellSizePx"
+  [attr.data-grid-type]="state().grid.type"
+  (dragover)="onDragOver($event)"
+  (drop)="onDrop($event)"
+>
+  <div #container class="scene-canvas__stage"></div>
+  @if (statusLabel() !== '') {
+    <span class="scene-canvas__measure">{{ statusLabel() }}</span>
+  }
+</div>

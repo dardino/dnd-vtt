@@ -3,8 +3,10 @@ import { Injectable, inject } from '@angular/core';
 import type {
   Campaign,
   CreateCampaign,
+  CreateScene,
   Scene,
   SceneSnapshot,
+  UpdateCampaign,
 } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
 
@@ -44,10 +46,18 @@ export class CampaignService {
     return page.items;
   }
 
-  public async createScene(campaignId: string, name: string): Promise<Scene> {
+  public async createScene(
+    campaignId: string,
+    input: CreateScene | string,
+  ): Promise<Scene> {
+    const body = typeof input === 'string' ? { name: input } : input;
     return firstValueFrom(
-      this.http.post<Scene>(`/api/v1/campaigns/${campaignId}/scenes`, { name }),
+      this.http.post<Scene>(`/api/v1/campaigns/${campaignId}/scenes`, body),
     );
+  }
+
+  public async patch(id: string, patch: UpdateCampaign): Promise<Campaign> {
+    return firstValueFrom(this.http.patch<Campaign>(`/api/v1/campaigns/${id}`, patch));
   }
 
   public async getSnapshot(sceneId: string): Promise<SceneSnapshot> {

@@ -2,14 +2,21 @@
   <header class="dm-topbar">
     <div class="dm-topbar__identity">
       <span class="eyebrow">Console DM</span>
-      <strong>{{ activeCampaign()?.name ?? 'D&D VTT' }}</strong>
+      <h1 class="dm-topbar__title">{{ activeCampaign()?.name ?? 'D&D VTT' }}</h1>
       <span class="dm-topbar__status" [class.is-ready]="mode() === 'ready'">
         {{ mode() === 'ready' ? 'pronta' : 'in avvio' }}
+      </span>
+      <span class="dm-topbar__onair" [class.is-onair]="mode() === 'ready'">
+        {{ mode() === 'ready' ? 'OFF AIR' : '· · ·' }}
       </span>
     </div>
 
     <div class="dm-topbar__actions">
       @if (activeCampaign() !== null) {
+        <a
+          class="dm-link-button"
+          [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'pc']"
+        >Crea personaggio</a>
         <app-button variant="ghost" (pressed)="openChoose()">Cambia campagna</app-button>
       }
       <label class="theme-select">
@@ -27,21 +34,105 @@
     <p class="dm-notice" role="status">{{ notice() }}</p>
   }
 
-  <div class="dm-layout">
-    <aside class="dm-panel dm-panel--left" aria-label="Campagna">
-      <span class="eyebrow">Campagna</span>
-      @if (activeCampaign(); as campaign) {
-        <h2>{{ campaign.name }}</h2>
-        <p class="muted">{{ campaign.description || 'Nessuna descrizione.' }}</p>
-        <dl class="dm-meta">
-          <div><dt>Avanzamento</dt><dd>{{ campaign.advancementMode }}</dd></div>
-          <div><dt>Scene</dt><dd>{{ scenes().length }}</dd></div>
-          <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
-        </dl>
-      } @else {
-        <div class="skeleton skeleton--line"></div>
-        <div class="skeleton skeleton--line skeleton--short"></div>
-        <div class="skeleton skeleton--block"></div>
+  <div
+    class="dm-layout"
+    [class.dm-layout--left-collapsed]="!leftOpen()"
+    [class.dm-layout--right-collapsed]="!rightOpen()"
+  >
+    <aside class="dm-panel dm-panel--left" [class.is-collapsed]="!leftOpen()" aria-label="Campagna">
+      <div class="panel-head">
+        <span class="eyebrow">Campagna</span>
+        <button type="button" class="panel-toggle" (click)="toggleLeft()">
+          {{ leftOpen() ? 'Riduci' : 'Apri' }}
+        </button>
+      </div>
+      @if (leftOpen()) {
+        @if (activeCampaign(); as campaign) {
+          <h2>{{ campaign.name }}</h2>
+          <p class="muted">{{ campaign.description || 'Nessuna descrizione.' }}</p>
+          <dl class="dm-meta">
+            <div><dt>Avanzamento</dt><dd>{{ campaign.advancementMode }}</dd></div>
+            <div><dt>Scene</dt><dd>{{ scenes().length }}</dd></div>
+            <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
+          </dl>
+        } @else {
+          <div class="skeleton skeleton--line"></div>
+          <div class="skeleton skeleton--line skeleton--short"></div>
+          <div class="skeleton skeleton--block"></div>
+        }
+
+        @if (mode() === 'ready') {
+          <section class="panel-section">
+            <div class="panel-head">
+              <span class="eyebrow">Scene</span>
+              <app-button variant="ghost" [disabled]="busy()" (pressed)="createScene()">
+                Crea scena
+              </app-button>
+            </div>
+            <input
+              #fileInput
+              class="file-input"
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              (change)="uploadMap($event)"
+            />
+            <button type="button" class="upload-button" [disabled]="uploading()" (click)="openFilePicker()">
+              {{ uploading() ? 'Caricamento mappa…' : 'Carica mappa' }}
+            </button>
+            @if (uploadError(); as error) {
+              <p class="field-error" role="alert">{{ error }}</p>
+            }
+            @if (scenes().length === 0) {
+              <p class="muted">Nessuna scena: carica una mappa per iniziare.</p>
+            } @else {
+              <ul class="scene-list">
+                @for (scene of scenes(); track scene.id) {
+                  <li class="scene-list__item" [class.is-active]="scene.id === activeScene()?.id">
+                    <button type="button" class="scene-list__button" (click)="selectScene(scene)">
+                      <span>{{ scene.name }}</span>
+                      <span class="muted">{{ scene.widthPx }} × {{ scene.heightPx }}</span>
+                    </button>
+                    @if (scene.id === activeScene()?.id) {
+                      <span class="badge">attiva</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </section>
+
+          <section class="panel-section">
+            <span class="eyebrow">Griglia</span>
+            @if (grid(); as gridConfig) {
+              <label class="field">
+                <span>Forma</span>
+                <select [value]="gridConfig.type" (change)="changeGridType($event)">
+                  <option value="square">Quadrata</option>
+                  <option value="hex">Esagonale odd-r</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Dimensione cella (px)</span>
+                <input
+                  type="number"
+                  min="16"
+                  max="400"
+                  step="1"
+                  [value]="gridConfig.cellSizePx"
+                  (change)="changeGridSize($event)"
+                />
+              </label>
+              <p class="muted">Diagonale {{ gridConfig.diagonalRule }} · {{ gridConfig.feetPerCell }} ft per cella</p>
+            }
+          </section>
+
+          <section class="panel-section">
+            <span class="eyebrow">Attori</span>
+            <a class="dm-link-button" [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'monster']">
+              Crea mostro o NPC
+            </a>
+          </section>
+        }
       }
     </aside>
 
@@ -49,60 +140,99 @@
       @switch (mode()) {
         @case ('ready') {
           @if (activeCampaign(); as campaign) {
-            <div class="dm-main__head">
-              <div>
-                <span class="eyebrow">Tavolo</span>
-                <h1>{{ campaign.name }}</h1>
-              </div>
-              <div class="dm-main__actions">
-                <app-button
-                  variant="primary"
-                  [disabled]="busy()"
-                  (pressed)="createScene()"
-                >Crea scena</app-button>
-                <a
-                  class="dm-link-button"
-                  [routerLink]="['/dm/campaigns', campaign.id, 'actors', 'new', 'pc']"
-                >Crea personaggio</a>
-                <a
-                  class="dm-link-button"
-                  [routerLink]="['/dm/campaigns', campaign.id, 'actors', 'new', 'monster']"
-                >Crea mostro</a>
-              </div>
-            </div>
+            <div class="dm-scene" aria-label="Vista principale">
+              <nav class="scene-toolbar" aria-label="Strumenti scena">
+                <button
+                  type="button"
+                  class="tool"
+                  [class.is-active]="tool() === 'select'"
+                  aria-label="Seleziona e pan"
+                  title="Seleziona e pan"
+                  (click)="setTool('select')"
+                >↖</button>
+                <button
+                  type="button"
+                  class="tool"
+                  [class.is-active]="tool() === 'measure'"
+                  aria-label="Misura distanza"
+                  title="Misura distanza"
+                  (click)="setTool('measure')"
+                >⌁</button>
+                <button
+                  type="button"
+                  class="tool"
+                  [class.is-active]="gridVisible()"
+                  aria-label="Mostra griglia"
+                  title="Mostra griglia"
+                  (click)="toggleGrid()"
+                >#</button>
+                <span class="tool-divider"></span>
+                <button type="button" class="tool" aria-label="Zoom avanti" title="Zoom avanti" (click)="zoomIn()">+</button>
+                <button type="button" class="tool" aria-label="Zoom indietro" title="Zoom indietro" (click)="zoomOut()">−</button>
+                <button type="button" class="tool" aria-label="Adatta mappa" title="Adatta mappa" (click)="fitMap()">⤢</button>
+                <span class="tool-divider"></span>
+                <button type="button" class="tool" aria-label="Focus" title="Nascondi le sidebar" (click)="toggleLeft(); toggleRight()">F</button>
+                <span class="tool-divider"></span>
+                <button type="button" class="tool" aria-label="Fog" title="Fog disponibile in Fase 6" disabled>◐</button>
+                <button type="button" class="tool" aria-label="Camera live" title="Regia disponibile in Fase 7" disabled>◉</button>
+              </nav>
 
-            <div class="dm-stage">
-              @if (sceneStore.loading()) {
-                <p class="muted">Caricamento scena…</p>
-              } @else if (sceneStore.error() !== null) {
-                <p class="field-error" role="alert">{{ sceneStore.error() }}</p>
-              } @else if (sceneStore.snapshot(); as snapshot) {
-                <p class="dm-stage__status">
-                  {{ snapshot.scene.name }} · versione stato {{ snapshot.stateVersion }}
-                  · {{ snapshot.state.tokens.length }} token
-                </p>
-              }
-              @if (scenes().length === 0) {
-                <p class="muted">Nessuna scena: crea la prima per iniziare a preparare la mappa.</p>
-              } @else {
-                <ul class="scene-list">
-                  @for (scene of scenes(); track scene.id) {
-                    <li class="scene-list__item">
-                      <span>{{ scene.name }}</span>
-                      <span class="muted">{{ scene.widthPx }} × {{ scene.heightPx }}</span>
-                      @if (scene.id === campaign.activeSceneId) {
-                        <span class="badge">attiva</span>
-                      }
-                    </li>
-                  }
-                </ul>
-              }
+              <div class="dm-scene__body">
+                @if (state(); as sceneState) {
+                  <app-scene-canvas
+                    #canvas
+                    [map]="mapImage()"
+                    [state]="sceneState"
+                    [selectedTokenId]="selectedTokenId()"
+                    [tool]="tool()"
+                    [gridVisible]="gridVisible()"
+                    [readOnly]="readOnly()"
+                    (tokenMoved)="onTokenMoved($event)"
+                    (tokenSelected)="onTokenSelected($event)"
+                    (actorDropped)="onActorDropped($event)"
+                    (measured)="onMeasured($event)"
+                    (cameraChanged)="onCamera($event)"
+                  />
+                } @else if (sceneStore.loading()) {
+                  <p class="muted">Caricamento scena…</p>
+                } @else {
+                  <div class="scene-empty">
+                    <h2>Nessuna scena attiva</h2>
+                    <p class="muted">Carica una mappa dalla sidebar per iniziare a preparare il tavolo.</p>
+                    <button type="button" class="upload-button" (click)="openFilePicker()">Carica mappa</button>
+                  </div>
+                }
+              </div>
+
+              <section class="dock" [class.dock--collapsed]="!dockOpen()" aria-label="Dock">
+                <div class="dock__bar">
+                  <button type="button" class="dock__tab is-active" (click)="toggleDock()">
+                    Azioni ({{ actions.history().length }})
+                  </button>
+                  <span class="dock__hint muted">Undo e log dadi arrivano con il combattimento.</span>
+                  <button type="button" class="panel-toggle" (click)="toggleDock()">
+                    {{ dockOpen() ? 'Riduci' : 'Espandi' }}
+                  </button>
+                </div>
+                @if (dockOpen()) {
+                  <ul class="action-history">
+                    @for (entry of actions.history(); track entry.id) {
+                      <li>
+                        <span class="action-history__label">{{ entry.label }}</span>
+                        <span class="muted">{{ entry.origin }} · v{{ entry.stateVersion }}</span>
+                      </li>
+                    } @empty {
+                      <li class="muted">Nessuna azione registrata.</li>
+                    }
+                  </ul>
+                }
+              </section>
             </div>
           }
         }
         @case ('error') {
           <div class="dm-state">
-            <h1>Server non raggiungibile</h1>
+            <h2>Server non raggiungibile</h2>
             <p class="muted">Avvia il backend e ricarica la pagina.</p>
             <app-button variant="primary" (pressed)="ngOnInit()">Riprova</app-button>
           </div>
@@ -117,28 +247,96 @@
       }
     </main>
 
-    <aside class="dm-panel dm-panel--right" aria-label="Attori della campagna">
-      <span class="eyebrow">Personaggi</span>
-      @if (party().length === 0) {
-        <p class="muted">Nessun attore ancora.</p>
-      }
-      <ul class="actor-list">
-        @for (actor of party(); track actor.id) {
-          <li>
-            <a
-              class="actor-row"
-              [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', actor.id, 'sheet']"
-            >
-              <span class="actor-row__name">{{ actor.name }}</span>
-              <span class="actor-row__meta">
-                {{ actor.kind === 'pc' ? 'PG' : actor.kind === 'monster' ? 'Mostro' : 'NPC' }}
-                @if (actor.hp !== null) { · {{ actor.hp.current }}/{{ actor.hp.max }} }
-              </span>
-            </a>
-          </li>
+    <aside class="dm-panel dm-panel--right" [class.is-collapsed]="!rightOpen()" aria-label="Token in mappa">
+      <div class="panel-head">
+        <span class="eyebrow">In mappa</span>
+        <button type="button" class="panel-toggle" (click)="toggleRight()">
+          {{ rightOpen() ? 'Riduci' : 'Apri' }}
+        </button>
+      </div>
+      @if (rightOpen()) {
+        @if (tokens().length === 0) {
+          <p class="muted">Nessun token. Trascina uno slot o un attore sulla mappa.</p>
+        } @else {
+          <ul class="token-list">
+            @for (token of tokens(); track token.id) {
+              <li class="token-row" [class.is-selected]="token.id === selectedTokenId()">
+                <button type="button" class="token-row__name" (click)="centerToken(token)">
+                  <span>{{ token.label }}</span>
+                  <span class="muted">{{ token.hp.current }}/{{ token.hp.max }} PF</span>
+                </button>
+                <button
+                  type="button"
+                  class="token-row__icon"
+                  [attr.aria-label]="token.visible ? 'Nascondi ' + token.label : 'Mostra ' + token.label"
+                  (click)="toggleTokenVisibility(token)"
+                >{{ token.visible ? '◉' : '◌' }}</button>
+                <button
+                  type="button"
+                  class="token-row__icon"
+                  [attr.aria-label]="'Rimuovi ' + token.label"
+                  (click)="removeToken(token)"
+                >✕</button>
+              </li>
+            }
+          </ul>
         }
-      </ul>
+      }
     </aside>
+
+    <section class="slots" aria-label="Slot personaggi">
+      @for (actor of slots(); track $index) {
+        @if (actor !== null) {
+          <div
+            class="slot"
+            role="button"
+            tabindex="0"
+            [attr.draggable]="readOnly() ? null : 'true'"
+            (dragstart)="onSlotDragStart($event, actor)"
+            (click)="selectActor(actor)"
+            (keydown.enter)="selectActor(actor)"
+            (keydown.space)="selectActor(actor); $event.preventDefault()"
+          >
+            <div class="slot__head">
+              <span class="slot__name">{{ actor.name }}</span>
+              <span class="slot__kind">{{ actor.kind === 'pc' ? 'PG' : actor.kind === 'monster' ? 'Mostro' : 'NPC' }}</span>
+            </div>
+            <span class="slot__subtitle">{{ actorSubtitle(actor) }}</span>
+            <div class="slot__hp" aria-hidden="true" [style.--slot-hp]="hpRatio(actor)">
+              <span></span>
+            </div>
+            <div class="slot__foot">
+              <span class="muted">{{ actor.hp?.current ?? 0 }}/{{ actor.hp?.max ?? 0 }} PF</span>
+              <a
+                class="slot__sheet"
+                [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', actor.id, 'sheet']"
+                (click)="$event.stopPropagation()"
+              >Scheda</a>
+            </div>
+          </div>
+        } @else {
+          <a
+            class="slot slot--empty"
+            [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'pc']"
+            aria-label="Slot vuoto: aggiungi attore"
+          >+</a>
+        }
+      }
+    </section>
+
+    <footer class="statusbar">
+      <span class="statusbar__message">{{ statusMessage() }}</span>
+      <span class="statusbar__item statusbar__item--{{ actions.status() }}">{{ syncLabel() }}</span>
+      <span class="statusbar__item">v{{ snapshot()?.stateVersion ?? 0 }}</span>
+      <span class="statusbar__item">{{ tokens().length }} token</span>
+      <span class="statusbar__item">Zoom {{ zoomLabel() }}</span>
+      <span class="statusbar__item">Misura {{ measureLabel() }}</span>
+      @if (selectedToken(); as token) {
+        <span class="statusbar__item">{{ token.label }} ({{ token.x }}, {{ token.y }})</span>
+      }
+      <span class="statusbar__item">{{ sessionLabel() }}</span>
+      <button type="button" class="statusbar__sync" (click)="syncNow()">Riallinea</button>
+    </footer>
   </div>
 </section>
 

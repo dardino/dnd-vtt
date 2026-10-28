@@ -93,4 +93,30 @@ describe('SceneStore', () => {
     expect(store.snapshot()?.state.tokens).toHaveLength(1);
     expect(store.stateVersion()).toBe(2);
   });
+
+  it('applica in modo ottimistico e conferma la versione senza duplicare', async () => {
+    const loading = store.load(SCENE_ID);
+    http.expectOne(`/api/v1/scenes/${SCENE_ID}/snapshot?force=true`).flush(snapshot());
+    await loading;
+
+    store.applyOptimistic({ type: 'token.add', token: token() });
+    expect(store.snapshot()?.state.tokens).toHaveLength(1);
+    expect(store.stateVersion()).toBe(1);
+
+    store.ackVersion(2);
+    expect(store.stateVersion()).toBe(2);
+    expect(store.snapshot()?.stateVersion).toBe(2);
+
+    store.applyServerAction({
+      id: '0190f000-0000-7000-8000-000000000005',
+      sceneId: SCENE_ID,
+      type: 'token.add',
+      label: 'Token aggiunto: Goblin',
+      stateVersion: 2,
+      action: { type: 'token.add', token: token() },
+      inverse: { type: 'token.remove', tokenId: 'goblin-1' },
+      at: '2026-10-28T10:01:00.000Z',
+    });
+    expect(store.snapshot()?.state.tokens).toHaveLength(1);
+  });
 });

@@ -1,0 +1,257 @@
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import sharp from 'sharp';
+import {
+  cellCenterPx,
+  measureDistance,
+  snapTokenCell,
+  type GridConfig,
+  type SceneSnapshot,
+  type TokenState,
+} from '@dnd-vtt/shared';
+
+const CAMPAIGN_NAME = 'E2E Campagna';
+
+interface ActorResponse {
+  id: string;
+}
+
+const campaignId = async (request: APIRequestContext): Promise<string> => {
+  const list = await request.get('/api/v1/campaigns?limit=200');
+  const items = (await list.json() as { items: { id: string; name: string }[] }).items;
+  const existing = items.find((item) => item.name === CAMPAIGN_NAME);
+  if (existing !== undefined) {
+    return existing.id;
+  }
+  const created = await request.post('/api/v1/campaigns', {
+    data: { name: CAMPAIGN_NAME, description: 'Mappa di prova', advancementMode: 'milestone' },
+  });
+  return (await created.json() as { id: string }).id;
+};
+
+const createGoblin = async (request: APIRequestContext, id: string): Promise<ActorResponse> => {
+  const response = await request.post('/api/v1/actors', {
+    data: {
+      campaignId: id,
+      kind: 'monster',
+      name: 'Goblin E2E',
+      statblock: {
+        kind: 'monster',
+        size: 'medium',
+        abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
+        hp: { current: 7, max: 7, temp: 0 },
+        speed: { walk: 30 },
+        senses: { darkvision: 60 },
+        languages: ['common', 'goblin'],
+        conditions: [],
+        creatureType: 'goblinoid',
+        cr: '1/4',
+        tags: [],
+        ac: 15,
+        damageResistances: [],
+        damageImmunities: [],
+        damageVulnerabilities: [],
+        conditionImmunities: [],
+        traits: [],
+        actions: [],
+        reactions: [],
+      },
+    },
+  });
+  expect(response.status()).toBe(201);
+  return response.json() as Promise<ActorResponse>;
+};
+
+const openCampaign = async (page: Page): Promise<void> => {
+  await page.goto('/dm');
+  const dialog = page.getByRole('dialog');
+  const heading = page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME });
+  await expect(dialog.or(heading)).toBeVisible();
+  if (await dialog.isVisible()) {
+    await dialog.getByRole('button', { name: new RegExp(CAMPAIGN_NAME) }).first().click();
+  }
+  await expect(heading).toBeVisible();
+};
+
+const mapFile = async (): Promise<{ name: string; mimeType: string; buffer: Buffer }> => {
+  const buffer = await sharp({
+    create: { width: 8192, height: 2048, channels: 3, background: '#2e4a6b' },
+  }).png().toBuffer();
+  return { name: 'mappa-8k.png', mimeType: 'image/png', buffer };
+};
+
+const uploadMap = async (page: Page): Promise<void> => {
+  await page.locator('input[type=file]').setInputFiles(await mapFile());
+  const canvas = page.locator('.scene-canvas');
+  await expect(canvas).toBeVisible({ timeout: 60_000 });
+  await expect(canvas).toHaveAttribute('data-tiled', 'true', { timeout: 60_000 });
+  await expect(canvas).toHaveAttribute('data-tiles-ready', 'true', { timeout: 60_000 });
+};
+
+const activeScene = async (
+  request: APIRequestContext,
+  id: string,
+): Promise<{ sceneId: string; snapshot: SceneSnapshot }> => {
+  const campaign = await request.get(`/api/v1/campaigns/${id}`);
+  const sceneId = (await campaign.json() as { activeSceneId: string }).activeSceneId;
+  const snapshot = await request.get(`/api/v1/scenes/${sceneId}`);
+  return { sceneId, snapshot: await snapshot.json() as SceneSnapshot };
+};
+
+const tokenOf = (snapshot: SceneSnapshot): TokenState => {
+  const token = snapshot.state.tokens[0];
+  expect(token).toBeDefined();
+  return token as TokenState;
+};
+
+const canvasPoint = async (
+  page: Page,
+  grid: GridConfig,
+  cell: { x: number; y: number },
+): Promise<{ x: number; y: number; scale: number }> => {
+  const canvas = page.locator('.scene-canvas');
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  const scale = Number(await canvas.getAttribute('data-camera-scale'));
+  const cameraX = Number(await canvas.getAttribute('data-camera-x'));
+  const cameraY = Number(await canvas.getAttribute('data-camera-y'));
+  const world = cellCenterPx(grid, cell);
+  return {
+    x: (box?.x ?? 0) + cameraX + world.x * scale,
+    y: (box?.y ?? 0) + cameraY + world.y * scale,
+    scale,
+  };
+};
+
+test.describe.configure({ mode: 'serial' });
+
+test('carica una mappa 8k, trascina un token e calcola la misura condivisa', async ({ page, request }) => {
+  test.setTimeout(120_000);
+  const id = await campaignId(request);
+  await createGoblin(request, id);
+  await openCampaign(page);
+
+  await uploadMap(page);
+
+  const slot = page.locator('.slot', { hasText: 'Goblin E2E' });
+  await expect(slot).toBeVisible();
+  const canvas = page.locator('.scene-canvas');
+  const box = await canvas.boundingBox();
+  expect(box).not.toBeNull();
+  const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
+  await slot.dispatchEvent('dragstart', { dataTransfer });
+  const dropX = (box?.x ?? 0) + (box?.width ?? 0) / 2;
+  const dropY = (box?.y ?? 0) + (box?.height ?? 0) / 2;
+  await canvas.dispatchEvent('dragover', {
+    dataTransfer,
+    clientX: dropX,
+    clientY: dropY,
+  });
+  await canvas.dispatchEvent('drop', {
+    dataTransfer,
+    clientX: dropX,
+    clientY: dropY,
+  });
+
+  await expect(page.locator('.token-row', { hasText: 'Goblin E2E' })).toBeVisible();
+  const first = await activeScene(request, id);
+  const dropped = tokenOf(first.snapshot);
+  expect(Number.isInteger(dropped.x)).toBe(true);
+  expect(Number.isInteger(dropped.y)).toBe(true);
+
+  const squareCenter = await canvasPoint(page, first.snapshot.state.grid, dropped);
+  await page.mouse.move(squareCenter.x, squareCenter.y);
+  await page.mouse.down();
+  await page.mouse.move(
+    squareCenter.x + first.snapshot.state.grid.cellSizePx * squareCenter.scale * 1.2,
+    squareCenter.y + first.snapshot.state.grid.cellSizePx * squareCenter.scale * 1.2,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+
+  await expect.poll(async () => {
+    const current = await activeScene(request, id);
+    return tokenOf(current.snapshot).x;
+  }).toBeGreaterThan(dropped.x);
+
+  const moved = await activeScene(request, id);
+  expect(tokenOf(moved.snapshot).y).toBeGreaterThan(dropped.y);
+
+  await page.getByLabel('Forma').selectOption('hex');
+  await expect(canvas).toHaveAttribute('data-grid-type', 'hex');
+  await expect.poll(async () => {
+    const current = await activeScene(request, id);
+    return current.snapshot.state.grid.type;
+  }).toBe('hex');
+
+  const hexScene = await activeScene(request, id);
+  const beforeHex = tokenOf(hexScene.snapshot);
+  const hexCenter = await canvasPoint(page, hexScene.snapshot.state.grid, beforeHex);
+  await page.mouse.move(hexCenter.x, hexCenter.y);
+  await page.mouse.down();
+  await page.mouse.move(
+    hexCenter.x + hexScene.snapshot.state.grid.cellSizePx * hexCenter.scale * 1.4,
+    hexCenter.y,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+
+  const expectedHex = snapTokenCell(
+    hexScene.snapshot.state.grid,
+    {
+      x: cellCenterPx(hexScene.snapshot.state.grid, beforeHex).x
+        + hexScene.snapshot.state.grid.cellSizePx * 1.4,
+      y: cellCenterPx(hexScene.snapshot.state.grid, beforeHex).y,
+    },
+    beforeHex.size,
+  );
+  await expect.poll(async () => {
+    const current = await activeScene(request, id);
+    return `${tokenOf(current.snapshot).x},${tokenOf(current.snapshot).y}`;
+  }).toBe(`${expectedHex.x},${expectedHex.y}`);
+
+  const measured = measureDistance({ x: 1, y: 1 }, { x: 4, y: 2 }, hexScene.snapshot.state.grid);
+  await page.getByRole('button', { name: 'Misura distanza' }).click();
+  const from = await canvasPoint(page, hexScene.snapshot.state.grid, { x: 1, y: 1 });
+  const to = await canvasPoint(page, hexScene.snapshot.state.grid, { x: 4, y: 2 });
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.up();
+  await expect(page.locator('.scene-canvas__measure')).toContainText(`${measured.feet} ft`);
+});
+
+test('due console convergono senza conflitti', async ({ page, context, request }) => {
+  test.setTimeout(60_000);
+  const id = await campaignId(request);
+  await openCampaign(page);
+  const canvas = page.locator('.scene-canvas');
+  await expect(canvas).toHaveAttribute('data-tiled', 'true');
+
+  const second = await context.newPage();
+  await second.goto(page.url());
+  await expect(second.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
+  await expect(second.locator('.scene-canvas')).toBeVisible();
+
+  const scene = await activeScene(request, id);
+  const token = tokenOf(scene.snapshot);
+  const point = await canvasPoint(page, scene.snapshot.state.grid, token);
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  await page.mouse.move(
+    point.x + scene.snapshot.state.grid.cellSizePx * point.scale,
+    point.y,
+    { steps: 6 },
+  );
+  await page.mouse.up();
+
+  await expect.poll(async () => {
+    const current = await activeScene(request, id);
+    return `${tokenOf(current.snapshot).x}:${current.snapshot.stateVersion}`;
+  }).not.toBe(`${token.x}:${scene.snapshot.stateVersion}`);
+
+  const latest = await activeScene(request, id);
+  await expect(second.locator('.statusbar')).toContainText(`v${latest.snapshot.stateVersion}`, { timeout: 10_000 });
+  await expect(second.locator('.statusbar')).not.toContainText('offline');
+  await expect(second.locator('.statusbar')).not.toContainText('read-only');
+  await expect(page.locator('.statusbar')).not.toContainText('offline');
+});

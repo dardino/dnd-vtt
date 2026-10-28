@@ -1,6 +1,11 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { applyAction, type AppliedAction, type SceneSnapshot } from '@dnd-vtt/shared';
+import {
+  applyAction,
+  type AppliedAction,
+  type GameAction,
+  type SceneSnapshot,
+} from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
 
@@ -19,15 +24,24 @@ const initialState: SceneStoreState = {
 };
 
 /**
- * Proiezione read-only dello stato di scena: legge lo snapshot e applica le
- * azioni canoniche confermate dal server. Non esiste un metodo che scriva il
- * documento intero: l'unico writer è l'ActionService (D34).
+ * Proiezione dello stato di scena: legge lo snapshot, applica le azioni
+ * canoniche confermate dal server e consente l'applicazione ottimistica
+ * richiesta dall'ActionStore. Nessun metodo scrive il documento intero.
  */
 export const SceneStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
   withMethods((store) => {
     const http = inject(HttpClient);
+
+    const applyToSnapshot = (action: GameAction): void => {
+      const snapshot = store.snapshot();
+      if (snapshot === null) {
+        return;
+      }
+      patchState(store, { snapshot: { ...snapshot, state: applyAction(snapshot.state, action) } });
+    };
+
     return {
       async load(sceneId: string): Promise<void> {
         patchState(store, { loading: true, error: null });
@@ -47,14 +61,42 @@ export const SceneStore = signalStore(
 
       applyServerAction(applied: AppliedAction): void {
         const snapshot = store.snapshot();
-        if (snapshot === null || snapshot.scene.id !== applied.sceneId) {
+        if (
+          snapshot === null
+          || snapshot.scene.id !== applied.sceneId
+          || applied.stateVersion <= store.stateVersion()
+        ) {
           return;
         }
-        const state = applyAction(snapshot.state, applied.action);
         patchState(store, {
-          snapshot: { ...snapshot, state, stateVersion: applied.stateVersion },
+          snapshot: {
+            ...snapshot,
+            state: applyAction(snapshot.state, applied.action),
+            stateVersion: applied.stateVersion,
+          },
           stateVersion: applied.stateVersion,
         });
+      },
+
+      /** Applica subito l'azione in attesa della conferma del server. */
+      applyOptimistic(action: GameAction): void {
+        applyToSnapshot(action);
+      },
+
+      /** Conferma una versione già rappresentata localmente (azione propria). */
+      ackVersion(version: number): void {
+        const snapshot = store.snapshot();
+        if (snapshot === null || version <= store.stateVersion()) {
+          return;
+        }
+        patchState(store, {
+          snapshot: { ...snapshot, stateVersion: version },
+          stateVersion: version,
+        });
+      },
+
+      clear(): void {
+        patchState(store, initialState);
       },
     };
   }),
