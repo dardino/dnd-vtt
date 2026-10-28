@@ -149,3 +149,95 @@ export const gameActionSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('fog.apply'), op: fogOpSchema }),
 ]);
 export type GameAction = z.infer<typeof gameActionSchema>;
+
+export const sceneSchema = z.strictObject({
+  id: z.string().uuid(),
+  campaignId: z.string().uuid(),
+  name: z.string().min(1),
+  imageAssetId: z.string().uuid().nullable(),
+  widthPx: z.number().int().positive(),
+  heightPx: z.number().int().positive(),
+  stateVersion: z.number().int().min(1),
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime(),
+});
+export type Scene = z.infer<typeof sceneSchema>;
+
+export const createSceneSchema = z.strictObject({
+  name: z.string().trim().min(1).max(120),
+  widthPx: z.number().int().min(1).max(20000).default(1920),
+  heightPx: z.number().int().min(1).max(20000).default(1080),
+  imageAssetId: z.string().uuid().optional(),
+});
+export type CreateScene = z.infer<typeof createSceneSchema>;
+
+export const updateSceneSchema = z
+  .strictObject({
+    name: z.string().trim().min(1).max(120).optional(),
+    widthPx: z.number().int().min(1).max(20000).optional(),
+    heightPx: z.number().int().min(1).max(20000).optional(),
+    imageAssetId: z.string().uuid().nullable().optional(),
+  })
+  .refine((patch) => Object.keys(patch).length > 0, { message: 'nessun campo da aggiornare' });
+export type UpdateScene = z.infer<typeof updateSceneSchema>;
+
+export const sceneListSchema = z.strictObject({
+  items: z.array(sceneSchema),
+  nextCursor: z.string().nullable(),
+});
+export type SceneList = z.infer<typeof sceneListSchema>;
+
+export const sceneSnapshotSchema = z.strictObject({
+  scene: sceneSchema,
+  state: sceneStateSchema,
+  stateVersion: z.number().int().min(1),
+});
+export type SceneSnapshot = z.infer<typeof sceneSnapshotSchema>;
+
+export const putSceneStateSchema = z.strictObject({
+  stateVersion: z.number().int().min(1),
+  state: sceneStateSchema,
+});
+export type PutSceneState = z.infer<typeof putSceneStateSchema>;
+
+export const actionRequestSchema = z.strictObject({
+  id: z.string().uuid(),
+  clientId: z.string().min(1).max(120),
+  sceneId: z.string().uuid(),
+  action: gameActionSchema,
+});
+export type ActionRequest = z.infer<typeof actionRequestSchema>;
+
+export const appliedActionSchema = z.strictObject({
+  id: z.string().uuid(),
+  sceneId: z.string().uuid(),
+  type: z.string().min(1),
+  label: z.string(),
+  stateVersion: z.number().int().min(1),
+  action: gameActionSchema,
+  inverse: gameActionSchema,
+  at: z.string().datetime(),
+});
+export type AppliedAction = z.infer<typeof appliedActionSchema>;
+
+export const actionLogEntrySchema = z.strictObject({
+  id: z.string().uuid(),
+  sceneId: z.string().uuid().nullable(),
+  actorId: z.string().uuid().nullable(),
+  clientId: z.string().min(1),
+  origin: z.enum(['dm', 'player']),
+  type: z.string().min(1),
+  label: z.string(),
+  payload: gameActionSchema,
+  inverse: gameActionSchema,
+  status: z.enum(['applied', 'undone']),
+  stateVersion: z.number().int().min(1),
+  createdAt: z.string().datetime(),
+  undoneAt: z.string().datetime().nullable(),
+});
+export type ActionLogEntry = z.infer<typeof actionLogEntrySchema>;
+
+export const actionLogListSchema = z.strictObject({
+  items: z.array(actionLogEntrySchema),
+});
+export type ActionLogList = z.infer<typeof actionLogListSchema>;
