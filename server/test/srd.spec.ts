@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { srdCatalogSchema } from '@dnd-vtt/shared';
-import { buildApp } from '../src/app.js';
 import { loadSrdCatalog, availableSrdVersions } from '../src/srd/load.js';
+import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
 
 const VERSION = 'srd-5.2.0';
 
@@ -131,14 +131,15 @@ describe('catalogo SRD 5.2', () => {
 
 describe('API SRD', () => {
   let app: FastifyInstance;
+  let testApp: TestApp;
 
   beforeAll(async () => {
-    app = buildApp();
-    await app.ready();
+    testApp = await createTestApp();
+    app = testApp.app;
   });
 
   afterAll(async () => {
-    await app.close();
+    await closeTestApp(testApp);
   });
 
   it('serve i metadati della versione', async () => {
