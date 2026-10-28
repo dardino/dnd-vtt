@@ -114,6 +114,9 @@ export class SceneCanvasComponent implements OnDestroy {
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private activeAssetId: string | null = null;
   private mapGeneration = 0;
+  private lastGrid: GridConfig | null = null;
+  private lastGridVisible: boolean | null = null;
+  private lastMapHash: string | null = null;
   private draggingMeasure = false;
   private loadingImages = new Map<string, Promise<HTMLImageElement>>();
 
@@ -181,6 +184,7 @@ export class SceneCanvasComponent implements OnDestroy {
       y: (stage.height() - map.height * scale) / 2,
     });
     this.publishCamera();
+    this.renderGrid();
     this.scheduleTiles();
   }
 
@@ -286,7 +290,18 @@ export class SceneCanvasComponent implements OnDestroy {
     if (this.activeAssetId !== (map?.hash ?? null)) {
       this.loadMap(map);
     }
-    this.renderGrid();
+    const grid = this.state().grid;
+    const mapHash = map?.hash ?? null;
+    if (
+      grid !== this.lastGrid
+      || this.gridVisible() !== this.lastGridVisible
+      || mapHash !== this.lastMapHash
+    ) {
+      this.lastGrid = grid;
+      this.lastGridVisible = this.gridVisible();
+      this.lastMapHash = mapHash;
+      this.renderGrid();
+    }
     this.renderTokens();
     this.renderMeasure();
     this.scheduleTiles();
@@ -489,11 +504,12 @@ export class SceneCanvasComponent implements OnDestroy {
     }
     const grid = this.state().grid;
     const colors = this.colors();
+    const map = this.map();
     const scale = stage.scaleX();
     const worldLeft = Math.max(0, -stage.x() / scale);
     const worldTop = Math.max(0, -stage.y() / scale);
-    const worldRight = worldLeft + stage.width() / scale;
-    const worldBottom = worldTop + stage.height() / scale;
+    const worldRight = Math.min(map?.width ?? Number.POSITIVE_INFINITY, worldLeft + stage.width() / scale);
+    const worldBottom = Math.min(map?.height ?? Number.POSITIVE_INFINITY, worldTop + stage.height() / scale);
     const shape = new Konva.Shape({
       listening: false,
       sceneFunc: (context) => {
@@ -509,7 +525,6 @@ export class SceneCanvasComponent implements OnDestroy {
       strokeWidth: Math.max(0.5, 1 / scale),
       opacity: 0.65,
     });
-    const map = this.map();
     if (map === null) {
       layer.clip({ x: 0, y: 0, width: 0, height: 0 });
     } else {
@@ -685,6 +700,9 @@ export class SceneCanvasComponent implements OnDestroy {
     if (this.tool() !== 'measure' || this.stage === null) {
       return;
     }
+    // Il flag `draggable` è applicato da un effect: forzarlo qui evita che il
+    // primo mousedown dopo il cambio strumento faccia partire anche il pan.
+    this.stage.draggable(false);
     event.evt.preventDefault();
     const point = this.worldPoint();
     if (point === null) {
@@ -725,9 +743,6 @@ export class SceneCanvasComponent implements OnDestroy {
     const measure = measureDistance(from, to, this.state().grid);
     this.measurement.set(measure);
     this.renderMeasure();
-    if (this.draggingMeasure) {
-      this.measured.emit(measure);
-    }
   }
 
   private renderMeasure(): void {

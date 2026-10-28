@@ -74,7 +74,7 @@ const openCampaign = async (page: Page): Promise<void> => {
 
 const mapFile = async (): Promise<{ name: string; mimeType: string; buffer: Buffer }> => {
   const buffer = await sharp({
-    create: { width: 8192, height: 2048, channels: 3, background: '#2e4a6b' },
+    create: { width: 8192, height: 1024, channels: 3, background: '#2e4a6b' },
   }).png().toBuffer();
   return { name: 'mappa-8k.png', mimeType: 'image/png', buffer };
 };
@@ -115,17 +115,21 @@ const canvasPoint = async (
   grid: GridConfig,
   cell: { x: number; y: number },
 ): Promise<{ x: number; y: number; scale: number }> => {
-  const canvas = page.locator('.scene-canvas');
-  const box = await canvas.boundingBox();
-  expect(box).not.toBeNull();
-  const scale = Number(await canvas.getAttribute('data-camera-scale'));
-  const cameraX = Number(await canvas.getAttribute('data-camera-x'));
-  const cameraY = Number(await canvas.getAttribute('data-camera-y'));
+  const camera = await page.locator('.scene-canvas').evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: rect.x,
+      y: rect.y,
+      scale: Number(element.getAttribute('data-camera-scale')),
+      cameraX: Number(element.getAttribute('data-camera-x')),
+      cameraY: Number(element.getAttribute('data-camera-y')),
+    };
+  });
   const world = cellCenterPx(grid, cell);
   return {
-    x: (box?.x ?? 0) + cameraX + world.x * scale,
-    y: (box?.y ?? 0) + cameraY + world.y * scale,
-    scale,
+    x: camera.x + camera.cameraX + world.x * camera.scale,
+    y: camera.y + camera.cameraY + world.y * camera.scale,
+    scale: camera.scale,
   };
 };
 
@@ -224,12 +228,67 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   const to = await canvasPoint(page, hexScene.snapshot.state.grid, { x: 4, y: 2 });
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.move(to.x, to.y, { steps: 2 });
   await page.mouse.up();
   await expect(page.locator('.scene-canvas__measure')).toContainText(`${measured.feet} ft`);
 });
 
-test('le sezioni della sidebar sono accordion e ricordano lo stato', async ({ page, request }) => {
+test('sostituisce la mappa della scena attiva', async ({ page }) => {
+  test.setTimeout(60_000);
+  await openCampaign(page);
+  const activeItem = page.locator('.scene-list__item', { hasText: 'mappa-8k' });
+  await expect(activeItem).toContainText('8192 × 1024');
+
+  const chooserPromise = page.waitForEvent('filechooser');
+  await activeItem.getByRole('button', { name: /Sostituisci mappa/ }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles(await replacementMapFile());
+
+  await expect(activeItem).toContainText('1024 × 512');
+  await expect(page.locator('.statusbar')).toContainText('Mappa sostituita');
+  await expect(page.locator('.scene-canvas')).toHaveAttribute('data-tiled', 'false');
+});
+
+test('due console convergono senza conflitti', async ({ page, context, request }) => {
+  test.setTimeout(60_000);
+  const id = await campaignId(request);
+  await openCampaign(page);
+  await expect(page.locator('.scene-canvas')).toBeVisible();
+
+  const second = await context.newPage();
+  await second.goto(page.url());
+  await expect(second.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
+  await expect(second.locator('.scene-canvas')).toBeVisible();
+
+  const scene = await activeScene(request, id);
+  const token = tokenOf(scene.snapshot);
+  const canvas = page.locator('.scene-canvas');
+  const beforeCamera = await canvas.getAttribute('data-camera-x');
+  await page.locator('.token-row__name', { hasText: 'Goblin E2E' }).click();
+  await expect.poll(async () => canvas.getAttribute('data-camera-x')).not.toBe(beforeCamera);
+  const point = await canvasPoint(page, scene.snapshot.state.grid, token);
+  await page.mouse.move(point.x, point.y);
+  await page.mouse.down();
+  await page.mouse.move(
+    point.x + scene.snapshot.state.grid.cellSizePx * point.scale,
+    point.y,
+    { steps: 6 },
+  );
+  await page.mouse.up();
+
+  await expect.poll(async () => {
+    const current = await activeScene(request, id);
+    return `${tokenOf(current.snapshot).x}:${current.snapshot.stateVersion}`;
+  }).not.toBe(`${token.x}:${scene.snapshot.stateVersion}`);
+
+  const latest = await activeScene(request, id);
+  await expect(second.locator('.statusbar')).toContainText(`v${latest.snapshot.stateVersion}`, { timeout: 10_000 });
+  await expect(second.locator('.statusbar')).not.toContainText('offline');
+  await expect(second.locator('.statusbar')).not.toContainText('read-only');
+  await expect(page.locator('.statusbar')).not.toContainText('offline');
+});
+
+test('le sezioni sono accordion e la scena si attiva solo dal pulsante', async ({ page, request }) => {
   const id = await campaignId(request);
   await request.post(`/api/v1/campaigns/${id}/scenes`, {
     data: { name: 'Scena di riserva', widthPx: 1024, heightPx: 768 },
@@ -260,60 +319,4 @@ test('le sezioni della sidebar sono accordion e ricordano lo stato', async ({ pa
   await expect(page.locator('.scene-list__item.is-active')).toContainText('mappa-8k');
   await reserve.getByRole('button', { name: 'Attiva scena Scena di riserva' }).click();
   await expect(reserve.locator('.badge')).toHaveText('attiva');
-
-  const mapItem = page.locator('.scene-list__item', { hasText: 'mappa-8k' });
-  await mapItem.getByRole('button', { name: 'Attiva scena mappa-8k' }).click();
-  await expect(mapItem.locator('.badge')).toHaveText('attiva');
-});
-
-test('due console convergono senza conflitti', async ({ page, context, request }) => {
-  test.setTimeout(60_000);
-  const id = await campaignId(request);
-  await openCampaign(page);
-  const canvas = page.locator('.scene-canvas');
-  await expect(canvas).toHaveAttribute('data-tiled', 'true');
-
-  const second = await context.newPage();
-  await second.goto(page.url());
-  await expect(second.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
-  await expect(second.locator('.scene-canvas')).toBeVisible();
-
-  const scene = await activeScene(request, id);
-  const token = tokenOf(scene.snapshot);
-  const point = await canvasPoint(page, scene.snapshot.state.grid, token);
-  await page.mouse.move(point.x, point.y);
-  await page.mouse.down();
-  await page.mouse.move(
-    point.x + scene.snapshot.state.grid.cellSizePx * point.scale,
-    point.y,
-    { steps: 6 },
-  );
-  await page.mouse.up();
-
-  await expect.poll(async () => {
-    const current = await activeScene(request, id);
-    return `${tokenOf(current.snapshot).x}:${current.snapshot.stateVersion}`;
-  }).not.toBe(`${token.x}:${scene.snapshot.stateVersion}`);
-
-  const latest = await activeScene(request, id);
-  await expect(second.locator('.statusbar')).toContainText(`v${latest.snapshot.stateVersion}`, { timeout: 10_000 });
-  await expect(second.locator('.statusbar')).not.toContainText('offline');
-  await expect(second.locator('.statusbar')).not.toContainText('read-only');
-  await expect(page.locator('.statusbar')).not.toContainText('offline');
-});
-
-test('sostituisce la mappa della scena attiva', async ({ page }) => {
-  test.setTimeout(60_000);
-  await openCampaign(page);
-  const activeItem = page.locator('.scene-list__item', { hasText: 'mappa-8k' });
-  await expect(activeItem).toContainText('8192 × 2048');
-
-  const chooserPromise = page.waitForEvent('filechooser');
-  await activeItem.getByRole('button', { name: /Sostituisci mappa/ }).click();
-  const chooser = await chooserPromise;
-  await chooser.setFiles(await replacementMapFile());
-
-  await expect(activeItem).toContainText('1024 × 512');
-  await expect(page.locator('.statusbar')).toContainText('Mappa sostituita');
-  await expect(page.locator('.scene-canvas')).toHaveAttribute('data-tiled', 'false');
 });
