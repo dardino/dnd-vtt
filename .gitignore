@@ -9,6 +9,7 @@ out-tsc/
 .env.*
 !.env.example
 /data/
+.e2e/
 playwright-report/
 test-results/
 .DS_Store

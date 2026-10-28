@@ -2,6 +2,7 @@
   "name": "@dnd-vtt/client",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -10,8 +11,9 @@
     "watch": "ng build --watch --configuration development",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
-    "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "test": "ng test --watch=false"
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.e2e.json --noEmit",
+    "test": "ng test --watch=false",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@angular/common": "22.2.3",
@@ -29,6 +31,7 @@
     "@angular/build": "22.2.5",
     "@angular/cli": "22.2.5",
     "@angular/compiler-cli": "22.2.3",
+    "@playwright/test": "1.64.1",
     "jsdom": "30.0.0",
     "typescript": "6.0.3",
     "vitest": "5.0.5"

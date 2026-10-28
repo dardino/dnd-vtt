@@ -1,0 +1,14 @@
+<dialog #dialog class="dialog" (cancel)="cancel($event)" (close)="close()">
+  <header class="dialog__header">
+    <h2 class="dialog__title">{{ title() }}</h2>
+    @if (dismissible()) {
+      <button class="dialog__close" type="button" aria-label="Chiudi" (click)="close()">×</button>
+    }
+  </header>
+  <div class="dialog__body">
+    <ng-content />
+  </div>
+  <footer class="dialog__actions">
+    <ng-content select="[dialog-actions]" />
+  </footer>
+</dialog>

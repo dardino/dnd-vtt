@@ -1,0 +1,213 @@
+<section class="dm-shell" aria-busy="false">
+  <header class="dm-topbar">
+    <div class="dm-topbar__identity">
+      <span class="eyebrow">Console DM</span>
+      <strong>{{ activeCampaign()?.name ?? 'D&D VTT' }}</strong>
+      <span class="dm-topbar__status" [class.is-ready]="mode() === 'ready'">
+        {{ mode() === 'ready' ? 'pronta' : 'in avvio' }}
+      </span>
+    </div>
+
+    <div class="dm-topbar__actions">
+      @if (activeCampaign() !== null) {
+        <app-button variant="ghost" (pressed)="openChoose()">Cambia campagna</app-button>
+      }
+      <label class="theme-select">
+        <span>Tema</span>
+        <select [value]="theme.theme()" (change)="setTheme($event)">
+          <option value="light">Chiaro</option>
+          <option value="dark">Scuro</option>
+          <option value="system">Sistema</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  @if (notice() !== null) {
+    <p class="dm-notice" role="status">{{ notice() }}</p>
+  }
+
+  <div class="dm-layout">
+    <aside class="dm-panel dm-panel--left" aria-label="Campagna">
+      <span class="eyebrow">Campagna</span>
+      @if (activeCampaign(); as campaign) {
+        <h2>{{ campaign.name }}</h2>
+        <p class="muted">{{ campaign.description || 'Nessuna descrizione.' }}</p>
+        <dl class="dm-meta">
+          <div><dt>Avanzamento</dt><dd>{{ campaign.advancementMode }}</dd></div>
+          <div><dt>Scene</dt><dd>{{ scenes().length }}</dd></div>
+          <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
+        </dl>
+      } @else {
+        <div class="skeleton skeleton--line"></div>
+        <div class="skeleton skeleton--line skeleton--short"></div>
+        <div class="skeleton skeleton--block"></div>
+      }
+    </aside>
+
+    <main class="dm-main">
+      @switch (mode()) {
+        @case ('ready') {
+          @if (activeCampaign(); as campaign) {
+            <div class="dm-main__head">
+              <div>
+                <span class="eyebrow">Tavolo</span>
+                <h1>{{ campaign.name }}</h1>
+              </div>
+              <div class="dm-main__actions">
+                <app-button
+                  variant="primary"
+                  [disabled]="busy()"
+                  (pressed)="createScene()"
+                >Crea scena</app-button>
+                <a
+                  class="dm-link-button"
+                  [routerLink]="['/dm/campaigns', campaign.id, 'actors', 'new', 'pc']"
+                >Crea personaggio</a>
+              </div>
+            </div>
+
+            <div class="dm-stage">
+              @if (sceneStore.loading()) {
+                <p class="muted">Caricamento scena…</p>
+              } @else if (sceneStore.error() !== null) {
+                <p class="field-error" role="alert">{{ sceneStore.error() }}</p>
+              } @else if (sceneStore.snapshot(); as snapshot) {
+                <p class="dm-stage__status">
+                  {{ snapshot.scene.name }} · versione stato {{ snapshot.stateVersion }}
+                  · {{ snapshot.state.tokens.length }} token
+                </p>
+              }
+              @if (scenes().length === 0) {
+                <p class="muted">Nessuna scena: crea la prima per iniziare a preparare la mappa.</p>
+              } @else {
+                <ul class="scene-list">
+                  @for (scene of scenes(); track scene.id) {
+                    <li class="scene-list__item">
+                      <span>{{ scene.name }}</span>
+                      <span class="muted">{{ scene.widthPx }} × {{ scene.heightPx }}</span>
+                      @if (scene.id === campaign.activeSceneId) {
+                        <span class="badge">attiva</span>
+                      }
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        }
+        @case ('error') {
+          <div class="dm-state">
+            <h1>Server non raggiungibile</h1>
+            <p class="muted">Avvia il backend e ricarica la pagina.</p>
+            <app-button variant="primary" (pressed)="ngOnInit()">Riprova</app-button>
+          </div>
+        }
+        @default {
+          <div class="dm-skeleton" aria-label="Caricamento console">
+            <div class="skeleton skeleton--title"></div>
+            <div class="skeleton skeleton--block"></div>
+            <div class="skeleton skeleton--block"></div>
+          </div>
+        }
+      }
+    </main>
+
+    <aside class="dm-panel dm-panel--right" aria-label="Contenuti">
+      <span class="eyebrow">In mappa</span>
+      <div class="skeleton skeleton--line skeleton--short"></div>
+      <div class="skeleton skeleton--block"></div>
+      <span class="eyebrow">Prossimi</span>
+      <div class="skeleton skeleton--line skeleton--short"></div>
+    </aside>
+  </div>
+</section>
+
+<app-dialog
+  [open]="mode() === 'login'"
+  title="Accesso alla console"
+  [dismissible]="false"
+>
+  <form class="form" (submit)="submitLogin($event)">
+    <p class="muted">Il server richiede la password DM perché la console non è su loopback fidato.</p>
+    <label class="field">
+      <span>Password</span>
+      <input
+        type="password"
+        autocomplete="current-password"
+        [value]="password()"
+        (input)="updatePassword($event)"
+        [disabled]="busy()"
+      />
+    </label>
+    @if (loginError() !== null) {
+      <p class="field-error" role="alert">{{ loginError() }}</p>
+    }
+    <div dialog-actions>
+      <app-button type="submit" variant="primary" [disabled]="busy()">Entra</app-button>
+    </div>
+  </form>
+</app-dialog>
+
+<app-dialog
+  [open]="mode() === 'create'"
+  title="Crea campagna"
+  [dismissible]="hasCampaigns()"
+  (closed)="closeCreate()"
+>
+  <form class="form" (submit)="submitCampaign($event)">
+    <label class="field">
+      <span>Nome</span>
+      <input
+        type="text"
+        required
+        maxlength="120"
+        [value]="newName()"
+        (input)="updateNewName($event)"
+        [disabled]="busy()"
+      />
+    </label>
+    <label class="field">
+      <span>Ambientazione</span>
+      <textarea
+        rows="3"
+        maxlength="4000"
+        [value]="newDescription()"
+        (input)="updateNewDescription($event)"
+        [disabled]="busy()"
+      ></textarea>
+    </label>
+    <label class="field">
+      <span>Avanzamento</span>
+      <select [value]="newAdvancement()" (change)="updateNewAdvancement($event)" [disabled]="busy()">
+        <option value="milestone">Milestone</option>
+        <option value="xp">Punti esperienza</option>
+      </select>
+    </label>
+    <div dialog-actions>
+      <app-button type="submit" variant="primary" [disabled]="busy()">Crea campagna</app-button>
+    </div>
+  </form>
+</app-dialog>
+
+<app-dialog
+  [open]="mode() === 'choose'"
+  title="Scegli campagna"
+  [dismissible]="activeCampaign() !== null"
+  (closed)="closeChoose()"
+>
+  <ul class="campaign-list">
+    @for (campaign of campaigns(); track campaign.id) {
+      <li>
+        <button type="button" class="campaign-card" (click)="enterCampaign(campaign.id)">
+          <span class="campaign-card__name">{{ campaign.name }}</span>
+          <span class="muted">{{ campaign.description || 'Nessuna descrizione' }}</span>
+          <span class="campaign-card__meta">{{ campaign.advancementMode }}</span>
+        </button>
+      </li>
+    }
+  </ul>
+  <div dialog-actions>
+    <app-button (pressed)="openCreate()">Nuova campagna</app-button>
+  </div>
+</app-dialog>

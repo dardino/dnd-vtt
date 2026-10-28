@@ -1,0 +1,12 @@
+<button
+  class="button"
+  [class.button--primary]="variant() === 'primary'"
+  [class.button--danger]="variant() === 'danger'"
+  [class.button--ghost]="variant() === 'ghost'"
+  [type]="type()"
+  [disabled]="disabled()"
+  [attr.aria-label]="ariaLabel()"
+  (click)="pressed.emit($event)"
+>
+  <ng-content />
+</button>
