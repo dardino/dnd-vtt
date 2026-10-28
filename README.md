@@ -43,11 +43,13 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
 ## Struttura
 
 - `client/` - Angular 22 zoneless, Signals e `@ngrx/signals`; console DM con
-  avvio su `/dm`, tema light/dark/system e wizard personaggio a 7 step
+  avvio su `/dm`, tema light/dark/system, wizard personaggio a 7 step, shell a
+  pannelli collassabili e scena Konva con griglia, token e misura
 - `shared/` - schemi Zod, tipi, derivazione della scheda (`deriveSheet`),
-  validazione delle build (`validatePcBuild`) e azioni di scena reversibili
-- `server/` - Fastify, Drizzle/SQLite, API `/api/v1`, auth DM, upload `sharp`,
-  `action_log` e `ActionService`
+  validazione delle build (`validatePcBuild`), azioni di scena reversibili,
+  geometria quadrata/esagonale `odd-r` e piramide di tile
+- `server/` - Fastify, Drizzle/SQLite, API `/api/v1`, auth DM, upload `sharp`
+  con preview e tile per mappe grandi, `action_log` e `ActionService`
 - `LICENSES/SRD-5.2.md` - attribuzione CC BY 4.0
 
 ## Stato
@@ -69,6 +71,14 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   step con import dal catalogo SRD; scheda console a tab con snapshot,
   `sheetVersion`, inventario, incantesimi e note del DM. I personaggi senza
   campagna sono rifiutati.
+- **Fase 4 completata**: upload mappe con preview e piramide di tile oltre
+  2048 px, griglia quadrata e esagonale pointy-top `odd-r`, scena Konva con
+  pan, zoom, drag & drop con snap, token di dimensione variabile e misura
+  distanza con la stessa geometria di `shared`. La shell ha barra del titolo,
+  sidebar collassabili, toolbar, dock azioni, 10 slot e statusbar; le azioni
+  `token.*` e `grid.update` passano da `ActionService` con `ActionStore`
+  ottimistico (`synced`/`pending`/`offline`/`read-only`). Due console si
+  riallineano dal log azioni in attesa del WebSocket della Fase 7.
 
-La prossima fase è la **Fase 4**: scene, upload mappe, griglia quadrata ed
-esagonale, Konva, token e shell completa della console.
+La prossima fase è la **Fase 5**: combattimento, iniziativa, dadi, level-up,
+riposi e pannelli operativi.
