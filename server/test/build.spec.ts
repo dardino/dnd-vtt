@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import type { FastifyInstance } from 'fastify';
 import { validatePcBuild, type PcBuild } from '@dnd-vtt/shared';
+import { buildApp } from '../src/app.js';
 import { loadSrdCatalog } from '../src/srd/load.js';
 
 const catalog = loadSrdCatalog('srd-5.2.0');
@@ -154,5 +156,55 @@ describe('build contro il catalogo SRD reale', () => {
     const build = level5Fighter();
     const result = validatePcBuild({ ...build, feats: [{ id: 'savage-attacker' }, { id: 'savage-attacker' }] }, catalog);
     expect(result.errors.some((error) => error.code === 'feat_duplicate')).toBe(true);
+  });
+});
+
+describe('POST /api/v1/actors/preview', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = buildApp();
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('restituisce la validazione senza scrivere', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/actors/preview',
+      payload: level5Fighter(),
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json();
+    expect(body.ok).toBe(true);
+    expect(body.expectedHpMax).toBe(55);
+    expect(body.totalAbilityScores.str).toBe(19);
+  });
+
+  it('rifiuta un body non conforme allo schema', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/actors/preview',
+      payload: { rulesVersion: 'srd-5.2.0' },
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json().error.code).toBe('invalid_build');
+  });
+
+  it('rifiuta una versione SRD sconosciuta', async () => {
+    const build = level5Fighter();
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/actors/preview',
+      payload: { ...build, rulesVersion: 'srd-5.1.0' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('srd_version_unknown');
   });
 });

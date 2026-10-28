@@ -1,5 +1,6 @@
 import Fastify, { type FastifyError, type FastifyInstance } from 'fastify';
 import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod';
+import { characterRoutes } from './character/routes.js';
 import { currentSrdVersion } from './srd/load.js';
 import { srdRoutes } from './srd/routes.js';
 
@@ -44,6 +45,7 @@ export const buildApp = (options: BuildAppOptions = {}): FastifyInstance => {
   }));
 
   app.register(srdRoutes, { prefix: '/api/v1' });
+  app.register(characterRoutes, { prefix: '/api/v1' });
 
   return app;
 };
