@@ -1,9 +1,11 @@
 import type { FastifyPluginCallback } from 'fastify';
-import { createActorSchema, updateActorSchema } from '@dnd-vtt/shared';
+import { createActorSchema, createPcSchema, sheetPatchSchema, updateActorSchema } from '@dnd-vtt/shared';
 import { z } from 'zod';
 import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
+import { getCampaign } from '../db/campaigns.repository.js';
+import { notFound } from '../errors.js';
 import { parse } from '../http/validation.js';
 import { pageParams, pageQuerySchema } from '../http/pagination.js';
 import {
@@ -13,6 +15,8 @@ import {
   removeActor,
   requireActor,
 } from '../actors/service.js';
+import { createPc, getDmSheet, patchPcSheet } from '../actors/pc-service.js';
+import { rollAbilityScores } from '../actors/roll-stats.js';
 
 const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const actorQuerySchema = pageQuerySchema.extend({
@@ -42,6 +46,31 @@ export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
     app.post('/actors', async (request, reply) => {
       const body = parse(createActorSchema, request.body);
       return reply.status(201).send(createActor(db, body));
+    });
+
+    app.post('/campaigns/:id/actors', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      const body = parse(createPcSchema, request.body);
+      return reply.status(201).send(createPc(db, id, body));
+    });
+
+    app.post('/campaigns/:id/actors/roll-stats', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      if (getCampaign(db, id) === null) {
+        throw notFound('Campagna non trovata');
+      }
+      return reply.send(rollAbilityScores());
+    });
+
+    app.get('/actors/:id/sheet', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      return reply.send(getDmSheet(db, id));
+    });
+
+    app.patch('/actors/:id/sheet', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      const body = parse(sheetPatchSchema, request.body);
+      return reply.send(patchPcSheet(db, id, body));
     });
 
     app.get('/actors/:id', async (request, reply) => {

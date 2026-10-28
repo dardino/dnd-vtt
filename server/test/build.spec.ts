@@ -159,6 +159,154 @@ describe('build contro il catalogo SRD reale', () => {
   });
 });
 
+describe('POST /api/v1/campaigns/:id/actors', () => {
+  let app: FastifyInstance;
+  let testApp: TestApp;
+
+  beforeAll(async () => {
+    testApp = await createTestApp();
+    app = testApp.app;
+  });
+
+  afterAll(async () => {
+    await closeTestApp(testApp);
+  });
+
+  const createCampaign = async (): Promise<string> => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/campaigns',
+      payload: { name: 'Builder' },
+    });
+    return response.json<{ id: string }>().id;
+  };
+
+  it('persiste un pc di livello 5 e restituisce la scheda derivata', async () => {
+    const campaignId = await createCampaign();
+    const created = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/actors`,
+      payload: { name: 'Sir Test', build: level5Fighter() },
+    });
+    expect(created.statusCode).toBe(201);
+    const actor = created.json<{ id: string; kind: string; hp: { max: number } }>();
+    expect(actor.kind).toBe('pc');
+    expect(actor.hp.max).toBe(55);
+
+    const sheet = await app.inject({
+      method: 'GET',
+      url: `/api/v1/actors/${actor.id}/sheet`,
+    });
+    expect(sheet.statusCode).toBe(200);
+    const view = sheet.json();
+    expect(view.statblock.kind).toBe('pc');
+    expect(view.statblock.class).toMatchObject({ id: 'fighter', subclassId: 'champion', level: 5 });
+    expect(view.derived.ac).toBeGreaterThan(10);
+    expect(view.inventory).toHaveLength(3);
+    expect(view.sheetVersion).toBe(1);
+
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/actors/${actor.id}/sheet`,
+      payload: {
+        sheetVersion: 1,
+        patch: { hp: { current: 40, max: 55, temp: 0 } },
+      },
+    });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json().sheetVersion).toBe(2);
+    expect(patched.json().statblock.hp).toEqual({ current: 40, max: 55, temp: 0 });
+
+    const stale = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/actors/${actor.id}/sheet`,
+      payload: {
+        sheetVersion: 1,
+        patch: { hp: { current: 10, max: 55, temp: 0 } },
+      },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json().error.code).toBe('sheet_conflict');
+  });
+
+  it('rifiuta una build invalida', async () => {
+    const campaignId = await createCampaign();
+    const build = level5Fighter();
+    const response = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/actors`,
+      payload: {
+        name: 'Rotto',
+        build: {
+          ...build,
+          asiChoices: [],
+        },
+      },
+    });
+    expect(response.statusCode).toBe(422);
+    expect(response.json().error.code).toBe('invalid_build');
+  });
+
+  it('esegue i tiri 4d6kh3 dal server e li usa per la creazione', async () => {
+    const campaignId = await createCampaign();
+    const rolled = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/actors/roll-stats`,
+      payload: {},
+    });
+    expect(rolled.statusCode).toBe(200);
+    const result = rolled.json<{ rollId: string; values: number[] }>();
+    expect(result.values).toHaveLength(6);
+    expect(result.values.every((value) => value >= 3 && value <= 18)).toBe(true);
+
+    const build = level5Fighter();
+    const values = result.values;
+    const created = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/actors`,
+      payload: {
+        name: 'Tirato',
+        build: {
+          ...build,
+          abilityGeneration: {
+            method: 'rolled',
+            base: {
+              str: values[0] ?? 10,
+              dex: values[1] ?? 10,
+              con: values[2] ?? 10,
+              int: values[3] ?? 10,
+              wis: values[4] ?? 10,
+              cha: values[5] ?? 10,
+            },
+            rolls: values,
+            rollId: result.rollId,
+          },
+        },
+      },
+    });
+    expect(created.statusCode).toBe(201);
+
+    const unknown = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/actors`,
+      payload: {
+        name: 'Scaduto',
+        build: {
+          ...build,
+          abilityGeneration: {
+            method: 'rolled',
+            base: { str: 12, dex: 12, con: 12, int: 12, wis: 12, cha: 12 },
+            rolls: [12, 12, 12, 12, 12, 12],
+            rollId: '00000000-0000-4000-8000-000000000000',
+          },
+        },
+      },
+    });
+    expect(unknown.statusCode).toBe(409);
+    expect(unknown.json().error.code).toBe('roll_expired');
+  });
+});
+
 describe('POST /api/v1/actors/preview', () => {
   let app: FastifyInstance;
   let testApp: TestApp;
