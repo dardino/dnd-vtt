@@ -64,7 +64,11 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
 - **Fase 3a implementata**: cataloghi SRD 5.2 (12 classi, 9 specie, 4 background,
   17 talenti, 339 incantesimi, 195 oggetti, 331 mostri), schemi della scheda,
   valori derivati, validazione delle build ed endpoint di catalogo.
+- **Fase 3b completata**: wizard PC a 7 step con creazione persistente,
+  equipaggiamento automatico e tiri 4d6kh3 dal server; wizard mostro/NPC a 6
+  step con import dal catalogo SRD; scheda console a tab con snapshot,
+  `sheetVersion`, inventario, incantesimi e note del DM. I personaggi senza
+  campagna sono rifiutati.
 
-In corso la **Fase 3b**: il wizard personaggio esiste con bozza locale e verifica
-server, ma mancano la persistenza su database, la scheda console e i wizard
-mostro/NPC.
+La prossima fase è la **Fase 4**: scene, upload mappe, griglia quadrata ed
+esagonale, Konva, token e shell completa della console.
