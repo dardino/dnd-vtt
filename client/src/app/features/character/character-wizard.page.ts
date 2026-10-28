@@ -107,6 +107,15 @@ export class CharacterWizardPage implements OnInit {
     })) as Record<Ability, number>;
   });
 
+  /** Helper tipizzato: il template non deve indicizzare direttamente i Record. */
+  public score(ability: Ability): number {
+    return this.finalScores()[ability] ?? 0;
+  }
+
+  public abilityLabel(ability: Ability): string {
+    return this.abilityLabels[ability];
+  }
+
   public readonly pointBuyRemaining = computed(() => {
     const build = this.store.build();
     if (build.abilityGeneration.method !== 'pointBuy') {

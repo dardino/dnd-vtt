@@ -659,10 +659,11 @@ Regole trasversali, valide in tutti e tre i workspace:
 - API testate con `app.inject`, senza aprire porte reali; WS con un client in memoria
 - i test di concorrenza usano due richieste realmente concorrenti, non due chiamate sequenziali travestite
 - un test che richiede troppi mock segnala un problema di Separation of Concerns: si rifattorizza il codice, non si complica il test
+- **template Angular type-checked**: il `typecheck` del client usa `ngc -p tsconfig.app.json --noEmit`, non `tsc`; solo il compilatore Angular legge i template e intercetta errori come un `number | undefined` passato a una funzione. `strictTemplates` resta attivo
 
 #### 5.11.8 Git, commit e commenti
 
-- **nessun commit senza gate verde**: `.githooks/pre-commit` esegue `npm run check` (lint, typecheck, test, build e `db:check`) e blocca il commit se uno dei passi fallisce; non si usa `--no-verify` e la CI ripete gli stessi controlli
+- **nessun commit senza gate verde**: `.githooks/pre-commit` esegue `npm run check` (lint, typecheck con template Angular, test, build e `db:check`) e blocca il commit se uno dei passi fallisce; non si usa `--no-verify` e la CI ripete gli stessi controlli
 - **Conventional Commits** con descrizione in italiano: `feat(scene): crea il token trascinato sulla mappa`, `fix(program): non pubblica overlay riservati senza conferma`
 - tipi ammessi: `feat`, `fix`, `refactor`, `test`, `docs`, `chore`, `perf`, `build`, `ci`; scope = workspace o feature (`client`, `server`, `shared`, `scene`, `program`…)
 - un commit = una modifica logica; `main` sempre verde; storia lineare con rebase, niente merge commit

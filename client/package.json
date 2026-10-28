@@ -11,7 +11,7 @@
     "watch": "ng build --watch --configuration development",
     "lint": "eslint . --max-warnings=0",
     "lint:fix": "eslint . --fix",
-    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.e2e.json --noEmit",
+    "typecheck": "ngc -p tsconfig.app.json --noEmit && tsc -p tsconfig.e2e.json --noEmit",
     "test": "ng test --watch=false",
     "test:e2e": "playwright test"
   },

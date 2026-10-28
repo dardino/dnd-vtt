@@ -217,8 +217,8 @@
                         [value]="store.build().abilityGeneration.base[ability]"
                         (change)="store.setAbilityScore(ability, asNumber($event))"
                       />
-                      <span class="score-row__mod">{{ modifier(finalScores()[ability]) }}</span>
-                      <span class="muted score-row__final">finale {{ finalScores()[ability] }}</span>
+                      <span class="score-row__mod">{{ modifier(score(ability)) }}</span>
+                      <span class="muted score-row__final">finale {{ score(ability) }}</span>
                     </div>
                   }
                 </div>
@@ -534,7 +534,7 @@
                     <span class="eyebrow">Caratteristiche</span>
                     <div class="score-summary">
                       @for (ability of abilities; track ability) {
-                        <span><b>{{ abilityLabels[ability].slice(0, 3) }}</b> {{ finalScores()[ability] }} ({{ modifier(finalScores()[ability]) }})</span>
+                        <span><b>{{ abilityLabel(ability).slice(0, 3) }}</b> {{ score(ability) }} ({{ modifier(score(ability)) }})</span>
                       }
                     </div>
                   </div>
