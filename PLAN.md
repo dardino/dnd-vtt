@@ -166,6 +166,7 @@ Tooling monorepo
 | D67 | Fino alla Fase 7 il riallineamento fra console usa il **log azioni con polling 2 s** (`sinceVersion` + `sceneId`) e `BroadcastChannel` fra tab; i `GET` sono esclusi dal rate limit | due console convergono senza `409` già in Fase 4, senza anticipare il contratto WebSocket della regia |
 | D68 | `ActionStore` applica l'azione in modo **ottimistico** e conferma la versione del server senza riapplicarla; un buco di versione ricarica lo snapshot | l'eco della propria azione e il polling non duplicano token o danni, e un evento perso non lascia la console silenziosamente divergente |
 | D69 | Le sezioni delle sidebar sono **accordion indipendenti** (Dati campagna, Scene, Griglia, Attori, In mappa) con stato ricordato per campagna | il DM chiude ciò che non usa e recupera spazio verticale senza perdere la sidebar intera; la preferenza resta locale e non tocca lo stato di scena |
+| D70 | Gli **slot in basso sono solo dei `pc`**; mostri e NPC fuori scena stanno nell'accordion `Attori` e passano in `In mappa` quando ricevono un token. Ogni scena ha azioni esplicite `Attiva` e `Sostituisci mappa` | la rosa dei giocatori resta stabile e leggibile, mentre il bestiario di lavoro non occupa gli slot; sostituire l'immagine non crea una scena nuova e mantiene token e griglia |
 
 ## 5. Struttura monorepo
 
@@ -1593,7 +1594,7 @@ Toolbar verticale a sinistra della vista, con icone + tooltip e scorciatoie:
 
 ### 8.5 Slot personaggi (in basso)
 
-- 10 slot fissi; vuoto = tile con `+` centrale che apre il selettore attori (`pc` in testa, poi `npc`) con in testa **"Crea personaggio"** (8.15)
+- 10 slot fissi **riservati ai personaggi giocatori**; vuoto = tile con `+` centrale che apre la creazione del personaggio. Mostri e NPC non stanno negli slot: quelli non ancora in mappa vivono nell'accordion `Attori` della sidebar sinistra e, una volta schierati, compaiono in `In mappa` a destra
 - tile piena: ritratto, nome, **classe e livello**, barra HP, CA, condizioni, badge `nascosto`
 - nell'angolo della tile c'è la **matita** del link giocatore (`editingEnabled`, 8.14), presente solo se il link esiste: accesa = il telefono può scrivere, spenta = sola lettura. Un click la inverte, senza dialog
 - un pallino sul bordo della tile indica le azioni in attesa di approvazione per quel personaggio; il click apre il dock `Azioni` filtrato sull'attore
