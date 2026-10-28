@@ -220,6 +220,27 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   await expect(page.locator('.scene-canvas__measure')).toContainText(`${measured.feet} ft`);
 });
 
+test('le sezioni della sidebar sono accordion e ricordano lo stato', async ({ page }) => {
+  await openCampaign(page);
+  const trigger = page.getByRole('button', { name: 'Griglia', exact: true });
+  const form = page.getByLabel('Forma');
+  await expect(form).toBeVisible();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+
+  await trigger.click();
+  await expect(form).toBeHidden();
+  await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
+  const reloaded = page.getByRole('button', { name: 'Griglia', exact: true });
+  await expect(reloaded).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByLabel('Forma')).toBeHidden();
+
+  await reloaded.click();
+  await expect(page.getByLabel('Forma')).toBeVisible();
+});
+
 test('due console convergono senza conflitti', async ({ page, context, request }) => {
   test.setTimeout(60_000);
   const id = await campaignId(request);

@@ -47,90 +47,145 @@
         </button>
       </div>
       @if (leftOpen()) {
-        @if (activeCampaign(); as campaign) {
-          <h2>{{ campaign.name }}</h2>
-          <p class="muted">{{ campaign.description || 'Nessuna descrizione.' }}</p>
-          <dl class="dm-meta">
-            <div><dt>Avanzamento</dt><dd>{{ campaign.advancementMode }}</dd></div>
-            <div><dt>Scene</dt><dd>{{ scenes().length }}</dd></div>
-            <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
-          </dl>
-        } @else {
-          <div class="skeleton skeleton--line"></div>
-          <div class="skeleton skeleton--line skeleton--short"></div>
-          <div class="skeleton skeleton--block"></div>
-        }
+        <section class="accordion" [class.is-open]="isSectionOpen('campaign')">
+          <button
+            type="button"
+            class="accordion__trigger"
+            [attr.aria-expanded]="isSectionOpen('campaign')"
+            aria-controls="sidebar-campaign"
+            (click)="toggleSection('campaign')"
+          >
+            <span class="accordion__label">Dati campagna</span>
+            <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('campaign') ? '▾' : '▸' }}</span>
+          </button>
+          @if (isSectionOpen('campaign')) {
+            <div id="sidebar-campaign" class="accordion__body">
+              @if (activeCampaign(); as campaign) {
+                <h2>{{ campaign.name }}</h2>
+                <p class="muted">{{ campaign.description || 'Nessuna descrizione.' }}</p>
+                <dl class="dm-meta">
+                  <div><dt>Avanzamento</dt><dd>{{ campaign.advancementMode }}</dd></div>
+                  <div><dt>Scene</dt><dd>{{ scenes().length }}</dd></div>
+                  <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
+                </dl>
+              } @else {
+                <div class="skeleton skeleton--line"></div>
+                <div class="skeleton skeleton--line skeleton--short"></div>
+                <div class="skeleton skeleton--block"></div>
+              }
+            </div>
+          }
+        </section>
 
         @if (mode() === 'ready') {
-          <section class="panel-section">
-            <div class="panel-head">
-              <span class="eyebrow">Scene</span>
+          <section class="accordion" [class.is-open]="isSectionOpen('scenes')">
+            <div class="accordion__head">
+              <button
+                type="button"
+                class="accordion__trigger"
+                [attr.aria-expanded]="isSectionOpen('scenes')"
+                aria-controls="sidebar-scenes"
+                (click)="toggleSection('scenes')"
+              >
+                <span class="accordion__label">Scene</span>
+                <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('scenes') ? '▾' : '▸' }}</span>
+              </button>
               <app-button variant="ghost" [disabled]="busy()" (pressed)="createScene()">
                 Crea scena
               </app-button>
             </div>
-            <input
-              #fileInput
-              class="file-input"
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              (change)="uploadMap($event)"
-            />
-            <button type="button" class="upload-button" [disabled]="uploading()" (click)="openFilePicker()">
-              {{ uploading() ? 'Caricamento mappa…' : 'Carica mappa' }}
-            </button>
-            @if (uploadError(); as error) {
-              <p class="field-error" role="alert">{{ error }}</p>
-            }
-            @if (scenes().length === 0) {
-              <p class="muted">Nessuna scena: carica una mappa per iniziare.</p>
-            } @else {
-              <ul class="scene-list">
-                @for (scene of scenes(); track scene.id) {
-                  <li class="scene-list__item" [class.is-active]="scene.id === activeScene()?.id">
-                    <button type="button" class="scene-list__button" (click)="selectScene(scene)">
-                      <span>{{ scene.name }}</span>
-                      <span class="muted">{{ scene.widthPx }} × {{ scene.heightPx }}</span>
-                    </button>
-                    @if (scene.id === activeScene()?.id) {
-                      <span class="badge">attiva</span>
-                    }
-                  </li>
-                }
-              </ul>
-            }
-          </section>
-
-          <section class="panel-section">
-            <span class="eyebrow">Griglia</span>
-            @if (grid(); as gridConfig) {
-              <label class="field">
-                <span>Forma</span>
-                <select [value]="gridConfig.type" (change)="changeGridType($event)">
-                  <option value="square">Quadrata</option>
-                  <option value="hex">Esagonale odd-r</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>Dimensione cella (px)</span>
+            @if (isSectionOpen('scenes')) {
+              <div id="sidebar-scenes" class="accordion__body">
                 <input
-                  type="number"
-                  min="16"
-                  max="400"
-                  step="1"
-                  [value]="gridConfig.cellSizePx"
-                  (change)="changeGridSize($event)"
+                  #fileInput
+                  class="file-input"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  (change)="uploadMap($event)"
                 />
-              </label>
-              <p class="muted">Diagonale {{ gridConfig.diagonalRule }} · {{ gridConfig.feetPerCell }} ft per cella</p>
+                <button type="button" class="upload-button" [disabled]="uploading()" (click)="openFilePicker()">
+                  {{ uploading() ? 'Caricamento mappa…' : 'Carica mappa' }}
+                </button>
+                @if (uploadError(); as error) {
+                  <p class="field-error" role="alert">{{ error }}</p>
+                }
+                @if (scenes().length === 0) {
+                  <p class="muted">Nessuna scena: carica una mappa per iniziare.</p>
+                } @else {
+                  <ul class="scene-list">
+                    @for (scene of scenes(); track scene.id) {
+                      <li class="scene-list__item" [class.is-active]="scene.id === activeScene()?.id">
+                        <button type="button" class="scene-list__button" (click)="selectScene(scene)">
+                          <span>{{ scene.name }}</span>
+                          <span class="muted">{{ scene.widthPx }} × {{ scene.heightPx }}</span>
+                        </button>
+                        @if (scene.id === activeScene()?.id) {
+                          <span class="badge">attiva</span>
+                        }
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
             }
           </section>
 
-          <section class="panel-section">
-            <span class="eyebrow">Attori</span>
-            <a class="dm-link-button" [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'monster']">
-              Crea mostro o NPC
-            </a>
+          <section class="accordion" [class.is-open]="isSectionOpen('grid')">
+            <button
+              type="button"
+              class="accordion__trigger"
+              [attr.aria-expanded]="isSectionOpen('grid')"
+              aria-controls="sidebar-grid"
+              (click)="toggleSection('grid')"
+            >
+              <span class="accordion__label">Griglia</span>
+              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('grid') ? '▾' : '▸' }}</span>
+            </button>
+            @if (isSectionOpen('grid')) {
+              <div id="sidebar-grid" class="accordion__body">
+                @if (grid(); as gridConfig) {
+                  <label class="field">
+                    <span>Forma</span>
+                    <select [value]="gridConfig.type" (change)="changeGridType($event)">
+                      <option value="square">Quadrata</option>
+                      <option value="hex">Esagonale odd-r</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Dimensione cella (px)</span>
+                    <input
+                      type="number"
+                      min="16"
+                      max="400"
+                      step="1"
+                      [value]="gridConfig.cellSizePx"
+                      (change)="changeGridSize($event)"
+                    />
+                  </label>
+                  <p class="muted">Diagonale {{ gridConfig.diagonalRule }} · {{ gridConfig.feetPerCell }} ft per cella</p>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="accordion" [class.is-open]="isSectionOpen('actors')">
+            <button
+              type="button"
+              class="accordion__trigger"
+              [attr.aria-expanded]="isSectionOpen('actors')"
+              aria-controls="sidebar-actors"
+              (click)="toggleSection('actors')"
+            >
+              <span class="accordion__label">Attori</span>
+              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('actors') ? '▾' : '▸' }}</span>
+            </button>
+            @if (isSectionOpen('actors')) {
+              <div id="sidebar-actors" class="accordion__body">
+                <a class="dm-link-button" [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'monster']">
+                  Crea mostro o NPC
+                </a>
+              </div>
+            }
           </section>
         }
       }
@@ -249,38 +304,56 @@
 
     <aside class="dm-panel dm-panel--right" [class.is-collapsed]="!rightOpen()" aria-label="Token in mappa">
       <div class="panel-head">
-        <span class="eyebrow">In mappa</span>
+        <span class="eyebrow">Scena</span>
         <button type="button" class="panel-toggle" (click)="toggleRight()">
           {{ rightOpen() ? 'Riduci' : 'Apri' }}
         </button>
       </div>
       @if (rightOpen()) {
-        @if (tokens().length === 0) {
-          <p class="muted">Nessun token. Trascina uno slot o un attore sulla mappa.</p>
-        } @else {
-          <ul class="token-list">
-            @for (token of tokens(); track token.id) {
-              <li class="token-row" [class.is-selected]="token.id === selectedTokenId()">
-                <button type="button" class="token-row__name" (click)="centerToken(token)">
-                  <span>{{ token.label }}</span>
-                  <span class="muted">{{ token.hp.current }}/{{ token.hp.max }} PF</span>
-                </button>
-                <button
-                  type="button"
-                  class="token-row__icon"
-                  [attr.aria-label]="token.visible ? 'Nascondi ' + token.label : 'Mostra ' + token.label"
-                  (click)="toggleTokenVisibility(token)"
-                >{{ token.visible ? '◉' : '◌' }}</button>
-                <button
-                  type="button"
-                  class="token-row__icon"
-                  [attr.aria-label]="'Rimuovi ' + token.label"
-                  (click)="removeToken(token)"
-                >✕</button>
-              </li>
-            }
-          </ul>
-        }
+        <section class="accordion" [class.is-open]="isSectionOpen('tokens')">
+          <button
+            type="button"
+            class="accordion__trigger"
+            [attr.aria-expanded]="isSectionOpen('tokens')"
+            aria-controls="sidebar-tokens"
+            aria-label="In mappa"
+            (click)="toggleSection('tokens')"
+          >
+            <span class="accordion__label">In mappa</span>
+            <span class="accordion__count">{{ tokens().length }}</span>
+            <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('tokens') ? '▾' : '▸' }}</span>
+          </button>
+          @if (isSectionOpen('tokens')) {
+            <div id="sidebar-tokens" class="accordion__body">
+              @if (tokens().length === 0) {
+                <p class="muted">Nessun token. Trascina uno slot o un attore sulla mappa.</p>
+              } @else {
+                <ul class="token-list">
+                  @for (token of tokens(); track token.id) {
+                    <li class="token-row" [class.is-selected]="token.id === selectedTokenId()">
+                      <button type="button" class="token-row__name" (click)="centerToken(token)">
+                        <span>{{ token.label }}</span>
+                        <span class="muted">{{ token.hp.current }}/{{ token.hp.max }} PF</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="token-row__icon"
+                        [attr.aria-label]="token.visible ? 'Nascondi ' + token.label : 'Mostra ' + token.label"
+                        (click)="toggleTokenVisibility(token)"
+                      >{{ token.visible ? '◉' : '◌' }}</button>
+                      <button
+                        type="button"
+                        class="token-row__icon"
+                        [attr.aria-label]="'Rimuovi ' + token.label"
+                        (click)="removeToken(token)"
+                      >✕</button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </section>
       }
     </aside>
 

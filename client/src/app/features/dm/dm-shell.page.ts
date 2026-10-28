@@ -44,6 +44,15 @@ import {
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
 type CanvasTool = 'select' | 'measure';
+type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'actors' | 'tokens';
+
+const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
+  campaign: true,
+  scenes: true,
+  grid: true,
+  actors: true,
+  tokens: true,
+};
 
 const SIZE_CELLS: Record<Size, number> = {
   tiny: 1,
@@ -102,6 +111,7 @@ export class DmShellPage implements OnInit {
   public readonly leftOpen = signal(true);
   public readonly rightOpen = signal(true);
   public readonly dockOpen = signal(true);
+  public readonly sections = signal<Record<SidebarSection, boolean>>({ ...DEFAULT_SECTIONS });
   public readonly sessionSeconds = signal(0);
 
   public readonly password = signal('');
@@ -513,10 +523,6 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public slotClass(actor: Actor | null): string {
-    return actor === null ? 'slot slot--empty' : 'slot';
-  }
-
   public actorSubtitle(actor: Actor): string {
     if (actor.statblock.kind === 'pc') {
       return `${actor.statblock.class.id} · livello ${actor.statblock.class.level}`;
@@ -537,6 +543,15 @@ export class DmShellPage implements OnInit {
   public toggleLeft(): void {
     this.leftOpen.update((value) => !value);
     this.persistPanels();
+  }
+
+  public toggleSection(section: SidebarSection): void {
+    this.sections.update((current) => ({ ...current, [section]: !current[section] }));
+    this.persistPanels();
+  }
+
+  public isSectionOpen(section: SidebarSection): boolean {
+    return this.sections()[section];
   }
 
   public toggleRight(): void {
@@ -608,15 +623,32 @@ export class DmShellPage implements OnInit {
   }
 
   private restorePanels(campaignId: string): void {
+    this.leftOpen.set(true);
+    this.rightOpen.set(true);
+    this.dockOpen.set(true);
+    this.sections.set({ ...DEFAULT_SECTIONS });
     const stored = localStorage.getItem(`${PANEL_STORAGE_PREFIX}${campaignId}`);
     if (stored === null) {
       return;
     }
     try {
-      const parsed = JSON.parse(stored) as { left?: boolean; right?: boolean; dock?: boolean };
+      const parsed = JSON.parse(stored) as {
+        left?: boolean;
+        right?: boolean;
+        dock?: boolean;
+        sections?: Record<string, unknown>;
+      };
       this.leftOpen.set(parsed.left ?? true);
       this.rightOpen.set(parsed.right ?? true);
       this.dockOpen.set(parsed.dock ?? true);
+      const sections = { ...DEFAULT_SECTIONS };
+      for (const key of Object.keys(DEFAULT_SECTIONS) as SidebarSection[]) {
+        const value = parsed.sections?.[key];
+        if (typeof value === 'boolean') {
+          sections[key] = value;
+        }
+      }
+      this.sections.set(sections);
     } catch {
       // Preferenza corrotta: si torna ai pannelli aperti senza bloccare la console.
     }
@@ -629,7 +661,12 @@ export class DmShellPage implements OnInit {
     }
     localStorage.setItem(
       `${PANEL_STORAGE_PREFIX}${campaign.id}`,
-      JSON.stringify({ left: this.leftOpen(), right: this.rightOpen(), dock: this.dockOpen() }),
+      JSON.stringify({
+        left: this.leftOpen(),
+        right: this.rightOpen(),
+        dock: this.dockOpen(),
+        sections: this.sections(),
+      }),
     );
   }
 
