@@ -75,7 +75,8 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   2048 px, griglia quadrata e esagonale pointy-top `odd-r`, scena Konva con
   pan, zoom, drag & drop con snap, token di dimensione variabile e misura
   distanza con la stessa geometria di `shared`. La shell ha barra del titolo,
-  sidebar collassabili, toolbar, dock azioni, 10 slot e statusbar; le azioni
+  sidebar a sezioni accordion collassabili con stato ricordato, toolbar, dock
+  azioni, 10 slot e statusbar; le azioni
   `token.*` e `grid.update` passano da `ActionService` con `ActionStore`
   ottimistico (`synced`/`pending`/`offline`/`read-only`). Due console si
   riallineano dal log azioni in attesa del WebSocket della Fase 7.

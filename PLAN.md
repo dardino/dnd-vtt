@@ -165,6 +165,7 @@ Tooling monorepo
 | D66 | Le mappe oltre 2048 px producono una **preview 2048** e una **piramide di tile WebP 512** con percorso deterministico (`tiles/<hash>/<livello>/<col>_<row>.webp`); sotto soglia resta l'immagine singola | evita di caricare un'immagine 8k intera e mantiene il dettaglio pieno quando si smette di panare; nessuna colonna o migrazione aggiuntiva, il manifest deriva da `width`/`height` |
 | D67 | Fino alla Fase 7 il riallineamento fra console usa il **log azioni con polling 2 s** (`sinceVersion` + `sceneId`) e `BroadcastChannel` fra tab; i `GET` sono esclusi dal rate limit | due console convergono senza `409` già in Fase 4, senza anticipare il contratto WebSocket della regia |
 | D68 | `ActionStore` applica l'azione in modo **ottimistico** e conferma la versione del server senza riapplicarla; un buco di versione ricarica lo snapshot | l'eco della propria azione e il polling non duplicano token o danni, e un evento perso non lascia la console silenziosamente divergente |
+| D69 | Le sezioni delle sidebar sono **accordion indipendenti** (Dati campagna, Scene, Griglia, Attori, In mappa) con stato ricordato per campagna | il DM chiude ciò che non usa e recupera spazio verticale senza perdere la sidebar intera; la preferenza resta locale e non tocca lo stato di scena |
 
 ## 5. Struttura monorepo
 
