@@ -20,8 +20,13 @@
     "format": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "check": "turbo run lint typecheck test build",
-    "srd:import": "node server/scripts/import-srd.mjs"
+    "test:e2e": "turbo run test:e2e",
+    "check": "turbo run lint typecheck test build && npm run db:check",
+    "srd:import": "node server/scripts/import-srd.mjs",
+    "db:generate": "npm run db:generate -w @dnd-vtt/server",
+    "db:migrate": "npm run db:migrate -w @dnd-vtt/server",
+    "db:seed": "npm run db:seed -w @dnd-vtt/server",
+    "db:check": "npm run db:check -w @dnd-vtt/server"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -40,6 +45,7 @@
     "msgpackr-extract@3.0.4": true,
     "better-sqlite3@13.0.3": true,
     "esbuild@0.18.20": true,
-    "esbuild@0.25.12": true
+    "esbuild@0.25.12": true,
+    "esbuild@0.28.2": true
   }
 }

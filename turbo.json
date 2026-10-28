@@ -22,6 +22,11 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "test:e2e": {
+      "dependsOn": ["build", "@dnd-vtt/server#build"],
+      "cache": false,
+      "outputs": ["playwright-report/**", "test-results/**"]
     }
   }
 }
