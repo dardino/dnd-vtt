@@ -110,3 +110,18 @@ test('la console usa la griglia a 12 colonne e riempie l altezza', async ({ page
   expect(metrics.columns).toBe(12);
   expect(metrics.bottom).toBeGreaterThanOrEqual(metrics.viewport - 80);
 });
+
+test('il wizard non si ferma a 1440 px su schermi larghi', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await openCampaign(page);
+  const campaignId = page.url().split('/').at(-1) ?? '';
+  await page.goto(`/dm/campaigns/${campaignId}/actors/new/pc`);
+  const metrics = await page.locator('.wizard').evaluate((element) => ({
+    width: element.getBoundingClientRect().width,
+    maxWidth: getComputedStyle(element).maxWidth,
+    viewport: window.innerWidth,
+  }));
+  expect(metrics.maxWidth).toBe('none');
+  expect(metrics.width).toBeGreaterThan(1440);
+  expect(metrics.width).toBeGreaterThanOrEqual(metrics.viewport - 80);
+});

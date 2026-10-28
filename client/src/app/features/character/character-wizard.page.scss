@@ -10,9 +10,9 @@
 .wizard {
   @include layout.grid-12(var(--space-5));
   flex: 1;
+  width: 100%;
   min-height: 0;
-  width: min(100%, 1440px);
-  margin: 0 auto;
+  margin: 0;
   align-items: stretch;
 }
 

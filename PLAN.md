@@ -160,7 +160,7 @@ Tooling monorepo
 | D61 | Avanzamento per campagna: `milestone` (default) o `xp`, modificabile; gli XP si registrano **sempre**; il level-up lo conferma il DM e, se serve, allinea gli XP al minimo del nuovo livello | nessun cambio di scheda a sorpresa; il DM mantiene il controllo anche in modalità XP |
 | D62 | Budget iniziale **per personaggio**, precompilato dal valore di classe e modificabile dal DM; il negozio di creazione vende solo equipaggiamento mundano SRD | evita pacchetti rigidi e limita la creazione a oggetti appropriati; gli oggetti magici arrivano dal bottino |
 | D63 | La contabilità delle monete usa **rame interi** (`gpToCopper`, `currencyToCopper`, `currencyFromCopper`), mai somme in floating point di mo | aggiungere una flask da 0,02 mo lasciava 4.980000000000004 invece di 4,98; il totale si scompone in monete intere e la UI formatta al massimo due decimali |
-| D64 | Ogni pagina usa una **griglia a 12 colonne** (`@mixin grid-12`) e occupa **almeno tutta l'altezza disponibile** sotto header e footer, con catena flex e `min-height: 0` | i pannelli non devono mai galleggiare su uno sfondo vuoto né cambiare larghezza in base al contenuto; la griglia a 12 colonne dà una sola regola di composizione a console, wizard e schermate future |
+| D64 | Ogni pagina usa una **griglia a 12 colonne** (`@mixin grid-12`), **nessuna larghezza massima di pagina**, e occupa **almeno tutta l'altezza disponibile** sotto header e footer, con catena flex e `min-height: 0` | i pannelli non devono mai galleggiare su uno sfondo vuoto né cambiare larghezza in base al contenuto; la griglia a 12 colonne dà una sola regola di composizione a console, wizard e schermate future e sfrutta tutto lo spazio del monitor |
 
 ## 5. Struttura monorepo
 
@@ -638,6 +638,7 @@ Regole trasversali, valide in tutti e tre i workspace:
 - pannelli e sidebar con container query dove il layout dipende dalla larghezza del contenitore, non del viewport
 - **layout di pagina a 12 colonne** (`@mixin grid-12` in `styles/_layout.scss`): i figli dichiarano `grid-column: span N`; sidebar e pannelli non usano larghezze fisse in px
 - **altezza piena**: la catena `shell main → route host → pagina` usa `flex: 1` e `min-height: 0`, così ogni pagina occupa almeno tutto lo spazio tra header e footer e i pannelli si estendono invece di restare a metà (D64)
+- **nessuna larghezza massima di pagina**: console e wizard usano il 100% dello spazio disponibile; eventuali limiti si applicano solo a testo e modali, non al layout
 - animazioni brevi e disattivabili con `prefers-reduced-motion`
 
 #### 5.11.6 Errori e messaggi
