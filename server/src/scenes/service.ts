@@ -1,5 +1,5 @@
 import type { CreateScene, Scene, SceneSnapshot, SceneState, UpdateScene } from '@dnd-vtt/shared';
-import { sceneStateSchema } from '@dnd-vtt/shared';
+import { createDefaultSceneState, sceneStateSchema } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
 import type { Cursor } from '../db/cursor.js';
 import { getCampaign, updateCampaign } from '../db/campaigns.repository.js';
@@ -31,7 +31,8 @@ export const createScene = (db: AppDatabase, campaignId: string, input: CreateSc
     if (campaign === null) {
       throw notFound('Campagna non trovata');
     }
-    const created = insertScene(tx, campaignId, input);
+    const fogBase = input.fogBase ?? campaign.fogDefault;
+    const created = insertScene(tx, campaignId, input, createDefaultSceneState(fogBase));
     if (campaign.activeSceneId === null) {
       updateCampaign(tx, campaignId, { activeSceneId: created.id });
     }

@@ -65,6 +65,12 @@ const describeAction = (state: SceneState, action: GameAction): string => {
       return 'Turno successivo';
     case 'fog.apply':
       return action.op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta';
+    case 'fog.replace':
+      return 'Fog: copertura aggiornata';
+    case 'drawing.add':
+      return 'Disegno aggiunto';
+    case 'drawing.remove':
+      return 'Disegno rimosso';
     default:
       return 'azione';
   }
@@ -128,6 +134,12 @@ export const applySceneAction = (
     };
   }
   const state = sceneStateSchema.parse(JSON.parse(row.state) as unknown);
+  if (
+    (input.request.action.type === 'fog.apply' && state.fog.ops.length >= 2000)
+    || (input.request.action.type === 'fog.replace' && input.request.action.ops.length > 2000)
+  ) {
+    throw new AppError('payload_too_large', 413, 'La fog ha raggiunto il limite di 2000 operazioni');
+  }
   const inverse = invertOrStale(state, input.request.action);
   const nextState = applyOrStale(state, input.request.action);
   syncPcActorsFromState(tx, nextState);
