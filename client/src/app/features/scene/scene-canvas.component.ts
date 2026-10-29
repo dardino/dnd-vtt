@@ -23,11 +23,23 @@ import {
   tokenCenterPx,
   measureDistance,
   type CellPoint,
+  type Drawing,
+  type FogOp,
+  type FogShape,
   type GridConfig,
   type MeasureResult,
   type SceneState,
   type TokenState,
 } from '@dnd-vtt/shared';
+
+export type SceneTool
+  = | 'select'
+    | 'measure'
+    | 'fog-reveal'
+    | 'fog-hide'
+    | 'fog-rect'
+    | 'fog-lasso'
+    | 'draw';
 
 export interface SceneMapImage {
   url: string;
@@ -79,14 +91,18 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly map = input<SceneMapImage | null>(null);
   public readonly state = input.required<SceneState>();
   public readonly selectedTokenId = input<string | null>(null);
-  public readonly tool = input<'select' | 'measure'>('select');
+  public readonly tool = input<SceneTool>('select');
   public readonly gridVisible = input(true);
   public readonly readOnly = input(false);
+  public readonly fogSoftness = input(0);
+  public readonly brushSize = input(80);
 
   public readonly tokenMoved = output<TokenMoveEvent>();
   public readonly tokenSelected = output<string | null>();
   public readonly actorDropped = output<ActorDropEvent>();
   public readonly measured = output<MeasureResult | null>();
+  public readonly fogApplied = output<FogOp>();
+  public readonly drawingAdded = output<Drawing>();
   public readonly cameraChanged = output<Camera>();
 
   private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
@@ -107,7 +123,10 @@ export class SceneCanvasComponent implements OnDestroy {
   private stage: Konva.Stage | null = null;
   private mapLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
+  private fogLayer: Konva.Layer | null = null;
+  private fogPreviewLayer: Konva.Layer | null = null;
   private tokenLayer: Konva.Layer | null = null;
+  private drawingLayer: Konva.Layer | null = null;
   private measureLayer: Konva.Layer | null = null;
   private previewNode: Konva.Image | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -117,6 +136,12 @@ export class SceneCanvasComponent implements OnDestroy {
   private lastGrid: GridConfig | null = null;
   private lastGridVisible: boolean | null = null;
   private lastMapHash: string | null = null;
+  private lastFog: SceneState['fog'] | null = null;
+  private lastDrawings: Drawing[] | null = null;
+  private lastTool: string | null = null;
+  private fogDraft: { start: Point; current: Point; points: Point[] } | null = null;
+  private drawingDraft: Point[] | null = null;
+  private lassoPoints: Point[] | null = null;
   private draggingMeasure = false;
   private loadingImages = new Map<string, Promise<HTMLImageElement>>();
 
@@ -238,11 +263,17 @@ export class SceneCanvasComponent implements OnDestroy {
     this.stage = stage;
     this.mapLayer = new Konva.Layer({ listening: false });
     this.gridLayer = new Konva.Layer({ listening: false });
+    this.fogLayer = new Konva.Layer({ listening: false });
+    this.fogPreviewLayer = new Konva.Layer({ listening: false });
     this.tokenLayer = new Konva.Layer();
+    this.drawingLayer = new Konva.Layer({ listening: false });
     this.measureLayer = new Konva.Layer({ listening: false });
     stage.add(this.mapLayer);
     stage.add(this.gridLayer);
+    stage.add(this.fogLayer);
+    stage.add(this.fogPreviewLayer);
     stage.add(this.tokenLayer);
+    stage.add(this.drawingLayer);
     stage.add(this.measureLayer);
 
     stage.on('wheel', (event) => this.onWheel(event));
@@ -257,6 +288,7 @@ export class SceneCanvasComponent implements OnDestroy {
     stage.on('mousedown touchstart', (event) => {
       this.onPointerDown(event as Konva.KonvaEventObject<MouseEvent | TouchEvent>);
     });
+    stage.on('dblclick dbltap', () => this.finishLasso());
     stage.on('mousemove touchmove', () => this.onPointerMove());
     stage.on('mouseup touchend', () => this.onPointerUp());
 
@@ -287,6 +319,13 @@ export class SceneCanvasComponent implements OnDestroy {
     if (stage !== null) {
       stage.draggable(this.tool() === 'select' && !this.readOnly());
     }
+    if (this.tool() !== this.lastTool) {
+      this.lastTool = this.tool();
+      this.fogDraft = null;
+      this.lassoPoints = null;
+      this.drawingDraft = null;
+      this.renderDraftPreview();
+    }
     if (this.activeAssetId !== (map?.hash ?? null)) {
       this.loadMap(map);
     }
@@ -301,6 +340,16 @@ export class SceneCanvasComponent implements OnDestroy {
       this.lastGridVisible = this.gridVisible();
       this.lastMapHash = mapHash;
       this.renderGrid();
+    }
+    const fog = this.state().fog;
+    if (fog !== this.lastFog) {
+      this.lastFog = fog;
+      this.renderFog();
+    }
+    const drawings = this.state().drawings;
+    if (drawings !== this.lastDrawings) {
+      this.lastDrawings = drawings;
+      this.renderDrawings();
     }
     this.renderTokens();
     this.renderMeasure();
@@ -337,6 +386,8 @@ export class SceneCanvasComponent implements OnDestroy {
       }
       this.mapLayer.draw();
       this.fit();
+      this.renderFog();
+      this.renderDrawings();
       this.scheduleTiles();
     };
     void this.loadImage(url)
@@ -593,6 +644,199 @@ export class SceneCanvasComponent implements OnDestroy {
     }
   }
 
+  private renderFog(): void {
+    const map = this.map();
+    const layer = this.fogLayer;
+    if (layer === null) {
+      return;
+    }
+    layer.destroyChildren();
+    if (map === null) {
+      layer.draw();
+      return;
+    }
+    const scale = Math.min(1, 4096 / Math.max(map.width, map.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(map.width * scale));
+    canvas.height = Math.max(1, Math.round(map.height * scale));
+    const context = canvas.getContext('2d');
+    if (context === null) {
+      return;
+    }
+    if (this.state().fog.base === 'hidden') {
+      context.fillStyle = '#000';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    for (const op of this.state().fog.ops) {
+      this.paintFogOp(context, op, scale);
+    }
+    layer.add(new Konva.Image({
+      image: canvas,
+      x: 0,
+      y: 0,
+      width: map.width,
+      height: map.height,
+      opacity: 0.5,
+      listening: false,
+    }));
+    layer.draw();
+  }
+
+  private paintFogOp(context: CanvasRenderingContext2D, op: FogOp, scale: number): void {
+    context.save();
+    context.globalCompositeOperation = op.op === 'reveal' ? 'destination-out' : 'source-over';
+    context.filter = op.softness > 0 ? `blur(${op.softness * scale}px)` : 'none';
+    context.fillStyle = '#000';
+    context.strokeStyle = '#000';
+    this.paintFogShape(context, op.shape, scale);
+    context.restore();
+  }
+
+  private paintFogShape(context: CanvasRenderingContext2D, shape: FogShape, scale: number): void {
+    switch (shape.type) {
+      case 'rect':
+        context.fillRect(shape.x * scale, shape.y * scale, shape.width * scale, shape.height * scale);
+        break;
+      case 'circle':
+        context.beginPath();
+        context.arc(shape.cx * scale, shape.cy * scale, shape.radius * scale, 0, Math.PI * 2);
+        context.fill();
+        break;
+      case 'polygon':
+        context.beginPath();
+        shape.points.forEach((point, index) => {
+          if (index === 0) {
+            context.moveTo(point.x * scale, point.y * scale);
+          } else {
+            context.lineTo(point.x * scale, point.y * scale);
+          }
+        });
+        context.closePath();
+        context.fill();
+        break;
+      case 'brush':
+        context.lineWidth = shape.radius * 2 * scale;
+        context.lineCap = 'round';
+        context.lineJoin = 'round';
+        context.beginPath();
+        shape.points.forEach((point, index) => {
+          if (index === 0) {
+            context.moveTo(point.x * scale, point.y * scale);
+          } else {
+            context.lineTo(point.x * scale, point.y * scale);
+          }
+        });
+        context.stroke();
+        break;
+      default:
+        break;
+    }
+  }
+
+  private renderDrawings(): void {
+    const layer = this.drawingLayer;
+    if (layer === null) {
+      return;
+    }
+    layer.destroyChildren();
+    for (const drawing of this.state().drawings) {
+      if (!drawing.visible) {
+        continue;
+      }
+      layer.add(new Konva.Line({
+        points: drawing.points.flatMap((point) => [point.x, point.y]),
+        stroke: drawing.color,
+        strokeWidth: drawing.width,
+        lineCap: 'round',
+        lineJoin: 'round',
+        listening: false,
+      }));
+    }
+    layer.draw();
+  }
+
+  private renderDraftPreview(): void {
+    const layer = this.fogPreviewLayer;
+    if (layer === null) {
+      return;
+    }
+    layer.destroyChildren();
+    const colors = this.colors();
+    const scale = this.stage?.scaleX() ?? 1;
+    const strokeWidth = Math.max(1, 2 / Math.max(scale, 0.1));
+    if (this.fogDraft !== null) {
+      const draft = this.fogDraft;
+      const mode = this.fogMode();
+      if (mode === 'rect') {
+        const x = Math.min(draft.start.x, draft.current.x);
+        const y = Math.min(draft.start.y, draft.current.y);
+        layer.add(new Konva.Rect({
+          x,
+          y,
+          width: Math.abs(draft.current.x - draft.start.x),
+          height: Math.abs(draft.current.y - draft.start.y),
+          stroke: colors.accent,
+          strokeWidth,
+          dash: [8 / Math.max(scale, 0.1), 6 / Math.max(scale, 0.1)],
+          fill: colors.accent,
+          opacity: 0.2,
+          listening: false,
+        }));
+      } else {
+        layer.add(new Konva.Line({
+          points: draft.points.flatMap((point) => [point.x, point.y]),
+          stroke: colors.accent,
+          strokeWidth: this.brushSize() * 2,
+          lineCap: 'round',
+          lineJoin: 'round',
+          opacity: 0.25,
+          listening: false,
+        }));
+        layer.add(new Konva.Line({
+          points: draft.points.flatMap((point) => [point.x, point.y]),
+          stroke: colors.accent,
+          strokeWidth,
+          lineCap: 'round',
+          lineJoin: 'round',
+          listening: false,
+        }));
+      }
+    }
+    if (this.lassoPoints !== null && this.lassoPoints.length > 0) {
+      layer.add(new Konva.Line({
+        points: this.lassoPoints.flatMap((point) => [point.x, point.y]),
+        stroke: colors.accent,
+        strokeWidth,
+        closed: this.lassoPoints.length > 2,
+        dash: [8 / Math.max(scale, 0.1), 6 / Math.max(scale, 0.1)],
+        listening: false,
+      }));
+    }
+    if (this.drawingDraft !== null) {
+      layer.add(new Konva.Line({
+        points: this.drawingDraft.flatMap((point) => [point.x, point.y]),
+        stroke: colors.accent,
+        strokeWidth: 4,
+        lineCap: 'round',
+        lineJoin: 'round',
+        listening: false,
+      }));
+    }
+    layer.draw();
+  }
+
+  public exportPng(): void {
+    const stage = this.stage;
+    if (stage === null) {
+      return;
+    }
+    const url = stage.toDataURL({ pixelRatio: 2 });
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'scena.png';
+    anchor.click();
+  }
+
   private renderTokens(): void {
     const layer = this.tokenLayer;
     const stage = this.stage;
@@ -697,7 +941,8 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private onPointerDown(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void {
-    if (this.tool() !== 'measure' || this.stage === null) {
+    const tool = this.tool();
+    if (tool === 'select' || this.stage === null) {
       return;
     }
     // Il flag `draggable` è applicato da un effect: forzarlo qui evita che il
@@ -708,35 +953,143 @@ export class SceneCanvasComponent implements OnDestroy {
     if (point === null) {
       return;
     }
-    this.draggingMeasure = true;
-    const cell = pixelToCell(this.state().grid, point);
-    this.updateMeasurement(cell, cell);
+    if (tool === 'measure') {
+      this.draggingMeasure = true;
+      const cell = pixelToCell(this.state().grid, point);
+      this.updateMeasurement(cell, cell);
+      return;
+    }
+    if (tool === 'draw') {
+      this.drawingDraft = [point];
+      this.renderDraftPreview();
+      return;
+    }
+    if (tool === 'fog-lasso') {
+      this.lassoPoints = [...(this.lassoPoints ?? []), point];
+      this.renderDraftPreview();
+      return;
+    }
+    this.fogDraft = { start: point, current: point, points: [point] };
+    this.renderDraftPreview();
   }
 
   private onPointerMove(): void {
-    if (!this.draggingMeasure) {
-      return;
-    }
     const point = this.worldPoint();
     if (point === null) {
       return;
     }
-    const current = this.measurement();
-    if (current === null) {
+    if (this.draggingMeasure) {
+      const current = this.measurement();
+      if (current !== null) {
+        this.updateMeasurement(current.from, pixelToCell(this.state().grid, point));
+      }
       return;
     }
-    this.updateMeasurement(current.from, pixelToCell(this.state().grid, point));
+    if (this.drawingDraft !== null) {
+      this.drawingDraft = [...this.drawingDraft, point];
+      this.renderDraftPreview();
+      return;
+    }
+    if (this.fogDraft !== null) {
+      this.fogDraft = {
+        ...this.fogDraft,
+        current: point,
+        ...(this.fogMode() === 'brush'
+          ? { points: [...this.fogDraft.points, point] }
+          : {}),
+      };
+      this.renderDraftPreview();
+    }
   }
 
   private onPointerUp(): void {
-    if (!this.draggingMeasure) {
+    if (this.draggingMeasure) {
+      this.draggingMeasure = false;
+      const measure = this.measurement();
+      if (measure !== null) {
+        this.measured.emit(measure);
+      }
       return;
     }
-    this.draggingMeasure = false;
-    const measure = this.measurement();
-    if (measure !== null) {
-      this.measured.emit(measure);
+    if (this.drawingDraft !== null) {
+      if (this.drawingDraft.length >= 2) {
+        this.drawingAdded.emit({
+          id: crypto.randomUUID(),
+          points: this.drawingDraft,
+          color: this.colors().accent,
+          width: 4,
+          visible: true,
+        });
+      }
+      this.drawingDraft = null;
+      this.renderDraftPreview();
+      return;
     }
+    if (this.fogDraft !== null) {
+      this.commitFogDraft();
+    }
+  }
+
+  private fogMode(): 'rect' | 'brush' | 'lasso' {
+    const tool = this.tool();
+    if (tool === 'fog-rect') {
+      return 'rect';
+    }
+    if (tool === 'fog-lasso') {
+      return 'lasso';
+    }
+    return 'brush';
+  }
+
+  private commitFogDraft(): void {
+    const draft = this.fogDraft;
+    if (draft === null) {
+      return;
+    }
+    const mode = this.fogMode();
+    let shape: FogShape | null = null;
+    if (mode === 'rect') {
+      const width = Math.abs(draft.current.x - draft.start.x);
+      const height = Math.abs(draft.current.y - draft.start.y);
+      if (width >= 1 && height >= 1) {
+        shape = {
+          type: 'rect',
+          x: Math.min(draft.start.x, draft.current.x),
+          y: Math.min(draft.start.y, draft.current.y),
+          width,
+          height,
+        };
+      }
+    } else if (draft.points.length >= 2) {
+      shape = { type: 'brush', points: draft.points, radius: Math.max(1, this.brushSize()) };
+    }
+    this.fogDraft = null;
+    this.renderDraftPreview();
+    if (shape !== null) {
+      this.fogApplied.emit({
+        id: crypto.randomUUID(),
+        op: this.tool() === 'fog-hide' ? 'hide' : 'reveal',
+        shape,
+        softness: Math.max(0, this.fogSoftness()),
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  private finishLasso(): void {
+    const points = this.lassoPoints;
+    if (points === null || points.length < 3) {
+      return;
+    }
+    this.lassoPoints = null;
+    this.renderDraftPreview();
+    this.fogApplied.emit({
+      id: crypto.randomUUID(),
+      op: this.tool() === 'fog-hide' ? 'hide' : 'reveal',
+      shape: { type: 'polygon', points },
+      softness: Math.max(0, this.fogSoftness()),
+      createdAt: new Date().toISOString(),
+    });
   }
 
   private updateMeasurement(from: CellPoint, to: CellPoint): void {

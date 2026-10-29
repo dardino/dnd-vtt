@@ -21,6 +21,8 @@ import {
   type AppliedAction,
   type Campaign,
   type DiceRoll,
+  type Drawing,
+  type FogOp,
   type GameAction,
   type GridConfig,
   type InitiativeEntry,
@@ -47,17 +49,19 @@ import {
   SceneCanvasComponent,
   type ActorDropEvent,
   type SceneMapImage,
+  type SceneTool,
   type TokenMoveEvent,
 } from '../scene/scene-canvas.component';
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
-type CanvasTool = 'select' | 'measure';
-type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'actors' | 'tokens';
+type CanvasTool = SceneTool;
+type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'actors' | 'tokens';
 
 const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   campaign: true,
   scenes: true,
   grid: true,
+  fog: true,
   actors: true,
   tokens: true,
 };
@@ -118,6 +122,10 @@ export class DmShellPage implements OnInit {
 
   public readonly tool = signal<CanvasTool>('select');
   public readonly gridVisible = signal(true);
+  public readonly fogSoftness = signal(0);
+  public readonly brushSize = signal(80);
+  public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
+  public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
   public readonly zoom = signal(1);
   public readonly measureResult = signal<MeasureResult | null>(null);
   public readonly selectedTokenId = signal<string | null>(null);
@@ -231,6 +239,7 @@ export class DmShellPage implements OnInit {
     try {
       const campaign = await this.campaignsApi.get(id);
       this.activeCampaign.set(campaign);
+      this.newSceneFog.set(campaign.fogDefault);
       this.lastCampaign.write(campaign.id);
       this.mode.set('ready');
       this.notice.set(null);
@@ -345,10 +354,12 @@ export class DmShellPage implements OnInit {
     }
     this.busy.set(true);
     try {
-      const scene = await this.campaignsApi.createScene(
-        campaign.id,
-        `Scena ${this.scenes().length + 1}`,
-      );
+      const scene = await this.campaignsApi.createScene(campaign.id, {
+        name: `Scena ${this.scenes().length + 1}`,
+        widthPx: 1920,
+        heightPx: 1080,
+        fogBase: this.newSceneFog(),
+      });
       this.scenes.update((items) => [scene, ...items]);
       const refreshed = await this.campaignsApi.patch(campaign.id, { activeSceneId: scene.id });
       this.activeCampaign.set(refreshed);
@@ -378,6 +389,7 @@ export class DmShellPage implements OnInit {
         widthPx: asset.width,
         heightPx: asset.height,
         imageAssetId: asset.id,
+        fogBase: this.newSceneFog(),
       });
       this.scenes.update((items) => [scene, ...items]);
       const refreshed = await this.campaignsApi.patch(scene.campaignId, { activeSceneId: scene.id });
@@ -727,10 +739,7 @@ export class DmShellPage implements OnInit {
     };
     this.selectedTokenId.set(token.id);
     this.statusMessage.set(`Token aggiunto: ${actor.name}`);
-    const applied = await this.sendAction({ type: 'token.add', token });
-    if (applied !== null) {
-      setTimeout(() => this.canvas()?.focusToken(token.id), 0);
-    }
+    await this.sendAction({ type: 'token.add', token });
   }
 
   public onTokenSelected(tokenId: string | null): void {
@@ -778,6 +787,64 @@ export class DmShellPage implements OnInit {
     const cellSizePx = Math.max(16, Math.min(400, Math.round(value)));
     await this.sendAction({ type: 'grid.update', grid: { ...grid, cellSizePx } });
     this.statusMessage.set(`Cella: ${cellSizePx} px`);
+  }
+
+  public setNewSceneFog(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    if (value === 'hidden' || value === 'revealed') {
+      this.newSceneFog.set(value);
+    }
+  }
+
+  public setFogSoftness(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.fogSoftness.set(Number.isFinite(value) ? Math.max(0, Math.min(200, value)) : 0);
+  }
+
+  public setBrushSize(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.brushSize.set(Number.isFinite(value) ? Math.max(5, Math.min(500, value)) : 80);
+  }
+
+  public async onFogApplied(op: FogOp): Promise<void> {
+    await this.sendAction({ type: 'fog.apply', op });
+    this.statusMessage.set(op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta');
+  }
+
+  public async onDrawingAdded(drawing: Drawing): Promise<void> {
+    await this.sendAction({ type: 'drawing.add', drawing });
+    this.statusMessage.set('Disegno aggiunto');
+  }
+
+  public revealAll(): void {
+    this.fogConfirm.set('reveal');
+  }
+
+  public hideAll(): void {
+    this.fogConfirm.set('hide');
+  }
+
+  public async confirmFogChange(): Promise<void> {
+    const mode = this.fogConfirm();
+    this.fogConfirm.set(null);
+    if (mode === null) {
+      return;
+    }
+    if (mode === 'reveal') {
+      await this.sendAction({ type: 'fog.replace', base: 'revealed', ops: [] });
+      this.statusMessage.set('Fog: tutta la mappa rivelata');
+    } else {
+      await this.sendAction({ type: 'fog.replace', base: 'hidden', ops: [] });
+      this.statusMessage.set('Fog: tutta la mappa nascosta');
+    }
+  }
+
+  public cancelFogChange(): void {
+    this.fogConfirm.set(null);
+  }
+
+  public exportPng(): void {
+    this.canvas()?.exportPng();
   }
 
   public onActorDragStart(event: DragEvent, actor: Actor): void {

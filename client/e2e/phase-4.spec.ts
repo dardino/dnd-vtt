@@ -171,7 +171,15 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   expect(Number.isInteger(dropped.x)).toBe(true);
   expect(Number.isInteger(dropped.y)).toBe(true);
 
-  const squareCenter = await canvasPoint(page, first.snapshot.state.grid, dropped);
+  await page.locator('.token-row__name', { hasText: 'Goblin E2E' }).click();
+  const canvasBox = await canvas.boundingBox();
+  expect(canvasBox).not.toBeNull();
+  const squareScale = Number(await canvas.getAttribute('data-camera-scale'));
+  const squareCenter = {
+    x: (canvasBox?.x ?? 0) + (canvasBox?.width ?? 0) / 2,
+    y: (canvasBox?.y ?? 0) + (canvasBox?.height ?? 0) / 2,
+    scale: squareScale,
+  };
   await page.mouse.move(squareCenter.x, squareCenter.y);
   await page.mouse.down();
   await page.mouse.move(
@@ -198,7 +206,15 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
 
   const hexScene = await activeScene(request, id);
   const beforeHex = tokenOf(hexScene.snapshot);
-  const hexCenter = await canvasPoint(page, hexScene.snapshot.state.grid, beforeHex);
+  await page.locator('.token-row__name', { hasText: 'Goblin E2E' }).click();
+  const hexBox = await canvas.boundingBox();
+  expect(hexBox).not.toBeNull();
+  const hexScale = Number(await canvas.getAttribute('data-camera-scale'));
+  const hexCenter = {
+    x: (hexBox?.x ?? 0) + (hexBox?.width ?? 0) / 2,
+    y: (hexBox?.y ?? 0) + (hexBox?.height ?? 0) / 2,
+    scale: hexScale,
+  };
   await page.mouse.move(hexCenter.x, hexCenter.y);
   await page.mouse.down();
   await page.mouse.move(

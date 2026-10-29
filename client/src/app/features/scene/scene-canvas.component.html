@@ -2,6 +2,7 @@
   #host
   class="scene-canvas"
   [class.scene-canvas--measure]="tool() === 'measure'"
+  [class.scene-canvas--tool]="tool() !== 'select' && tool() !== 'measure'"
   [attr.data-camera-scale]="camera().scale"
   [attr.data-camera-x]="camera().x"
   [attr.data-camera-y]="camera().y"

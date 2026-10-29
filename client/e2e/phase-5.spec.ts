@@ -146,9 +146,11 @@ test('tira dadi, gestisce iniziativa e annulla un danno', async ({ page, request
 
   await page.getByRole('button', { name: 'Iniziativa' }).click();
   await page.getByRole('button', { name: 'Tira iniziativa' }).click();
-  await expect(page.locator('.initiative__row')).toHaveCount(2);
-  await page.getByRole('button', { name: 'Prossimo turno' }).click();
-  await page.getByRole('button', { name: 'Prossimo turno' }).click();
+  const tokenCount = await page.locator('.token-row').count();
+  await expect(page.locator('.initiative__row')).toHaveCount(tokenCount);
+  for (let index = 0; index < tokenCount; index += 1) {
+    await page.getByRole('button', { name: 'Prossimo turno' }).click();
+  }
   await expect(page.locator('.dock__hint')).toContainText('Round 2');
 
   await page.getByRole('button', { name: 'Danneggia Goblin Fase 5 di 5' }).first().click();
@@ -158,5 +160,5 @@ test('tira dadi, gestisce iniziativa e annulla un danno', async ({ page, request
   const damageRow = page.locator('.action-history li', { hasText: 'PF -5' }).first();
   await damageRow.getByRole('button', { name: 'Annulla fino a qui' }).click();
   await expect(page.locator('.token-row', { hasText: '2/7' })).toHaveCount(0);
-  await expect(page.locator('.token-row', { hasText: '7/7' })).toHaveCount(2);
+  await expect(page.locator('.token-row', { hasText: '7/7' })).toHaveCount(tokenCount);
 });

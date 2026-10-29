@@ -122,6 +122,13 @@
                 <button type="button" class="upload-button" [disabled]="uploading()" (click)="openFilePicker()">
                   {{ uploading() ? 'Caricamento mappa…' : 'Carica mappa' }}
                 </button>
+                <label class="field">
+                  <span>Fog iniziale della nuova scena</span>
+                  <select [value]="newSceneFog()" (change)="setNewSceneFog($event)">
+                    <option value="hidden">Coperta</option>
+                    <option value="revealed">Scoperta</option>
+                  </select>
+                </label>
                 @if (uploadError(); as error) {
                   <p class="field-error" role="alert">{{ error }}</p>
                 }
@@ -198,6 +205,36 @@
                   </label>
                   <p class="muted">Diagonale {{ gridConfig.diagonalRule }} · {{ gridConfig.feetPerCell }} ft per cella</p>
                 }
+              </div>
+            }
+          </section>
+
+          <section class="accordion" [class.is-open]="isSectionOpen('fog')">
+            <button
+              type="button"
+              class="accordion__trigger"
+              [attr.aria-expanded]="isSectionOpen('fog')"
+              aria-controls="sidebar-fog"
+              (click)="toggleSection('fog')"
+            >
+              <span class="accordion__label">Fog</span>
+              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('fog') ? '▾' : '▸' }}</span>
+            </button>
+            @if (isSectionOpen('fog')) {
+              <div id="sidebar-fog" class="accordion__body">
+                <label class="field">
+                  <span>Pennello (px)</span>
+                  <input type="number" min="5" max="500" [value]="brushSize()" (input)="setBrushSize($event)" />
+                </label>
+                <label class="field">
+                  <span>Morbidezza bordo (px)</span>
+                  <input type="number" min="0" max="200" [value]="fogSoftness()" (input)="setFogSoftness($event)" />
+                </label>
+                <div class="initiative__actions">
+                  <button type="button" class="dock-button" (click)="revealAll()">Rivela tutto</button>
+                  <button type="button" class="dock-button" (click)="hideAll()">Nascondi tutto</button>
+                </div>
+                <p class="muted">Strumenti Fog nella toolbar: pennello, gomma, rettangolo e lasso.</p>
               </div>
             }
           </section>
@@ -292,9 +329,50 @@
                 <button type="button" class="tool" aria-label="Zoom indietro" title="Zoom indietro" (click)="zoomOut()">−</button>
                 <button type="button" class="tool" aria-label="Adatta mappa" title="Adatta mappa" (click)="fitMap()">⤢</button>
                 <span class="tool-divider"></span>
+                <button
+                  type="button"
+                  class="tool"
+                  [class.is-active]="tool() === 'fog-reveal'"
+                  aria-label="Fog: rivela"
+                  title="Fog: rivela"
+                  (click)="setTool('fog-reveal')"
+                >◐</button>
+                <button
+                  type="button"
+                  class="tool"
+                  [class.is-active]="tool() === 'fog-hide'"
+                  aria-label="Fog: nascondi"
+                  title="Fog: nascondi"
+                  (click)="setTool('fog-hide')"
+                >◑</button>
+                <button
+                  type="button"
+                  class="tool"
+                  [class.is-active]="tool() === 'fog-rect'"
+                  aria-label="Fog: rettangolo"
+                  title="Fog: rettangolo"
+                  (click)="setTool('fog-rect')"
+                >▭</button>
+                <button
+                  type="button"
+                  class="tool"
+                  [class.is-active]="tool() === 'fog-lasso'"
+                  aria-label="Fog: lasso"
+                  title="Fog: lasso (doppio click per chiudere)"
+                  (click)="setTool('fog-lasso')"
+                >⬠</button>
+                <button
+                  type="button"
+                  class="tool"
+                  [class.is-active]="tool() === 'draw'"
+                  aria-label="Disegno"
+                  title="Disegno"
+                  (click)="setTool('draw')"
+                >✎</button>
+                <button type="button" class="tool" aria-label="Esporta PNG" title="Esporta PNG" (click)="exportPng()">⭳</button>
+                <span class="tool-divider"></span>
                 <button type="button" class="tool" aria-label="Focus" title="Nascondi le sidebar" (click)="toggleLeft(); toggleRight()">F</button>
                 <span class="tool-divider"></span>
-                <button type="button" class="tool" aria-label="Fog" title="Fog disponibile in Fase 6" disabled>◐</button>
                 <button type="button" class="tool" aria-label="Camera live" title="Regia disponibile in Fase 7" disabled>◉</button>
               </nav>
 
@@ -308,10 +386,14 @@
                     [tool]="tool()"
                     [gridVisible]="gridVisible()"
                     [readOnly]="readOnly()"
+                    [fogSoftness]="fogSoftness()"
+                    [brushSize]="brushSize()"
                     (tokenMoved)="onTokenMoved($event)"
                     (tokenSelected)="onTokenSelected($event)"
                     (actorDropped)="onActorDropped($event)"
                     (measured)="onMeasured($event)"
+                    (fogApplied)="onFogApplied($event)"
+                    (drawingAdded)="onDrawingAdded($event)"
                     (cameraChanged)="onCamera($event)"
                   />
                 } @else if (sceneStore.loading()) {
@@ -679,3 +761,17 @@
     (rolled)="onDiceRolled($event)"
   />
 }
+
+<app-dialog
+  [open]="fogConfirm() !== null"
+  [title]="fogConfirm() === 'hide' ? 'Nascondi tutta la mappa?' : 'Rivelare tutta la mappa?'"
+  (closed)="cancelFogChange()"
+>
+  <p class="muted">
+    L’operazione sostituisce la copertura corrente con uno stato uniforme. Puoi annullarla dal dock Azioni.
+  </p>
+  <div dialog-actions>
+    <app-button (pressed)="cancelFogChange()">Annulla</app-button>
+    <app-button variant="primary" (pressed)="confirmFogChange()">Conferma</app-button>
+  </div>
+</app-dialog>
