@@ -67,7 +67,7 @@ Frontend
 - `uuid` (v7) per gli id condivisi tra client e server (D6)
 
 Backend
-- **Node.js 24 LTS**, minimo **24.15.0** (richiesto da Angular 22; compatibile con ESLint 10)
+- **Node.js 26 LTS**, minimo **26.0.0** (richiesto da Angular 22; compatibile con ESLint 10)
 - **TypeScript 6.0.x** (vincolo Angular 22: `>=6.0 <6.1`)
 - Fastify
 - `fastify-type-provider-zod` + Zod per validazione e generazione OpenAPI
@@ -124,7 +124,7 @@ Tooling monorepo
 | D25 | Il telefono **chiede** un tiro, il server lo esegue e lo trasmette a console e schermo A | il client non sceglie mai il risultato; un solo punto di emissione per DM e giocatori |
 | D26 | Note **private per ruolo**: `player_notes` visibile solo al giocatore, `dm_notes` solo al DM; nessuna delle due attraversa il confine del ruolo e non esiste condivisione esplicita di `playerNotes` | ognuno scrive senza sentirsi osservato; nessun rischio di leak tra le due viste |
 | D27 | Console DM: **loopback fidato solo dalla connessione diretta**; dietro proxy o su LAN serve password con cookie firmato; TTL 30 giorni, più dispositivi ammessi, revoca globale | zero attrito sul PC del DM, senza fidarsi di header proxy non verificabili; niente gestione sessioni per-device nell'MVP |
-| D28 | **ESM ovunque** (`"type": "module"`), nessun dual package | Node 24, Fastify, Angular e Vitest sono già ESM; un solo formato evita il classico "due copie della stessa classe" |
+| D28 | **ESM ovunque** (`"type": "module"`), nessun dual package | Node 26, Fastify, Angular e Vitest sono già ESM; un solo formato evita il classico "due copie della stessa classe" |
 | D29 | TypeScript **strict massimo** da subito, non solo `strict: true` | aggiungere `noUncheckedIndexedAccess` dopo significa una valanga di errori; i bug che intercetta sono esattamente quelli di token e fog |
 | D30 | CI completa con **E2E a ogni PR** | il doppio schermo è il requisito più fragile: se non è verificato a ogni modifica, si rompe in silenzio |
 | D31 | Export **per campagna**, note dei giocatori solo con flag esplicito (`includePrivateNotes`, default `false`) | un backup davvero completo senza trasformare il file in una scorciatoia per leggere ciò che D26 nasconde |
@@ -282,7 +282,7 @@ dnd-vtt/
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24.15.0 <25" },
+  "engines": { "node": ">=26.0.0 <27" },
   "workspaces": ["client", "server", "shared"],
   "scripts": {
     "dev": "turbo run dev",

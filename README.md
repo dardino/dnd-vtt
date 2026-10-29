@@ -5,11 +5,11 @@ fog of war, dadi e schede SRD 5.2. Il design completo è in [`PLAN.md`](./PLAN.m
 
 ## Requisiti
 
-- Node.js **24.15+** (`<25`), vedi `.nvmrc`
+- Node.js **26.0+** (`<27`), vedi `.nvmrc`
 - npm 12
 
 ```powershell
-nvm use 24.20.0
+nvm use 26.8.1
 npm ci
 Copy-Item .env.example .env   # opzionale: i default funzionano su localhost
 npm run db:migrate
