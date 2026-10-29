@@ -19,6 +19,11 @@ export const fogShapeSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('rect'), x: z.number(), y: z.number(), width: z.number(), height: z.number() }),
   z.strictObject({ type: z.literal('polygon'), points: z.array(pointSchema).min(3) }),
   z.strictObject({ type: z.literal('circle'), cx: z.number(), cy: z.number(), radius: z.number().positive() }),
+  z.strictObject({
+    type: z.literal('brush'),
+    points: z.array(pointSchema).min(2),
+    radius: z.number().positive(),
+  }),
 ]);
 export type FogShape = z.infer<typeof fogShapeSchema>;
 
@@ -26,6 +31,8 @@ export const fogOpSchema = z.strictObject({
   id: z.string().min(1),
   op: z.enum(['reveal', 'hide']),
   shape: fogShapeSchema,
+  softness: z.number().min(0).max(200).default(0),
+  createdAt: z.string().datetime().optional(),
 });
 export type FogOp = z.infer<typeof fogOpSchema>;
 
@@ -123,7 +130,9 @@ export const initiativeStateSchema = z.strictObject({
 });
 export type InitiativeState = z.infer<typeof initiativeStateSchema>;
 
-export const createDefaultSceneState = (): SceneState => ({
+export const createDefaultSceneState = (
+  fogBase: 'hidden' | 'revealed' = 'hidden',
+): SceneState => ({
   grid: {
     type: 'square',
     cellSizePx: 70,
@@ -133,7 +142,7 @@ export const createDefaultSceneState = (): SceneState => ({
     diagonalRule: '5-5-5',
     hexOffset: 'odd-r',
   },
-  fog: { base: 'hidden', ops: [] },
+  fog: { base: fogBase, ops: [] },
   tokens: [],
   loot: [],
   drawings: [],
@@ -166,6 +175,13 @@ export const gameActionSchema = z.discriminatedUnion('type', [
     condition: conditionSchema,
   }),
   z.strictObject({ type: z.literal('fog.apply'), op: fogOpSchema }),
+  z.strictObject({
+    type: z.literal('fog.replace'),
+    base: z.enum(['hidden', 'revealed']),
+    ops: z.array(fogOpSchema).max(2000),
+  }),
+  z.strictObject({ type: z.literal('drawing.add'), drawing: drawingSchema }),
+  z.strictObject({ type: z.literal('drawing.remove'), drawingId: z.string().min(1) }),
   z.strictObject({ type: z.literal('grid.update'), grid: gridConfigSchema }),
   z.strictObject({ type: z.literal('initiative.set'), initiative: initiativeStateSchema }),
   z.strictObject({ type: z.literal('initiative.next') }),
@@ -190,6 +206,7 @@ export const createSceneSchema = z.strictObject({
   widthPx: z.number().int().min(1).max(20000).default(1920),
   heightPx: z.number().int().min(1).max(20000).default(1080),
   imageAssetId: z.string().uuid().optional(),
+  fogBase: z.enum(['hidden', 'revealed']).optional(),
 });
 export type CreateScene = z.infer<typeof createSceneSchema>;
 

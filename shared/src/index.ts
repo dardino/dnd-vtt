@@ -11,6 +11,7 @@ export * from './lib/scene/actions.js';
 export * from './lib/scene/grid.js';
 export * from './lib/scene/tiles.js';
 export * from './lib/scene/hp.js';
+export * from './lib/scene/fog.js';
 export * from './lib/scene/initiative.js';
 export * from './lib/dice/roller.js';
 export * from './lib/sheet/rest.js';

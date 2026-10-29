@@ -85,6 +85,18 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
         ...state,
         fog: { ...state.fog, ops: [...state.fog.ops, action.op] },
       };
+    case 'fog.replace':
+      return {
+        ...state,
+        fog: { base: action.base, ops: action.ops },
+      };
+    case 'drawing.add':
+      return { ...state, drawings: [...state.drawings, action.drawing] };
+    case 'drawing.remove':
+      return {
+        ...state,
+        drawings: state.drawings.filter((drawing) => drawing.id !== action.drawingId),
+      };
     case 'grid.update':
       return { ...state, grid: action.grid };
     case 'initiative.set':
@@ -137,6 +149,21 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
           op: action.op.op === 'reveal' ? 'hide' : 'reveal',
         },
       };
+    case 'fog.replace':
+      return {
+        type: 'fog.replace',
+        base: stateBefore.fog.base,
+        ops: stateBefore.fog.ops,
+      };
+    case 'drawing.add':
+      return { type: 'drawing.remove', drawingId: action.drawing.id };
+    case 'drawing.remove': {
+      const drawing = stateBefore.drawings.find((entry) => entry.id === action.drawingId);
+      if (drawing === undefined) {
+        throw new Error(`disegno inesistente: ${action.drawingId}`);
+      }
+      return { type: 'drawing.add', drawing };
+    }
     case 'grid.update':
       return { type: 'grid.update', grid: stateBefore.grid };
     case 'initiative.set':

@@ -53,7 +53,7 @@ describe('applyAction', () => {
   it('aggiunge una operazione di fog', () => {
     const state = applyAction(createDefaultSceneState(), {
       type: 'fog.apply',
-      op: { id: 'op-1', op: 'reveal', shape: { type: 'rect', x: 0, y: 0, width: 2, height: 2 } },
+      op: { id: 'op-1', op: 'reveal', shape: { type: 'rect', x: 0, y: 0, width: 2, height: 2 }, softness: 0 },
     });
     expect(state.fog.ops).toHaveLength(1);
   });
@@ -124,7 +124,7 @@ describe('invertAction', () => {
   it('inverte una operazione di fog', () => {
     const inverse = invertAction(createDefaultSceneState(), {
       type: 'fog.apply',
-      op: { id: 'op-1', op: 'reveal', shape: { type: 'rect', x: 0, y: 0, width: 2, height: 2 } },
+      op: { id: 'op-1', op: 'reveal', shape: { type: 'rect', x: 0, y: 0, width: 2, height: 2 }, softness: 0 },
     });
     expect(inverse).toMatchObject({ type: 'fog.apply', op: { op: 'hide' } });
   });
