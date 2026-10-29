@@ -68,6 +68,13 @@
                   <div><dt>Scene</dt><dd>{{ scenes().length }}</dd></div>
                   <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
                 </dl>
+                <label class="field">
+                  <span>Modalità avanzamento</span>
+                  <select [value]="campaign.advancementMode" (change)="changeAdvancementMode($event)">
+                    <option value="milestone">Milestone</option>
+                    <option value="xp">Punti esperienza</option>
+                  </select>
+                </label>
               } @else {
                 <div class="skeleton skeleton--line"></div>
                 <div class="skeleton skeleton--line skeleton--short"></div>
@@ -211,11 +218,11 @@
                 <a class="dm-link-button" [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'monster']">
                   Crea mostro o NPC
                 </a>
-                @if (offMapActors().length === 0) {
-                  <p class="muted">Nessun mostro o NPC fuori mappa.</p>
+                @if (availableActors().length === 0) {
+                  <p class="muted">Nessun mostro o NPC disponibile.</p>
                 } @else {
                   <ul class="available-actors">
-                    @for (actor of offMapActors(); track actor.id) {
+                    @for (actor of availableActors(); track actor.id) {
                       <li
                         class="available-actor"
                         [attr.draggable]="readOnly() ? null : 'true'"
@@ -225,6 +232,7 @@
                           <span class="available-actor__name">{{ actor.name }}</span>
                           <span class="available-actor__meta">
                             {{ actorSubtitle(actor) }} · {{ actor.hp?.current ?? 0 }}/{{ actor.hp?.max ?? 0 }} PF
+                            @if (tokenCount(actor.id) > 0) { · {{ tokenCount(actor.id) }} in mappa }
                           </span>
                         </span>
                         <button
@@ -238,7 +246,7 @@
                       </li>
                     }
                   </ul>
-                  <p class="muted">Trascina un attore sulla mappa oppure usa +.</p>
+                  <p class="muted">Trascina un attore sulla mappa oppure usa +. Ogni trascinamento crea una nuova istanza.</p>
                 }
               </div>
             }
@@ -270,6 +278,7 @@
                   title="Misura distanza"
                   (click)="setTool('measure')"
                 >⌁</button>
+                <button type="button" class="tool" aria-label="Tira dadi" title="Tira dadi" (click)="openDice()">🎲</button>
                 <button
                   type="button"
                   class="tool"
@@ -319,25 +328,111 @@
 
               <section class="dock" [class.dock--collapsed]="!dockOpen()" aria-label="Dock">
                 <div class="dock__bar">
-                  <button type="button" class="dock__tab is-active" (click)="toggleDock()">
-                    Azioni ({{ actions.history().length }})
-                  </button>
-                  <span class="dock__hint muted">Undo e log dadi arrivano con il combattimento.</span>
+                  <button
+                    type="button"
+                    class="dock__tab"
+                    [class.is-active]="dockTab() === 'initiative'"
+                    (click)="setDockTab('initiative')"
+                  >Iniziativa</button>
+                  <button
+                    type="button"
+                    class="dock__tab"
+                    [class.is-active]="dockTab() === 'dice'"
+                    (click)="setDockTab('dice')"
+                  >Log dadi</button>
+                  <button
+                    type="button"
+                    class="dock__tab"
+                    [class.is-active]="dockTab() === 'actions'"
+                    (click)="setDockTab('actions')"
+                  >Azioni ({{ actions.history().length }})</button>
+                  <span class="dock__hint muted">
+                    @if (initiative(); as init) {
+                      @if (init.active) { Round {{ init.round }} · turno {{ init.turnIndex + 1 }}/{{ init.entries.length }} }
+                    }
+                  </span>
                   <button type="button" class="panel-toggle" (click)="toggleDock()">
                     {{ dockOpen() ? 'Riduci' : 'Espandi' }}
                   </button>
                 </div>
                 @if (dockOpen()) {
-                  <ul class="action-history">
-                    @for (entry of actions.history(); track entry.id) {
-                      <li>
-                        <span class="action-history__label">{{ entry.label }}</span>
-                        <span class="muted">{{ entry.origin }} · v{{ entry.stateVersion }}</span>
-                      </li>
-                    } @empty {
-                      <li class="muted">Nessuna azione registrata.</li>
+                  @switch (dockTab()) {
+                    @case ('initiative') {
+                      <div class="initiative">
+                        <div class="initiative__actions">
+                          <button type="button" class="dock-button" (click)="rollInitiative()">Tira iniziativa</button>
+                          @if (initiative()?.active) {
+                            <button type="button" class="dock-button" (click)="nextInitiativeTurn()">Prossimo turno</button>
+                            <button type="button" class="dock-button" (click)="sortInitiative()">Ordina</button>
+                            <button type="button" class="dock-button" (click)="endInitiative()">Termina</button>
+                          }
+                        </div>
+                        @if (initiative()?.entries?.length) {
+                          <ol class="initiative__list">
+                            @for (entry of initiative()?.entries; track entry.id; let index = $index) {
+                              <li class="initiative__row" [class.is-current]="initiative()?.active && index === initiative()?.turnIndex">
+                                <span class="initiative__label">{{ entry.label }}</span>
+                                <input
+                                  type="number"
+                                  class="initiative__value"
+                                  [value]="entry.value"
+                                  (change)="updateInitiativeValue(entry.id, $event)"
+                                  aria-label="Iniziativa di {{ entry.label }}"
+                                />
+                                <span class="muted">des {{ entry.tiebreak }}</span>
+                                <span class="initiative__hp">{{ tokenHp(entry.tokenId) }}</span>
+                              </li>
+                            }
+                          </ol>
+                        } @else {
+                          <p class="muted">Nessuna iniziativa: tira per i token in mappa.</p>
+                        }
+                      </div>
                     }
-                  </ul>
+                    @case ('dice') {
+                      <div class="dice-log">
+                        <div class="initiative__actions">
+                          <button type="button" class="dock-button" (click)="openDice()">Tira dadi</button>
+                        </div>
+                        <ul class="action-history">
+                          @for (roll of dice.rolls(); track roll.id) {
+                            <li>
+                              <span class="action-history__label">{{ roll.formula }} → {{ roll.total }}</span>
+                              <span class="muted">{{ roll.origin }} · {{ roll.visibility }}</span>
+                            </li>
+                          } @empty {
+                            <li class="muted">Nessun tiro registrato.</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                    @case ('actions') {
+                      <div class="actions-dock">
+                        <div class="initiative__actions">
+                          <button type="button" class="dock-button" [disabled]="undoneActions() === 0" (click)="redoLastBatch()">
+                            Ripeti ultimo batch
+                          </button>
+                        </div>
+                        <ul class="action-history">
+                          @for (entry of actions.history(); track entry.id) {
+                            <li>
+                              <span class="action-history__label">{{ entry.label }}</span>
+                              <span class="muted">{{ entry.origin }} · v{{ entry.stateVersion }}</span>
+                              @if (entry.status === 'applied') {
+                                <button type="button" class="dock-button" (click)="undoThrough(entry.id)">
+                                  Annulla fino a qui
+                                </button>
+                              } @else {
+                                <span class="badge">annullata</span>
+                              }
+                            </li>
+                          } @empty {
+                            <li class="muted">Nessuna azione registrata.</li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  }
                 }
               </section>
             </div>
@@ -393,6 +488,20 @@
                         <span>{{ token.label }}</span>
                         <span class="muted">{{ token.hp.current }}/{{ token.hp.max }} PF</span>
                       </button>
+                      <button
+                        type="button"
+                        class="token-row__icon"
+                        [attr.aria-label]="'Danneggia ' + token.label + ' di 5'"
+                        title="Danneggia 5"
+                        (click)="changeTokenHp(token, -5)"
+                      >−5</button>
+                      <button
+                        type="button"
+                        class="token-row__icon"
+                        [attr.aria-label]="'Cura ' + token.label + ' di 5'"
+                        title="Cura 5"
+                        (click)="changeTokenHp(token, 5)"
+                      >+5</button>
                       <button
                         type="button"
                         class="token-row__icon"
@@ -559,3 +668,14 @@
     <app-button (pressed)="openCreate()">Nuova campagna</app-button>
   </div>
 </app-dialog>
+
+@if (activeCampaign(); as campaign) {
+  <app-dice-overlay
+    [open]="diceOpen()"
+    [campaignId]="campaign.id"
+    [sceneId]="activeScene()?.id ?? null"
+    [tokenId]="selectedTokenId()"
+    (closed)="diceOpen.set(false)"
+    (rolled)="onDiceRolled($event)"
+  />
+}

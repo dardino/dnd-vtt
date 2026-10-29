@@ -31,6 +31,15 @@
       <div class="sheet__badges">
         <span class="badge">HP {{ sheet.statblock.hp.current }}/{{ sheet.statblock.hp.max }}</span>
         <span class="badge">CA {{ sheet.derived?.ac ?? '—' }}</span>
+        @if (onMap()) {
+          <span class="badge">in mappa</span>
+        }
+        @if (pc()) {
+          <span class="badge">XP {{ sheet.actor.xp }}</span>
+          <button type="button" class="sheet__levelup" [disabled]="!canLevelUp()" (click)="openLevelUp()">
+            Sali di livello
+          </button>
+        }
       </div>
     </header>
 
@@ -68,6 +77,114 @@
           </article>
         </div>
 
+        <div class="two-columns">
+          <section class="surface mini">
+            <h2>Punti ferita</h2>
+            <div class="inline-controls">
+              <label class="field field--small">
+                <span>Danno</span>
+                <input type="number" min="0" [value]="damageAmount()" (input)="setDamage($event)" />
+              </label>
+              <button type="button" class="btn btn--danger" [disabled]="busy()" (click)="damage()">Subisci</button>
+              <label class="field field--small">
+                <span>Cura</span>
+                <input type="number" min="0" [value]="healAmount()" (input)="setHeal($event)" />
+              </label>
+              <button type="button" class="btn" [disabled]="busy()" (click)="heal()">Cura</button>
+            </div>
+            <div class="inline-controls">
+              <label class="field field--small">
+                <span>PF temporanei</span>
+                <input type="number" min="0" [value]="tempAmount()" (input)="setTemp($event)" />
+              </label>
+              <button type="button" class="btn" [disabled]="busy()" (click)="applyTempHp()">Applica temp</button>
+            </div>
+            @if (pc(); as character) {
+              <div class="saves-track">
+                <span>Successi morte</span>
+                <button type="button" class="mini-button" (click)="changeDeathSave('successes', -1)">−</button>
+                <strong>{{ character.deathSaves.successes }}/3</strong>
+                <button type="button" class="mini-button" (click)="changeDeathSave('successes', 1)">+</button>
+                <span>Fallimenti</span>
+                <button type="button" class="mini-button" (click)="changeDeathSave('failures', -1)">−</button>
+                <strong>{{ character.deathSaves.failures }}/3</strong>
+                <button type="button" class="mini-button" (click)="changeDeathSave('failures', 1)">+</button>
+              </div>
+              <div class="saves-track">
+                <span>Dadi vita</span>
+                <button type="button" class="mini-button" (click)="changeHitDice(-1)">−</button>
+                <strong>{{ character.hitDice.used }}/{{ character.hitDice.total }} d{{ character.hitDice.die }}</strong>
+                <button type="button" class="mini-button" (click)="changeHitDice(1)">+</button>
+              </div>
+            }
+          </section>
+
+          <section class="surface mini">
+            <h2>Condizioni</h2>
+            <div class="inline-controls">
+              <select class="select" [value]="conditionToAdd()" (change)="setConditionToAdd($event)">
+                @for (condition of conditionNames; track condition) {
+                  <option [value]="condition">{{ condition }}</option>
+                }
+              </select>
+              <button type="button" class="btn" [disabled]="busy()" (click)="addCondition()">Aggiungi</button>
+            </div>
+            @if (sheet.statblock.conditions.length === 0) {
+              <p class="muted">Nessuna condizione attiva.</p>
+            } @else {
+              <div class="badges">
+                @for (condition of sheet.statblock.conditions; track condition.name) {
+                  <button type="button" class="badge badge--action" (click)="removeCondition(condition)">
+                    {{ condition.name }}<span aria-hidden="true"> ×</span>
+                  </button>
+                }
+              </div>
+            }
+          </section>
+        </div>
+
+        @if (pc(); as character) {
+          @if (character.resources.length > 0) {
+            <section class="surface mini">
+              <h2>Risorse</h2>
+              <ul class="plain-list">
+                @for (resource of character.resources; track resource.id) {
+                  <li>
+                    <span>{{ resource.name }} <span class="muted">({{ resource.recharge }})</span></span>
+                    <span class="inline-controls">
+                      <button type="button" class="mini-button" (click)="changeResource(resource.id, -1)">−</button>
+                      <strong>{{ resource.used }}/{{ resource.max }}</strong>
+                      <button type="button" class="mini-button" (click)="changeResource(resource.id, 1)">+</button>
+                    </span>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+          <section class="surface mini">
+            <h2>Riposi</h2>
+            <div class="inline-controls">
+              <button type="button" class="btn" [disabled]="restBusy()" (click)="rest('short')">Riposo breve</button>
+              <button type="button" class="btn btn--primary" [disabled]="restBusy()" (click)="rest('long')">Riposo lungo</button>
+            </div>
+            <p class="muted">Il lungo recupera HP e dadi vita; il breve ricarica solo risorse e slot pact.</p>
+          </section>
+          <section class="surface mini">
+            <h2>Avanzamento</h2>
+            <div class="inline-controls">
+              <label class="field field--small">
+                <span>XP</span>
+                <input type="number" min="0" [value]="xpDraft()" (input)="setXpDraft($event)" />
+              </label>
+              <button type="button" class="btn" [disabled]="busy()" (click)="saveXp()">Salva XP</button>
+            </div>
+            <p class="muted">
+              Livello {{ character.class.level }} · soglia {{ xpAtLevel() }} XP
+              @if (nextXp(); as next) { · mancano {{ next }} XP }
+            </p>
+          </section>
+        }
+
         @if (sheet.derived; as derived) {
           <div class="two-columns">
             <section class="surface mini">
@@ -103,19 +220,6 @@
             }
           </section>
         }
-
-        <section class="surface mini">
-          <h2>Condizioni</h2>
-          @if (sheet.statblock.conditions.length === 0) {
-            <p class="muted">Nessuna condizione attiva.</p>
-          } @else {
-            <div class="badges">
-              @for (condition of sheet.statblock.conditions; track $index) {
-                <span class="badge">{{ condition.name }}</span>
-              }
-            </div>
-          }
-        </section>
       }
 
       @case ('abilities') {
@@ -150,11 +254,28 @@
             @if (pc.spells.slots.length === 0) {
               <p class="muted">Nessuno slot.</p>
             } @else {
-              <div class="badges">
+              <ul class="plain-list">
                 @for (slot of pc.spells.slots; track slot.level) {
-                  <span class="badge">Livello {{ slot.level }}: {{ slot.used }}/{{ slot.max }}</span>
+                  <li>
+                    <span>Livello {{ slot.level }}</span>
+                    <span class="inline-controls">
+                      <button type="button" class="mini-button" (click)="changeSlot(slot.level, -1)">−</button>
+                      <strong>{{ slot.used }}/{{ slot.max }}</strong>
+                      <button type="button" class="mini-button" (click)="changeSlot(slot.level, 1)">+</button>
+                    </span>
+                  </li>
                 }
-              </div>
+                @if (pc.spells.pactSlots; as pact) {
+                  <li>
+                    <span>Patto livello {{ pact.level }}</span>
+                    <span class="inline-controls">
+                      <button type="button" class="mini-button" (click)="changePactSlot(-1)">−</button>
+                      <strong>{{ pact.used }}/{{ pact.max }}</strong>
+                      <button type="button" class="mini-button" (click)="changePactSlot(1)">+</button>
+                    </span>
+                  </li>
+                }
+              </ul>
             }
           </section>
           <section class="surface mini">
@@ -242,3 +363,106 @@
     }
   }
 </section>
+
+<app-dialog
+  [open]="levelUpOpen()"
+  title="Sali di livello"
+  (closed)="levelUpOpen.set(false)"
+>
+  @if (pc(); as character) {
+    <div class="levelup">
+      <p class="muted">
+        Livello {{ character.class.level }} → <strong>{{ character.class.level + 1 }}</strong>
+        · XP {{ currentXp() }}
+      </p>
+
+      <label class="field">
+        <span>Punti ferita</span>
+        <select [value]="levelUpHpMethod()" (change)="setLevelUpHpMethod($event)">
+          <option value="average">Media ({{ character.hitDice.die / 2 + 1 }})</option>
+          <option value="roll">Tiro del dado vita</option>
+        </select>
+      </label>
+      @if (levelUpHpMethod() === 'roll') {
+        <label class="field">
+          <span>Tiro d{{ character.hitDice.die }}</span>
+          <input
+            type="number"
+            min="1"
+            [max]="character.hitDice.die"
+            [value]="levelUpHpRoll()"
+            (input)="setLevelUpHpRoll($event)"
+          />
+        </label>
+      }
+
+      @if (levelUpNeedsSubclass()) {
+        <label class="field">
+          <span>Sottoclasse</span>
+          <select [value]="levelUpSubclass()" (change)="setLevelUpSubclass($event)">
+            @for (subclass of levelUpSubclasses(); track subclass.id) {
+              <option [value]="subclass.id">{{ subclass.name }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      @if (levelUpIsAsi()) {
+        <label class="field">
+          <span>Talento (alternativo all’aumento)</span>
+          <select [value]="levelUpFeat()" (change)="setLevelUpFeat($event)">
+            <option value="">Nessun talento</option>
+            @for (feat of levelUpFeats(); track feat.id) {
+              <option [value]="feat.id">{{ feat.name }}</option>
+            }
+          </select>
+        </label>
+        @if (levelUpFeat() === '') {
+          <div class="inline-controls">
+            <label class="field field--small">
+              <span>Caratteristica</span>
+              <select [value]="levelUpAsiPrimary()" (change)="setLevelUpAsiPrimary($event)">
+                @for (ability of abilities(); track ability.key) {
+                  <option [value]="ability.key">{{ ability.label }}</option>
+                }
+              </select>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" [checked]="levelUpAsiSplit()" (change)="setLevelUpAsiSplit($event)" />
+              <span>+1 e +1</span>
+            </label>
+            @if (levelUpAsiSplit()) {
+              <label class="field field--small">
+                <span>Seconda caratteristica</span>
+                <select [value]="levelUpAsiSecondary()" (change)="setLevelUpAsiSecondary($event)">
+                  @for (ability of abilities(); track ability.key) {
+                    <option [value]="ability.key">{{ ability.label }}</option>
+                  }
+                </select>
+              </label>
+            }
+          </div>
+        }
+      }
+
+      @if (levelUpError(); as error) {
+        <p class="state--error" role="alert">{{ error }}</p>
+      }
+
+      @if (levelUpPreview(); as preview) {
+        <section class="levelup__preview">
+          <h3>Anteprima</h3>
+          <p>HP massimi <strong>{{ preview.hpMax }}</strong> (+{{ preview.hpGain }})</p>
+          <p>Privilegi: {{ preview.features.length }} · slot: {{ preview.slots.length }}</p>
+        </section>
+      }
+
+      <div class="actions">
+        <button type="button" class="btn" [disabled]="levelUpBusy()" (click)="previewLevelUp()">Anteprima</button>
+        <button type="button" class="btn btn--primary" [disabled]="levelUpBusy()" (click)="confirmLevelUp()">
+          {{ levelUpBusy() ? 'Applicazione…' : 'Conferma level-up' }}
+        </button>
+      </div>
+    </div>
+  }
+</app-dialog>

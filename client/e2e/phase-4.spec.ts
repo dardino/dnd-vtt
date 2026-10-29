@@ -164,7 +164,7 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   });
 
   await expect(page.locator('.token-row', { hasText: 'Goblin E2E' })).toBeVisible();
-  await expect(page.locator('.available-actor', { hasText: 'Goblin E2E' })).toBeHidden();
+  await expect(page.locator('.available-actor', { hasText: 'Goblin E2E' })).toContainText('1 in mappa');
   await expect(page.locator('.slots')).not.toContainText('Goblin E2E');
   const first = await activeScene(request, id);
   const dropped = tokenOf(first.snapshot);
@@ -182,8 +182,8 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   await page.mouse.up();
 
   await expect.poll(async () => {
-    const current = await activeScene(request, id);
-    return tokenOf(current.snapshot).x;
+    const snapshot: SceneSnapshot = (await activeScene(request, id)).snapshot;
+    return tokenOf(snapshot).x;
   }).toBeGreaterThan(dropped.x);
 
   const moved = await activeScene(request, id);
@@ -192,8 +192,8 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   await page.getByLabel('Forma').selectOption('hex');
   await expect(canvas).toHaveAttribute('data-grid-type', 'hex');
   await expect.poll(async () => {
-    const current = await activeScene(request, id);
-    return current.snapshot.state.grid.type;
+    const snapshot: SceneSnapshot = (await activeScene(request, id)).snapshot;
+    return snapshot.state.grid.type;
   }).toBe('hex');
 
   const hexScene = await activeScene(request, id);

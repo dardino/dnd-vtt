@@ -13,12 +13,17 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
+  abilityModifier,
   isTiledMap,
   snapTokenCell,
+  sortInitiativeEntries,
   type Actor,
+  type AppliedAction,
   type Campaign,
+  type DiceRoll,
   type GameAction,
   type GridConfig,
+  type InitiativeEntry,
   type MeasureResult,
   type Scene,
   type SceneState,
@@ -30,11 +35,14 @@ import { ActorService } from '../../core/actor.service';
 import { AssetService } from '../../core/asset.service';
 import { AuthService } from '../../core/auth.service';
 import { CampaignService } from '../../core/campaign.service';
+import { DiceStore } from '../../core/dice.store';
 import { LastCampaignService } from '../../core/last-campaign.service';
+import { SceneActionService } from '../../core/scene-action.service';
 import { SceneStore } from '../../core/scene.store';
 import { ThemeService } from '../../core/theme.service';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
+import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import {
   SceneCanvasComponent,
   type ActorDropEvent,
@@ -67,7 +75,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
 
 @Component({
   selector: 'app-dm-shell',
-  imports: [Button, Dialog, RouterLink, SceneCanvasComponent],
+  imports: [Button, Dialog, RouterLink, SceneCanvasComponent, DiceOverlayComponent],
   templateUrl: './dm-shell.page.html',
   styleUrl: './dm-shell.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -83,6 +91,8 @@ export class DmShellPage implements OnInit {
   public readonly theme = inject(ThemeService);
   public readonly sceneStore = inject(SceneStore);
   public readonly actions = inject(ActionStore);
+  public readonly dice = inject(DiceStore);
+  private readonly sceneActions = inject(SceneActionService);
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
@@ -114,6 +124,8 @@ export class DmShellPage implements OnInit {
   public readonly leftOpen = signal(true);
   public readonly rightOpen = signal(true);
   public readonly dockOpen = signal(true);
+  public readonly dockTab = signal<'initiative' | 'dice' | 'actions'>('initiative');
+  public readonly diceOpen = signal(false);
   public readonly sections = signal<Record<SidebarSection, boolean>>({ ...DEFAULT_SECTIONS });
   public readonly sessionSeconds = signal(0);
 
@@ -133,6 +145,18 @@ export class DmShellPage implements OnInit {
     return this.tokens().find((token) => token.id === id) ?? null;
   });
 
+  public readonly initiative = computed(() => this.state()?.initiative ?? null);
+  public readonly currentInitiative = computed<InitiativeEntry | null>(() => {
+    const initiative = this.initiative();
+    if (initiative === null || !initiative.active) {
+      return null;
+    }
+    return initiative.entries[initiative.turnIndex] ?? null;
+  });
+
+  public readonly undoneActions = computed(() =>
+    this.actions.history().filter((entry) => entry.status === 'undone').length);
+
   public readonly syncLabel = computed(() => {
     const status = this.actions.status();
     if (status === 'pending') {
@@ -147,12 +171,8 @@ export class DmShellPage implements OnInit {
     return Array.from({ length: 10 }, (_, index) => actors[index] ?? null);
   });
 
-  public readonly offMapActors = computed<Actor[]>(() => {
-    const tokens = this.tokens();
-    return this.party().filter(
-      (actor) => actor.kind !== 'pc' && !tokens.some((token) => token.actorId === actor.id),
-    );
-  });
+  public readonly availableActors = computed<Actor[]>(() =>
+    this.party().filter((actor) => actor.kind !== 'pc'));
 
   public readonly zoomLabel = computed(() => `${Math.round(this.zoom() * 100)}%`);
   public readonly measureLabel = computed(() => {
@@ -219,6 +239,7 @@ export class DmShellPage implements OnInit {
       const scenes = await this.campaignsApi.listScenes(campaign.id);
       this.scenes.set(scenes);
       this.party.set(await this.actorsApi.listByCampaign(campaign.id));
+      await this.dice.load(campaign.id);
       const target = scenes.find((scene) => scene.id === campaign.activeSceneId) ?? scenes[0];
       if (target !== undefined) {
         if (campaign.activeSceneId !== target.id) {
@@ -426,6 +447,21 @@ export class DmShellPage implements OnInit {
     }
   }
 
+  public async changeAdvancementMode(event: Event): Promise<void> {
+    const campaign = this.activeCampaign();
+    const mode = (event.target as HTMLSelectElement).value;
+    if (campaign === null || (mode !== 'milestone' && mode !== 'xp')) {
+      return;
+    }
+    try {
+      const updated = await this.campaignsApi.patch(campaign.id, { advancementMode: mode });
+      this.activeCampaign.set(updated);
+      this.statusMessage.set(`Avanzamento: ${mode === 'xp' ? 'XP' : 'milestone'}`);
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    }
+  }
+
   public setTool(tool: CanvasTool): void {
     this.tool.set(tool);
     if (tool !== 'measure') {
@@ -458,6 +494,182 @@ export class DmShellPage implements OnInit {
     if (measure !== null) {
       this.statusMessage.set(`Misura: ${measure.feet} ft (${measure.cells} celle)`);
     }
+  }
+
+  public setDockTab(tab: 'initiative' | 'dice' | 'actions'): void {
+    this.dockTab.set(tab);
+    this.dockOpen.set(true);
+    const campaign = this.activeCampaign();
+    if (campaign === null) {
+      return;
+    }
+    if (tab === 'dice') {
+      void this.dice.load(campaign.id);
+    }
+    if (tab === 'actions') {
+      void this.actions.refreshHistory(campaign.id);
+    }
+  }
+
+  public openDice(): void {
+    this.diceOpen.set(true);
+  }
+
+  public onDiceRolled(roll: DiceRoll): void {
+    this.statusMessage.set(`Tiro: ${roll.total} (${roll.formula})`);
+  }
+
+  public async rollInitiative(): Promise<void> {
+    const campaign = this.activeCampaign();
+    const scene = this.activeScene();
+    if (campaign === null || scene === null) {
+      return;
+    }
+    const entries: InitiativeEntry[] = [];
+    for (const token of this.tokens()) {
+      const actor = this.party().find((entry) => entry.id === token.actorId);
+      const tiebreak = actor === undefined ? 0 : abilityModifier(actor.statblock.abilities.dex);
+      const formula = tiebreak === 0 ? '1d20' : `1d20${tiebreak > 0 ? '+' : ''}${tiebreak}`;
+      const roll = await this.dice.roll(campaign.id, {
+        formula,
+        mode: 'normal',
+        visibility: 'dm',
+        sceneId: scene.id,
+        tokenId: token.id,
+      });
+      entries.push({
+        id: crypto.randomUUID(),
+        tokenId: token.id,
+        label: token.label,
+        value: roll?.total ?? 10 + tiebreak,
+        tiebreak,
+        hidden: !token.visible,
+        defeated: false,
+      });
+    }
+    if (entries.length === 0) {
+      this.statusMessage.set('Nessun token in mappa per l’iniziativa.');
+      return;
+    }
+    await this.setInitiative(sortInitiativeEntries(entries), true, 1, 0);
+    this.statusMessage.set('Iniziativa tirata dal server.');
+  }
+
+  public async addTokenToInitiative(token: TokenState): Promise<void> {
+    const initiative = this.initiative();
+    if (initiative === null || initiative.entries.some((entry) => entry.tokenId === token.id)) {
+      return;
+    }
+    const actor = this.party().find((entry) => entry.id === token.actorId);
+    const tiebreak = actor === undefined ? 0 : abilityModifier(actor.statblock.abilities.dex);
+    const entries = sortInitiativeEntries([
+      ...initiative.entries,
+      {
+        id: crypto.randomUUID(),
+        tokenId: token.id,
+        label: token.label,
+        value: 10 + tiebreak,
+        tiebreak,
+        hidden: !token.visible,
+        defeated: false,
+      },
+    ]);
+    await this.setInitiative(entries, initiative.active, initiative.round, initiative.turnIndex);
+  }
+
+  public async updateInitiativeValue(entryId: string, event: Event): Promise<void> {
+    const initiative = this.initiative();
+    const value = Number((event.target as HTMLInputElement).value);
+    if (initiative === null || !Number.isFinite(value)) {
+      return;
+    }
+    const entries = initiative.entries.map((entry) =>
+      entry.id === entryId ? { ...entry, value: Math.trunc(value) } : entry);
+    await this.setInitiative(entries, initiative.active, initiative.round, initiative.turnIndex);
+  }
+
+  public async sortInitiative(): Promise<void> {
+    const initiative = this.initiative();
+    if (initiative === null) {
+      return;
+    }
+    await this.setInitiative(sortInitiativeEntries(initiative.entries), initiative.active, initiative.round, 0);
+  }
+
+  public async nextInitiativeTurn(): Promise<void> {
+    await this.sendAction({ type: 'initiative.next' });
+  }
+
+  public async endInitiative(): Promise<void> {
+    const initiative = this.initiative();
+    if (initiative === null) {
+      return;
+    }
+    await this.setInitiative(initiative.entries, false, 0, 0);
+    this.statusMessage.set('Iniziativa terminata.');
+  }
+
+  public async changeTokenHp(token: TokenState, delta: number): Promise<void> {
+    this.statusMessage.set(`${token.label}: ${delta > 0 ? '+' : ''}${delta} PF`);
+    await this.sendAction({ type: 'token.hp', tokenId: token.id, delta });
+  }
+
+  public tokenHp(tokenId: string): string {
+    const token = this.tokens().find((entry) => entry.id === tokenId);
+    return token === undefined ? '—' : `${token.hp.current}/${token.hp.max}`;
+  }
+
+  public tokenCount(actorId: string): number {
+    return this.tokens().filter((token) => token.actorId === actorId).length;
+  }
+
+  public async undoThrough(entryId: string): Promise<void> {
+    const campaign = this.activeCampaign();
+    const scene = this.activeScene();
+    if (campaign === null || scene === null) {
+      return;
+    }
+    try {
+      const result = await this.sceneActions.undo(campaign.id, entryId);
+      await this.sceneStore.load(scene.id);
+      await this.actions.refreshHistory(campaign.id);
+      this.statusMessage.set(`${result.undone} azioni annullate.`);
+    } catch {
+      this.statusMessage.set('Annullamento non riuscito.');
+    }
+  }
+
+  public async redoLastBatch(): Promise<void> {
+    const campaign = this.activeCampaign();
+    const scene = this.activeScene();
+    if (campaign === null || scene === null) {
+      return;
+    }
+    try {
+      const result = await this.sceneActions.redo(campaign.id);
+      await this.sceneStore.load(scene.id);
+      await this.actions.refreshHistory(campaign.id);
+      this.statusMessage.set(`${result.redone} azioni ripristinate.`);
+    } catch {
+      this.statusMessage.set('Nessuna azione da ripetere.');
+    }
+  }
+
+  private async setInitiative(
+    entries: InitiativeEntry[],
+    active: boolean,
+    round: number,
+    turnIndex: number,
+  ): Promise<void> {
+    await this.sendAction({
+      type: 'initiative.set',
+      initiative: {
+        active,
+        round,
+        turnIndex: Math.min(turnIndex, Math.max(0, entries.length - 1)),
+        entries,
+      },
+    });
   }
 
   public async onTokenMoved(event: TokenMoveEvent): Promise<void> {
@@ -676,7 +888,7 @@ export class DmShellPage implements OnInit {
     this.newAdvancement.set(readValue(event) === 'xp' ? 'xp' : 'milestone');
   }
 
-  private async sendAction(action: GameAction): Promise<unknown> {
+  private async sendAction(action: GameAction): Promise<AppliedAction | null> {
     const scene = this.activeScene();
     if (scene === null) {
       return null;

@@ -48,7 +48,22 @@
 .sheet__badges {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
+}
+
+.sheet__levelup {
+  min-height: var(--control-height);
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: var(--text-sm);
+
+  &:disabled {
+    opacity: 0.45;
+  }
 }
 
 .sheet-tabs {
@@ -231,6 +246,97 @@
 
 .state--error {
   color: var(--color-danger);
+}
+
+.inline-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+
+  input,
+  select {
+    padding: var(--space-2);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+  }
+}
+
+.field--small {
+  width: 6rem;
+}
+
+.saves-track {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+.mini-button {
+  display: grid;
+  place-items: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+}
+
+.btn--danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.badge--action {
+  border: var(--border-width) solid var(--color-border);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--color-text);
+    background: var(--color-bg-hover);
+  }
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.levelup {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.levelup__preview {
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-sunken);
+
+  h3 {
+    margin-bottom: var(--space-1);
+    font-size: var(--text-base);
+  }
 }
 
 @media (max-width: 1050px) {

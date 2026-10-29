@@ -1,0 +1,110 @@
+:host {
+  display: contents;
+}
+
+.dice {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.dice__quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.dice__die {
+  min-width: 2.4rem;
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+
+  &:hover {
+    background: var(--color-bg-hover);
+  }
+}
+
+.dice__controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.dice__roll {
+  min-height: var(--control-height);
+  border: var(--border-width) solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: 600;
+
+  &:disabled {
+    opacity: 0.6;
+  }
+}
+
+.dice__error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
+.dice__result {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-sunken);
+}
+
+.dice__total {
+  font-family: var(--font-mono);
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.dice__values {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1);
+}
+
+.dice__value,
+.dice__modifier {
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.dice__value.is-dropped {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+
+  input,
+  select {
+    padding: var(--space-2);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+  }
+}
+
+@media (max-width: 520px) {
+  .dice__controls {
+    grid-template-columns: 1fr;
+  }
+}

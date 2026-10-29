@@ -6,7 +6,13 @@ import type {
   ActorStatblock,
   CreatePc,
   DmSheetView,
+  LevelUpInput,
+  LevelUpPreview,
+  LevelUpResult,
+  RestRequest,
+  RestResult,
   SheetPatch,
+  UpdateActor,
 } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
 
@@ -56,7 +62,26 @@ export class ActorService {
     );
   }
 
-  public async patchActor(actorId: string, patch: { dmNotes?: string | null }): Promise<Actor> {
+  public async patchActor(actorId: string, patch: UpdateActor): Promise<Actor> {
     return firstValueFrom(this.http.patch<Actor>(`/api/v1/actors/${actorId}`, patch));
+  }
+
+  public async rest(campaignId: string, input: RestRequest): Promise<Actor[]> {
+    const result = await firstValueFrom(
+      this.http.post<RestResult>(`/api/v1/campaigns/${campaignId}/rests`, input),
+    );
+    return result.actors;
+  }
+
+  public async previewLevelUp(actorId: string, input: LevelUpInput): Promise<LevelUpPreview> {
+    return firstValueFrom(
+      this.http.post<LevelUpPreview>(`/api/v1/actors/${actorId}/level-up/preview`, input),
+    );
+  }
+
+  public async levelUp(actorId: string, input: LevelUpInput): Promise<LevelUpResult> {
+    return firstValueFrom(
+      this.http.post<LevelUpResult>(`/api/v1/actors/${actorId}/level-up`, input),
+    );
   }
 }

@@ -1,0 +1,58 @@
+<app-dialog [open]="open()" title="Tira dadi" (closed)="close()">
+  <div class="dice">
+    <div class="dice__quick" aria-label="Dadi rapidi">
+      @for (sides of quickDice; track sides) {
+        <button type="button" class="dice__die" (click)="quickDie(sides)">d{{ sides }}</button>
+      }
+    </div>
+
+    <div class="dice__controls">
+      <label class="field">
+        <span>Formula</span>
+        <input type="text" [value]="formula()" (input)="setFormula($event)" placeholder="1d20+5" />
+      </label>
+      <label class="field field--small">
+        <span>Modificatore</span>
+        <input type="number" [value]="modifier()" (input)="setModifier($event)" />
+      </label>
+      <label class="field">
+        <span>Modo</span>
+        <select [value]="mode()" (change)="setMode($event)">
+          <option value="normal">Normale</option>
+          <option value="advantage">Vantaggio</option>
+          <option value="disadvantage">Svantaggio</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Visibilità</span>
+        <select [value]="visibility()" (change)="setVisibility($event)">
+          <option value="public">Pubblico</option>
+          <option value="dm">Solo DM</option>
+        </select>
+      </label>
+    </div>
+
+    <button type="button" class="dice__roll" [disabled]="store.rolling()" (click)="roll()">
+      {{ store.rolling() ? 'Tiro…' : 'Tira' }}
+    </button>
+
+    @if (store.error(); as error) {
+      <p class="dice__error" role="alert">{{ error }}</p>
+    }
+
+    @if (result(); as roll) {
+      <section class="dice__result" aria-live="polite">
+        <span class="eyebrow">{{ roll.formula }} · {{ roll.mode }}</span>
+        <strong class="dice__total">{{ roll.total }}</strong>
+        <div class="dice__values">
+          @for (die of roll.dice; track $index) {
+            <span class="dice__value" [class.is-dropped]="die.dropped">d{{ die.sides }}: {{ die.value }}</span>
+          }
+          @if (roll.modifier !== 0) {
+            <span class="dice__modifier">{{ roll.modifier > 0 ? '+' : '' }}{{ roll.modifier }}</span>
+          }
+        </div>
+      </section>
+    }
+  </div>
+</app-dialog>
