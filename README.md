@@ -82,6 +82,12 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   `token.*` e `grid.update` passano da `ActionService` con `ActionStore`
   ottimistico (`synced`/`pending`/`offline`/`read-only`). Due console si
   riallineano dal log azioni in attesa del WebSocket della Fase 7.
+- **Fase 5 completata**: iniziativa con pareggi, round/turno e tiri dal server;
+  scheda operativa con HP/temp, condizioni, death saves, dadi vita, risorse,
+  slot incantesimo, riposi breve/lungo e XP. Level-up guidato con anteprima,
+  sottoclasse, ASI o talento e HP; modalità milestone/XP con allineamento.
+  Motore dadi condiviso con RNG iniettabile, overlay nativo, log dadi con
+  visibilità `public`/`dm` e tiri server-side. Dock con Iniziativa, Log dadi e
+  Azioni, undo "fino a qui" e redo dell'ultimo batch.
 
-La prossima fase è la **Fase 5**: combattimento, iniziativa, dadi, level-up,
-riposi e pannelli operativi.
+La prossima fase è la **Fase 6**: fog of war e disegni.

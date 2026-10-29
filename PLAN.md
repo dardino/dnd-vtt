@@ -167,6 +167,8 @@ Tooling monorepo
 | D68 | `ActionStore` applica l'azione in modo **ottimistico** e conferma la versione del server senza riapplicarla; un buco di versione ricarica lo snapshot | l'eco della propria azione e il polling non duplicano token o danni, e un evento perso non lascia la console silenziosamente divergente |
 | D69 | Le sezioni delle sidebar sono **accordion indipendenti** (Dati campagna, Scene, Griglia, Attori, In mappa) con stato ricordato per campagna | il DM chiude ciò che non usa e recupera spazio verticale senza perdere la sidebar intera; la preferenza resta locale e non tocca lo stato di scena |
 | D70 | Gli **slot in basso sono solo dei `pc`**; mostri e NPC fuori scena stanno nell'accordion `Attori` e passano in `In mappa` quando ricevono un token. Ogni scena ha azioni esplicite `Attiva` e `Sostituisci mappa` | la rosa dei giocatori resta stabile e leggibile, mentre il bestiario di lavoro non occupa gli slot; sostituire l'immagine non crea una scena nuova e mantiene token e griglia |
+| D71 | **Level-up** e **riposi** sono funzioni pure in `shared`; il server usa la stessa funzione per anteprima e applicazione | la preview non può divergere dal risultato, i riposi sono deterministici e testabili senza database |
+| D72 | Undo "fino a qui" applica in transazione gli inversi dal più recente e marca le righe `undone`; il redo ripete l'ultimo batch in ordine cronologico. La console ricarica lo snapshot | non esiste rollback parziale né uno stack locale; la history resta leggibile e il token/attore si riallineano subito dopo il reload |
 
 ## 5. Struttura monorepo
 
