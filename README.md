@@ -89,5 +89,10 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   Motore dadi condiviso con RNG iniettabile, overlay nativo, log dadi con
   visibilità `public`/`dm` e tiri server-side. Dock con Iniziativa, Log dadi e
   Azioni, undo "fino a qui" e redo dell'ultimo batch.
+- **Fase 6 completata**: fog vettoriale con base nascosta/rivelata, pennello,
+  gomma, rettangolo e lasso; maschera offscreen a risoluzione limitata,
+  anteprima durante il tratto, softness e limite di 2.000 operazioni con
+  `413`. Azioni `fog.apply`/`fog.replace` reversibili, fog iniziale scelta
+  all’upload, disegni annotativi, undo dal dock e export PNG della scena.
 
-La prossima fase è la **Fase 6**: fog of war e disegni.
+La prossima fase è la **Fase 7**: regia, doppio schermo e realtime.

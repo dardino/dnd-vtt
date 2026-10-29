@@ -169,6 +169,8 @@ Tooling monorepo
 | D70 | Gli **slot in basso sono solo dei `pc`**; mostri e NPC fuori scena stanno nell'accordion `Attori` e passano in `In mappa` quando ricevono un token. Ogni scena ha azioni esplicite `Attiva` e `Sostituisci mappa` | la rosa dei giocatori resta stabile e leggibile, mentre il bestiario di lavoro non occupa gli slot; sostituire l'immagine non crea una scena nuova e mantiene token e griglia |
 | D71 | **Level-up** e **riposi** sono funzioni pure in `shared`; il server usa la stessa funzione per anteprima e applicazione | la preview non può divergere dal risultato, i riposi sono deterministici e testabili senza database |
 | D72 | Undo "fino a qui" applica in transazione gli inversi dal più recente e marca le righe `undone`; il redo ripete l'ultimo batch in ordine cronologico. La console ricarica lo snapshot | non esiste rollback parziale né uno stack locale; la history resta leggibile e il token/attore si riallineano subito dopo il reload |
+| D73 | La fog è **vettoriale** (`base` + `FogOp[]`) e viene rasterizzata su una maschera offscreen limitata a 4096 px; la bozza del tratto vive solo nel client e diventa un'azione al rilascio | pan/zoom non cambiano la fog, il tratto è reversibile e 2.000 operazioni restano gestibili; oltre il limite il server risponde `413` |
+| D74 | Disegni e fog usano le stesse azioni con inverse e lo stesso undo/redo; l’export PNG è on-demand dal canvas | nessuno stack locale parallelo alla history server e nessun file generato finché il DM non lo chiede |
 
 ## 5. Struttura monorepo
 
