@@ -115,6 +115,14 @@ export const sceneStateSchema = z.strictObject({
 });
 export type SceneState = z.infer<typeof sceneStateSchema>;
 
+export const initiativeStateSchema = z.strictObject({
+  active: z.boolean(),
+  round: z.number().int().min(0),
+  turnIndex: z.number().int().min(0),
+  entries: z.array(initiativeEntrySchema),
+});
+export type InitiativeState = z.infer<typeof initiativeStateSchema>;
+
 export const createDefaultSceneState = (): SceneState => ({
   grid: {
     type: 'square',
@@ -159,6 +167,8 @@ export const gameActionSchema = z.discriminatedUnion('type', [
   }),
   z.strictObject({ type: z.literal('fog.apply'), op: fogOpSchema }),
   z.strictObject({ type: z.literal('grid.update'), grid: gridConfigSchema }),
+  z.strictObject({ type: z.literal('initiative.set'), initiative: initiativeStateSchema }),
+  z.strictObject({ type: z.literal('initiative.next') }),
 ]);
 export type GameAction = z.infer<typeof gameActionSchema>;
 
@@ -253,3 +263,20 @@ export const actionLogListSchema = z.strictObject({
   items: z.array(actionLogEntrySchema),
 });
 export type ActionLogList = z.infer<typeof actionLogListSchema>;
+
+export const undoActionRequestSchema = z.strictObject({
+  entryId: z.string().uuid(),
+});
+export type UndoActionRequest = z.infer<typeof undoActionRequestSchema>;
+
+export const undoResultSchema = z.strictObject({
+  snapshot: sceneSnapshotSchema,
+  undone: z.number().int().min(1),
+});
+export type UndoResult = z.infer<typeof undoResultSchema>;
+
+export const redoResultSchema = z.strictObject({
+  snapshot: sceneSnapshotSchema,
+  redone: z.number().int().min(1),
+});
+export type RedoResult = z.infer<typeof redoResultSchema>;

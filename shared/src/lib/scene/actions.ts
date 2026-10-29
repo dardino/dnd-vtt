@@ -1,5 +1,6 @@
 import type { Condition } from '../../schemas/common.js';
 import type { GameAction, SceneState, TokenPatch, TokenState } from '../../schemas/scene.js';
+import { nextInitiativeTurn } from './initiative.js';
 import { applyHpDelta } from './hp.js';
 
 const withPatch = (token: TokenState, patch: TokenPatch): TokenState => ({
@@ -86,6 +87,10 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
       };
     case 'grid.update':
       return { ...state, grid: action.grid };
+    case 'initiative.set':
+      return { ...state, initiative: action.initiative };
+    case 'initiative.next':
+      return { ...state, initiative: nextInitiativeTurn(state.initiative) };
     default: {
       const exhaustive: never = action;
       throw new Error(`azione sconosciuta: ${String(exhaustive)}`);
@@ -134,6 +139,10 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
       };
     case 'grid.update':
       return { type: 'grid.update', grid: stateBefore.grid };
+    case 'initiative.set':
+      return { type: 'initiative.set', initiative: stateBefore.initiative };
+    case 'initiative.next':
+      return { type: 'initiative.set', initiative: stateBefore.initiative };
     default: {
       const exhaustive: never = action;
       throw new Error(`azione sconosciuta: ${String(exhaustive)}`);
