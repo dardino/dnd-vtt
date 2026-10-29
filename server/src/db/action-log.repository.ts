@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, notInArray } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, isNotNull, notInArray, or, type SQL } from 'drizzle-orm';
 import type { ActionLogEntry, ActionLogList } from '@dnd-vtt/shared';
 import type { DbExecutor } from './client.js';
 import { toActionLogEntry } from './mappers.js';
@@ -67,6 +67,71 @@ export const listActionLogSince = (
 export const findActionLogEntry = (db: DbExecutor, id: string): ActionLogEntry | null => {
   const row = db.select().from(actionLog).where(eq(actionLog.id, id)).get();
   return row === undefined ? null : toActionLogEntry(row);
+};
+
+/** Azioni applicate dalla selezionata in poi, dalla più recente alla più vecchia. */
+export const listAppliedThrough = (
+  db: DbExecutor,
+  campaignId: string,
+  sceneId: string,
+  fromCreatedAt: string,
+  fromId: string,
+): ActionLogEntry[] => {
+  const filters: (SQL | undefined)[] = [
+    eq(actionLog.campaignId, campaignId),
+    eq(actionLog.sceneId, sceneId),
+    eq(actionLog.status, 'applied'),
+    or(
+      gt(actionLog.createdAt, fromCreatedAt),
+      and(eq(actionLog.createdAt, fromCreatedAt), gte(actionLog.id, fromId)),
+    ),
+  ];
+  return db.select().from(actionLog)
+    .where(and(...filters))
+    .orderBy(desc(actionLog.createdAt), desc(actionLog.id))
+    .all()
+    .map(toActionLogEntry);
+};
+
+export const listLastUndoneBatch = (db: DbExecutor, campaignId: string): ActionLogEntry[] => {
+  const latest = db.select({ undoneAt: actionLog.undoneAt })
+    .from(actionLog)
+    .where(and(eq(actionLog.campaignId, campaignId), eq(actionLog.status, 'undone'), isNotNull(actionLog.undoneAt)))
+    .orderBy(desc(actionLog.undoneAt))
+    .limit(1)
+    .get();
+  if (latest?.undoneAt === null || latest?.undoneAt === undefined) {
+    return [];
+  }
+  return db.select().from(actionLog)
+    .where(and(
+      eq(actionLog.campaignId, campaignId),
+      eq(actionLog.status, 'undone'),
+      eq(actionLog.undoneAt, latest.undoneAt),
+    ))
+    .orderBy(asc(actionLog.createdAt), asc(actionLog.id))
+    .all()
+    .map(toActionLogEntry);
+};
+
+export const markActionsUndone = (db: DbExecutor, ids: readonly string[], at: string): void => {
+  if (ids.length === 0) {
+    return;
+  }
+  db.update(actionLog)
+    .set({ status: 'undone', undoneAt: at })
+    .where(inArray(actionLog.id, [...ids]))
+    .run();
+};
+
+export const markActionsApplied = (db: DbExecutor, ids: readonly string[]): void => {
+  if (ids.length === 0) {
+    return;
+  }
+  db.update(actionLog)
+    .set({ status: 'applied', undoneAt: null })
+    .where(inArray(actionLog.id, [...ids]))
+    .run();
 };
 
 /** Le righe oltre le ultime 50 vengono eliminate, non solo nascoste (D46). */

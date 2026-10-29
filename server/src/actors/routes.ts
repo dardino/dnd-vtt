@@ -1,5 +1,12 @@
 import type { FastifyPluginCallback } from 'fastify';
-import { createActorSchema, createPcSchema, sheetPatchSchema, updateActorSchema } from '@dnd-vtt/shared';
+import {
+  createActorSchema,
+  createPcSchema,
+  levelUpInputSchema,
+  restRequestSchema,
+  sheetPatchSchema,
+  updateActorSchema,
+} from '@dnd-vtt/shared';
 import { z } from 'zod';
 import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
@@ -16,6 +23,8 @@ import {
   requireActor,
 } from '../actors/service.js';
 import { createPc, getDmSheet, patchPcSheet } from '../actors/pc-service.js';
+import { applyLevelUp, previewLevelUp } from '../actors/level-up-service.js';
+import { restActors } from '../actors/rest-service.js';
 import { rollAbilityScores } from '../actors/roll-stats.js';
 
 const idParamsSchema = z.strictObject({ id: z.string().uuid() });
@@ -71,6 +80,24 @@ export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(sheetPatchSchema, request.body);
       return reply.send(patchPcSheet(db, id, body));
+    });
+
+    app.post('/actors/:id/level-up/preview', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      const body = parse(levelUpInputSchema, request.body);
+      return reply.send(previewLevelUp(db, id, body));
+    });
+
+    app.post('/actors/:id/level-up', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      const body = parse(levelUpInputSchema, request.body);
+      return reply.send(applyLevelUp(db, id, body));
+    });
+
+    app.post('/campaigns/:id/rests', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      const body = parse(restRequestSchema, request.body);
+      return reply.send({ actors: restActors(db, id, body) });
     });
 
     app.get('/actors/:id', async (request, reply) => {

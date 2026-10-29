@@ -91,10 +91,32 @@ export const actionLog = sqliteTable('action_log', {
   index('action_log_campaign_idx').on(table.campaignId, table.createdAt, table.id),
 ]);
 
+export const diceRolls = sqliteTable('dice_rolls', {
+  id: text('id').primaryKey(),
+  campaignId: text('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  sceneId: text('scene_id').references(() => scenes.id, { onDelete: 'set null' }),
+  actorId: text('actor_id').references(() => actors.id, { onDelete: 'set null' }),
+  tokenId: text('token_id'),
+  origin: text('origin', { enum: ['dm', 'player'] }).notNull(),
+  formula: text('formula').notNull(),
+  mode: text('mode', { enum: ['normal', 'advantage', 'disadvantage'] }).notNull(),
+  dice: text('dice').notNull(),
+  modifier: integer('modifier').notNull(),
+  total: integer('total').notNull(),
+  visibility: text('visibility', { enum: ['public', 'dm'] }).notNull(),
+  label: text('label'),
+  createdAt: text('created_at').notNull(),
+}, (table) => [
+  index('dice_rolls_campaign_idx').on(table.campaignId, table.createdAt, table.id),
+]);
+
 export const schema = {
   campaigns,
   scenes,
   actors,
   assets,
   actionLog,
+  diceRolls,
 };

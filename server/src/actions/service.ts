@@ -2,17 +2,31 @@ import {
   applyAction,
   invertAction,
   sceneStateSchema,
+  type ActionLogEntry,
   type ActionRequest,
   type AppliedAction,
   type GameAction,
+  type SceneSnapshot,
   type SceneState,
   type TokenState,
 } from '@dnd-vtt/shared';
 import { and, eq } from 'drizzle-orm';
-import type { AppDatabase } from '../db/client.js';
-import { findActionLogEntry, insertActionLog, listActionLog, listActionLogSince, pruneActionLog } from '../db/action-log.repository.js';
+import type { AppDatabase, DbExecutor } from '../db/client.js';
+import {
+  findActionLogEntry,
+  insertActionLog,
+  listActionLog,
+  listActionLogSince,
+  listAppliedThrough,
+  listLastUndoneBatch,
+  markActionsApplied,
+  markActionsUndone,
+  pruneActionLog,
+} from '../db/action-log.repository.js';
+import { getScene, getSceneState } from '../db/scenes.repository.js';
 import { scenes } from '../db/schema.js';
 import { AppError, notFound } from '../errors.js';
+import { syncPcActorsFromState } from '../actors/token-sync.js';
 
 const tokenLabel = (token: TokenState | undefined, tokenId: string): string =>
   token?.label ?? tokenId;
@@ -45,6 +59,10 @@ const describeAction = (state: SceneState, action: GameAction): string => {
     }
     case 'grid.update':
       return action.grid.type === 'hex' ? 'Griglia esagonale' : 'Griglia quadrata';
+    case 'initiative.set':
+      return action.initiative.active ? 'Iniziativa aggiornata' : 'Iniziativa terminata';
+    case 'initiative.next':
+      return 'Turno successivo';
     case 'fog.apply':
       return action.op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta';
     default:
@@ -112,6 +130,7 @@ export const applySceneAction = (
   const state = sceneStateSchema.parse(JSON.parse(row.state) as unknown);
   const inverse = invertOrStale(state, input.request.action);
   const nextState = applyOrStale(state, input.request.action);
+  syncPcActorsFromState(tx, nextState);
   const stateVersion = row.stateVersion + 1;
   const now = new Date().toISOString();
   const updated = tx.update(scenes)
@@ -157,3 +176,106 @@ export const syncCampaignActions = (
   sinceVersion: number,
   sceneId?: string,
 ) => listActionLogSince(db, campaignId, sinceVersion, sceneId);
+
+const snapshotFrom = (db: DbExecutor, sceneId: string, state: SceneState, stateVersion: number): SceneSnapshot => {
+  const scene = getScene(db, sceneId);
+  if (scene === null) {
+    throw notFound('Scena non trovata');
+  }
+  return { scene, state, stateVersion };
+};
+
+const selectedApplied = (entry: ActionLogEntry): void => {
+  if (entry.status !== 'applied') {
+    throw new AppError('action_not_undoable', 409, 'L’azione è già stata annullata');
+  }
+};
+
+/**
+ * Annulla l'azione selezionata e tutte le più recenti della stessa scena,
+ * applicando gli inversi in ordine inverso e marcando le righe come `undone`.
+ */
+export const undoThrough = (
+  db: AppDatabase,
+  campaignId: string,
+  entryId: string,
+): { snapshot: SceneSnapshot; undone: number } => db.transaction((tx) => {
+  const entry = findActionLogEntry(tx, entryId);
+  if (entry === null) {
+    throw notFound('Azione non trovata');
+  }
+  if (entry.sceneId === null) {
+    throw new AppError('action_not_undoable', 409, 'Azione non annullabile');
+  }
+  selectedApplied(entry);
+  const stored = getSceneState(tx, entry.sceneId);
+  const row = tx.select().from(scenes).where(eq(scenes.id, entry.sceneId)).get();
+  if (stored === null || row === undefined) {
+    throw notFound('Scena non trovata');
+  }
+  if (row.campaignId !== campaignId) {
+    throw new AppError('action_not_undoable', 409, 'Azione non annullabile');
+  }
+  const through = listAppliedThrough(tx, campaignId, entry.sceneId, entry.createdAt, entry.id);
+  if (through.length === 0) {
+    throw new AppError('action_not_undoable', 409, 'Azione non annullabile');
+  }
+  let state = sceneStateSchema.parse(stored.state);
+  for (const target of through) {
+    state = applyOrStale(state, target.inverse);
+  }
+  syncPcActorsFromState(tx, state);
+  const stateVersion = row.stateVersion + 1;
+  const now = new Date().toISOString();
+  const updated = tx.update(scenes)
+    .set({ state: JSON.stringify(state), stateVersion, updatedAt: now })
+    .where(and(eq(scenes.id, row.id), eq(scenes.stateVersion, row.stateVersion)))
+    .run();
+  if (updated.changes === 0) {
+    throw new AppError('state_conflict', 409, 'La scena è stata modificata altrove');
+  }
+  markActionsUndone(tx, through.map((target) => target.id), now);
+  return {
+    snapshot: snapshotFrom(tx, entry.sceneId, state, stateVersion),
+    undone: through.length,
+  };
+});
+
+/** Ripete l'ultimo batch annullato, in ordine cronologico. */
+export const redoLastBatch = (
+  db: AppDatabase,
+  campaignId: string,
+): { snapshot: SceneSnapshot; redone: number } => db.transaction((tx) => {
+  const batch = listLastUndoneBatch(tx, campaignId);
+  if (batch.length === 0) {
+    throw new AppError('action_not_undoable', 409, 'Nessuna azione da ripetere');
+  }
+  const sceneId = batch[0]?.sceneId ?? null;
+  if (sceneId === null || batch.some((entry) => entry.sceneId !== sceneId)) {
+    throw new AppError('action_not_undoable', 409, 'Il batch non appartiene a una sola scena');
+  }
+  const stored = getSceneState(tx, sceneId);
+  const row = tx.select().from(scenes).where(eq(scenes.id, sceneId)).get();
+  if (stored === null || row === undefined) {
+    throw notFound('Scena non trovata');
+  }
+  let state = sceneStateSchema.parse(stored.state);
+  for (const target of batch) {
+    state = applyOrStale(state, target.payload);
+  }
+  syncPcActorsFromState(tx, state);
+  const stateVersion = row.stateVersion + 1;
+  const now = new Date().toISOString();
+  const updated = tx.update(scenes)
+    .set({ state: JSON.stringify(state), stateVersion, updatedAt: now })
+    .where(and(eq(scenes.id, row.id), eq(scenes.stateVersion, row.stateVersion)))
+    .run();
+  if (updated.changes === 0) {
+    throw new AppError('state_conflict', 409, 'La scena è stata modificata altrove');
+  }
+  markActionsApplied(tx, batch.map((target) => target.id));
+  return {
+    snapshot: snapshotFrom(tx, sceneId, state, stateVersion),
+    redone: batch.length,
+  };
+});

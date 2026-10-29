@@ -18,6 +18,7 @@ import { actorRoutes } from './actors/routes.js';
 import { assetRoutes } from './assets/routes.js';
 import { campaignRoutes } from './campaigns/routes.js';
 import { characterRoutes } from './character/routes.js';
+import { diceRoutes } from './dice/routes.js';
 import { sceneRoutes } from './scenes/routes.js';
 import { srdRoutes } from './srd/routes.js';
 import { currentSrdVersion } from './srd/load.js';
@@ -145,6 +146,7 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   void app.register(sceneRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(actorRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(actionRoutes(env, database.db), { prefix: '/api/v1' });
+  void app.register(diceRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(assetRoutes(env, database.db), { prefix: '/api/v1' });
 
   void app.register(fastifyStatic, {

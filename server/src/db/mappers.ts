@@ -4,10 +4,11 @@ import {
   type Actor,
   type Asset,
   type Campaign,
+  type DiceRoll,
   type GameAction,
   type Scene,
 } from '@dnd-vtt/shared';
-import type { actionLog, actors, assets, campaigns, scenes } from './schema.js';
+import type { actionLog, actors, assets, campaigns, diceRolls, scenes } from './schema.js';
 
 export const toCampaign = (row: typeof campaigns.$inferSelect): Campaign => ({
   id: row.id,
@@ -88,4 +89,21 @@ export const toActionLogEntry = (row: typeof actionLog.$inferSelect): ActionLogE
   stateVersion: row.stateVersion,
   createdAt: row.createdAt,
   undoneAt: row.undoneAt,
+});
+
+export const toDiceRoll = (row: typeof diceRolls.$inferSelect): DiceRoll => ({
+  id: row.id,
+  campaignId: row.campaignId,
+  sceneId: row.sceneId,
+  actorId: row.actorId,
+  tokenId: row.tokenId,
+  origin: row.origin,
+  formula: row.formula,
+  mode: row.mode,
+  dice: JSON.parse(row.dice) as DiceRoll['dice'],
+  modifier: row.modifier,
+  total: row.total,
+  visibility: row.visibility,
+  label: row.label,
+  createdAt: row.createdAt,
 });

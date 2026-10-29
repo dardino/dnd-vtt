@@ -17,6 +17,7 @@ import {
 import { AppError, notFound } from '../errors.js';
 import { SrdVersionUnknownError, loadSrdCatalog } from '../srd/load.js';
 import { resolveRoll } from './roll-stats.js';
+import { updateTokensForActor } from './token-sync.js';
 
 export const createPc = (db: AppDatabase, campaignId: string, input: CreatePc): Actor => {
   if (getCampaign(db, campaignId) === null) {
@@ -109,13 +110,21 @@ export const patchPcSheet = (
     ...(input.patch.deathSaves === undefined ? {} : { deathSaves: input.patch.deathSaves }),
     ...(input.patch.currency === undefined ? {} : { currency: input.patch.currency }),
     ...(input.patch.overrides === undefined ? {} : { overrides: input.patch.overrides }),
+    ...(input.patch.resources === undefined ? {} : { resources: input.patch.resources }),
+    ...(input.patch.hitDice === undefined ? {} : { hitDice: input.patch.hitDice }),
+    ...(input.patch.spells === undefined ? {} : { spells: input.patch.spells }),
   };
   const dmNotes = input.patch.dmNotes === undefined ? actor.dmNotes : input.patch.dmNotes;
-  const updated = updateActorSheet(db, actorId, actor.sheetVersion, statblock, dmNotes);
-  if (!updated) {
-    throw new AppError('sheet_conflict', 409, 'La scheda è stata modificata altrove', {
-      currentVersion: actor.sheetVersion,
-    });
-  }
+  db.transaction((tx) => {
+    const updated = updateActorSheet(tx, actorId, actor.sheetVersion, statblock, dmNotes);
+    if (!updated) {
+      throw new AppError('sheet_conflict', 409, 'La scheda è stata modificata altrove', {
+        currentVersion: actor.sheetVersion,
+      });
+    }
+    if (actor.campaignId !== null) {
+      updateTokensForActor(tx, actor.campaignId, actorId, statblock);
+    }
+  });
   return getDmSheet(db, actorId);
 };

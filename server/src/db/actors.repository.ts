@@ -64,9 +64,9 @@ export const insertActor = (db: DbExecutor, input: CreateActor): Actor => {
     playerNotes: null,
     dmNotes: input.dmNotes ?? null,
     imageAssetId: input.imageAssetId ?? null,
-    hpCurrent: null,
-    hpMax: null,
-    hpTemp: null,
+    hpCurrent: input.statblock.hp.current,
+    hpMax: input.statblock.hp.max,
+    hpTemp: input.statblock.hp.temp,
     createdAt: now,
     updatedAt: now,
   };
