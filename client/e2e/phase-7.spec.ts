@@ -98,10 +98,14 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await expect.poll(async () => screen.getAttribute('data-program-updated'))
     .not.toBe(beforeProgram);
 
+  const onAir = page.locator('.dm-topbar__onair');
+  await expect(onAir).toHaveText('ON AIR');
   await page.getByRole('button', { name: 'Blackout' }).click();
   await expect(screen).toHaveAttribute('data-blackout', 'true', { timeout: 10_000 });
-  await page.getByRole('button', { name: 'Blackout' }).click();
+  await expect(onAir).toHaveText('BLACKOUT');
+  await page.getByRole('button', { name: 'Riacendi schermo' }).click();
   await expect(screen).toHaveAttribute('data-blackout', 'false', { timeout: 10_000 });
+  await expect(onAir).toHaveText('ON AIR');
 
   const beforeToken = await screen.getAttribute('data-token-summary');
   await request.post(`/api/v1/campaigns/${fixture.campaignId}/actions`, {

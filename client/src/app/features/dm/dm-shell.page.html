@@ -6,8 +6,13 @@
       <span class="dm-topbar__status" [class.is-ready]="mode() === 'ready'">
         {{ mode() === 'ready' ? 'pronta' : 'in avvio' }}
       </span>
-      <span class="dm-topbar__onair" [class.is-onair]="mode() === 'ready'">
-        {{ mode() === 'ready' ? 'OFF AIR' : '· · ·' }}
+      <span
+        class="dm-topbar__onair"
+        [class.is-onair]="mode() === 'ready' && !blackout()"
+        [class.is-blackout]="blackout()"
+        [attr.aria-label]="'Stato schermo: ' + airLabel()"
+      >
+        {{ airLabel() }}
       </span>
     </div>
 
@@ -19,7 +24,11 @@
         >Crea personaggio</a>
         <app-button variant="ghost" [disabled]="programBusy()" (pressed)="openScreen()">Apri schermo</app-button>
         <app-button [disabled]="programBusy() || activeScene() === null" (pressed)="takeScene()">Manda in onda</app-button>
-        <app-button variant="ghost" [disabled]="programBusy()" (pressed)="toggleBlackout()">Blackout</app-button>
+        <app-button
+          variant="ghost"
+          [disabled]="programBusy()"
+          (pressed)="toggleBlackout()"
+        >{{ blackout() ? 'Riacendi schermo' : 'Blackout' }}</app-button>
         <app-button variant="ghost" (pressed)="openChoose()">Cambia campagna</app-button>
       }
       <label class="theme-select">

@@ -206,6 +206,14 @@ export class DmShellPage implements OnInit {
     this.party().filter((actor) => actor.kind !== 'pc'));
 
   public readonly zoomLabel = computed(() => `${Math.round(this.zoom() * 100)}%`);
+  public readonly blackout = computed(() => this.programState()?.blackout === true);
+  public readonly airLabel = computed(() => {
+    if (this.mode() !== 'ready') {
+      return 'OFF AIR';
+    }
+    return this.blackout() ? 'BLACKOUT' : 'ON AIR';
+  });
+
   public readonly displayUrl = computed(() => {
     const code = this.displayCode();
     return code === null ? null : `${location.origin}/display/${code}`;
