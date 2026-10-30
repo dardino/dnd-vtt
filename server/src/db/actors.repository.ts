@@ -50,6 +50,20 @@ export const getActor = (db: DbExecutor, id: string): Actor | null => {
   return row === undefined ? null : toActor(row);
 };
 
+export const getActorRow = (db: DbExecutor, id: string): typeof actors.$inferSelect | null =>
+  db.select().from(actors).where(eq(actors.id, id)).get() ?? null;
+
+export const updateActorPlayerNotes = (
+  db: DbExecutor,
+  id: string,
+  playerNotes: string | null,
+): void => {
+  db.update(actors)
+    .set({ playerNotes, updatedAt: new Date().toISOString() })
+    .where(eq(actors.id, id))
+    .run();
+};
+
 export const insertActor = (db: DbExecutor, input: CreateActor): Actor => {
   const now = new Date().toISOString();
   const row = {

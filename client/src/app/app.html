@@ -1,32 +1,36 @@
-<header class="shell-header">
-  <a class="brand" routerLink="/dm" aria-label="D&amp;D VTT, console del master">
-    <span class="brand__mark" aria-hidden="true">d20</span>
-    <span>
-      <strong>D&amp;D VTT</strong>
-      <span class="eyebrow">Tavolo locale · SRD 5.2</span>
-    </span>
-  </a>
+@if (!displayMode()) {
+  <header class="shell-header">
+    <a class="brand" routerLink="/dm" aria-label="D&amp;D VTT, console del master">
+      <span class="brand__mark" aria-hidden="true">d20</span>
+      <span>
+        <strong>D&amp;D VTT</strong>
+        <span class="eyebrow">Tavolo locale · SRD 5.2</span>
+      </span>
+    </a>
 
-  <nav class="shell-nav" aria-label="Navigazione principale">
-    <a routerLink="/dm" routerLinkActive="is-active">Console</a>
-  </nav>
+    <nav class="shell-nav" aria-label="Navigazione principale">
+      <a routerLink="/dm" routerLinkActive="is-active">Console</a>
+    </nav>
 
-  <button
-    type="button"
-    class="btn theme-toggle"
-    (click)="theme.cycle()"
-    [attr.aria-label]="'Tema: ' + theme.theme() + '. Cambia tema'"
-  >
-    <span aria-hidden="true">{{ theme.resolved() === 'dark' ? '☾' : '☀' }}</span>
-    <span>{{ theme.theme() }}</span>
-  </button>
-</header>
+    <button
+      type="button"
+      class="btn theme-toggle"
+      (click)="theme.cycle()"
+      [attr.aria-label]="'Tema: ' + theme.theme() + '. Cambia tema'"
+    >
+      <span aria-hidden="true">{{ theme.resolved() === 'dark' ? '☾' : '☀' }}</span>
+      <span>{{ theme.theme() }}</span>
+    </button>
+  </header>
+}
 
 <main class="shell-main">
   <router-outlet />
 </main>
 
-<footer class="shell-footer">
-  <span class="muted">D&amp;D VTT · {{ year }}</span>
-  <span class="muted">Materiale SRD 5.2 con licenza CC BY 4.0</span>
-</footer>
+@if (!displayMode()) {
+  <footer class="shell-footer">
+    <span class="muted">D&amp;D VTT · {{ year }}</span>
+    <span class="muted">Materiale SRD 5.2 con licenza CC BY 4.0</span>
+  </footer>
+}

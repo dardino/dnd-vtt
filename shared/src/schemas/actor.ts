@@ -145,6 +145,72 @@ export const dmSheetViewSchema = z.strictObject({
 });
 export type DmSheetView = z.infer<typeof dmSheetViewSchema>;
 
+export const playerEditableFieldSchema = z.enum([
+  'hp',
+  'tempHp',
+  'conditions',
+  'deathSaves',
+  'hitDice',
+  'playerNotes',
+  'inventory',
+  'spells',
+  'resources',
+  'currency',
+  'equipment',
+]);
+export type PlayerEditableField = z.infer<typeof playerEditableFieldSchema>;
+
+export const publicActorSchema = actorSchema.omit({ dmNotes: true });
+export type PublicActor = z.infer<typeof publicActorSchema>;
+
+export const playerSheetViewSchema = z.strictObject({
+  actor: publicActorSchema,
+  statblock: actorStatblockSchema,
+  derived: derivedSheetSchema.nullable(),
+  inventory: z.array(resolvedItemSchema),
+  playerNotes: z.string(),
+  sheetVersion: z.number().int().min(1),
+  campaign: z.strictObject({ id: z.string().uuid(), name: z.string() }),
+  editingEnabled: z.boolean(),
+  editable: z.array(playerEditableFieldSchema),
+  autoApprove: z.boolean(),
+});
+export type PlayerSheetView = z.infer<typeof playerSheetViewSchema>;
+
+export const playerLinkSchema = z.strictObject({
+  id: z.string().uuid(),
+  campaignId: z.string().uuid(),
+  actorId: z.string().uuid(),
+  label: z.string().nullable(),
+  editingEnabled: z.boolean(),
+  createdAt: z.string().datetime(),
+  lastSeenAt: z.string().datetime().nullable(),
+  revokedAt: z.string().datetime().nullable(),
+});
+export type PlayerLink = z.infer<typeof playerLinkSchema>;
+
+export const createPlayerLinkResultSchema = z.strictObject({
+  link: playerLinkSchema,
+  token: z.string().min(1),
+  url: z.string().min(1),
+});
+export type CreatePlayerLinkResult = z.infer<typeof createPlayerLinkResultSchema>;
+
+export const playerSheetPatchSchema = z.strictObject({
+  sheetVersion: z.number().int().min(1),
+  patch: z.strictObject({
+    hp: hpSchema.optional(),
+    conditions: z.array(conditionSchema).optional(),
+    deathSaves: deathSavesSchema.optional(),
+    currency: currencySchema.optional(),
+    resources: z.array(resourcePoolSchema).optional(),
+    hitDice: hitDiceSchema.optional(),
+    spells: spellSelectionSchema.optional(),
+    playerNotes: z.string().max(20000).optional(),
+  }),
+});
+export type PlayerSheetPatch = z.infer<typeof playerSheetPatchSchema>;
+
 export const levelUpResultSchema = z.strictObject({
   sheet: dmSheetViewSchema,
   preview: levelUpPreviewSchema,

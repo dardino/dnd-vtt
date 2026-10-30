@@ -1,0 +1,147 @@
+<main class="player">
+  @if (loading()) {
+    <p class="player__state">Caricamento scheda…</p>
+  } @else if (view(); as sheet) {
+    <header class="player__header">
+      <span class="eyebrow">{{ sheet.campaign.name }}</span>
+      <h1>{{ sheet.actor.name }}</h1>
+      <p>
+        @if (sheet.statblock.kind === 'pc') {
+          {{ sheet.statblock.class.id }} · livello {{ sheet.statblock.class.level }}
+          · {{ sheet.statblock.species.id }}
+        }
+      </p>
+      <div class="player__badges">
+        <span class="badge">HP {{ sheet.statblock.hp.current }}/{{ sheet.statblock.hp.max }}</span>
+        <span class="badge">CA {{ sheet.derived?.ac ?? '—' }}</span>
+        @if (!sheet.editingEnabled) { <span class="badge">sola lettura</span> }
+      </div>
+    </header>
+
+    <nav class="player__tabs" aria-label="Sezioni scheda">
+      @for (item of tabs; track item.key) {
+        <button
+          type="button"
+          [class.is-active]="tab() === item.key"
+          (click)="setTab(item.key)"
+        >{{ item.label }}</button>
+      }
+    </nav>
+
+    @if (error(); as message) {
+      <p class="player__error" role="alert">{{ message }}</p>
+    }
+
+    @switch (tab()) {
+      @case ('combat') {
+        <section class="player__panel">
+          <h2>Punti ferita</h2>
+          <div class="player__row">
+            <label>Danno <input type="number" min="0" [value]="damage()" (input)="setDamage($event)" /></label>
+            <button type="button" [disabled]="busy() || !sheet.editingEnabled" (click)="damageHp()">Subisci</button>
+            <label>Cura <input type="number" min="0" [value]="heal()" (input)="setHeal($event)" /></label>
+            <button type="button" [disabled]="busy() || !sheet.editingEnabled" (click)="healHp()">Cura</button>
+          </div>
+          @if (sheet.statblock.kind === 'pc') {
+            <div class="player__row">
+              <span>Dadi vita {{ sheet.statblock.hitDice.used }}/{{ sheet.statblock.hitDice.total }}</span>
+              <span>Death saves {{ sheet.statblock.deathSaves.successes }}/{{ sheet.statblock.deathSaves.failures }}</span>
+            </div>
+          }
+          <div class="player__row">
+            <select [value]="condition()" (change)="setCondition($event)">
+              @for (name of conditionNames; track name) { <option [value]="name">{{ name }}</option> }
+            </select>
+            <button type="button" [disabled]="busy() || !sheet.editingEnabled" (click)="addCondition()">Aggiungi condizione</button>
+          </div>
+          <div class="player__badges">
+            @for (entry of sheet.statblock.conditions; track entry.name) {
+              <button type="button" class="badge" (click)="removeCondition(entry)">{{ entry.name }} ×</button>
+            }
+          </div>
+        </section>
+        <section class="player__panel">
+          <h2>Privilegi</h2>
+          @for (feature of sheet.statblock.kind === 'pc' ? sheet.statblock.snapshot.features : []; track feature.id) {
+            <article class="player__feature">
+              <strong>{{ feature.name }}</strong>
+              <p>{{ feature.description }}</p>
+            </article>
+          }
+        </section>
+      }
+
+      @case ('abilities') {
+        <section class="player__panel">
+          <h2>Caratteristiche</h2>
+          <div class="player__grid">
+            @for (ability of abilities(); track ability.key) {
+              <article><span>{{ ability.label }}</span><strong>{{ ability.score }}</strong><small>{{ ability.modifier }}</small></article>
+            }
+          </div>
+        </section>
+        <section class="player__panel">
+          <h2>Abilità</h2>
+          @for (skill of skills(); track skill.label) {
+            <div class="player__row">
+              <span>{{ skill.label }} @if (skill.proficient) { <span class="badge">competenza</span> }</span>
+              <strong>{{ skill.value }}</strong>
+            </div>
+          }
+        </section>
+      }
+
+      @case ('spells') {
+        @if (sheet.statblock.kind === 'pc') {
+          <section class="player__panel">
+            <h2>Slot</h2>
+            <div class="player__badges">
+              @for (slot of sheet.statblock.spells.slots; track slot.level) {
+                <span class="badge">Livello {{ slot.level }}: {{ slot.used }}/{{ slot.max }}</span>
+              }
+            </div>
+          </section>
+          <section class="player__panel">
+            <h2>Incantesimi</h2>
+            @for (spell of sheet.statblock.snapshot.spells; track spell.id) {
+              <article class="player__feature">
+                <strong>{{ spell.name }} <span class="badge">{{ spell.level }}</span></strong>
+                <p>{{ spell.school }} · {{ spell.castingTime }} · {{ spell.range }}</p>
+                <p>{{ spell.description }}</p>
+              </article>
+            }
+          </section>
+        }
+      }
+
+      @case ('equipment') {
+        <section class="player__panel">
+          <h2>Oggetti</h2>
+          @for (item of sheet.inventory; track item.id) {
+            <div class="player__row"><span>{{ item.name }}</span><strong>{{ item.valueGp ?? 0 }} mo</strong></div>
+          }
+          <p>Monete: {{ currency() }} mo</p>
+        </section>
+      }
+
+      @case ('notes') {
+        <section class="player__panel">
+          <h2>Le tue note</h2>
+          <p class="muted">Sono private: il master non le vede.</p>
+          <textarea rows="10" [value]="notesDraft()" (input)="setNotes($event)" [disabled]="!sheet.editingEnabled"></textarea>
+          <button type="button" [disabled]="busy() || !sheet.editingEnabled" (click)="saveNotes()">Salva note</button>
+          @if (notesSaved()) { <span>Salvate.</span> }
+        </section>
+      }
+
+      @case ('rolls') {
+        <section class="player__panel">
+          <h2>Tiri</h2>
+          <p class="muted">I tiri dal telefono arrivano con il canale realtime della console.</p>
+        </section>
+      }
+    }
+  } @else {
+    <p class="player__state">{{ error() ?? 'Scheda non disponibile.' }}</p>
+  }
+</main>

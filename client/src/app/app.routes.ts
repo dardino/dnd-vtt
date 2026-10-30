@@ -25,5 +25,15 @@ export const routes: Routes = [
     loadComponent: () => import('./features/actor/actor-sheet.page')
       .then((module) => module.ActorSheetPage),
   },
+  {
+    path: 'display/:code',
+    loadComponent: () => import('./features/display/display.page')
+      .then((module) => module.DisplayPage),
+  },
+  {
+    path: 'play/:token',
+    loadComponent: () => import('./features/player/player.page')
+      .then((module) => module.PlayerPage),
+  },
   { path: '**', redirectTo: 'dm' },
 ];

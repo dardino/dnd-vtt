@@ -2,10 +2,13 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import type {
   Campaign,
+  CampaignExport,
   CreateCampaign,
   CreateScene,
+  ImportResult,
   Scene,
   SceneSnapshot,
+  Session,
   UpdateCampaign,
   UpdateScene,
 } from '@dnd-vtt/shared';
@@ -67,5 +70,36 @@ export class CampaignService {
 
   public async getSnapshot(sceneId: string): Promise<SceneSnapshot> {
     return firstValueFrom(this.http.get<SceneSnapshot>(`/api/v1/scenes/${sceneId}/snapshot`));
+  }
+
+  public async listSessions(campaignId: string): Promise<Session[]> {
+    const result = await firstValueFrom(
+      this.http.get<{ items: Session[] }>(`/api/v1/campaigns/${campaignId}/sessions`),
+    );
+    return result.items;
+  }
+
+  public async startSession(campaignId: string): Promise<Session> {
+    return firstValueFrom(
+      this.http.post<Session>(`/api/v1/campaigns/${campaignId}/sessions/start`, {}),
+    );
+  }
+
+  public async stopSession(campaignId: string): Promise<Session> {
+    return firstValueFrom(
+      this.http.post<Session>(`/api/v1/campaigns/${campaignId}/sessions/stop`, {}),
+    );
+  }
+
+  public async exportCampaign(campaignId: string): Promise<CampaignExport> {
+    return firstValueFrom(
+      this.http.get<CampaignExport>(`/api/v1/campaigns/${campaignId}/export`),
+    );
+  }
+
+  public async importCampaign(bundle: CampaignExport): Promise<ImportResult> {
+    return firstValueFrom(
+      this.http.post<ImportResult>('/api/v1/campaigns/import', bundle),
+    );
   }
 }

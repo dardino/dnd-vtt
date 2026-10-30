@@ -112,6 +112,64 @@ export const diceRolls = sqliteTable('dice_rolls', {
   index('dice_rolls_campaign_idx').on(table.campaignId, table.createdAt, table.id),
 ]);
 
+export const programs = sqliteTable('programs', {
+  campaignId: text('campaign_id')
+    .primaryKey()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  state: text('state').notNull(),
+  programVersion: integer('program_version').notNull().default(1),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const displays = sqliteTable('displays', {
+  id: text('id').primaryKey(),
+  campaignId: text('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  code: text('code').notNull(),
+  label: text('label').notNull(),
+  createdAt: text('created_at').notNull(),
+  lastSeenAt: text('last_seen_at'),
+  revokedAt: text('revoked_at'),
+}, (table) => [
+  uniqueIndex('displays_code_unique').on(table.code),
+  index('displays_campaign_idx').on(table.campaignId, table.createdAt),
+]);
+
+export const playerLinks = sqliteTable('player_links', {
+  id: text('id').primaryKey(),
+  campaignId: text('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  actorId: text('actor_id')
+    .notNull()
+    .references(() => actors.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull(),
+  editable: text('editable').notNull(),
+  editingEnabled: integer('editing_enabled', { mode: 'boolean' }).notNull().default(true),
+  label: text('label'),
+  createdAt: text('created_at').notNull(),
+  lastSeenAt: text('last_seen_at'),
+  revokedAt: text('revoked_at'),
+}, (table) => [
+  uniqueIndex('player_links_token_unique').on(table.tokenHash),
+  index('player_links_actor_idx').on(table.actorId, table.createdAt),
+]);
+
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey(),
+  campaignId: text('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  number: integer('number').notNull(),
+  startedAt: text('started_at').notNull(),
+  endedAt: text('ended_at'),
+  durationSeconds: integer('duration_seconds'),
+  notes: text('notes'),
+}, (table) => [
+  index('sessions_campaign_idx').on(table.campaignId, table.startedAt),
+]);
+
 export const schema = {
   campaigns,
   scenes,
@@ -119,4 +177,8 @@ export const schema = {
   assets,
   actionLog,
   diceRolls,
+  programs,
+  displays,
+  playerLinks,
+  sessions,
 };

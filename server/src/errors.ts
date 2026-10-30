@@ -9,6 +9,7 @@ export type ErrorCode
     | 'asset_in_use'
     | 'invalid_build'
     | 'sheet_conflict'
+    | 'editing_disabled'
     | 'roll_expired'
     | 'payload_too_large'
     | 'unsupported_media_type'

@@ -12,6 +12,7 @@ import {
   syncCampaignActions,
   undoThrough,
 } from '../actions/service.js';
+import { broadcastDisplays } from '../realtime/hub.js';
 
 const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const syncQuerySchema = z.strictObject({
@@ -34,6 +35,7 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallbac
         request: body,
         origin: 'dm',
       });
+      broadcastDisplays(id);
       return reply.send(applied);
     });
 
@@ -49,12 +51,16 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallbac
     app.post('/campaigns/:id/actions/undo', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(undoActionRequestSchema, request.body);
-      return reply.send(undoThrough(db, id, body.entryId));
+      const result = undoThrough(db, id, body.entryId);
+      broadcastDisplays(id);
+      return reply.send(result);
     });
 
     app.post('/campaigns/:id/actions/redo', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
-      return reply.send(redoLastBatch(db, id));
+      const result = redoLastBatch(db, id);
+      broadcastDisplays(id);
+      return reply.send(result);
     });
 
     done();

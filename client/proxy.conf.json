@@ -5,6 +5,12 @@
     "changeOrigin": false,
     "ws": true
   },
+  "/ws": {
+    "target": "http://127.0.0.1:3000",
+    "secure": false,
+    "changeOrigin": false,
+    "ws": true
+  },
   "/uploads": {
     "target": "http://127.0.0.1:3000",
     "secure": false,

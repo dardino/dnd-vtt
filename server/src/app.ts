@@ -12,14 +12,21 @@ import { allowedHosts, type AppEnv } from './config/env.js';
 import type { DatabaseHandle } from './db/client.js';
 import { migrationStatus } from './db/migrations.js';
 import { AppError } from './errors.js';
+import { initRealtime } from './realtime/hub.js';
 import { authRoutes } from './auth/auth.js';
 import { actionRoutes } from './actions/routes.js';
 import { actorRoutes } from './actors/routes.js';
+import { aiRoutes } from './ai/routes.js';
 import { assetRoutes } from './assets/routes.js';
 import { campaignRoutes } from './campaigns/routes.js';
 import { characterRoutes } from './character/routes.js';
 import { diceRoutes } from './dice/routes.js';
+import { exportRoutes } from './export/routes.js';
+import { programRoutes } from './program/routes.js';
+import { playerRoutes } from './players/routes.js';
+import { realtimeRoutes } from './realtime/routes.js';
 import { sceneRoutes } from './scenes/routes.js';
+import { sessionRoutes } from './sessions/routes.js';
 import { srdRoutes } from './srd/routes.js';
 import { currentSrdVersion } from './srd/load.js';
 import { createSpaHandler, registerSpaRoute } from './http/spa.js';
@@ -147,7 +154,15 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   void app.register(actorRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(actionRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(diceRoutes(env, database.db), { prefix: '/api/v1' });
+  void app.register(exportRoutes(env, database.db), { prefix: '/api/v1' });
+  void app.register(programRoutes(env, database.db), { prefix: '/api/v1' });
+  void app.register(playerRoutes(env, database.db), { prefix: '/api/v1' });
+  void app.register(sessionRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(assetRoutes(env, database.db), { prefix: '/api/v1' });
+  void app.register(aiRoutes(env, database.db), { prefix: '/api/v1' });
+
+  initRealtime(database.db);
+  void app.register(realtimeRoutes(database.db));
 
   void app.register(fastifyStatic, {
     root: env.uploadDir,

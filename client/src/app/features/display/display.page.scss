@@ -1,0 +1,126 @@
+:host {
+  display: block;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  background: #000;
+}
+
+.display {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--display-bg, #000);
+  color: #fff;
+
+  &__stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__map {
+    position: absolute;
+    inset: 0;
+    display: block;
+  }
+
+  &__loading,
+  &__error {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    color: #bbb;
+    font-family: var(--font-sans);
+    font-size: 1.2rem;
+  }
+
+  &--blackout &__stage {
+    visibility: hidden;
+  }
+}
+
+.display-layer {
+  position: absolute;
+  left: calc(var(--frame-x, 0) * 100%);
+  top: calc(var(--frame-y, 0) * 100%);
+  width: calc(var(--frame-width, 1) * 100%);
+  height: calc(var(--frame-height, 1) * 100%);
+  opacity: var(--layer-opacity, 1);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+
+  &--base {
+    position: absolute;
+  }
+}
+
+.display-image {
+  width: 100%;
+  height: 100%;
+}
+
+.display-text,
+.display-actor {
+  max-width: 80%;
+  padding: 2rem;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 65%);
+  text-align: center;
+
+  h1 {
+    margin: 0 0 0.75rem;
+    font-size: clamp(2rem, 4vw, 4rem);
+  }
+
+  p {
+    margin: 0;
+    font-size: clamp(1rem, 1.8vw, 1.6rem);
+    white-space: pre-wrap;
+  }
+
+  img {
+    max-width: 100%;
+    max-height: 60vh;
+    margin-bottom: 1rem;
+  }
+}
+
+.display-blank {
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+.display-initiative {
+  position: absolute;
+  top: 2rem;
+  right: 2rem;
+  min-width: 16rem;
+  padding: 1rem;
+  border: 1px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 65%);
+
+  ol {
+    display: grid;
+    gap: 0.4rem;
+    margin: 0.6rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0.4rem;
+
+    &.is-current {
+      background: rgb(255 255 255 / 18%);
+    }
+  }
+}

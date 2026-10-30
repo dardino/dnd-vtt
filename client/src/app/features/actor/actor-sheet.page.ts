@@ -31,6 +31,7 @@ import {
 } from '@dnd-vtt/shared';
 import { ActorService } from '../../core/actor.service';
 import { CampaignService } from '../../core/campaign.service';
+import { PlayerService } from '../../core/player.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
 import { Dialog } from '../../components/dialog/dialog';
@@ -81,6 +82,7 @@ export class ActorSheetPage implements OnInit {
   private readonly campaignsApi = inject(CampaignService);
   private readonly sceneActions = inject(SceneActionService);
   private readonly catalogService = inject(SrdCatalogService);
+  private readonly players = inject(PlayerService);
 
   public readonly view = signal<DmSheetView | null>(null);
   public readonly campaign = signal<Campaign | null>(null);
@@ -111,6 +113,10 @@ export class ActorSheetPage implements OnInit {
   public readonly levelUpAsiSplit = signal(false);
   public readonly levelUpFeat = signal('');
   public readonly restBusy = signal(false);
+  public readonly playerUrl = signal<string | null>(null);
+  public readonly playerEditing = signal(true);
+  public readonly playerLinkBusy = signal(false);
+  public readonly playerLinkError = signal<string | null>(null);
 
   public readonly abilities = computed<{ key: Ability; label: string; score: number; modifier: number }[]>(() => {
     const statblock = this.view()?.statblock;
@@ -665,6 +671,41 @@ export class ActorSheetPage implements OnInit {
       .join(' · ');
   }
 
+  public async createPlayerLink(): Promise<void> {
+    if (this.playerLinkBusy()) {
+      return;
+    }
+    this.playerLinkBusy.set(true);
+    this.playerLinkError.set(null);
+    try {
+      const result = await this.players.createLink(this.actorId());
+      this.playerUrl.set(result.url);
+      this.playerEditing.set(true);
+      await navigator.clipboard?.writeText(result.url).catch(() => undefined);
+    } catch (error) {
+      this.playerLinkError.set(this.messageFor(error));
+    } finally {
+      this.playerLinkBusy.set(false);
+    }
+  }
+
+  public async togglePlayerEditing(): Promise<void> {
+    if (this.playerLinkBusy()) {
+      return;
+    }
+    this.playerLinkBusy.set(true);
+    try {
+      const link = await this.players.setEditing(this.actorId(), !this.playerEditing());
+      if (link !== null) {
+        this.playerEditing.set(link.editingEnabled);
+      }
+    } catch (error) {
+      this.playerLinkError.set(this.messageFor(error));
+    } finally {
+      this.playerLinkBusy.set(false);
+    }
+  }
+
   private async load(): Promise<void> {
     try {
       const [loaded, campaign] = await Promise.all([
@@ -690,6 +731,12 @@ export class ActorSheetPage implements OnInit {
       this.view.set(view);
       this.notesDraft.set(view.actor.dmNotes ?? '');
       this.xpDraft.set(view.actor.xp);
+      if (view.statblock.kind === 'pc') {
+        const link = await this.players.getLink(this.actorId());
+        if (link !== null) {
+          this.playerEditing.set(link.editingEnabled);
+        }
+      }
       this.error.set(null);
     } catch (error) {
       this.error.set(this.messageFor(error));

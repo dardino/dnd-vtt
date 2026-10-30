@@ -98,6 +98,10 @@ test('cambia campagna e riapre la scelta', async ({ page }) => {
 test('la console usa la griglia a 12 colonne e riempie l altezza', async ({ page }) => {
   await openCampaign(page);
   const layout = page.locator('.dm-layout');
+  await expect.poll(async () => layout.evaluate((element) =>
+    getComputedStyle(element).gridTemplateColumns
+      .split(' ')
+      .filter((entry) => entry !== '').length)).toBe(12);
   const metrics = await layout.evaluate((element) => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();

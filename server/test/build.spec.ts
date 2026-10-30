@@ -268,6 +268,18 @@ describe('POST /api/v1/campaigns/:id/actors', () => {
         name: 'Tirato',
         build: {
           ...build,
+          backgroundIncreases: [
+            { source: 'background', ability: 'str', amount: 1 },
+            { source: 'background', ability: 'dex', amount: 1 },
+            { source: 'background', ability: 'con', amount: 1 },
+          ],
+          asiChoices: [
+            {
+              level: 4,
+              type: 'asi',
+              increases: [{ source: 'asi', ability: 'int', amount: 2 }],
+            },
+          ],
           abilityGeneration: {
             method: 'rolled',
             base: {

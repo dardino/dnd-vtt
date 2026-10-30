@@ -12,6 +12,7 @@ import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import { getCampaign } from '../db/campaigns.repository.js';
+import { getActor } from '../db/actors.repository.js';
 import { notFound } from '../errors.js';
 import { parse } from '../http/validation.js';
 import { pageParams, pageQuerySchema } from '../http/pagination.js';
@@ -26,6 +27,7 @@ import { createPc, getDmSheet, patchPcSheet } from '../actors/pc-service.js';
 import { applyLevelUp, previewLevelUp } from '../actors/level-up-service.js';
 import { restActors } from '../actors/rest-service.js';
 import { rollAbilityScores } from '../actors/roll-stats.js';
+import { broadcastDisplays } from '../realtime/hub.js';
 
 const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const actorQuerySchema = pageQuerySchema.extend({
@@ -40,6 +42,13 @@ export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
     app.addHook('preHandler', async (request) => {
       requireDm(request, env);
     });
+
+    const broadcastActor = (actorId: string): void => {
+      const actor = getActor(db, actorId);
+      if (actor?.campaignId !== null && actor?.campaignId !== undefined) {
+        broadcastDisplays(actor.campaignId);
+      }
+    };
 
     app.get('/actors', async (request, reply) => {
       const query = parse(actorQuerySchema, request.query);
@@ -79,7 +88,9 @@ export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
     app.patch('/actors/:id/sheet', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(sheetPatchSchema, request.body);
-      return reply.send(patchPcSheet(db, id, body));
+      const result = patchPcSheet(db, id, body);
+      broadcastActor(id);
+      return reply.send(result);
     });
 
     app.post('/actors/:id/level-up/preview', async (request, reply) => {
@@ -91,13 +102,17 @@ export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
     app.post('/actors/:id/level-up', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(levelUpInputSchema, request.body);
-      return reply.send(applyLevelUp(db, id, body));
+      const result = applyLevelUp(db, id, body);
+      broadcastActor(id);
+      return reply.send(result);
     });
 
     app.post('/campaigns/:id/rests', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(restRequestSchema, request.body);
-      return reply.send({ actors: restActors(db, id, body) });
+      const actors = restActors(db, id, body);
+      broadcastDisplays(id);
+      return reply.send({ actors });
     });
 
     app.get('/actors/:id', async (request, reply) => {

@@ -17,6 +17,9 @@
           class="dm-link-button"
           [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'pc']"
         >Crea personaggio</a>
+        <app-button variant="ghost" [disabled]="programBusy()" (pressed)="openScreen()">Apri schermo</app-button>
+        <app-button [disabled]="programBusy() || activeScene() === null" (pressed)="takeScene()">Manda in onda</app-button>
+        <app-button variant="ghost" [disabled]="programBusy()" (pressed)="toggleBlackout()">Blackout</app-button>
         <app-button variant="ghost" (pressed)="openChoose()">Cambia campagna</app-button>
       }
       <label class="theme-select">
@@ -75,6 +78,21 @@
                     <option value="xp">Punti esperienza</option>
                   </select>
                 </label>
+                <div class="session-card">
+                  @if (activeSession(); as session) {
+                    <span class="eyebrow">Sessione {{ session.number }} in corso</span>
+                    <strong class="session-card__timer">{{ sessionLabel() }}</strong>
+                    <button type="button" class="dock-button" [disabled]="sessionBusy()" (click)="stopSession()">Termina</button>
+                  } @else {
+                    <span class="eyebrow">Sessione</span>
+                    <button type="button" class="dock-button" [disabled]="sessionBusy()" (click)="startSession()">Avvia sessione</button>
+                  }
+                </div>
+                <input #importInput id="import-campaign-file" class="file-input" type="file" accept="application/json,.json" (change)="importCampaign($event)" />
+                <div class="initiative__actions">
+                  <button type="button" class="dock-button" (click)="exportCampaign()">Esporta campagna</button>
+                  <button type="button" class="dock-button" (click)="openImportPicker()">Importa campagna</button>
+                </div>
               } @else {
                 <div class="skeleton skeleton--line"></div>
                 <div class="skeleton skeleton--line skeleton--short"></div>
@@ -284,6 +302,61 @@
                     }
                   </ul>
                   <p class="muted">Trascina un attore sulla mappa oppure usa +. Ogni trascinamento crea una nuova istanza.</p>
+                }
+              </div>
+            }
+          </section>
+
+          <section class="accordion" [class.is-open]="isSectionOpen('ai')">
+            <button
+              type="button"
+              class="accordion__trigger"
+              [attr.aria-expanded]="isSectionOpen('ai')"
+              aria-controls="sidebar-ai"
+              (click)="toggleSection('ai')"
+            >
+              <span class="accordion__label">Chat IA</span>
+              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('ai') ? '▾' : '▸' }}</span>
+            </button>
+            @if (isSectionOpen('ai')) {
+              <div id="sidebar-ai" class="accordion__body">
+                <p class="muted">{{ aiMessage() }}</p>
+                @if (!aiEnabled()) {
+                  <p class="muted">
+                    Il provider IA non è configurato: puoi comunque importare uno statblock
+                    incollando il testo e usando il parser locale.
+                  </p>
+                }
+                <label class="field">
+                  <span>Statblock da incollare</span>
+                  <textarea
+                    rows="6"
+                    [value]="aiText()"
+                    (input)="setAiText($event)"
+                    placeholder="Nome&#10;Type: Humanoid&#10;Armor Class 13&#10;Hit Points 22&#10;Speed 30 ft.&#10;STR 12 DEX 14 CON 12 INT 10 WIS 10 CHA 8&#10;Challenge 1/2"
+                  ></textarea>
+                </label>
+                <button
+                  type="button"
+                  class="dock-button"
+                  [disabled]="aiBusy() || aiText().trim() === ''"
+                  (click)="analyzeStatblock()"
+                >Analizza statblock</button>
+                @if (aiPreview(); as preview) {
+                  <div class="session-card">
+                    <span class="eyebrow">Anteprima</span>
+                    <p>{{ preview.creatureType }} · CR {{ preview.cr }} · CA {{ preview.ac }} · PF {{ preview.hp.current }}</p>
+                    <label class="field">
+                      <span>Nome attore</span>
+                      <input type="text" [value]="aiName()" (input)="setAiName($event)" />
+                    </label>
+                    <button
+                      type="button"
+                      class="dock-button"
+                      [disabled]="aiBusy()"
+                      (click)="createParsedMonster()"
+                    >Crea mostro</button>
+                  </div>
                 }
               </div>
             }

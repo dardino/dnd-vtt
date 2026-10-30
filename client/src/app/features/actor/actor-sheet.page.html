@@ -39,9 +39,33 @@
           <button type="button" class="sheet__levelup" [disabled]="!canLevelUp()" (click)="openLevelUp()">
             Sali di livello
           </button>
+          <button type="button" class="sheet__levelup" [disabled]="playerLinkBusy()" (click)="createPlayerLink()">
+            Condividi scheda
+          </button>
         }
       </div>
     </header>
+
+    @if (playerUrl() !== null || playerLinkError() !== null || playerEditing() === false) {
+      <section class="surface player-link">
+        <h2>Scheda giocatore</h2>
+        @if (playerUrl(); as url) {
+          <input type="text" readonly [value]="url" aria-label="URL scheda giocatore" />
+        }
+        <div class="inline-controls">
+          <button type="button" class="btn" [disabled]="playerLinkBusy()" (click)="togglePlayerEditing()">
+            {{ playerEditing() ? 'Spegni matita' : 'Accendi matita' }}
+          </button>
+          @if (playerUrl(); as url) {
+            <a class="btn" [href]="url" target="_blank" rel="noopener">Apri scheda</a>
+          }
+          <span class="muted">{{ playerEditing() ? 'Il giocatore può modificare la scheda' : 'Sola lettura' }}</span>
+        </div>
+        @if (playerLinkError(); as error) {
+          <p class="state--error" role="alert">{{ error }}</p>
+        }
+      </section>
+    }
 
     <nav class="sheet-tabs" aria-label="Sezioni scheda">
       @for (tabItem of tabs(); track tabItem.key) {

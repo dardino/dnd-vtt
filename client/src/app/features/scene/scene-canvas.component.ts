@@ -96,6 +96,7 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly readOnly = input(false);
   public readonly fogSoftness = input(0);
   public readonly brushSize = input(80);
+  public readonly fogOpacity = input(0.5);
 
   public readonly tokenMoved = output<TokenMoveEvent>();
   public readonly tokenSelected = output<string | null>();
@@ -676,7 +677,7 @@ export class SceneCanvasComponent implements OnDestroy {
       y: 0,
       width: map.width,
       height: map.height,
-      opacity: 0.5,
+      opacity: this.fogOpacity(),
       listening: false,
     }));
     layer.draw();

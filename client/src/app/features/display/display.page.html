@@ -1,0 +1,94 @@
+<main
+  class="display"
+  [attr.data-campaign]="state()?.campaign?.id ?? ''"
+  [attr.data-program-updated]="state()?.program?.updatedAt ?? ''"
+  [attr.data-blackout]="state()?.program?.blackout === true"
+  [attr.data-token-count]="state()?.composition?.base?.scene?.tokens?.length ?? 0"
+  [attr.data-token-summary]="tokenSummary()"
+  [style.--display-bg]="state()?.program?.background ?? '#000'"
+  [class.display--blackout]="state()?.program?.blackout === true"
+>
+  @if (error(); as message) {
+    <div class="display__error">{{ message }}</div>
+  } @else if (state(); as current) {
+    <div class="display__stage">
+      @if (base(); as layer) {
+        @if (layer.type === 'map' && mapState(); as sceneState) {
+          <app-scene-canvas
+            class="display__map"
+            [map]="mapImage()"
+            [state]="sceneState"
+            [tool]="'select'"
+            [gridVisible]="true"
+            [readOnly]="true"
+            [fogOpacity]="1"
+          />
+        } @else {
+          <div class="display-layer display-layer--base" [style]="frameStyle(layer)">
+            @if (layer.type === 'image' && layer.imageUrl) {
+              <img
+                class="display-image"
+                [src]="layer.imageUrl"
+                [style.object-fit]="layer.fit ?? 'contain'"
+                alt=""
+              />
+            } @else if (layer.type === 'text') {
+              <article class="display-text">
+                <h1>{{ layer.title }}</h1>
+                <p>{{ layer.body }}</p>
+              </article>
+            } @else if (layer.type === 'actor' && layer.actor; as actor) {
+              <article class="display-actor">
+                @if (actor.imageUrl) { <img [src]="actor.imageUrl" alt="" /> }
+                <h1>{{ actor.name }}</h1>
+                @if (actor.hp) { <p>PF {{ actor.hp.current }}/{{ actor.hp.max }}</p> }
+              </article>
+            } @else {
+              <div class="display-blank"></div>
+            }
+          </div>
+        }
+      }
+
+      @for (layer of overlays(); track layer.id) {
+        <div class="display-layer" [style]="frameStyle(layer)">
+          @if (layer.type === 'image' && layer.imageUrl) {
+            <img
+              class="display-image"
+              [src]="layer.imageUrl"
+              [style.object-fit]="layer.fit ?? 'contain'"
+              alt=""
+            />
+          } @else if (layer.type === 'text') {
+            <article class="display-text">
+              <h1>{{ layer.title }}</h1>
+              <p>{{ layer.body }}</p>
+            </article>
+          } @else if (layer.type === 'actor' && layer.actor; as actor) {
+            <article class="display-actor">
+              @if (actor.imageUrl) { <img [src]="actor.imageUrl" alt="" /> }
+              <h1>{{ actor.name }}</h1>
+              @if (actor.hp) { <p>PF {{ actor.hp.current }}/{{ actor.hp.max }}</p> }
+            </article>
+          }
+        </div>
+      }
+
+      @if (current.initiative !== undefined && current.program.hud.initiative) {
+        <aside class="display-initiative">
+          <span class="eyebrow">Iniziativa · Round {{ current.initiative.round }}</span>
+          <ol>
+            @for (entry of current.initiative.entries; track entry.id; let index = $index) {
+              <li [class.is-current]="index === current.initiative.turnIndex">
+                <span>{{ entry.label }}</span>
+                <strong>{{ entry.value }}</strong>
+              </li>
+            }
+          </ol>
+        </aside>
+      }
+    </div>
+  } @else {
+    <div class="display__loading">In attesa della regia…</div>
+  }
+</main>

@@ -20,6 +20,7 @@ import {
   type Actor,
   type AppliedAction,
   type Campaign,
+  type CampaignExport,
   type DiceRoll,
   type Drawing,
   type FogOp,
@@ -27,18 +28,23 @@ import {
   type GridConfig,
   type InitiativeEntry,
   type MeasureResult,
+  type MonsterStatblock,
+  type ProgramState,
   type Scene,
   type SceneState,
+  type Session,
   type Size,
   type TokenState,
 } from '@dnd-vtt/shared';
 import { ActionStore } from '../../core/action.store';
 import { ActorService } from '../../core/actor.service';
+import { AiService } from '../../core/ai.service';
 import { AssetService } from '../../core/asset.service';
 import { AuthService } from '../../core/auth.service';
 import { CampaignService } from '../../core/campaign.service';
 import { DiceStore } from '../../core/dice.store';
 import { LastCampaignService } from '../../core/last-campaign.service';
+import { ProgramService } from '../../core/program.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SceneStore } from '../../core/scene.store';
 import { ThemeService } from '../../core/theme.service';
@@ -55,7 +61,7 @@ import {
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
 type CanvasTool = SceneTool;
-type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'actors' | 'tokens';
+type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'actors' | 'ai' | 'tokens';
 
 const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   campaign: true,
@@ -63,6 +69,7 @@ const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   grid: true,
   fog: true,
   actors: true,
+  ai: true,
   tokens: true,
 };
 
@@ -97,10 +104,13 @@ export class DmShellPage implements OnInit {
   public readonly actions = inject(ActionStore);
   public readonly dice = inject(DiceStore);
   private readonly sceneActions = inject(SceneActionService);
+  private readonly programsApi = inject(ProgramService);
+  private readonly ai = inject(AiService);
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
   private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   private readonly replaceInput = viewChild<ElementRef<HTMLInputElement>>('replaceInput');
+  private readonly importInput = viewChild<ElementRef<HTMLInputElement>>('importInput');
   private sessionTimer: ReturnType<typeof setInterval> | null = null;
 
   public readonly campaignId = input<string>();
@@ -126,6 +136,19 @@ export class DmShellPage implements OnInit {
   public readonly brushSize = signal(80);
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
   public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
+  public readonly programState = signal<ProgramState | null>(null);
+  public readonly programVersion = signal(1);
+  public readonly displayCode = signal<string | null>(null);
+  public readonly programBusy = signal(false);
+  public readonly sessions = signal<Session[]>([]);
+  public readonly activeSession = signal<Session | null>(null);
+  public readonly sessionBusy = signal(false);
+  public readonly aiEnabled = signal(false);
+  public readonly aiMessage = signal('Chat IA non configurata.');
+  public readonly aiText = signal('');
+  public readonly aiBusy = signal(false);
+  public readonly aiPreview = signal<MonsterStatblock | null>(null);
+  public readonly aiName = signal('Mostro importato');
   public readonly zoom = signal(1);
   public readonly measureResult = signal<MeasureResult | null>(null);
   public readonly selectedTokenId = signal<string | null>(null);
@@ -183,6 +206,11 @@ export class DmShellPage implements OnInit {
     this.party().filter((actor) => actor.kind !== 'pc'));
 
   public readonly zoomLabel = computed(() => `${Math.round(this.zoom() * 100)}%`);
+  public readonly displayUrl = computed(() => {
+    const code = this.displayCode();
+    return code === null ? null : `${location.origin}/display/${code}`;
+  });
+
   public readonly measureLabel = computed(() => {
     const measure = this.measureResult();
     return measure === null ? '—' : `${measure.feet} ft`;
@@ -243,12 +271,30 @@ export class DmShellPage implements OnInit {
       this.lastCampaign.write(campaign.id);
       this.mode.set('ready');
       this.notice.set(null);
-      this.startSessionTimer();
       this.restorePanels(campaign.id);
       const scenes = await this.campaignsApi.listScenes(campaign.id);
       this.scenes.set(scenes);
       this.party.set(await this.actorsApi.listByCampaign(campaign.id));
       await this.dice.load(campaign.id);
+      const program = await this.programsApi.get(campaign.id);
+      this.programState.set(program.state);
+      this.programVersion.set(program.version);
+      const sessions = await this.campaignsApi.listSessions(campaign.id);
+      this.sessions.set(sessions);
+      const ai = await this.ai.status();
+      this.aiEnabled.set(ai.enabled);
+      this.aiMessage.set(ai.message);
+      const active = sessions.find((session) => session.endedAt === null) ?? null;
+      this.activeSession.set(active);
+      if (active !== null) {
+        this.sessionSeconds.set(Math.max(0, Math.floor(
+          (Date.now() - Date.parse(active.startedAt)) / 1000,
+        )));
+        this.startSessionTimer(false);
+      } else {
+        this.sessionSeconds.set(0);
+        this.stopSessionTimer();
+      }
       const target = scenes.find((scene) => scene.id === campaign.activeSceneId) ?? scenes[0];
       if (target !== undefined) {
         if (campaign.activeSceneId !== target.id) {
@@ -847,6 +893,84 @@ export class DmShellPage implements OnInit {
     this.canvas()?.exportPng();
   }
 
+  public async openScreen(): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null || this.programBusy()) {
+      return;
+    }
+    this.programBusy.set(true);
+    try {
+      const display = await this.programsApi.createDisplay(campaign.id, {
+        label: 'Schermo giocatori',
+      });
+      this.displayCode.set(display.code);
+      window.open(`/display/${display.code}`, '_blank');
+      this.statusMessage.set(`Schermo aperto: ${display.code}`);
+    } catch (error) {
+      this.statusMessage.set(messageFor(error));
+    } finally {
+      this.programBusy.set(false);
+    }
+  }
+
+  public async takeScene(): Promise<void> {
+    const campaign = this.activeCampaign();
+    const scene = this.activeScene();
+    if (campaign === null || scene === null || this.programBusy()) {
+      return;
+    }
+    this.programBusy.set(true);
+    try {
+      const current = await this.programsApi.get(campaign.id);
+      const state: ProgramState = {
+        ...current.state,
+        base: {
+          ...current.state.base,
+          content: {
+            type: 'map',
+            sceneId: scene.id,
+            viewport: { x: scene.widthPx / 2, y: scene.heightPx / 2, zoom: 1 },
+            fog: true,
+            cameraLocked: false,
+          },
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      const updated = await this.programsApi.put(campaign.id, current.version, state);
+      this.programState.set(updated.state);
+      this.programVersion.set(updated.version);
+      this.statusMessage.set(`In onda: ${scene.name}`);
+    } catch (error) {
+      this.statusMessage.set(messageFor(error));
+    } finally {
+      this.programBusy.set(false);
+    }
+  }
+
+  public async toggleBlackout(): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null || this.programBusy()) {
+      return;
+    }
+    this.programBusy.set(true);
+    try {
+      const current = await this.programsApi.get(campaign.id);
+      const state: ProgramState = {
+        ...current.state,
+        blackout: !current.state.blackout,
+        updatedAt: new Date().toISOString(),
+      };
+      const updated = await this.programsApi.put(campaign.id, current.version, state);
+      this.programState.set(updated.state);
+      this.programVersion.set(updated.version);
+      this.statusMessage.set(updated.state.blackout ? 'Schermo in blackout' : 'Schermo riacceso');
+    } catch (error) {
+      this.statusMessage.set(messageFor(error));
+    } finally {
+      this.programBusy.set(false);
+    }
+  }
+
   public onActorDragStart(event: DragEvent, actor: Actor): void {
     if (event.dataTransfer === null || this.readOnly()) {
       return;
@@ -908,6 +1032,140 @@ export class DmShellPage implements OnInit {
   public async syncNow(): Promise<void> {
     await this.actions.syncNow();
     this.statusMessage.set('Stato riallineato dal server.');
+  }
+
+  public async analyzeStatblock(): Promise<void> {
+    const campaign = this.activeCampaign();
+    const text = this.aiText().trim();
+    if (campaign === null || text === '' || this.aiBusy()) {
+      return;
+    }
+    this.aiBusy.set(true);
+    try {
+      const result = await this.ai.parseStatblock(campaign.id, text);
+      this.aiPreview.set(result.statblock);
+      this.statusMessage.set('Statblock analizzato: controlla e crea il mostro.');
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    } finally {
+      this.aiBusy.set(false);
+    }
+  }
+
+  public async createParsedMonster(): Promise<void> {
+    const campaign = this.activeCampaign();
+    const statblock = this.aiPreview();
+    if (campaign === null || statblock === null || this.aiBusy()) {
+      return;
+    }
+    this.aiBusy.set(true);
+    try {
+      const actor = await this.actorsApi.createActor({
+        campaignId: campaign.id,
+        kind: 'monster',
+        name: this.aiName().trim() === '' ? 'Mostro importato' : this.aiName().trim(),
+        statblock,
+      });
+      this.party.update((items) => [...items, actor]);
+      this.aiPreview.set(null);
+      this.aiText.set('');
+      this.statusMessage.set(`Creato: ${actor.name}`);
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    } finally {
+      this.aiBusy.set(false);
+    }
+  }
+
+  public setAiText(event: Event): void {
+    this.aiText.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  public setAiName(event: Event): void {
+    this.aiName.set((event.target as HTMLInputElement).value);
+  }
+
+  public async startSession(): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null || this.sessionBusy()) {
+      return;
+    }
+    this.sessionBusy.set(true);
+    try {
+      const session = await this.campaignsApi.startSession(campaign.id);
+      this.activeSession.set(session);
+      this.sessions.update((items) => [session, ...items.filter((entry) => entry.id !== session.id)]);
+      this.sessionSeconds.set(0);
+      this.startSessionTimer(false);
+      this.statusMessage.set(`Sessione ${session.number} avviata`);
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    } finally {
+      this.sessionBusy.set(false);
+    }
+  }
+
+  public async stopSession(): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null || this.sessionBusy()) {
+      return;
+    }
+    this.sessionBusy.set(true);
+    try {
+      const session = await this.campaignsApi.stopSession(campaign.id);
+      this.activeSession.set(null);
+      this.sessions.update((items) => items.map((entry) => (entry.id === session.id ? session : entry)));
+      this.stopSessionTimer();
+      this.statusMessage.set(`Sessione ${session.number} terminata`);
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    } finally {
+      this.sessionBusy.set(false);
+    }
+  }
+
+  public async exportCampaign(): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null) {
+      return;
+    }
+    try {
+      const bundle = await this.campaignsApi.exportCampaign(campaign.id);
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${campaign.name.replaceAll(/[^\w-]+/g, '-')}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      this.statusMessage.set('Campagna esportata');
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    }
+  }
+
+  public openImportPicker(): void {
+    this.importInput()?.nativeElement.click();
+  }
+
+  public async importCampaign(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file === undefined) {
+      return;
+    }
+    try {
+      const bundle = JSON.parse(await file.text()) as CampaignExport;
+      const result = await this.campaignsApi.importCampaign(bundle);
+      this.campaigns.update((items) => [...items, result.campaign]);
+      await this.enterCampaign(result.campaign.id);
+      this.statusMessage.set(
+        `Importata: ${result.imported.scenes} scene, ${result.imported.actors} attori`,
+      );
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    }
   }
 
   public openCreate(): void {
@@ -1011,9 +1269,11 @@ export class DmShellPage implements OnInit {
     );
   }
 
-  private startSessionTimer(): void {
+  private startSessionTimer(reset = true): void {
     this.stopSessionTimer();
-    this.sessionSeconds.set(0);
+    if (reset) {
+      this.sessionSeconds.set(0);
+    }
     this.sessionTimer = setInterval(() => {
       this.sessionSeconds.update((value) => value + 1);
     }, 1000);
