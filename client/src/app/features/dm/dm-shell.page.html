@@ -31,14 +31,6 @@
         >{{ blackout() ? 'Riacendi schermo' : 'Blackout' }}</app-button>
         <app-button variant="ghost" (pressed)="openChoose()">Cambia campagna</app-button>
       }
-      <label class="theme-select">
-        <span>Tema</span>
-        <select [value]="theme.theme()" (change)="setTheme($event)">
-          <option value="light">Chiaro</option>
-          <option value="dark">Scuro</option>
-          <option value="system">Sistema</option>
-        </select>
-      </label>
     </div>
   </header>
 

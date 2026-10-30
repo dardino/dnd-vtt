@@ -51,13 +51,13 @@ test('crea una scena e la mostra come attiva', async ({ page }) => {
 });
 
 test('commuta i tre temi e li applica al documento', async ({ page }) => {
-  await page.goto('/dm');
-  const select = page.locator('.theme-select select');
-  await select.selectOption('dark');
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await select.selectOption('light');
+  await openCampaign(page);
+  const toggle = page.getByRole('button', { name: /Tema:/ });
+  await toggle.click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await select.selectOption('system');
+  await toggle.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await toggle.click();
   const theme = await page.locator('html').getAttribute('data-theme');
   expect(['light', 'dark']).toContain(theme);
 });

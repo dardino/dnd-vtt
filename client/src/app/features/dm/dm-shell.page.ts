@@ -47,7 +47,6 @@ import { LastCampaignService } from '../../core/last-campaign.service';
 import { ProgramService } from '../../core/program.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SceneStore } from '../../core/scene.store';
-import { ThemeService } from '../../core/theme.service';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
@@ -99,7 +98,6 @@ export class DmShellPage implements OnInit {
   private readonly lastCampaign = inject(LastCampaignService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  public readonly theme = inject(ThemeService);
   public readonly sceneStore = inject(SceneStore);
   public readonly actions = inject(ActionStore);
   public readonly dice = inject(DiceStore);
@@ -1195,13 +1193,6 @@ export class DmShellPage implements OnInit {
   public closeCreate(): void {
     if (this.hasCampaigns()) {
       this.mode.set(this.activeCampaign() === null ? 'choose' : 'ready');
-    }
-  }
-
-  public setTheme(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'light' || value === 'dark' || value === 'system') {
-      this.theme.set(value);
     }
   }
 

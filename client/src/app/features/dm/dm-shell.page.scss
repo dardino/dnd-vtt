@@ -69,8 +69,9 @@
   letter-spacing: 0.08em;
 
   &.is-onair {
-    border-color: var(--color-danger);
-    color: var(--color-danger);
+    border-color: var(--color-ok);
+    background: color-mix(in srgb, var(--color-ok) 16%, transparent);
+    color: var(--color-ok);
   }
 
   &.is-blackout {
@@ -85,22 +86,6 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-}
-
-.theme-select {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
-
-  select {
-    min-height: var(--control-height);
-    padding: 0 var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-  }
 }
 
 .dm-notice {
