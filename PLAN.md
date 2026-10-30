@@ -171,6 +171,10 @@ Tooling monorepo
 | D72 | Undo "fino a qui" applica in transazione gli inversi dal più recente e marca le righe `undone`; il redo ripete l'ultimo batch in ordine cronologico. La console ricarica lo snapshot | non esiste rollback parziale né uno stack locale; la history resta leggibile e il token/attore si riallineano subito dopo il reload |
 | D73 | La fog è **vettoriale** (`base` + `FogOp[]`) e viene rasterizzata su una maschera offscreen limitata a 4096 px; la bozza del tratto vive solo nel client e diventa un'azione al rilascio | pan/zoom non cambiano la fog, il tratto è reversibile e 2.000 operazioni restano gestibili; oltre il limite il server risponde `413` |
 | D74 | Disegni e fog usano le stesse azioni con inverse e lo stesso undo/redo; l’export PNG è on-demand dal canvas | nessuno stack locale parallelo alla history server e nessun file generato finché il DM non lo chiede |
+| D75 | La **proiezione dello schermo** è calcolata server-side da `programs` e filtra token con `visible=false` e quelli non coperti dalla fog; i display ricevono lo snapshot via WS `/ws?role=display&code=…` con polling di fallback ogni 5 s | il client display non riproduce regole di visibilità e non può mostrare per errore token nascosti; la riconnessione riparte sempre da uno snapshot completo |
+| D76 | I **link giocatore** sono token casuali salvati hashati; crearne uno nuovo revoca i precedenti, `playerNotes` vive fuori da `dmNotes` e l'export incorpora gli asset WebP come base64 | il token non è recuperabile dal database, le note private non finiscono mai nella vista DM e l'import ricrea sempre una campagna nuova con id rimappati |
+| D77 | La **Fase 9 è opzionale e spenta di default**: nessun provider IA configurato, parser regex locale per gli statblock e chat che risponde `503 ai_disabled`; la sidebar mostra lo stato e il parser resta usabile | il tavolo non dipende da rete o chiavi esterne, l'import testuale funziona comunque e l'interfaccia dichiara chiaramente la funzione non disponibile |
+| D78 | Il workflow `check` compila `shared` prima del lint (`lint.dependsOn: ['^build']`) | il lint type-aware non legge un `dist` assente o in scrittura durante l'esecuzione parallela di Turbo |
 
 ## 5. Struttura monorepo
 
@@ -2666,7 +2670,7 @@ Legenda: ✅ criteri di accettazione.
 - disegni annotativi; export PNG on-demand
 - ✅ su una mappa 4k con 2.000 op il rebuild resta sotto i 150 ms, un tratto annullato dal dock `Azioni` torna identico al pixel anche dopo un reload, e un token al centro di un'area coperta non compare nel payload dello schermo A
 
-### Fase 7 — Regia, doppio schermo e realtime
+### Fase 7 — Regia, doppio schermo e realtime (completata)
 - `ProgramState` + tabella `programs`, `GET/PUT /campaigns/:id/program` con `version`
 - composizione `base + overlays[]` ordinati, frame normalizzato, opacity e `interactive` per layer; in PVW il DM trascina/ridimensiona; overlay click-through di default
 - `TAKE` pubblica l'intera composizione atomica; nessuna transizione nell'MVP; un layer `confirmBeforeTake` richiede conferma per `TAKE`/`CUT`/`DIRECT`
@@ -2680,7 +2684,7 @@ Legenda: ✅ criteri di accettazione.
 - pairing con codice, QR, PIN opzionale, revoca; `PUBLIC_URL` e `DM_PASSWORD`/`SESSION_SECRET` per il secondo dispositivo
 - ✅ con due contesti Playwright: `TAKE` porta l'intera composizione PVW sullo schermo A senza transizione; un layer riservato chiede conferma; drag/resize overlay in PVW non cambia il PGM fino al `TAKE`; overlay click-through lascia interagire con la mappa, `interactive=true` cattura l'input; un token/loot nascosto non compare nei delta; `blackout` copre A; alla riconnessione la composizione è completa; in camera `Live` il pan muove la proiezione, in `Libera` no
 
-### Fase 8 — Schede giocatore, bottino, statistiche ed export
+### Fase 8 — Schede giocatore, bottino, statistiche ed export (completata)
 - **schede giocatore**: `/play/:token`, QR + link revocabile/ruotabile, `editable` per campo, WS `player`; tab Combattimento/Abilità/Magia/Oggetti/Note/Tiri con header sticky, snapshot e valori derivati già presenti in Fase 3b
 - **matita sullo slot** (`editingEnabled=true` di default) e policy per campo; `autoApprove=true` di default, cooldown di 10 s per attore e toggle DM per mettere ogni azione in pending; HP/condizioni auto-approvate o pending, monete/equipaggiamento/inventario diretti con notifica, note private silenziose
 - **coda di approvazione in memoria**: dock `Azioni` con badge e anzianità, approva/rifiuta singolo o in blocco solo per lo stesso attore e in ordine, ritiro dal telefono; nessuna scadenza automatica
@@ -2690,7 +2694,7 @@ Legenda: ✅ criteri di accettazione.
 - export/import JSON per campagna: `schemaVersion` con migrazioni da tutte le versioni passate, asset embedded di default e variante slim, note dei giocatori solo con flag esplicito, import sempre come nuova campagna
 - ✅ il QR apre la propria scheda su viewport mobile; prima azione di HP auto-approvata, seconda entro 10 s pending e approvabile dal DM; toggle off rende pending tutte le nuove azioni; con la matita spenta un `PATCH` dà `403 editing_disabled`; una moneta d'oro si salva subito con notifica e non entra nella history; inventario permissivo, un oggetto assegnato male viene restituito al DM; `playerNotes` sopravvive al reload del telefono senza comparire in console, `dmNotes` non compare mai nel payload del telefono; il token di un altro attore dà `404`; un tiro chiesto dal telefono compare sulla vista main e sullo schermo A con il nome del personaggio; export → import su database vuoto ricrea la campagna con id nuovi e mappe funzionanti; senza `includePrivateNotes` il file non contiene le note dei giocatori; un file con `schemaVersion` vecchia viene importato tramite migrazione; trascinare un oggetto su uno slot personaggio lo ritrova nell'inventario dopo il reload
 
-### Fase 9 — IA: chat e parser (opzionale)
+### Fase 9 — IA: chat e parser (opzionale, implementata con fallback)
 - chat della campagna con contesto (ambientazione, scena, token selezionati), streaming SSE, cronologia persistita
 - endpoint OpenAI-compatible per l'estrazione di statblock
 - fallback regex, revisione manuale nel wizard

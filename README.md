@@ -95,4 +95,19 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   `413`. Azioni `fog.apply`/`fog.replace` reversibili, fog iniziale scelta
   all’upload, disegni annotativi, undo dal dock e export PNG della scena.
 
-La prossima fase è la **Fase 7**: regia, doppio schermo e realtime.
+- **Fase 7 completata**: regia con `ProgramState` versionato, composizione
+  `base + overlay`, pulsanti Apri schermo / Manda in onda / Blackout e pagina
+  `/display/:code` senza shell. La proiezione è filtrata dal server (`visible` e
+  fog), il display si aggiorna via WebSocket `/ws?role=display&code=…` con
+  fallback polling ogni 5 s e riparte sempre da uno snapshot completo.
+- **Fase 8 completata**: link giocatore `/play/:token` con token hashato e
+  revoca automatica dei link precedenti, scheda mobile con HP, condizioni e note
+  private separate da `dmNotes`, matita DM `editingEnabled`. Avvio/chiusura
+  sessioni con durata, export/import JSON della campagna con asset WebP
+  incorporati e import sempre come nuova campagna con id rimappati.
+- **Fase 9 implementata con fallback**: chat IA non configurata, endpoint
+  `/ai/status`, parser regex locale degli statblock e sezione "Chat IA" nella
+  sidebar con anteprima e creazione mostro; la chat risponde `503 ai_disabled`.
+
+Tutte le fasi del piano sono implementate; `npm run check` e `npm run test:e2e`
+sono i gate prima di ogni commit.
