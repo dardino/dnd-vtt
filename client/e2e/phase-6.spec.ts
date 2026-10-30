@@ -109,6 +109,58 @@ test('esporta la scena in PNG', async ({ page }) => {
   expect(download.suggestedFilename()).toBe('scena.png');
 });
 
+test('annulla e ripete matita e fog dall editor', async ({ page, request }) => {
+  const id = await campaignId(request);
+  const sceneId = await ensureScene(request, id);
+  await openCampaign(page);
+
+  const canvas = page.locator('.scene-canvas');
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+  await expect.poll(async () => canvas.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeGreaterThan(0);
+  const box = await canvas.boundingBox();
+  const left = (box?.x ?? 0) + 140;
+  const top = (box?.y ?? 0) + 140;
+
+  const drawingsBefore = (await sceneState(request, sceneId)).state.drawings.length;
+  await page.getByRole('button', { name: 'Disegno' }).click();
+  await expect(page.getByRole('button', { name: 'Disegno' })).toHaveClass(/is-active/);
+  await page.mouse.move(left, top);
+  await page.mouse.down();
+  await page.mouse.move(left + 90, top + 50, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.drawings.length)
+    .toBe(drawingsBefore + 1);
+
+  await page.getByRole('button', { name: 'Annulla', exact: true }).click();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.drawings.length)
+    .toBe(drawingsBefore);
+  await page.getByRole('button', { name: 'Ripeti', exact: true }).click();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.drawings.length)
+    .toBe(drawingsBefore + 1);
+
+  const opsBefore = (await sceneState(request, sceneId)).state.fog.ops.length;
+  await page.getByRole('button', { name: 'Fog: rivela' }).click();
+  await expect(page.getByRole('button', { name: 'Fog: rivela' })).toHaveClass(/is-active/);
+  await page.mouse.move(left, top);
+  await page.mouse.down();
+  await page.mouse.move(left + 70, top + 40, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.ops.length)
+    .toBe(opsBefore + 1);
+
+  await page.getByRole('button', { name: 'Annulla', exact: true }).click();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.ops.length)
+    .toBe(opsBefore);
+
+  await page.getByRole('button', { name: 'Ripeti', exact: true }).click();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.ops.length)
+    .toBe(opsBefore + 1);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.ops.length)
+    .toBe(opsBefore);
+});
+
 test('il pennello fog ha un diametro di 3 celle', async ({ page, request }) => {
   const id = await campaignId(request);
   const sceneId = await ensureScene(request, id);

@@ -65,6 +65,8 @@ const describeAction = (state: SceneState, action: GameAction): string => {
       return 'Turno successivo';
     case 'fog.apply':
       return action.op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta';
+    case 'fog.remove':
+      return 'Fog: operazione annullata';
     case 'fog.replace':
       return 'Fog: copertura aggiornata';
     case 'drawing.add':

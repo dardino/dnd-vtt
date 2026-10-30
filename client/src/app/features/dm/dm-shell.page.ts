@@ -20,6 +20,7 @@ import {
   snapTokenCell,
   sortInitiativeEntries,
   type Actor,
+  type ActionLogEntry,
   type AppliedAction,
   type Campaign,
   type CampaignExport,
@@ -199,6 +200,21 @@ export class DmShellPage implements OnInit {
   public readonly undoneActions = computed(() =>
     this.actions.history().filter((entry) => entry.status === 'undone').length);
 
+  public readonly lastAppliedAction = computed<ActionLogEntry | null>(() => {
+    const sceneId = this.activeScene()?.id;
+    if (sceneId === undefined) {
+      return null;
+    }
+    return this.actions.history()
+      .find((entry) => entry.sceneId === sceneId && entry.status === 'applied') ?? null;
+  });
+
+  public readonly canUndo = computed(() =>
+    !this.readOnly() && this.actions.pending() === 0 && this.lastAppliedAction() !== null);
+
+  public readonly canRedo = computed(() =>
+    !this.readOnly() && this.actions.pending() === 0 && this.undoneActions() > 0);
+
   public readonly syncLabel = computed(() => {
     const status = this.actions.status();
     if (status === 'pending') {
@@ -243,8 +259,34 @@ export class DmShellPage implements OnInit {
     return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
   });
 
+  private readonly onKeydown = (event: KeyboardEvent): void => {
+    if (!(event.ctrlKey || event.metaKey) || event.altKey) {
+      return;
+    }
+    const target = event.target as HTMLElement | null;
+    if (
+      target !== null
+      && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+    ) {
+      return;
+    }
+    if (document.querySelector('dialog[open]') !== null) {
+      return;
+    }
+    const key = event.key.toLowerCase();
+    if (key === 'z' && !event.shiftKey) {
+      event.preventDefault();
+      void this.undoLast();
+    } else if (key === 'y' || (key === 'z' && event.shiftKey)) {
+      event.preventDefault();
+      void this.redoLastBatch();
+    }
+  };
+
   public ngOnInit(): void {
+    window.addEventListener('keydown', this.onKeydown);
     this.destroyRef.onDestroy(() => {
+      window.removeEventListener('keydown', this.onKeydown);
       this.stopSessionTimer();
       this.closePresence();
     });
@@ -702,6 +744,19 @@ export class DmShellPage implements OnInit {
 
   public tokenCount(actorId: string): number {
     return this.tokens().filter((token) => token.actorId === actorId).length;
+  }
+
+  public async undoLast(): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null) {
+      return;
+    }
+    await this.actions.refreshHistory(campaign.id);
+    const entry = this.lastAppliedAction();
+    if (entry === null) {
+      return;
+    }
+    await this.undoThrough(entry.id);
   }
 
   public async undoThrough(entryId: string): Promise<void> {

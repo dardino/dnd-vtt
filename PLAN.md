@@ -831,6 +831,7 @@ type GameAction =
   | { type: 'initiative.set'; entries: InitiativeEntry[]; currentId: string | null }
   | { type: 'initiative.next' }
   | { type: 'fog.apply'; op: FogOp }
+  | { type: 'fog.remove'; opId: string }
   | { type: 'fog.replace'; base: FogState['base']; ops: FogOp[] }
   | { type: 'drawing.add'; drawing: Drawing }
   | { type: 'drawing.remove'; drawingId: string }

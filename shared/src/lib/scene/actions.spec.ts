@@ -121,12 +121,14 @@ describe('invertAction', () => {
     expect(inverse).toEqual({ type: 'token.add', token: token() });
   });
 
-  it('inverte una operazione di fog', () => {
-    const inverse = invertAction(createDefaultSceneState(), {
-      type: 'fog.apply',
-      op: { id: 'op-1', op: 'reveal', shape: { type: 'rect', x: 0, y: 0, width: 2, height: 2 }, softness: 0 },
-    });
-    expect(inverse).toMatchObject({ type: 'fog.apply', op: { op: 'hide' } });
+  it('inverte una operazione di fog rimuovendola e la ripristina', () => {
+    const op = { id: 'op-1', op: 'reveal' as const, shape: { type: 'rect' as const, x: 0, y: 0, width: 2, height: 2 }, softness: 0 };
+    const state = applyAction(createDefaultSceneState(), { type: 'fog.apply', op });
+    const inverse = invertAction(state, { type: 'fog.apply', op });
+    expect(inverse).toEqual({ type: 'fog.remove', opId: 'op-1' });
+    const undone = applyAction(state, inverse);
+    expect(undone.fog.ops).toHaveLength(0);
+    expect(invertAction(state, inverse)).toEqual({ type: 'fog.apply', op });
   });
 
   it('inverte hp e condizioni ripristinando lo stato precedente', () => {

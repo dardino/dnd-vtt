@@ -447,6 +447,22 @@
                   (click)="setTool('draw')"
                 >✎</button>
                 <button type="button" class="tool" aria-label="Esporta PNG" title="Esporta PNG" (click)="exportPng()">⭳</button>
+                <button
+                  type="button"
+                  class="tool"
+                  aria-label="Annulla"
+                  title="Annulla (Ctrl+Z)"
+                  [disabled]="!canUndo()"
+                  (click)="undoLast()"
+                >↶</button>
+                <button
+                  type="button"
+                  class="tool"
+                  aria-label="Ripeti"
+                  title="Ripeti (Ctrl+Shift+Z)"
+                  [disabled]="!canRedo()"
+                  (click)="redoLastBatch()"
+                >↷</button>
                 <span class="tool-divider"></span>
                 <button type="button" class="tool" aria-label="Focus" title="Nascondi le sidebar" (click)="toggleLeft(); toggleRight()">F</button>
               </nav>

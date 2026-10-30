@@ -175,6 +175,7 @@ export const gameActionSchema = z.discriminatedUnion('type', [
     condition: conditionSchema,
   }),
   z.strictObject({ type: z.literal('fog.apply'), op: fogOpSchema }),
+  z.strictObject({ type: z.literal('fog.remove'), opId: z.string().min(1) }),
   z.strictObject({
     type: z.literal('fog.replace'),
     base: z.enum(['hidden', 'revealed']),

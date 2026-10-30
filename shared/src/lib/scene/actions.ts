@@ -85,6 +85,11 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
         ...state,
         fog: { ...state.fog, ops: [...state.fog.ops, action.op] },
       };
+    case 'fog.remove':
+      return {
+        ...state,
+        fog: { ...state.fog, ops: state.fog.ops.filter((op) => op.id !== action.opId) },
+      };
     case 'fog.replace':
       return {
         ...state,
@@ -142,13 +147,14 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
       return { type: 'token.condition', tokenId: action.tokenId, op: 'update', condition: previous };
     }
     case 'fog.apply':
-      return {
-        type: 'fog.apply',
-        op: {
-          ...action.op,
-          op: action.op.op === 'reveal' ? 'hide' : 'reveal',
-        },
-      };
+      return { type: 'fog.remove', opId: action.op.id };
+    case 'fog.remove': {
+      const op = stateBefore.fog.ops.find((entry) => entry.id === action.opId);
+      if (op === undefined) {
+        throw new Error(`operazione fog inesistente: ${action.opId}`);
+      }
+      return { type: 'fog.apply', op };
+    }
     case 'fog.replace':
       return {
         type: 'fog.replace',
