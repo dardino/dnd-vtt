@@ -12,6 +12,14 @@ export interface PixelPoint {
 
 export const HEX_ROW_RATIO = Math.sqrt(3) / 2;
 
+/** La matita delle annotazioni è circa un quarto di cella. */
+export const DRAWING_WIDTH_CELLS = 0.25;
+
+export const gridDrawingWidth = (
+  cellSizePx: number,
+  fraction = DRAWING_WIDTH_CELLS,
+): number => Math.max(1, cellSizePx * fraction);
+
 const squareDip = (diagonals: number, rule: GridConfig['diagonalRule']): number =>
   rule === '5-5-5'
     ? diagonals

@@ -4,6 +4,8 @@ import {
   cellCenterPx,
   cubeToOffset,
   distanceFeet,
+  DRAWING_WIDTH_CELLS,
+  gridDrawingWidth,
   hexDistance,
   measureDistance,
   offsetToCube,
@@ -65,5 +67,12 @@ describe('geometria della griglia', () => {
       cells: 2,
       feet: 10,
     });
+  });
+
+  it('dimensiona la matita a un quarto di cella', () => {
+    expect(DRAWING_WIDTH_CELLS).toBe(0.25);
+    expect(gridDrawingWidth(100)).toBe(25);
+    expect(gridDrawingWidth(64)).toBe(16);
+    expect(gridDrawingWidth(0)).toBe(1);
   });
 });

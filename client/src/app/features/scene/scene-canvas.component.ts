@@ -16,6 +16,7 @@ import {
   HEX_ROW_RATIO,
   TILE_SIZE_PX,
   cellCenterPx,
+  gridDrawingWidth,
   pixelToCell,
   snapTokenCell,
   tileLevelForScale,
@@ -817,7 +818,7 @@ export class SceneCanvasComponent implements OnDestroy {
       layer.add(new Konva.Line({
         points: this.drawingDraft.flatMap((point) => [point.x, point.y]),
         stroke: colors.accent,
-        strokeWidth: 4,
+        strokeWidth: this.drawingWidth(),
         lineCap: 'round',
         lineJoin: 'round',
         listening: false,
@@ -1018,7 +1019,7 @@ export class SceneCanvasComponent implements OnDestroy {
           id: crypto.randomUUID(),
           points: this.drawingDraft,
           color: this.colors().accent,
-          width: 4,
+          width: this.drawingWidth(),
           visible: true,
         });
       }
@@ -1139,6 +1140,10 @@ export class SceneCanvasComponent implements OnDestroy {
       }));
     }
     layer.draw();
+  }
+
+  private drawingWidth(): number {
+    return gridDrawingWidth(this.state().grid.cellSizePx);
   }
 
   private publishCamera(): void {

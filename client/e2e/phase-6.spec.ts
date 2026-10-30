@@ -83,6 +83,8 @@ test('disegna fog e annotazioni, annulla il disegno e persiste la fog', async ({
   await page.mouse.move(left + 120, top + 60, { steps: 4 });
   await page.mouse.up();
   await expect.poll(async () => (await sceneState(request, sceneId)).state.drawings.length).toBe(1);
+  const drawing = (await sceneState(request, sceneId)).state.drawings[0];
+  expect(drawing?.width).toBe(17.5);
 
   await page.getByRole('button', { name: /Azioni \(/ }).click();
   const row = page.locator('.action-history li', { hasText: 'Disegno aggiunto' }).first();
