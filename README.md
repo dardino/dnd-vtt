@@ -92,7 +92,9 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
 - **Fase 6 completata**: fog vettoriale con base nascosta/rivelata, pennello,
   gomma, rettangolo e lasso; maschera offscreen a risoluzione limitata,
   anteprima durante il tratto, softness e limite di 2.000 operazioni con
-  `413`. Azioni `fog.apply`/`fog.replace` reversibili, fog iniziale scelta
+  `413`. Il pennello ha diametro di 3 celle e si adatta alla dimensione della
+  griglia (circa 7 esagoni o 9 quadrati di area), quindi resta coerente
+  cambiando la cella. Azioni `fog.apply`/`fog.replace` reversibili, fog iniziale scelta
   all’upload, disegni annotativi, undo dal dock e export PNG della scena.
 
 - **Fase 7 core completato**: regia con `ProgramState` versionato, composizione

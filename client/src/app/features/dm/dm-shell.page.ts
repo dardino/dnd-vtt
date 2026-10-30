@@ -14,6 +14,8 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import {
   abilityModifier,
+  FOG_BRUSH_CELLS,
+  fogBrushRadius,
   isTiledMap,
   snapTokenCell,
   sortInitiativeEntries,
@@ -135,7 +137,7 @@ export class DmShellPage implements OnInit {
   public readonly tool = signal<CanvasTool>('select');
   public readonly gridVisible = signal(true);
   public readonly fogSoftness = signal(0);
-  public readonly brushSize = signal(80);
+  public readonly fogBrushCells = FOG_BRUSH_CELLS;
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
   public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
   public readonly programState = signal<ProgramState | null>(null);
@@ -174,6 +176,12 @@ export class DmShellPage implements OnInit {
   public readonly state = computed<SceneState | null>(() => this.sceneStore.snapshot()?.state ?? null);
   public readonly tokens = computed<TokenState[]>(() => this.state()?.tokens ?? []);
   public readonly grid = computed<GridConfig | null>(() => this.state()?.grid ?? null);
+  public readonly fogBrushRadiusPx = computed(() =>
+    fogBrushRadius(this.grid()?.cellSizePx ?? 100));
+
+  public readonly fogBrushDiameterPx = computed(() =>
+    Math.round(this.fogBrushRadiusPx() * 2));
+
   public readonly selectedToken = computed<TokenState | null>(() => {
     const id = this.selectedTokenId();
     return this.tokens().find((token) => token.id === id) ?? null;
@@ -860,11 +868,6 @@ export class DmShellPage implements OnInit {
   public setFogSoftness(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
     this.fogSoftness.set(Number.isFinite(value) ? Math.max(0, Math.min(200, value)) : 0);
-  }
-
-  public setBrushSize(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.brushSize.set(Number.isFinite(value) ? Math.max(5, Math.min(500, value)) : 80);
   }
 
   public async onFogApplied(op: FogOp): Promise<void> {

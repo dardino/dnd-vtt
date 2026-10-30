@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FogState } from '../../schemas/scene.js';
-import { isPointRevealed } from './fog.js';
+import { FOG_BRUSH_CELLS, fogBrushRadius, isPointRevealed } from './fog.js';
 
 const fog = (overrides: Partial<FogState> = {}): FogState => ({
   base: 'hidden',
@@ -42,5 +42,12 @@ describe('visibilità fog', () => {
     });
     expect(isPointRevealed(state, { x: 100, y: 100 })).toBe(true);
     expect(isPointRevealed(state, { x: 10, y: 10 })).toBe(false);
+  });
+
+  it('calcola un pennello di 3 celle di diametro', () => {
+    expect(FOG_BRUSH_CELLS).toBe(3);
+    expect(fogBrushRadius(100)).toBe(150);
+    expect(fogBrushRadius(64)).toBe(96);
+    expect(fogBrushRadius(0)).toBe(1);
   });
 });

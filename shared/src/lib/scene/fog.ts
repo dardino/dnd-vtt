@@ -75,3 +75,9 @@ export const isTokenRevealed = (
 
 export const latestFogOp = (ops: readonly FogOp[], id: string): FogOp | undefined =>
   ops.find((op) => op.id === id);
+
+/** Diametro del pennello fog in celle: 3 celle coprono ~7 esagoni o 9 quadrati. */
+export const FOG_BRUSH_CELLS = 3;
+
+export const fogBrushRadius = (cellSizePx: number, cells = FOG_BRUSH_CELLS): number =>
+  Math.max(1, (cellSizePx * cells) / 2);

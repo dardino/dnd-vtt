@@ -95,7 +95,7 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly gridVisible = input(true);
   public readonly readOnly = input(false);
   public readonly fogSoftness = input(0);
-  public readonly brushSize = input(80);
+  public readonly brushRadius = input(150);
   public readonly fogOpacity = input(0.5);
 
   public readonly tokenMoved = output<TokenMoveEvent>();
@@ -787,7 +787,7 @@ export class SceneCanvasComponent implements OnDestroy {
         layer.add(new Konva.Line({
           points: draft.points.flatMap((point) => [point.x, point.y]),
           stroke: colors.accent,
-          strokeWidth: this.brushSize() * 2,
+          strokeWidth: this.brushRadius() * 2,
           lineCap: 'round',
           lineJoin: 'round',
           opacity: 0.25,
@@ -1062,7 +1062,7 @@ export class SceneCanvasComponent implements OnDestroy {
         };
       }
     } else if (draft.points.length >= 2) {
-      shape = { type: 'brush', points: draft.points, radius: Math.max(1, this.brushSize()) };
+      shape = { type: 'brush', points: draft.points, radius: Math.max(1, this.brushRadius()) };
     }
     this.fogDraft = null;
     this.renderDraftPreview();

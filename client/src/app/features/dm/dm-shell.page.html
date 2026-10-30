@@ -241,10 +241,13 @@
             </button>
             @if (isSectionOpen('fog')) {
               <div id="sidebar-fog" class="accordion__body">
-                <label class="field">
-                  <span>Pennello (px)</span>
-                  <input type="number" min="5" max="500" [value]="brushSize()" (input)="setBrushSize($event)" />
-                </label>
+                <div class="field">
+                  <span>Pennello</span>
+                  <p class="muted">
+                    {{ fogBrushCells }} celle di diametro · {{ fogBrushDiameterPx() }} px
+                    (griglia {{ grid()?.cellSizePx ?? '—' }} px)
+                  </p>
+                </div>
                 <label class="field">
                   <span>Morbidezza bordo (px)</span>
                   <input type="number" min="0" max="200" [value]="fogSoftness()" (input)="setFogSoftness($event)" />
@@ -461,7 +464,7 @@
                     [gridVisible]="gridVisible()"
                     [readOnly]="readOnly()"
                     [fogSoftness]="fogSoftness()"
-                    [brushSize]="brushSize()"
+                    [brushRadius]="fogBrushRadiusPx()"
                     (tokenMoved)="onTokenMoved($event)"
                     (tokenSelected)="onTokenSelected($event)"
                     (actorDropped)="onActorDropped($event)"

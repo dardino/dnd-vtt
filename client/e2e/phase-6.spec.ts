@@ -106,3 +106,44 @@ test('esporta la scena in PNG', async ({ page }) => {
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe('scena.png');
 });
+
+test('il pennello fog ha un diametro di 3 celle', async ({ page, request }) => {
+  const id = await campaignId(request);
+  const sceneId = await ensureScene(request, id);
+  const before = await sceneState(request, sceneId);
+  await request.post(`/api/v1/campaigns/${id}/actions`, {
+    data: {
+      id: crypto.randomUUID(),
+      clientId: 'phase6-brush',
+      sceneId,
+      action: {
+        type: 'grid.update',
+        grid: { ...before.state.grid, cellSizePx: 64 },
+      },
+    },
+  });
+  await openCampaign(page);
+
+  const canvas = page.locator('.scene-canvas');
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+  await expect.poll(async () => canvas.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeGreaterThan(0);
+  const box = await canvas.boundingBox();
+  const left = (box?.x ?? 0) + 120;
+  const top = (box?.y ?? 0) + 120;
+
+  await page.getByRole('button', { name: 'Fog: rivela' }).click();
+  await page.mouse.move(left, top);
+  await page.mouse.down();
+  await page.mouse.move(left + 80, top + 40, { steps: 4 });
+  await page.mouse.up();
+
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.ops.length)
+    .toBeGreaterThan(0);
+  const ops = (await sceneState(request, sceneId)).state.fog.ops;
+  const brush = ops.at(-1);
+  expect(brush?.shape.type).toBe('brush');
+  if (brush?.shape.type === 'brush') {
+    expect(brush.shape.radius).toBe(96);
+  }
+});
