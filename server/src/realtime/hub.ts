@@ -21,6 +21,35 @@ const envelope = (type: string, payload: unknown): string => JSON.stringify({
   payload,
 });
 
+const displayCount = (campaignId: string): number => {
+  let count = 0;
+  for (const client of clients) {
+    if (client.role === 'display' && client.campaignId === campaignId) {
+      count += 1;
+    }
+  }
+  return count;
+};
+
+const broadcastPresence = (campaignId: string): void => {
+  const displays = displayCount(campaignId);
+  for (const client of clients) {
+    if (client.role !== 'dm' || client.campaignId !== campaignId) {
+      continue;
+    }
+    if (client.socket.readyState !== 1) {
+      continue;
+    }
+    client.socket.send(envelope('presence.updated', { displays }));
+  }
+};
+
+const removeClient = (client: RealtimeClient): void => {
+  if (clients.delete(client) && client.role === 'display') {
+    broadcastPresence(client.campaignId);
+  }
+};
+
 export const initRealtime = (db: AppDatabase): void => {
   database = db;
 };
@@ -33,8 +62,19 @@ export const registerRealtimeClient = (
 ): void => {
   const client: RealtimeClient = { socket, role, campaignId, ...(code === undefined ? {} : { code }) };
   clients.add(client);
-  socket.on('close', () => clients.delete(client));
-  socket.on('error', () => clients.delete(client));
+  socket.on('close', () => removeClient(client));
+  socket.on('error', () => removeClient(client));
+  if (role === 'display') {
+    broadcastPresence(campaignId);
+  }
+};
+
+export const sendDmHello = (socket: WebSocket, campaignId: string): void => {
+  socket.send(envelope('hello', {
+    role: 'dm',
+    campaignId,
+    displays: displayCount(campaignId),
+  }));
 };
 
 export const broadcastDisplays = (campaignId: string): void => {
@@ -48,7 +88,7 @@ export const broadcastDisplays = (campaignId: string): void => {
     const display = getDisplayByCode(database, client.code);
     if (display === null) {
       client.socket.close(4403, 'display revoked');
-      clients.delete(client);
+      removeClient(client);
       continue;
     }
     if (client.socket.readyState !== 1) {

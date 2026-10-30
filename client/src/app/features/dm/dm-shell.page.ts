@@ -110,6 +110,10 @@ export class DmShellPage implements OnInit {
   private readonly replaceInput = viewChild<ElementRef<HTMLInputElement>>('replaceInput');
   private readonly importInput = viewChild<ElementRef<HTMLInputElement>>('importInput');
   private sessionTimer: ReturnType<typeof setInterval> | null = null;
+  private presenceSocket: WebSocket | null = null;
+  private presenceTimer: ReturnType<typeof setTimeout> | null = null;
+  private presenceCampaignId: string | null = null;
+  private presenceRetry = 1;
 
   public readonly campaignId = input<string>();
 
@@ -138,6 +142,7 @@ export class DmShellPage implements OnInit {
   public readonly programVersion = signal(1);
   public readonly displayCode = signal<string | null>(null);
   public readonly programBusy = signal(false);
+  public readonly connectedDisplays = signal(0);
   public readonly sessions = signal<Session[]>([]);
   public readonly activeSession = signal<Session | null>(null);
   public readonly sessionBusy = signal(false);
@@ -206,7 +211,7 @@ export class DmShellPage implements OnInit {
   public readonly zoomLabel = computed(() => `${Math.round(this.zoom() * 100)}%`);
   public readonly blackout = computed(() => this.programState()?.blackout === true);
   public readonly airLabel = computed(() => {
-    if (this.mode() !== 'ready') {
+    if (this.mode() !== 'ready' || this.connectedDisplays() === 0) {
       return 'OFF AIR';
     }
     return this.blackout() ? 'BLACKOUT' : 'ON AIR';
@@ -231,7 +236,10 @@ export class DmShellPage implements OnInit {
   });
 
   public ngOnInit(): void {
-    this.destroyRef.onDestroy(() => this.stopSessionTimer());
+    this.destroyRef.onDestroy(() => {
+      this.stopSessionTimer();
+      this.closePresence();
+    });
     void this.start();
   }
 
@@ -285,6 +293,7 @@ export class DmShellPage implements OnInit {
       const program = await this.programsApi.get(campaign.id);
       this.programState.set(program.state);
       this.programVersion.set(program.version);
+      this.connectPresence(campaign.id);
       const sessions = await this.campaignsApi.listSessions(campaign.id);
       this.sessions.set(sessions);
       const ai = await this.ai.status();
@@ -1181,12 +1190,15 @@ export class DmShellPage implements OnInit {
 
   public openChoose(): void {
     this.notice.set(null);
+    this.closePresence();
     this.mode.set('choose');
   }
 
   public closeChoose(): void {
-    if (this.activeCampaign() !== null) {
+    const campaign = this.activeCampaign();
+    if (campaign !== null) {
       this.mode.set('ready');
+      this.connectPresence(campaign.id);
     }
   }
 
@@ -1266,6 +1278,60 @@ export class DmShellPage implements OnInit {
         sections: this.sections(),
       }),
     );
+  }
+
+  private connectPresence(campaignId: string): void {
+    this.closePresence();
+    this.presenceCampaignId = campaignId;
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const socket = new WebSocket(
+      `${protocol}//${location.host}/ws?role=dm&campaignId=${encodeURIComponent(campaignId)}`,
+    );
+    this.presenceSocket = socket;
+    socket.addEventListener('open', () => {
+      this.presenceRetry = 1;
+    });
+    socket.addEventListener('message', (event) => {
+      try {
+        const message = JSON.parse(event.data as string) as {
+          type?: string;
+          payload?: { displays?: number };
+        };
+        if (
+          (message.type === 'hello' || message.type === 'presence.updated')
+          && typeof message.payload?.displays === 'number'
+        ) {
+          this.connectedDisplays.set(message.payload.displays);
+        }
+      } catch {
+        // Un messaggio malformato non deve interrompere la console.
+      }
+    });
+    socket.addEventListener('close', () => {
+      if (this.presenceSocket !== socket) {
+        return;
+      }
+      this.presenceSocket = null;
+      this.connectedDisplays.set(0);
+      if (this.presenceCampaignId !== campaignId) {
+        return;
+      }
+      const delay = Math.min(30_000, this.presenceRetry * 1000);
+      this.presenceRetry = Math.min(30, this.presenceRetry * 2);
+      this.presenceTimer = setTimeout(() => this.connectPresence(campaignId), delay);
+    });
+  }
+
+  private closePresence(): void {
+    this.presenceCampaignId = null;
+    if (this.presenceTimer !== null) {
+      clearTimeout(this.presenceTimer);
+      this.presenceTimer = null;
+    }
+    const socket = this.presenceSocket;
+    this.presenceSocket = null;
+    socket?.close();
+    this.connectedDisplays.set(0);
   }
 
   private startSessionTimer(reset = true): void {

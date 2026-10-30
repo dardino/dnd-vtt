@@ -8,8 +8,8 @@
       </span>
       <span
         class="dm-topbar__onair"
-        [class.is-onair]="mode() === 'ready' && !blackout()"
-        [class.is-blackout]="blackout()"
+        [class.is-onair]="airLabel() === 'ON AIR'"
+        [class.is-blackout]="airLabel() === 'BLACKOUT'"
         [attr.aria-label]="'Stato schermo: ' + airLabel()"
       >
         {{ airLabel() }}

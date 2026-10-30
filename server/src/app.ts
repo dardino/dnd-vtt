@@ -162,7 +162,7 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   void app.register(aiRoutes(env, database.db), { prefix: '/api/v1' });
 
   initRealtime(database.db);
-  void app.register(realtimeRoutes(database.db));
+  void app.register(realtimeRoutes(env, database.db));
 
   void app.register(fastifyStatic, {
     root: env.uploadDir,

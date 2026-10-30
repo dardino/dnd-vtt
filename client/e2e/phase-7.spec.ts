@@ -82,6 +82,8 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   const fixture = await createSceneFixture(request);
   await page.goto(`/dm/campaigns/${fixture.campaignId}`);
   await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
+  const onAir = page.locator('.dm-topbar__onair');
+  await expect(onAir).toHaveText('OFF AIR');
 
   const [display] = await Promise.all([
     context.waitForEvent('page'),
@@ -92,15 +94,14 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await expect(screen).toBeVisible({ timeout: 15_000 });
   await expect(screen).toHaveAttribute('data-campaign', fixture.campaignId);
   await expect(screen).toHaveAttribute('data-token-count', '1', { timeout: 15_000 });
+  await expect(onAir).toHaveText('ON AIR');
+  await expect(onAir).toHaveClass(/is-onair/);
 
   const beforeProgram = await screen.getAttribute('data-program-updated');
   await page.getByRole('button', { name: 'Manda in onda' }).click();
   await expect.poll(async () => screen.getAttribute('data-program-updated'))
     .not.toBe(beforeProgram);
 
-  const onAir = page.locator('.dm-topbar__onair');
-  await expect(onAir).toHaveText('ON AIR');
-  await expect(onAir).toHaveClass(/is-onair/);
   await page.getByRole('button', { name: 'Blackout' }).click();
   await expect(screen).toHaveAttribute('data-blackout', 'true', { timeout: 10_000 });
   await expect(onAir).toHaveText('BLACKOUT');
@@ -124,4 +125,5 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   const scene = await snapshot(request, fixture.sceneId);
   expect(scene.state.tokens[0]?.x).toBe(5);
   await display.close();
+  await expect(onAir).toHaveText('OFF AIR');
 });
