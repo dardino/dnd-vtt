@@ -2670,7 +2670,7 @@ Legenda: ✅ criteri di accettazione.
 - disegni annotativi; export PNG on-demand
 - ✅ su una mappa 4k con 2.000 op il rebuild resta sotto i 150 ms, un tratto annullato dal dock `Azioni` torna identico al pixel anche dopo un reload, e un token al centro di un'area coperta non compare nel payload dello schermo A
 
-### Fase 7 — Regia, doppio schermo e realtime (completata)
+### Fase 7 — Regia, doppio schermo e realtime (core completato)
 - `ProgramState` + tabella `programs`, `GET/PUT /campaigns/:id/program` con `version`
 - composizione `base + overlays[]` ordinati, frame normalizzato, opacity e `interactive` per layer; in PVW il DM trascina/ridimensiona; overlay click-through di default
 - `TAKE` pubblica l'intera composizione atomica; nessuna transizione nell'MVP; un layer `confirmBeforeTake` richiede conferma per `TAKE`/`CUT`/`DIRECT`
@@ -2684,7 +2684,7 @@ Legenda: ✅ criteri di accettazione.
 - pairing con codice, QR, PIN opzionale, revoca; `PUBLIC_URL` e `DM_PASSWORD`/`SESSION_SECRET` per il secondo dispositivo
 - ✅ con due contesti Playwright: `TAKE` porta l'intera composizione PVW sullo schermo A senza transizione; un layer riservato chiede conferma; drag/resize overlay in PVW non cambia il PGM fino al `TAKE`; overlay click-through lascia interagire con la mappa, `interactive=true` cattura l'input; un token/loot nascosto non compare nei delta; `blackout` copre A; alla riconnessione la composizione è completa; in camera `Live` il pan muove la proiezione, in `Libera` no
 
-### Fase 8 — Schede giocatore, bottino, statistiche ed export (completata)
+### Fase 8 — Schede giocatore, bottino, statistiche ed export (core completato)
 - **schede giocatore**: `/play/:token`, QR + link revocabile/ruotabile, `editable` per campo, WS `player`; tab Combattimento/Abilità/Magia/Oggetti/Note/Tiri con header sticky, snapshot e valori derivati già presenti in Fase 3b
 - **matita sullo slot** (`editingEnabled=true` di default) e policy per campo; `autoApprove=true` di default, cooldown di 10 s per attore e toggle DM per mettere ogni azione in pending; HP/condizioni auto-approvate o pending, monete/equipaggiamento/inventario diretti con notifica, note private silenziose
 - **coda di approvazione in memoria**: dock `Azioni` con badge e anzianità, approva/rifiuta singolo o in blocco solo per lo stesso attore e in ordine, ritiro dal telefono; nessuna scadenza automatica

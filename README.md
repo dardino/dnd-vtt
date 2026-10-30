@@ -95,19 +95,23 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   `413`. Azioni `fog.apply`/`fog.replace` reversibili, fog iniziale scelta
   all’upload, disegni annotativi, undo dal dock e export PNG della scena.
 
-- **Fase 7 completata**: regia con `ProgramState` versionato, composizione
+- **Fase 7 core completato**: regia con `ProgramState` versionato, composizione
   `base + overlay`, pulsanti Apri schermo / Manda in onda / Blackout e pagina
   `/display/:code` senza shell. La proiezione è filtrata dal server (`visible` e
   fog), il display si aggiorna via WebSocket `/ws?role=display&code=…` con
   fallback polling ogni 5 s e riparte sempre da uno snapshot completo.
-- **Fase 8 completata**: link giocatore `/play/:token` con token hashato e
+  Restano fuori dal core: editor PVW con drag/resize degli overlay, camera
+  live/libera, presence e pairing QR.
+- **Fase 8 core completato**: link giocatore `/play/:token` con token hashato e
   revoca automatica dei link precedenti, scheda mobile con HP, condizioni e note
   private separate da `dmNotes`, matita DM `editingEnabled`. Avvio/chiusura
   sessioni con durata, export/import JSON della campagna con asset WebP
   incorporati e import sempre come nuova campagna con id rimappati.
+  Restano fuori dal core: coda di approvazione con cooldown, QR, dock Bottino,
+  tiri dal telefono e realtime della scheda giocatore.
 - **Fase 9 implementata con fallback**: chat IA non configurata, endpoint
   `/ai/status`, parser regex locale degli statblock e sezione "Chat IA" nella
   sidebar con anteprima e creazione mostro; la chat risponde `503 ai_disabled`.
+  Restano fuori: provider OpenAI-compatible, streaming SSE e cronologia chat.
 
-Tutte le fasi del piano sono implementate; `npm run check` e `npm run test:e2e`
-sono i gate prima di ogni commit.
+I gate restano `npm run check` e `npm run test:e2e` prima di ogni commit.
