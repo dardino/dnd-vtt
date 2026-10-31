@@ -6,6 +6,7 @@
   [attr.data-token-count]="state()?.composition?.base?.scene?.tokens?.length ?? 0"
   [attr.data-token-summary]="tokenSummary()"
   [attr.data-token-portraits]="tokenPortraitCount()"
+  [attr.data-composition-version]="state()?.compositionVersion ?? 0"
   [style.--display-bg]="state()?.program?.background ?? '#000'"
   [class.display--blackout]="state()?.program?.blackout === true"
 >

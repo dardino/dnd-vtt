@@ -4,8 +4,8 @@ import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import { getCampaign } from '../db/campaigns.repository.js';
-import { getDisplayByCode } from '../db/displays.repository.js';
-import { registerRealtimeClient, sendDisplayHello, sendDmHello } from './hub.js';
+import { getDisplayByCode, updateDisplayViewportSize } from '../db/displays.repository.js';
+import { broadcastPresence, registerRealtimeClient, sendDisplayHello, sendDmHello } from './hub.js';
 
 const envelope = (type: string, payload: unknown): string => JSON.stringify({
   v: 1,
@@ -65,9 +65,24 @@ export const realtimeRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginAsync
     }
     socket.on('message', (raw) => {
       try {
-        const message = JSON.parse(rawText(raw)) as { type?: string };
+        const message = JSON.parse(rawText(raw)) as {
+          type?: string;
+          width?: unknown;
+          height?: unknown;
+        };
         if (message.type === 'ping') {
           socket.send(envelope('pong', {}));
+        }
+        if (message.type === 'viewport' && code !== undefined) {
+          const width = Math.trunc(Number(message.width));
+          const height = Math.trunc(Number(message.height));
+          if (Number.isFinite(width) && Number.isFinite(height) && width > 0 && height > 0) {
+            const display = getDisplayByCode(db, code);
+            if (display !== null) {
+              updateDisplayViewportSize(db, display.id, width, height);
+              broadcastPresence(display.campaignId);
+            }
+          }
         }
       } catch {
         socket.send(envelope('error', { code: 'invalid_message', message: 'Messaggio non valido' }));

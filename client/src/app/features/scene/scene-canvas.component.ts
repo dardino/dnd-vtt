@@ -250,11 +250,13 @@ export class SceneCanvasComponent implements OnDestroy {
   private applyViewportOrFit(): void {
     const viewport = this.viewport();
     const stage = this.stage;
-    if (viewport === null || stage === null) {
+    const map = this.map();
+    if (viewport === null || stage === null || map === null) {
       this.fit();
       return;
     }
-    const scale = clamp(viewport.zoom, MIN_SCALE, MAX_SCALE);
+    const fitScale = Math.min(stage.width() / map.width, stage.height() / map.height);
+    const scale = clamp(fitScale * viewport.zoom, MIN_SCALE, MAX_SCALE);
     stage.scale({ x: scale, y: scale });
     stage.position({
       x: stage.width() / 2 - viewport.x * scale,

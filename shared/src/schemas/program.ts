@@ -90,6 +90,8 @@ export const displaySchema = z.strictObject({
   code: z.string().min(1),
   label: z.string(),
   compositionVersion: z.number().int().min(1),
+  viewportWidth: z.number().int().positive().nullable(),
+  viewportHeight: z.number().int().positive().nullable(),
   createdAt: z.string().datetime(),
   lastSeenAt: z.string().datetime().nullable(),
   revokedAt: z.string().datetime().nullable(),
@@ -154,6 +156,7 @@ export type DisplayLayer = z.infer<typeof displayLayerSchema>;
 
 export const displayStateSchema = z.strictObject({
   campaign: z.strictObject({ id: z.string().uuid(), name: z.string() }),
+  compositionVersion: z.number().int().min(1),
   program: z.strictObject({
     hud: z.strictObject({ dice: z.boolean(), initiative: z.boolean(), pointer: z.boolean() }),
     blackout: z.boolean(),

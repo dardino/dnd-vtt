@@ -29,6 +29,7 @@ export class DisplayPage implements OnInit, OnDestroy {
   private retry = 1;
   private readonly timers: ReturnType<typeof setTimeout>[] = [];
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly onResize = (): void => this.sendViewport();
 
   public readonly base = computed<DisplayLayer | null>(() => this.state()?.composition.base ?? null);
   public readonly overlays = computed<DisplayLayer[]>(() =>
@@ -97,6 +98,7 @@ export class DisplayPage implements OnInit, OnDestroy {
   public ngOnInit(): void {
     void this.load();
     this.connect();
+    window.addEventListener('resize', this.onResize);
     this.pollTimer = setInterval(() => {
       if (this.socket === null || this.socket.readyState !== WebSocket.OPEN) {
         void this.load();
@@ -105,6 +107,7 @@ export class DisplayPage implements OnInit, OnDestroy {
   }
 
   public ngOnDestroy(): void {
+    window.removeEventListener('resize', this.onResize);
     this.socket?.close();
     this.socket = null;
     if (this.pollTimer !== null) {
@@ -143,6 +146,19 @@ export class DisplayPage implements OnInit, OnDestroy {
     }
   }
 
+  private sendViewport(): void {
+    const socket = this.socket;
+    if (socket === null || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    socket.send(JSON.stringify({
+      v: 1,
+      type: 'viewport',
+      width: window.innerWidth,
+      height: window.innerHeight,
+    }));
+  }
+
   private connect(): void {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     const socket = new WebSocket(
@@ -151,6 +167,7 @@ export class DisplayPage implements OnInit, OnDestroy {
     this.socket = socket;
     socket.addEventListener('open', () => {
       this.retry = 1;
+      this.sendViewport();
     });
     socket.addEventListener('message', (event) => {
       try {

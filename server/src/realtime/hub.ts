@@ -31,7 +31,7 @@ const displayCount = (campaignId: string): number => {
   return count;
 };
 
-const broadcastPresence = (campaignId: string): void => {
+export const broadcastPresence = (campaignId: string): void => {
   const displays = displayCount(campaignId);
   for (const client of clients) {
     if (client.role !== 'dm' || client.campaignId !== campaignId) {

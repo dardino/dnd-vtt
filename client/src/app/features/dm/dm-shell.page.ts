@@ -201,6 +201,13 @@ export class DmShellPage implements OnInit {
   public readonly screenZoomLabel = computed(() =>
     Math.round((this.screenViewport()?.zoom ?? 1) * 100));
 
+  public readonly screenAspect = computed(() => {
+    const display = this.screenDialog()?.display;
+    const width = display?.viewportWidth ?? 16;
+    const height = display?.viewportHeight ?? 9;
+    return `${width} / ${height}`;
+  });
+
   private screenTimer: ReturnType<typeof setInterval> | null = null;
   private screenDragging = false;
   private screenDragStart = { x: 0, y: 0, viewport: { x: 0, y: 0, zoom: 1 } };
@@ -1182,7 +1189,7 @@ export class DmShellPage implements OnInit {
             viewport: {
               x: scene.widthPx / 2,
               y: scene.heightPx / 2,
-              zoom: this.screenFitZoom(scene.widthPx, scene.heightPx),
+              zoom: 1,
             },
             fog: true,
             cameraLocked: false,
@@ -1591,8 +1598,13 @@ export class DmShellPage implements OnInit {
       }));
       this.screens.set(items);
       const open = this.screenDialog();
-      if (open !== null && !items.some((item) => item.display.id === open.display.id)) {
-        this.closeScreenDialog();
+      if (open !== null) {
+        const match = items.find((item) => item.display.id === open.display.id);
+        if (match === undefined) {
+          this.closeScreenDialog();
+        } else {
+          this.screenDialog.set({ ...match, state: open.state });
+        }
       }
     } catch {
       this.screens.set([]);
@@ -1642,7 +1654,7 @@ export class DmShellPage implements OnInit {
     this.applyScreenViewport({
       x: scene.widthPx / 2,
       y: scene.heightPx / 2,
-      zoom: this.screenFitZoom(scene.widthPx, scene.heightPx),
+      zoom: 1,
     }, true);
   }
 
@@ -1668,9 +1680,16 @@ export class DmShellPage implements OnInit {
     const start = this.screenDragStart.viewport;
     const dx = event.clientX - this.screenDragStart.x;
     const dy = event.clientY - this.screenDragStart.y;
+    const base = this.screenDialog()?.state?.composition.base;
+    const scene = base?.type === 'map' ? base.scene : undefined;
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const fit = scene === undefined
+      ? 1
+      : Math.min(rect.width / scene.widthPx, rect.height / scene.heightPx);
+    const scale = Math.max(0.01, fit * start.zoom);
     this.applyScreenViewport({
-      x: start.x - dx / start.zoom,
-      y: start.y - dy / start.zoom,
+      x: start.x - dx / scale,
+      y: start.y - dy / scale,
       zoom: start.zoom,
     }, true);
   }
@@ -1690,10 +1709,6 @@ export class DmShellPage implements OnInit {
   private screenViewportFrom(summary: ScreenSummary): Viewport | null {
     const base = summary.state?.composition.base;
     return base?.type === 'map' ? base.viewport ?? null : null;
-  }
-
-  private screenFitZoom(widthPx: number, heightPx: number): number {
-    return Math.max(0.05, Math.min(1920 / widthPx, 1080 / heightPx));
   }
 
   private applyScreenViewport(viewport: Viewport, persist: boolean): void {

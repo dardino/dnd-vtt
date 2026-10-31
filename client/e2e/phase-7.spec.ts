@@ -135,6 +135,8 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await expect(display.locator('.display__code')).toHaveText(displayCode);
   const screenList = page.locator('#sidebar-screens');
   await expect(screenList).toContainText(displayCode);
+  await display.setViewportSize({ width: 800, height: 1200 });
+  await expect(screenList).toContainText('800 × 1200', { timeout: 10_000 });
 
   await page.getByRole('button', { name: 'Manda in onda' }).click();
   await expect(screen.locator('.scene-canvas')).toBeVisible({ timeout: 10_000 });
@@ -144,6 +146,8 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   const viewer = page.getByRole('dialog').locator('.screen-viewer');
   await expect(viewer.locator('app-screen-preview')).toBeVisible({ timeout: 10_000 });
   await expect(viewer.locator('.scene-canvas')).toBeVisible();
+  const viewerSize = await viewer.boundingBox();
+  expect((viewerSize?.width ?? 0) / (viewerSize?.height ?? 1)).toBeCloseTo(800 / 1200, 1);
   const screenCanvas = screen.locator('.scene-canvas');
   const beforeScale = await screenCanvas.getAttribute('data-camera-scale');
   const beforeCameraX = await screenCanvas.getAttribute('data-camera-x');
@@ -226,13 +230,14 @@ test('con più schermi Manda in onda chiede il target', async ({ page, context, 
   const rows = dialog.locator('.screen-row');
   await expect(rows).toHaveCount(2);
   const firstCode = new URL(first.url()).pathname.split('/').filter(Boolean).at(-1) ?? '';
+  const firstVersion = await first.locator('.display').getAttribute('data-composition-version');
+  const secondVersion = await second.locator('.display').getAttribute('data-composition-version');
   await rows.filter({ hasText: firstCode }).click();
 
   await expect(first.locator('.display .scene-canvas')).toBeVisible({ timeout: 10_000 });
-  const secondScale = await second.locator('.display .scene-canvas').getAttribute('data-camera-scale');
-  expect(secondScale).toBe('1');
-  await expect.poll(async () => first.locator('.display .scene-canvas').getAttribute('data-camera-scale'))
-    .not.toBe(secondScale);
+  await expect.poll(async () => first.locator('.display').getAttribute('data-composition-version'))
+    .not.toBe(firstVersion);
+  await expect(second.locator('.display')).toHaveAttribute('data-composition-version', secondVersion ?? '');
 
   await first.close();
   await second.close();

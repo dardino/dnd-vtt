@@ -131,6 +131,8 @@ export const displays = sqliteTable('displays', {
   label: text('label').notNull(),
   composition: text('composition'),
   compositionVersion: integer('composition_version').notNull().default(1),
+  viewportWidth: integer('viewport_width'),
+  viewportHeight: integer('viewport_height'),
   createdAt: text('created_at').notNull(),
   lastSeenAt: text('last_seen_at'),
   revokedAt: text('revoked_at'),

@@ -125,8 +125,11 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   con più display online apre la scelta del target, e l’anteprima comanda il
   viewport di quello specifico schermo. La sidebar destra ha l’accordion
   **Schermi** con i soli display online e ciò che stanno proiettando; cliccandone
-  uno si apre un’anteprima 16:9 che pan/zooma la proiezione reale. Le sidebar
-  ridotte diventano una barra stretta con l’etichetta in verticale. Restano
+  uno si apre un’anteprima che usa lo stesso aspect ratio dello schermo
+  (orizzontale o verticale) e pan/zooma la proiezione reale. Lo zoom è relativo
+  al fit della risoluzione dello schermo: 100% = mappa adattata, anche in
+  fullscreen. Le sidebar ridotte diventano una barra stretta con l’etichetta in
+  verticale. Restano
   fuori dal core: editor PVW con drag/resize degli overlay, camera live/libera
   e pairing QR.
 - **Fase 8 core completato**: link giocatore `/play/:token` con token hashato e

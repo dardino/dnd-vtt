@@ -15,6 +15,8 @@ const toDisplay = (row: typeof displays.$inferSelect): Display => ({
   code: row.code,
   label: row.label,
   compositionVersion: row.compositionVersion,
+  viewportWidth: row.viewportWidth,
+  viewportHeight: row.viewportHeight,
   createdAt: row.createdAt,
   lastSeenAt: row.lastSeenAt,
   revokedAt: row.revokedAt,
@@ -32,6 +34,8 @@ export const insertDisplay = (db: DbExecutor, campaignId: string, label: string)
     label,
     composition: null,
     compositionVersion: 1,
+    viewportWidth: null,
+    viewportHeight: null,
     createdAt: new Date().toISOString(),
     lastSeenAt: null,
     revokedAt: null,
@@ -58,6 +62,18 @@ export const listDisplays = (db: DbExecutor, campaignId: string): Display[] =>
 export const touchDisplay = (db: DbExecutor, id: string): void => {
   db.update(displays)
     .set({ lastSeenAt: new Date().toISOString() })
+    .where(eq(displays.id, id))
+    .run();
+};
+
+export const updateDisplayViewportSize = (
+  db: DbExecutor,
+  id: string,
+  width: number,
+  height: number,
+): void => {
+  db.update(displays)
+    .set({ viewportWidth: width, viewportHeight: height })
     .where(eq(displays.id, id))
     .run();
 };

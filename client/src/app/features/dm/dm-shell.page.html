@@ -732,7 +732,10 @@
                           <span class="badge">{{ summary.display.label }}</span>
                         </span>
                         <span class="screen-row__projection">{{ screenProjectionLabel(summary) }}</span>
-                        <span class="muted">{{ screenLastSeen(summary) }}</span>
+                        <span class="muted">
+                          {{ summary.display.viewportWidth ?? '—' }} × {{ summary.display.viewportHeight ?? '—' }}
+                          · {{ screenLastSeen(summary) }}
+                        </span>
                       </button>
                     </li>
                   }
@@ -1007,6 +1010,7 @@
     </p>
     <div
       class="screen-viewer"
+      [style.aspect-ratio]="screenAspect()"
       (wheel)="zoomScreen($event)"
       (pointerdown)="startScreenPan($event)"
       (pointermove)="moveScreenPan($event)"

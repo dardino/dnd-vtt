@@ -295,6 +295,7 @@ export const projectDisplay = (db: AppDatabase, display: Display): DisplayState 
   }
   return {
     campaign: { id: campaign.id, name: campaign.name },
+    compositionVersion: display.compositionVersion,
     program: {
       hud: program.state.hud,
       blackout: program.state.blackout,
