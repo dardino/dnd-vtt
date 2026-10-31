@@ -25,6 +25,8 @@
             [readOnly]="true"
             [fogOpacity]="1"
             [viewport]="layer.viewport ?? null"
+            [vision]="layer.scene?.vision ?? null"
+            [doors]="layer.scene?.doors ?? []"
             [tokenPortraits]="tokenPortraits()"
           />
         } @else {

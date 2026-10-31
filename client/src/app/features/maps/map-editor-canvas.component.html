@@ -1,0 +1,10 @@
+<div
+  #host
+  class="map-editor-canvas"
+  [attr.data-tool]="tool()"
+  [attr.data-camera-scale]="camera().scale"
+  [attr.data-camera-x]="camera().x"
+  [attr.data-camera-y]="camera().y"
+>
+  <div #container class="map-editor-canvas__stage"></div>
+</div>

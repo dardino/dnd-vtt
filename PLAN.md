@@ -184,6 +184,15 @@ Tooling monorepo
 | D85 | I salvataggi del viewport sono **serializzati** con l'ultimo gesto che vince; il client non invia `version` e il server accetta il campo come opzionale. `Manda in onda` attende i salvataggi in corso e rilegge la versione corrente prima di scrivere | lo zoom rapido non perde più colpi per 409 concorrenti e il TAKE non viene sovrascritto da un pan/zoom partito prima |
 | D86 | L'unità di misura è una **preferenza di presentazione** del client (`ft` o `m`, salvata in `localStorage`); i dati restano in piedi sul server. Griglia, righello, velocità, sensi, gittate e testi SRD passano da `MeasurementService`, con input metrici riconvertiti in piedi prima del salvataggio | il tavolo può usare la metrica senza migrazioni né doppie unità nel database; la conversione resta coerente tra mappa, schede e schermo giocatore |
 | D87 | I limiti di zoom della scena sono **relativi al fit** (`fit × 5%` … `fit × 3200%`), non più una scala assoluta con tetto 4×. L'adattamento usa lo stesso `fitScale` sia nella scena DM sia nell'anteprima e nello schermo | una mappa piccola (es. 474×276) su uno schermo grande produce un fit oltre 4×: prima il tetto assoluto esauriva subito lo zoom e l'anteprima divergeva dallo schermo reale; ora 100% = adattata a qualsiasi risoluzione e lo zoom in/out resta coerente |
+| D88 | L'**editor di mappe** è il livello di authoring: una mappa contiene PNG, griglia, terreno (muri, luci, ambiente), spawn di mostri/NPC, partenze PG e vista iniziale. Una **scena** è un'istanza giocabile creata da una mappa e conserva uno snapshot del terreno | le mappe si riusano e si modificano senza alterare una scena in corso; la console smette di scegliere file di sfondo e chiede sempre una mappa dell'editor |
+| D89 | I muri sono **edge canonici della griglia** (`h:x:y` / `v:x:y`), non segmenti liberi. I tratti freehand vengono rasterizzati a edge; i tipi sono muro, porta, finestra e muro basso. Muro e porta chiusa bloccano vista, luce e movimento; finestra e muro basso bloccano solo il movimento | niente buchi agli angoli, editor più semplice e visione deterministica; le torri circolari restano possibili con il tratto rasterizzato |
+| D90 | La visibilità è una **griglia di celle** con livelli `0` nascosta, `1` penombra, `2` luce piena, calcolata da luce ambientale, luci, sensi e LOS a celle. Il server filtra i token con la stessa griglia; il display riceve solo i livelli e le porte visibili, mai i muri grezzi | filtro token O(1), payload compatto, nessun leak di porte segrete e anteprima identica allo schermo reale |
+| D91 | La board è unica: la visibilità è l'**unione del party** (PG e token `owner: 'players'`). La fog manuale resta sempre disponibile sopra la visione automatica; `fog.override` gestisce “rivela/nascondi tutto” in modalità automatica | il tavolo condivide un solo monitor; il DM può correggere qualsiasi edge case senza disattivare la visione |
+| D92 | La fog manuale ha due modalità: **a celle** (default, snap alla griglia) e **libera** (pennello/poligono con softness) per gli edge case. Il token grande è visibile se almeno una cella occupata è visibile | coerenza con la visione a celle senza perdere la possibilità di interventi fini |
+| D93 | Porte, luci e ambiente sono azioni di scena undoable; le porte visibili hanno un overlay sul display e le porte segrete non vengono inviate finché il DM non le rivela. Le mappe esagonali usano la fog manuale: gli edge esagonali restano un sviluppo futuro annotato | il feedback visivo delle porte è immediato e la griglia esagonale non blocca l'editor, che resta pronto per l'estensione |
+| D94 | Il limite di vista è un campo per mappa con default 120 ft e massimo il lato maggiore della mappa in piedi; non esiste “illimitato”. La griglia di una scena creata da mappa è read-only in play | contiene il costo del raycast e impedisce che una modifica di griglia in play sposti i muri rispetto al PNG |
+| D95 | Il progetto è ancora privato: `npm run db:reset` cancella database e upload locali, applica le migrazioni e ricrea una campagna demo con dungeon, luci, porte, goblin e partenze PG. Lo script rifiuta la produzione senza `--force` | possiamo eliminare i dati di sviluppo senza migrazioni legacy o backfill |
+| D96 | Export/import include le **mappe** oltre a scene, attori e asset; l'import rimappa `mapId`, `imageAssetId` e i riferimenti di stato | il bundle di campagna resta completo e le scene importate mantengono il collegamento alla mappa quando presente |
 
 ## 5. Struttura monorepo
 
@@ -1872,9 +1881,30 @@ La fog non è solo estetica: un token dentro la fog **non deve viaggiare nel pay
 - `PVW` mostra la fog come lo schermo A (100%), così il DM vede il risultato reale prima del `TAKE`
 - cambiare contenuto in onda non tocca la fog; cambiare scena sì, perché è parte del suo `SceneState`
 
-### 9.8 Fuori scope
+### 9.8 Editor mappe
 
-- luce dinamica, darkvision, line of sight e muri occlusivi
+- route `/maps` (libreria) e `/maps/:mapId` (editor), link **Mappe** nella top bar
+- la mappa contiene PNG, griglia, terreno, spawn, partenze PG, vista iniziale, fog iniziale e note
+- muri disegnati sugli edge della griglia; il tratto libero viene rasterizzato a edge e reso con round join/antialiasing
+- porte, finestre e muri bassi sono tipi di edge; le porte hanno stato `open`/`closed`/`secret`
+- luci statiche con preset (torcia 20/40, lanterna 30/60, lampada 15/45, candela 5/10, Light 20/40)
+- spawn SRD creano attori nuovi per scena; gli attori ricorrenti possono essere collegati
+- “Prepara scena” assegna i PG ai marker di partenza, con fallback manuale
+
+### 9.9 Visione a celle
+
+- griglia quadrata: `VisionGrid { cols, rows, levels[] }` con `0` nascosta, `1` penombra, `2` luce piena
+- luce ambientale + luci statiche/portate, tagliate dai muri con LOS a celle
+- sensi: scurovisione (buio → penombra, penombra → luce), blindsight/truesight (luce piena entro il raggio); tremorsense non rivela il terreno
+- unione del party; token visibile se almeno una cella occupata è visibile
+- il server usa la stessa griglia per filtrare i token; il display riceve `vision` e `doors` visibili, non il terreno
+- fog manuale sopra la visione; `fog.override` per rivelare/nascondere tutto; “Vista automatica” rimuove l'override
+- collisione: muro e porta chiusa/segreta bloccano il movimento; finestra e muro basso bloccano solo il movimento; `Alt`/`force` per l'override DM; il drag si ferma all'ultima cella valida
+
+### 9.10 Fuori scope
+
+- edge esagonali per la visione automatica: le mappe esagonali usano la fog manuale; l'estensione è annotata come sviluppo futuro
+- luce dinamica con flicker, oscurità magica, invisibilità e memoria esplorata in grigio
 - elevazione e volo rispetto alla fog: oggi un token volante è nascosto come uno a terra
 - fog animata o con texture personalizzate
 - export PNG della mappa con fog: opzionale, on-demand, mai formato di persistenza
@@ -2709,6 +2739,16 @@ Legenda: ✅ criteri di accettazione.
 - endpoint OpenAI-compatible per l'estrazione di statblock
 - fallback regex, revisione manuale nel wizard
 - ✅ un testo statblock incollato produce una bozza modificabile; con AI non configurata il fallback regex funziona e la chat mostra un messaggio di funzione disabilitata
+
+### Fase 10 — Editor mappe e visione a celle (core completato)
+- libreria mappe + editor `/maps/:mapId`: sfondo, griglia, muri/porte/finestre/muri bassi, luci, spawn, partenze PG, vista iniziale
+- console: “Avvia da mappa” con dialog di scelta e “Prepara scena” per assegnare i PG; niente più upload dal menu Scene
+- visione a celle con luce ambientale, torce/lanterne, scurovisione, blindsight/truesight, LOS e porta chiusa/aperta
+- filtro token server-side e `vision`/`doors` nel payload del display; overlay porte
+- collisione su muri e porte chiuse, con override DM (`Alt`/`force`)
+- fog manuale a celle (default) + libera; `fog.override` con “Vista automatica”
+- `db:reset` dev-only con campagna demo; export/import include le mappe
+- ✅ una mappa dell’editor si apre/salva, una scena creata dalla mappa assegna i PG, un goblin dietro una porta chiusa non compare finché la porta non si apre, la fog manuale lo nasconde di nuovo e un token non attraversa un muro senza `force`
 
 ### MVP cut line
 

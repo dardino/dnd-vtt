@@ -8,7 +8,7 @@ import { eq } from 'drizzle-orm';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import { findAssetByHash, insertAsset } from '../db/assets.repository.js';
-import { actors, scenes } from '../db/schema.js';
+import { actors, maps, scenes } from '../db/schema.js';
 import { AppError } from '../errors.js';
 
 const SHARP_OPTIONS = { limitInputPixels: 100_000_000, failOn: 'error' as const };
@@ -128,6 +128,10 @@ export const storeAsset = async (
 export const assetInUse = (db: AppDatabase, id: string): boolean => {
   const scene = db.select({ id: scenes.id }).from(scenes).where(eq(scenes.imageAssetId, id)).get();
   if (scene !== undefined) {
+    return true;
+  }
+  const map = db.select({ id: maps.id }).from(maps).where(eq(maps.imageAssetId, id)).get();
+  if (map !== undefined) {
     return true;
   }
   return db.select({ id: actors.id }).from(actors)

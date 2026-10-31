@@ -5,6 +5,7 @@ import { FOG_BRUSH_CELLS, fogBrushRadius, isPointRevealed } from './fog.js';
 const fog = (overrides: Partial<FogState> = {}): FogState => ({
   base: 'hidden',
   ops: [],
+  override: 'none',
   ...overrides,
 });
 

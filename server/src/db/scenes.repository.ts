@@ -66,6 +66,7 @@ export const insertScene = (
   const row = {
     id: uuidv7(),
     campaignId,
+    mapId: input.mapId ?? null,
     name: input.name,
     imageAssetId: input.imageAssetId ?? null,
     widthPx: input.widthPx,

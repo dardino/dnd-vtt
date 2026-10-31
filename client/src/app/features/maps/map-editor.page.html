@@ -1,0 +1,407 @@
+<section class="editor">
+  @if (doc(); as document) {
+    <header class="editor__top">
+      <div class="editor__title">
+        <a class="editor__back" (click)="back()" role="button" tabindex="0">← Mappe</a>
+        <input
+          class="editor__name"
+          [value]="document.name"
+          (change)="updateMapField('name', $event)"
+          aria-label="Nome mappa"
+        />
+        <span class="badge" [class.badge--warn]="dirty()">
+          {{ dirty() ? 'modifiche non salvate' : 'salvata' }}
+        </span>
+      </div>
+      <div class="editor__actions">
+        <input
+          #backgroundInput
+          class="file-input"
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          (change)="replaceBackground($event)"
+        />
+        <app-button variant="ghost" (pressed)="openBackgroundPicker()">Sfondo</app-button>
+        <app-button variant="ghost" [disabled]="saving()" (pressed)="undo()">Annulla</app-button>
+        <app-button variant="ghost" [disabled]="saving()" (pressed)="redo()">Ripeti</app-button>
+        <app-button variant="ghost" (pressed)="captureStartView()">Vista iniziale</app-button>
+        <app-button variant="primary" [disabled]="saving()" (pressed)="save()">
+          {{ saving() ? 'Salvataggio…' : 'Salva' }}
+        </app-button>
+      </div>
+    </header>
+
+    <div class="editor__body">
+      <nav class="editor__tools" aria-label="Strumenti mappa">
+        @for (entry of tools; track entry.tool) {
+          <button
+            type="button"
+            class="editor__tool"
+            [class.is-active]="tool() === entry.tool"
+            [title]="entry.hint"
+            (click)="setTool(entry.tool)"
+          >
+            <span>{{ entry.label }}</span>
+          </button>
+        }
+        <span class="editor__tool-divider"></span>
+        <button
+          type="button"
+          class="editor__tool"
+          [class.is-active]="showGrid()"
+          (click)="showGrid.set(!showGrid())"
+        >Griglia</button>
+      </nav>
+
+      <div class="editor__stage">
+        @if (image(); as mapImage) {
+          <app-map-editor-canvas
+            [image]="mapImage"
+            [grid]="document.grid"
+            [terrain]="document.terrain"
+            [spawns]="document.spawns"
+            [playerStarts]="document.playerStarts"
+            [tool]="tool()"
+            [selected]="selected()"
+            [startView]="document.startView ?? null"
+            [showGrid]="showGrid()"
+            (edgesPainted)="onEdgesPainted($event)"
+            (lightPlaced)="placeLight($event)"
+            (spawnRequested)="requestSpawn($event)"
+            (startPlaced)="placeStart($event)"
+            (elementMoved)="moveElement($event)"
+            (elementSelected)="select($event)"
+          />
+        } @else {
+          <p class="muted editor__placeholder">Caricamento immagine…</p>
+        }
+      </div>
+
+      <aside class="editor__inspector">
+        <section class="inspector-section">
+          <h2>Mappa</h2>
+          <div class="inspector-grid">
+            <label class="field">
+              <span>Griglia</span>
+              <select [value]="document.grid.type" (change)="updateGridField('type', $event)">
+                <option value="square">Quadrata</option>
+                <option value="hex">Esagonale</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Cella (px)</span>
+              <input type="number" min="16" max="400" [value]="document.grid.cellSizePx" (change)="updateGridField('cellSizePx', $event)" />
+            </label>
+            <label class="field">
+              <span>Offset X</span>
+              <input type="number" [value]="document.grid.offsetX" (change)="updateGridField('offsetX', $event)" />
+            </label>
+            <label class="field">
+              <span>Offset Y</span>
+              <input type="number" [value]="document.grid.offsetY" (change)="updateGridField('offsetY', $event)" />
+            </label>
+            <label class="field">
+              <span>Piedi per cella</span>
+              <input type="number" min="1" step="0.5" [value]="document.grid.feetPerCell" (change)="updateGridField('feetPerCell', $event)" />
+            </label>
+            <label class="field">
+              <span>Diagonali</span>
+              <select [value]="document.grid.diagonalRule" (change)="updateGridField('diagonalRule', $event)">
+                <option value="5-5-5">5-5-5</option>
+                <option value="5-10-5">5-10-5</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Fog iniziale</span>
+              <select [value]="document.fogBase" (change)="updateMapField('fogBase', $event)">
+                <option value="hidden">Coperta</option>
+                <option value="revealed">Scoperta</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Luce ambientale</span>
+              <select [value]="document.terrain.ambientLight" (change)="setAmbient($event)">
+                <option value="dark">Buio</option>
+                <option value="dim">Penombra</option>
+                <option value="bright">Luce piena</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Limite vista (ft)</span>
+              <input
+                type="number"
+                min="1"
+                [max]="maxSightFeet()"
+                [value]="document.terrain.visionLimitFeet"
+                (change)="updateVisionLimit($event)"
+              />
+              <small class="muted">Massimo {{ maxSightFeet() }} ft.</small>
+            </label>
+            <label class="check">
+              <input type="checkbox" [checked]="document.showDoorIcons" (change)="updateTerrainField('showDoorIcons', $event)" />
+              <span>Mostra icone porte</span>
+            </label>
+            <label class="check">
+              <input
+                type="checkbox"
+                [checked]="document.terrain.visionEnabled"
+                [disabled]="isHex()"
+                (change)="updateTerrainField('visionEnabled', $event)"
+              />
+              <span>Visione automatica</span>
+            </label>
+          </div>
+          @if (document.terrain.walls.length > 0) {
+            <p class="notice">
+              La griglia è la base dei muri: se cambi cella o offset, ricontrolla l’allineamento.
+            </p>
+          }
+          @if (isHex()) {
+            <p class="notice">
+              Mappe esagonali: la visione automatica è disattivata. Muri, luci e fog restano manuali
+              finché non aggiungeremo gli edge esagonali.
+            </p>
+          }
+          <label class="field">
+            <span>Note DM</span>
+            <textarea rows="3" [value]="document.notes" (change)="updateMapField('notes', $event)"></textarea>
+          </label>
+        </section>
+
+        @if (selectedWall(); as wall) {
+          <section class="inspector-section">
+            <h2>Muro selezionato</h2>
+            <label class="field">
+              <span>Tipo</span>
+              <select [value]="wall.kind" (change)="updateWallKind($event)">
+                <option value="wall">Muro</option>
+                <option value="door">Porta</option>
+                <option value="window">Finestra</option>
+                <option value="lowWall">Muro basso</option>
+              </select>
+            </label>
+            @if (wall.kind === 'door') {
+              <label class="field">
+                <span>Stato iniziale</span>
+                <select [value]="wall.door ?? 'closed'" (change)="updateDoor($event)">
+                  <option value="closed">Chiusa</option>
+                  <option value="open">Aperta</option>
+                  <option value="secret">Segreta</option>
+                </select>
+              </label>
+            }
+            <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
+          </section>
+        }
+
+        @if (selectedLight(); as light) {
+          <section class="inspector-section">
+            <h2>Luce selezionata</h2>
+            <div class="inspector-grid">
+              <label class="field">
+                <span>Cella X</span>
+                <input type="number" min="0" [value]="light.x" (change)="updateLightField('x', $event)" />
+              </label>
+              <label class="field">
+                <span>Cella Y</span>
+                <input type="number" min="0" [value]="light.y" (change)="updateLightField('y', $event)" />
+              </label>
+              <label class="field">
+                <span>Luce intensa (ft)</span>
+                <input type="number" min="1" [value]="light.brightFeet" (change)="updateLightField('brightFeet', $event)" />
+              </label>
+              <label class="field">
+                <span>Luce fioca (ft)</span>
+                <input type="number" min="1" [value]="light.dimFeet" (change)="updateLightField('dimFeet', $event)" />
+              </label>
+              <label class="field">
+                <span>Colore</span>
+                <input type="color" [value]="light.color" (change)="updateLightField('color', $event)" />
+              </label>
+              <label class="check">
+                <input type="checkbox" [checked]="light.enabled" (change)="updateLightField('enabled', $event)" />
+                <span>Accesa</span>
+              </label>
+              <label class="field">
+                <span>Forma</span>
+                <select [value]="light.shape" (change)="updateLightField('shape', $event)">
+                  <option value="circle">Cerchio</option>
+                  <option value="cone">Cono</option>
+                </select>
+              </label>
+              @if (light.shape === 'cone') {
+                <label class="field">
+                  <span>Direzione (°)</span>
+                  <input type="number" min="0" max="360" [value]="light.direction ?? 0" (change)="updateLightField('direction', $event)" />
+                </label>
+                <label class="field">
+                  <span>Apertura (°)</span>
+                  <input type="number" min="1" max="360" [value]="light.angle" (change)="updateLightField('angle', $event)" />
+                </label>
+              }
+            </div>
+            <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
+          </section>
+        }
+
+        @if (selectedSpawn(); as spawn) {
+          <section class="inspector-section">
+            <h2>Spawn selezionato</h2>
+            <label class="field">
+              <span>Etichetta</span>
+              <input type="text" [value]="spawn.label ?? ''" (change)="updateSpawnField('label', $event)" />
+            </label>
+            <div class="inspector-grid">
+              <label class="field">
+                <span>Cella X</span>
+                <input type="number" min="0" [value]="spawn.x" (change)="updateSpawnField('x', $event)" />
+              </label>
+              <label class="field">
+                <span>Cella Y</span>
+                <input type="number" min="0" [value]="spawn.y" (change)="updateSpawnField('y', $event)" />
+              </label>
+              <label class="field">
+                <span>Taglia (celle)</span>
+                <input type="number" min="1" max="6" step="1" [value]="spawn.size" (change)="updateSpawnField('size', $event)" />
+              </label>
+              <label class="field">
+                <span>Quantità</span>
+                <input type="number" min="1" max="20" step="1" [value]="spawn.quantity" (change)="updateSpawnField('quantity', $event)" />
+              </label>
+              <label class="check">
+                <input type="checkbox" [checked]="spawn.hidden" (change)="updateSpawnField('hidden', $event)" />
+                <span>Nascosto all'avvio</span>
+              </label>
+            </div>
+            <p class="muted">
+              Sorgente: {{ spawnSourceLabel(spawn) }}
+            </p>
+            <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
+          </section>
+        }
+
+        @if (selectedStart(); as start) {
+          <section class="inspector-section">
+            <h2>Partenza PG</h2>
+            <label class="field">
+              <span>Etichetta</span>
+              <input type="text" [value]="start.label ?? ''" (change)="updateStartLabel($event)" />
+            </label>
+            <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
+          </section>
+        }
+
+        <section class="inspector-section">
+          <h2>Contenuto</h2>
+          <h3>Luci</h3>
+          @if (document.terrain.lights.length === 0) {
+            <p class="muted">Nessuna luce.</p>
+          } @else {
+            <ul class="inspector-list">
+              @for (light of document.terrain.lights; track light.id) {
+                <li>
+                  <button type="button" (click)="selectLight(light)">
+                    ({{ light.x }}, {{ light.y }}) · {{ light.brightFeet }}/{{ light.dimFeet }} ft
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+          <h3>Mostri</h3>
+          @if (document.spawns.length === 0) {
+            <p class="muted">Nessuno spawn.</p>
+          } @else {
+            <ul class="inspector-list">
+              @for (spawn of document.spawns; track spawn.id) {
+                <li>
+                  <button type="button" (click)="selectSpawn(spawn)">
+                    {{ spawn.label ?? spawn.source.type }} · ({{ spawn.x }}, {{ spawn.y }})
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+          <h3>Partenze PG</h3>
+          @if (document.playerStarts.length === 0) {
+            <p class="muted">Nessun punto di partenza.</p>
+          } @else {
+            <ul class="inspector-list">
+              @for (start of document.playerStarts; track start.id) {
+                <li>
+                  <button type="button" (click)="selectStart(start)">
+                    {{ start.label ?? 'PG' }} · ({{ start.x }}, {{ start.y }})
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </aside>
+    </div>
+
+    <footer class="editor__status">
+      <span>{{ document.widthPx }} × {{ document.heightPx }} px</span>
+      <span>{{ document.terrain.walls.length }} muri · {{ document.terrain.lights.length }} luci</span>
+      <span>{{ document.spawns.length }} spawn · {{ document.playerStarts.length }} partenze</span>
+      <span>{{ isHex() ? 'visione manuale' : 'visione automatica' }}</span>
+    </footer>
+  } @else if (loading()) {
+    <p class="muted editor__placeholder">Caricamento mappa…</p>
+  } @else {
+    <section class="editor__empty surface">
+      <h1>Mappa non disponibile</h1>
+      <p class="muted">{{ error() ?? 'La mappa non esiste più.' }}</p>
+      <a class="btn" routerLink="/maps">Torna alle mappe</a>
+    </section>
+  }
+
+  @if (error(); as message) {
+    <p class="field-error" role="alert">{{ message }}</p>
+  }
+</section>
+
+<app-dialog
+  [open]="spawnCell() !== null"
+  title="Aggiungi mostro o NPC"
+  (closed)="spawnCell.set(null)"
+>
+  <div class="spawn-dialog">
+    <input
+      class="input"
+      type="search"
+      placeholder="Cerca…"
+      [value]="spawnSearch()"
+      (input)="onSpawnSearch($event)"
+    />
+    <nav class="spawn-dialog__tabs">
+      <button type="button" [class.is-active]="spawnTab() === 'srd'" (click)="spawnTab.set('srd')">SRD</button>
+      <button type="button" [class.is-active]="spawnTab() === 'actors'" (click)="spawnTab.set('actors')">Campagna</button>
+    </nav>
+    @if (spawnTab() === 'srd') {
+      <ul class="spawn-dialog__list">
+        @for (monster of filteredMonsters(); track monster.id) {
+          <li>
+            <button type="button" (click)="addSrdSpawn(monster)">
+              <strong>{{ monster.name }}</strong>
+              <span class="muted">CR {{ monster.cr }} · {{ monster.creatureType }} · {{ monster.size }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <ul class="spawn-dialog__list">
+        @for (actor of filteredActors(); track actor.id) {
+          <li>
+            <button type="button" (click)="addActorSpawn(actor)">
+              <strong>{{ actor.name }}</strong>
+              <span class="muted">{{ actor.kind }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
+  <div dialog-actions>
+    <app-button (pressed)="spawnCell.set(null)">Annulla</app-button>
+  </div>
+</app-dialog>

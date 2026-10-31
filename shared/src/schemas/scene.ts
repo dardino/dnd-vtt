@@ -14,6 +14,10 @@ export const gridConfigSchema = z.strictObject({
 export type GridConfig = z.infer<typeof gridConfigSchema>;
 
 const pointSchema = z.strictObject({ x: z.number(), y: z.number() });
+export const cellPointSchema = z.strictObject({
+  x: z.number().int(),
+  y: z.number().int(),
+});
 
 export const fogShapeSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('rect'), x: z.number(), y: z.number(), width: z.number(), height: z.number() }),
@@ -24,6 +28,7 @@ export const fogShapeSchema = z.discriminatedUnion('type', [
     points: z.array(pointSchema).min(2),
     radius: z.number().positive(),
   }),
+  z.strictObject({ type: z.literal('cells'), cells: z.array(cellPointSchema).min(1) }),
 ]);
 export type FogShape = z.infer<typeof fogShapeSchema>;
 
@@ -37,10 +42,90 @@ export const fogOpSchema = z.strictObject({
 export type FogOp = z.infer<typeof fogOpSchema>;
 
 export const fogStateSchema = z.strictObject({
-  base: z.enum(['hidden', 'revealed']),
-  ops: z.array(fogOpSchema).max(2000),
+  base: z.enum(['hidden', 'revealed']).default('hidden'),
+  ops: z.array(fogOpSchema).max(2000).default([]),
+  override: z.enum(['none', 'reveal', 'hide']).default('none'),
 });
 export type FogState = z.infer<typeof fogStateSchema>;
+
+export const wallKindSchema = z.enum(['wall', 'door', 'window', 'lowWall']);
+export type WallKind = z.infer<typeof wallKindSchema>;
+
+export const doorStateSchema = z.enum(['open', 'closed', 'secret']);
+export type DoorState = z.infer<typeof doorStateSchema>;
+
+/**
+ * Muro su un lato della griglia. `x,y` sono coordinate della lattice:
+ * - `dir: 'h'` va da (x, y) a (x + 1, y)
+ * - `dir: 'v'` va da (x, y) a (x, y + 1)
+ * Cos� un muro condiviso tra due celle esiste una volta sola.
+ */
+export const wallEdgeSchema = z.strictObject({
+  id: z.string().min(1),
+  kind: wallKindSchema,
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  dir: z.enum(['h', 'v']),
+  door: doorStateSchema.optional(),
+});
+export type WallEdge = z.infer<typeof wallEdgeSchema>;
+
+export const lightShapeSchema = z.enum(['circle', 'cone']);
+export type LightShape = z.infer<typeof lightShapeSchema>;
+
+export const tokenLightSchema = z.strictObject({
+  brightFeet: z.number().positive(),
+  dimFeet: z.number().positive(),
+  color: z.string().default('#ffcc80'),
+  enabled: z.boolean().default(true),
+  shape: lightShapeSchema.default('circle'),
+  direction: z.number().min(0).max(360).optional(),
+  angle: z.number().min(1).max(360).default(60),
+});
+export type TokenLight = z.infer<typeof tokenLightSchema>;
+
+export const lightSchema = tokenLightSchema.extend({
+  id: z.string().min(1),
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+});
+export type Light = z.infer<typeof lightSchema>;
+
+export const ambientLightSchema = z.enum(['bright', 'dim', 'dark']);
+export type AmbientLight = z.infer<typeof ambientLightSchema>;
+
+export const defaultTerrain = {
+  ambientLight: 'dark' as const,
+  visionLimitFeet: 120,
+  visionEnabled: false,
+  walls: [] as WallEdge[],
+  lights: [] as Light[],
+};
+
+export const terrainSchema = z.strictObject({
+  ambientLight: ambientLightSchema.default('dark'),
+  visionLimitFeet: z.number().positive().default(120),
+  visionEnabled: z.boolean().default(true),
+  walls: z.array(wallEdgeSchema).max(4000).default([]),
+  lights: z.array(lightSchema).max(500).default([]),
+});
+export type Terrain = z.infer<typeof terrainSchema>;
+
+export const visionGridSchema = z.strictObject({
+  cols: z.number().int().positive(),
+  rows: z.number().int().positive(),
+  levels: z.array(z.number().int().min(0).max(2)),
+});
+export type VisionGrid = z.infer<typeof visionGridSchema>;
+
+export const publicDoorSchema = z.strictObject({
+  id: z.string().min(1),
+  x: z.number().int(),
+  y: z.number().int(),
+  dir: z.enum(['h', 'v']),
+  state: z.enum(['open', 'closed']),
+});
+export type PublicDoor = z.infer<typeof publicDoorSchema>;
 
 export const tokenStateSchema = z.strictObject({
   id: z.string().min(1),
@@ -57,6 +142,7 @@ export const tokenStateSchema = z.strictObject({
   deathSaves: deathSavesSchema.optional(),
   visible: z.boolean().default(true),
   owner: z.enum(['dm', 'players']).optional(),
+  light: tokenLightSchema.optional(),
 });
 export type TokenState = z.infer<typeof tokenStateSchema>;
 
@@ -74,6 +160,7 @@ export const tokenPatchSchema = z.strictObject({
   deathSaves: deathSavesSchema.optional(),
   visible: z.boolean().optional(),
   owner: z.enum(['dm', 'players']).optional(),
+  light: tokenLightSchema.nullable().optional(),
 });
 export type TokenPatch = z.infer<typeof tokenPatchSchema>;
 
@@ -110,6 +197,13 @@ export type InitiativeEntry = z.infer<typeof initiativeEntrySchema>;
 export const sceneStateSchema = z.strictObject({
   grid: gridConfigSchema,
   fog: fogStateSchema,
+  terrain: terrainSchema.default(defaultTerrain),
+  showDoorIcons: z.boolean().default(true),
+  startView: z.strictObject({
+    x: z.number(),
+    y: z.number(),
+    zoom: z.number().positive(),
+  }).optional(),
   tokens: z.array(tokenStateSchema),
   loot: z.array(lootEntrySchema),
   drawings: z.array(drawingSchema),
@@ -132,6 +226,7 @@ export type InitiativeState = z.infer<typeof initiativeStateSchema>;
 
 export const createDefaultSceneState = (
   fogBase: 'hidden' | 'revealed' = 'hidden',
+  terrain: Terrain = defaultTerrain,
 ): SceneState => ({
   grid: {
     type: 'square',
@@ -142,7 +237,13 @@ export const createDefaultSceneState = (
     diagonalRule: '5-5-5',
     hexOffset: 'odd-r',
   },
-  fog: { base: fogBase, ops: [] },
+  fog: { base: fogBase, ops: [], override: 'none' },
+  terrain: {
+    ...terrain,
+    walls: [...terrain.walls],
+    lights: [...terrain.lights],
+  },
+  showDoorIcons: true,
   tokens: [],
   loot: [],
   drawings: [],
@@ -156,11 +257,17 @@ export const gameActionSchema = z.discriminatedUnion('type', [
     tokenId: z.string().min(1),
     x: z.number(),
     y: z.number(),
+    force: z.boolean().optional(),
   }),
   z.strictObject({
     type: z.literal('token.update'),
     tokenId: z.string().min(1),
     patch: tokenPatchSchema,
+  }),
+  z.strictObject({
+    type: z.literal('token.light'),
+    tokenId: z.string().min(1),
+    light: tokenLightSchema.nullable(),
   }),
   z.strictObject({ type: z.literal('token.remove'), tokenId: z.string().min(1) }),
   z.strictObject({
@@ -181,9 +288,28 @@ export const gameActionSchema = z.discriminatedUnion('type', [
     base: z.enum(['hidden', 'revealed']),
     ops: z.array(fogOpSchema).max(2000),
   }),
+  z.strictObject({ type: z.literal('fog.override'), override: z.enum(['none', 'reveal', 'hide']) }),
   z.strictObject({ type: z.literal('drawing.add'), drawing: drawingSchema }),
   z.strictObject({ type: z.literal('drawing.remove'), drawingId: z.string().min(1) }),
   z.strictObject({ type: z.literal('grid.update'), grid: gridConfigSchema }),
+  z.strictObject({
+    type: z.literal('terrain.door'),
+    wallId: z.string().min(1),
+    state: z.enum(['open', 'closed', 'secret']),
+  }),
+  z.strictObject({
+    type: z.literal('terrain.light'),
+    lightId: z.string().min(1),
+    enabled: z.boolean(),
+  }),
+  z.strictObject({
+    type: z.literal('terrain.ambient'),
+    ambientLight: ambientLightSchema,
+  }),
+  z.strictObject({
+    type: z.literal('terrain.vision'),
+    enabled: z.boolean(),
+  }),
   z.strictObject({ type: z.literal('initiative.set'), initiative: initiativeStateSchema }),
   z.strictObject({ type: z.literal('initiative.next') }),
 ]);
@@ -192,6 +318,7 @@ export type GameAction = z.infer<typeof gameActionSchema>;
 export const sceneSchema = z.strictObject({
   id: z.string().uuid(),
   campaignId: z.string().uuid(),
+  mapId: z.string().uuid().nullable().optional(),
   name: z.string().min(1),
   imageAssetId: z.string().uuid().nullable(),
   widthPx: z.number().int().positive(),
@@ -207,6 +334,7 @@ export const createSceneSchema = z.strictObject({
   widthPx: z.number().int().min(1).max(20000).default(1920),
   heightPx: z.number().int().min(1).max(20000).default(1080),
   imageAssetId: z.string().uuid().optional(),
+  mapId: z.string().uuid().optional(),
   fogBase: z.enum(['hidden', 'revealed']).optional(),
 });
 export type CreateScene = z.infer<typeof createSceneSchema>;

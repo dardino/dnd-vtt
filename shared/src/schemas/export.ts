@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { actorSchema } from './actor.js';
 import { campaignSchema } from './campaign.js';
+import { mapSchema } from './map.js';
 import { programStateSchema } from './program.js';
 import { sceneSchema, sceneStateSchema } from './scene.js';
 import { sessionSchema } from './session.js';
@@ -16,6 +17,7 @@ export const campaignExportSchema = z.strictObject({
   schemaVersion: z.literal(1),
   exportedAt: z.string().datetime(),
   campaign: campaignSchema,
+  maps: z.array(mapSchema),
   scenes: z.array(z.strictObject({ scene: sceneSchema, state: sceneStateSchema })),
   actors: z.array(actorSchema),
   program: programStateSchema.nullable(),

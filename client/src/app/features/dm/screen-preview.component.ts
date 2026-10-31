@@ -1,6 +1,7 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
 import {
+  defaultTerrain,
   type Condition,
   type DisplayLayer,
   type DisplayState,
@@ -60,6 +61,8 @@ export class ScreenPreviewComponent {
     return {
       grid: scene.grid,
       fog: scene.fog,
+      terrain: defaultTerrain,
+      showDoorIcons: true,
       tokens: scene.tokens.map((token): TokenState => ({
         id: token.id,
         label: token.label,

@@ -1,7 +1,13 @@
 import { z } from 'zod';
 import { actorPortraitSchema } from './actor.js';
 import { diceRollSchema } from './dice.js';
-import { fogStateSchema, gridConfigSchema, initiativeEntrySchema } from './scene.js';
+import {
+  fogStateSchema,
+  gridConfigSchema,
+  initiativeEntrySchema,
+  publicDoorSchema,
+  visionGridSchema,
+} from './scene.js';
 
 export const viewportSchema = z.strictObject({
   x: z.number(),
@@ -127,6 +133,8 @@ export const publicSceneSchema = z.strictObject({
   grid: gridConfigSchema,
   tokens: z.array(publicTokenSchema),
   fog: fogStateSchema,
+  vision: visionGridSchema.optional(),
+  doors: z.array(publicDoorSchema).optional(),
 });
 export type PublicScene = z.infer<typeof publicSceneSchema>;
 

@@ -2,6 +2,7 @@ import type { Condition } from '../../schemas/common.js';
 import type { GameAction, SceneState, TokenPatch, TokenState } from '../../schemas/scene.js';
 import { nextInitiativeTurn } from './initiative.js';
 import { applyHpDelta } from './hp.js';
+import { lastReachableCell } from './edges.js';
 
 const withPatch = (token: TokenState, patch: TokenPatch): TokenState => ({
   ...token,
@@ -18,6 +19,9 @@ const withPatch = (token: TokenState, patch: TokenPatch): TokenState => ({
   ...(patch.deathSaves === undefined ? {} : { deathSaves: patch.deathSaves }),
   ...(patch.visible === undefined ? {} : { visible: patch.visible }),
   ...(patch.owner === undefined ? {} : { owner: patch.owner }),
+  ...(patch.light === undefined
+    ? {}
+    : { light: patch.light === null ? undefined : patch.light }),
 });
 
 const findToken = (state: SceneState, tokenId: string): TokenState => {
@@ -48,8 +52,19 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
       }
       return { ...state, tokens: [...state.tokens, action.token] };
     case 'token.move': {
-      findToken(state, action.tokenId);
-      return replaceToken(state, action.tokenId, (token) => ({ ...token, x: action.x, y: action.y }));
+      const token = findToken(state, action.tokenId);
+      if (action.force !== true) {
+        const target = { x: Math.round(action.x), y: Math.round(action.y) };
+        const reachable = lastReachableCell(
+          { x: Math.round(token.x), y: Math.round(token.y) },
+          target,
+          state.terrain,
+        );
+        if (reachable.x !== target.x || reachable.y !== target.y) {
+          throw new Error('Il token non pu� attraversare un muro o una porta chiusa');
+        }
+      }
+      return replaceToken(state, action.tokenId, (entry) => ({ ...entry, x: action.x, y: action.y }));
     }
     case 'token.update':
       findToken(state, action.tokenId);
@@ -80,6 +95,13 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
         return { ...token, conditions: [...without, action.condition] };
       });
     }
+    case 'token.light': {
+      findToken(state, action.tokenId);
+      return replaceToken(state, action.tokenId, (token) => ({
+        ...token,
+        light: action.light === null ? undefined : action.light,
+      }));
+    }
     case 'fog.apply':
       return {
         ...state,
@@ -93,7 +115,12 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
     case 'fog.replace':
       return {
         ...state,
-        fog: { base: action.base, ops: action.ops },
+        fog: { base: action.base, ops: action.ops, override: state.fog.override },
+      };
+    case 'fog.override':
+      return {
+        ...state,
+        fog: { ...state.fog, override: action.override },
       };
     case 'drawing.add':
       return { ...state, drawings: [...state.drawings, action.drawing] };
@@ -104,6 +131,46 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
       };
     case 'grid.update':
       return { ...state, grid: action.grid };
+    case 'terrain.door': {
+      const wall = state.terrain.walls.find((entry) => entry.id === action.wallId);
+      if (wall === undefined || wall.kind !== 'door') {
+        throw new Error(`porta inesistente: ${action.wallId}`);
+      }
+      return {
+        ...state,
+        terrain: {
+          ...state.terrain,
+          walls: state.terrain.walls.map((entry) => entry.id === action.wallId
+            ? { ...entry, door: action.state }
+            : entry),
+        },
+      };
+    }
+    case 'terrain.light': {
+      const light = state.terrain.lights.find((entry) => entry.id === action.lightId);
+      if (light === undefined) {
+        throw new Error(`luce inesistente: ${action.lightId}`);
+      }
+      return {
+        ...state,
+        terrain: {
+          ...state.terrain,
+          lights: state.terrain.lights.map((entry) => entry.id === action.lightId
+            ? { ...entry, enabled: action.enabled }
+            : entry),
+        },
+      };
+    }
+    case 'terrain.ambient':
+      return {
+        ...state,
+        terrain: { ...state.terrain, ambientLight: action.ambientLight },
+      };
+    case 'terrain.vision':
+      return {
+        ...state,
+        terrain: { ...state.terrain, visionEnabled: action.enabled },
+      };
     case 'initiative.set':
       return { ...state, initiative: action.initiative };
     case 'initiative.next':
@@ -122,6 +189,10 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
     case 'token.move': {
       const token = findToken(stateBefore, action.tokenId);
       return { type: 'token.move', tokenId: action.tokenId, x: token.x, y: token.y };
+    }
+    case 'token.light': {
+      const token = findToken(stateBefore, action.tokenId);
+      return { type: 'token.light', tokenId: action.tokenId, light: token.light ?? null };
     }
     case 'token.update': {
       const token = findToken(stateBefore, action.tokenId);
@@ -161,6 +232,8 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
         base: stateBefore.fog.base,
         ops: stateBefore.fog.ops,
       };
+    case 'fog.override':
+      return { type: 'fog.override', override: stateBefore.fog.override };
     case 'drawing.add':
       return { type: 'drawing.remove', drawingId: action.drawing.id };
     case 'drawing.remove': {
@@ -172,6 +245,24 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
     }
     case 'grid.update':
       return { type: 'grid.update', grid: stateBefore.grid };
+    case 'terrain.door': {
+      const wall = stateBefore.terrain.walls.find((entry) => entry.id === action.wallId);
+      if (wall === undefined || wall.kind !== 'door' || wall.door === undefined) {
+        throw new Error(`porta inesistente: ${action.wallId}`);
+      }
+      return { type: 'terrain.door', wallId: action.wallId, state: wall.door };
+    }
+    case 'terrain.light': {
+      const light = stateBefore.terrain.lights.find((entry) => entry.id === action.lightId);
+      if (light === undefined) {
+        throw new Error(`luce inesistente: ${action.lightId}`);
+      }
+      return { type: 'terrain.light', lightId: action.lightId, enabled: light.enabled };
+    }
+    case 'terrain.ambient':
+      return { type: 'terrain.ambient', ambientLight: stateBefore.terrain.ambientLight };
+    case 'terrain.vision':
+      return { type: 'terrain.vision', enabled: stateBefore.terrain.visionEnabled };
     case 'initiative.set':
       return { type: 'initiative.set', initiative: stateBefore.initiative };
     case 'initiative.next':

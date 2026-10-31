@@ -26,6 +26,15 @@ export const routes: Routes = [
       .then((module) => module.ActorSheetPage),
   },
   {
+    path: 'maps',
+    loadComponent: () => import('./features/maps/maps.page').then((module) => module.MapsPage),
+  },
+  {
+    path: 'maps/:mapId',
+    loadComponent: () => import('./features/maps/map-editor.page')
+      .then((module) => module.MapEditorPage),
+  },
+  {
     path: 'display/:code',
     loadComponent: () => import('./features/display/display.page')
       .then((module) => module.DisplayPage),

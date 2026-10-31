@@ -6,6 +6,8 @@ import {
   type CampaignExport,
   type CreateCampaign,
   type ImportResult,
+  type Map as MapRecord,
+  type MapDocument,
   type SceneState,
 } from '@dnd-vtt/shared';
 import { eq } from 'drizzle-orm';
@@ -18,8 +20,10 @@ import { insertActor, insertPcActor } from '../db/actors.repository.js';
 import { getProgramRow, insertProgram } from '../db/programs.repository.js';
 import { insertScene } from '../db/scenes.repository.js';
 import { getAsset } from '../db/assets.repository.js';
+import { insertMap } from '../db/maps.repository.js';
+import { toMap } from '../db/mappers.js';
 import { listSessions } from '../db/sessions.repository.js';
-import { actors, scenes, sessions } from '../db/schema.js';
+import { actors, maps, scenes, sessions } from '../db/schema.js';
 import { notFound } from '../errors.js';
 
 const refs = (value: unknown): Set<string> => {
@@ -78,12 +82,15 @@ export const exportCampaign = async (
     throw notFound('Campagna non trovata');
   }
   const sceneRows = db.select().from(scenes).where(eq(scenes.campaignId, campaignId)).all();
+  const mapRows = db.select().from(maps).where(eq(maps.campaignId, campaignId)).all();
   const actorRows = db.select().from(actors).where(eq(actors.campaignId, campaignId)).all();
   const program = getProgramRow(db, campaignId);
+  const bundleMaps: MapRecord[] = mapRows.map(toMap);
   const bundleScenes = sceneRows.map((row) => ({
     scene: {
       id: row.id,
       campaignId: row.campaignId,
+      mapId: row.mapId,
       name: row.name,
       imageAssetId: row.imageAssetId,
       widthPx: row.widthPx,
@@ -115,6 +122,11 @@ export const exportCampaign = async (
     updatedAt: row.updatedAt,
   }));
   const ids = new Set<string>();
+  for (const map of bundleMaps) {
+    if (map.imageAssetId !== null) {
+      ids.add(map.imageAssetId);
+    }
+  }
   for (const scene of bundleScenes) {
     if (scene.scene.imageAssetId !== null) {
       ids.add(scene.scene.imageAssetId);
@@ -149,6 +161,7 @@ export const exportCampaign = async (
     schemaVersion: 1,
     exportedAt: new Date().toISOString(),
     campaign,
+    maps: bundleMaps,
     scenes: bundleScenes,
     actors: bundleActors,
     program: program?.state ?? null,
@@ -183,6 +196,7 @@ export const importCampaign = async (
   const created = insertCampaign(db, campaignInput);
   const sceneMap = new Map<string, string>();
   const actorMap = new Map<string, string>();
+  const mapMap = new Map<string, string>();
 
   for (const actor of bundle.actors) {
     const imageAssetId = actor.imageAssetId === null ? undefined : assetMap.get(actor.imageAssetId);
@@ -220,6 +234,27 @@ export const importCampaign = async (
     }
   }
 
+  for (const map of bundle.maps) {
+    const document: MapDocument = {
+      name: map.name,
+      imageAssetId: map.imageAssetId === null
+        ? null
+        : assetMap.get(map.imageAssetId) ?? null,
+      widthPx: map.widthPx,
+      heightPx: map.heightPx,
+      grid: map.grid,
+      terrain: map.terrain,
+      spawns: remap(map.spawns, new Map([...actorMap, ...assetMap])),
+      playerStarts: map.playerStarts,
+      ...(map.startView === undefined ? {} : { startView: map.startView }),
+      fogBase: map.fogBase,
+      showDoorIcons: map.showDoorIcons,
+      notes: map.notes,
+    };
+    const createdMap = insertMap(db, created.id, document);
+    mapMap.set(map.id, createdMap.id);
+  }
+
   for (const entry of bundle.scenes) {
     const scene = insertScene(db, created.id, {
       name: entry.scene.name,
@@ -228,7 +263,10 @@ export const importCampaign = async (
       ...(entry.scene.imageAssetId === null || assetMap.get(entry.scene.imageAssetId) === undefined
         ? {}
         : { imageAssetId: assetMap.get(entry.scene.imageAssetId) }),
-    }, remap(entry.state, new Map([...actorMap, ...assetMap])));
+      ...(entry.scene.mapId === null || entry.scene.mapId === undefined
+        ? {}
+        : { mapId: mapMap.get(entry.scene.mapId) }),
+    }, remap(entry.state, new Map([...actorMap, ...assetMap, ...mapMap])));
     sceneMap.set(entry.scene.id, scene.id);
   }
 

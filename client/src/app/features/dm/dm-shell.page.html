@@ -126,37 +126,14 @@
             </div>
             @if (isSectionOpen('scenes')) {
               <div id="sidebar-scenes" class="accordion__body">
-                <input
-                  #fileInput
-                  id="new-map-file"
-                  class="file-input"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  (change)="uploadMap($event)"
-                />
-                <input
-                  #replaceInput
-                  id="replace-map-file"
-                  class="file-input"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  (change)="replaceMap($event)"
-                />
-                <button type="button" class="upload-button" [disabled]="uploading()" (click)="openFilePicker()">
-                  {{ uploading() ? 'Caricamento mappa…' : 'Carica mappa' }}
-                </button>
-                <label class="field">
-                  <span>Fog iniziale della nuova scena</span>
-                  <select [value]="newSceneFog()" (change)="setNewSceneFog($event)">
-                    <option value="hidden">Coperta</option>
-                    <option value="revealed">Scoperta</option>
-                  </select>
-                </label>
-                @if (uploadError(); as error) {
-                  <p class="field-error" role="alert">{{ error }}</p>
-                }
+                <div class="scene-actions">
+                  <app-button variant="primary" [disabled]="busy()" (pressed)="openMapPicker()">
+                    Avvia da mappa
+                  </app-button>
+                  <a class="btn" routerLink="/maps">Crea mappa</a>
+                </div>
                 @if (scenes().length === 0) {
-                  <p class="muted">Nessuna scena: carica una mappa per iniziare.</p>
+                  <p class="muted">Nessuna scena: crea una mappa nell’editor e avviala da qui.</p>
                 } @else {
                   <ul class="scene-list">
                     @for (scene of scenes(); track scene.id) {
@@ -177,14 +154,14 @@
                               (click)="selectScene(scene)"
                             >▶</button>
                           }
-                          <button
-                            type="button"
-                            class="icon-button"
-                            [attr.aria-label]="'Sostituisci mappa di ' + scene.name"
-                            title="Sostituisci mappa"
-                            [disabled]="replacing()"
-                            (click)="startReplaceMap(scene)"
-                          >♻</button>
+                          @if (scene.mapId; as mapId) {
+                            <a
+                              class="icon-button"
+                              [routerLink]="['/maps', mapId]"
+                              [attr.aria-label]="'Modifica mappa di ' + scene.name"
+                              title="Modifica mappa"
+                            >✎</a>
+                          }
                         </span>
                       </li>
                     }
@@ -208,9 +185,19 @@
             @if (isSectionOpen('grid')) {
               <div id="sidebar-grid" class="accordion__body">
                 @if (grid(); as gridConfig) {
+                  @if (activeScene()?.mapId; as mapId) {
+                    <p class="notice">
+                      Griglia bloccata: è definita dalla mappa nell’editor.
+                      <a [routerLink]="['/maps', mapId]">Modifica mappa</a>
+                    </p>
+                  }
                   <label class="field">
                     <span>Forma</span>
-                    <select [value]="gridConfig.type" (change)="changeGridType($event)">
+                    <select
+                      [value]="gridConfig.type"
+                      [disabled]="!!activeScene()?.mapId"
+                      (change)="changeGridType($event)"
+                    >
                       <option value="square">Quadrata</option>
                       <option value="hex">Esagonale odd-r</option>
                     </select>
@@ -223,6 +210,7 @@
                       max="400"
                       step="1"
                       [value]="gridConfig.cellSizePx"
+                      [disabled]="!!activeScene()?.mapId"
                       (change)="changeGridSize($event)"
                     />
                   </label>
@@ -256,11 +244,69 @@
                   <span>Morbidezza bordo (px)</span>
                   <input type="number" min="0" max="200" [value]="fogSoftness()" (input)="setFogSoftness($event)" />
                 </label>
+                <label class="check">
+                  <input type="checkbox" [checked]="fogSnap()" (change)="setFogSnap($event)" />
+                  <span>Fog a celle (disattiva per bordo libero)</span>
+                </label>
                 <div class="initiative__actions">
                   <button type="button" class="dock-button" (click)="revealAll()">Rivela tutto</button>
                   <button type="button" class="dock-button" (click)="hideAll()">Nascondi tutto</button>
+                  <button type="button" class="dock-button" (click)="clearFogOverride()">Vista automatica</button>
                 </div>
                 <p class="muted">Strumenti Fog nella toolbar: pennello, gomma, rettangolo e lasso.</p>
+              </div>
+            }
+          </section>
+
+          <section class="accordion" [class.is-open]="isSectionOpen('scenography')">
+            <button
+              type="button"
+              class="accordion__trigger"
+              [attr.aria-expanded]="isSectionOpen('scenography')"
+              aria-controls="sidebar-scenography"
+              (click)="toggleSection('scenography')"
+            >
+              <span class="accordion__label">Scenografia</span>
+              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('scenography') ? '▾' : '▸' }}</span>
+            </button>
+            @if (isSectionOpen('scenography')) {
+              <div id="sidebar-scenography" class="accordion__body">
+                @if (state(); as sceneState) {
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [checked]="sceneState.terrain.visionEnabled"
+                      [disabled]="sceneState.grid.type === 'hex'"
+                      (change)="toggleVision($event)"
+                    />
+                    <span>Visione automatica</span>
+                  </label>
+                  @if (sceneState.grid.type === 'hex') {
+                    <p class="muted">Griglia esagonale: fog manuale.</p>
+                  }
+                  @if (sceneDoors().length > 0) {
+                    <h3>Porte</h3>
+                    <div class="interactive-list">
+                      @for (door of sceneDoors(); track door.id) {
+                        <button type="button" class="interactive-row" (click)="toggleDoor(door)">
+                          <span>{{ door.door === 'secret' ? 'Porta segreta' : 'Porta' }} ({{ door.x }}, {{ door.y }})</span>
+                          <span class="badge">{{ door.door === 'open' ? 'aperta' : door.door === 'secret' ? 'segreta' : 'chiusa' }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                  @if (sceneLights().length > 0) {
+                    <h3>Luci</h3>
+                    <div class="interactive-list">
+                      @for (light of sceneLights(); track light.id) {
+                        <button type="button" class="interactive-row" (click)="toggleLight(light)">
+                          <span>Luce ({{ light.x }}, {{ light.y }})</span>
+                          <span class="badge">{{ light.enabled ? 'accesa' : 'spenta' }}</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                }
               </div>
             }
           </section>
@@ -484,7 +530,10 @@
                     [fogSoftness]="fogSoftness()"
                     [brushRadius]="fogBrushRadiusPx()"
                     [drawingWidthPx]="pencilWidthPx()"
+                    [fogSnap]="fogSnap()"
                     [actorPortraits]="actorPortraits()"
+                    [vision]="visionGrid()"
+                    [doors]="dmDoors()"
                     (tokenMoved)="onTokenMoved($event)"
                     (tokenSelected)="onTokenSelected($event)"
                     (actorDropped)="onActorDropped($event)"
@@ -498,8 +547,8 @@
                 } @else {
                   <div class="scene-empty">
                     <h2>Nessuna scena attiva</h2>
-                    <p class="muted">Carica una mappa dalla sidebar per iniziare a preparare il tavolo.</p>
-                    <button type="button" class="upload-button" (click)="openFilePicker()">Carica mappa</button>
+                    <p class="muted">Avvia una mappa dall’editor per iniziare a preparare il tavolo.</p>
+                    <button type="button" class="upload-button" (click)="openMapPicker()">Avvia da mappa</button>
                   </div>
                 }
               </div>
@@ -1007,6 +1056,90 @@
   </ul>
   <div dialog-actions>
     <app-button (pressed)="takeTargetOpen.set(false)">Annulla</app-button>
+  </div>
+</app-dialog>
+
+<app-dialog
+  [open]="mapPickerOpen()"
+  title="Avvia da mappa"
+  (closed)="closeMapPicker()"
+>
+  <p class="muted">Scegli una mappa creata nell’editor. I mostri e le luci vengono istanziati nella nuova scena.</p>
+  @if (mapsLoading()) {
+    <p class="muted">Caricamento mappe…</p>
+  } @else if (maps().length === 0) {
+    <p class="muted">Nessuna mappa disponibile. Creala prima nell’editor.</p>
+  } @else {
+    <ul class="screen-list">
+      @for (map of maps(); track map.id) {
+        <li>
+          <button type="button" class="screen-row" (click)="chooseMap(map)">
+            <span class="screen-row__head">
+              <strong>{{ map.name }}</strong>
+              <span class="badge">{{ map.grid.type === 'hex' ? 'esagonale' : 'quadrata' }}</span>
+            </span>
+            <span class="muted">
+              {{ map.widthPx }} × {{ map.heightPx }} px ·
+              {{ map.walls }} muri · {{ map.lights }} luci ·
+              {{ map.spawns }} spawn · {{ map.playerStarts }} partenze
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+  <div dialog-actions>
+    <a class="btn" routerLink="/maps" (click)="closeMapPicker()">Crea mappa</a>
+    <app-button (pressed)="closeMapPicker()">
+      {{ maps().length === 0 && !mapsLoading() ? 'Chiudi' : 'Annulla' }}
+    </app-button>
+  </div>
+</app-dialog>
+
+<app-dialog
+  [open]="prepareMap() !== null"
+  title="Prepara scena"
+  (closed)="closePrepare()"
+>
+  @if (prepareMap(); as map) {
+    <p class="muted">
+      {{ map.name }} · {{ map.widthPx }} × {{ map.heightPx }} px
+    </p>
+    <label class="field">
+      <span>Nome scena</span>
+      <input type="text" [value]="prepareName()" (input)="setPrepareName($event)" />
+    </label>
+    @if (startOptions().length === 0) {
+      <p class="notice">
+        La mappa non ha punti di partenza: i PG non verranno piazzati automaticamente.
+        Potrai trascinarli dalla console.
+      </p>
+    } @else {
+      <div class="prepare-list">
+        @for (actor of partyPcs(); track actor.id) {
+          <label class="field">
+            <span>{{ actor.name }}</span>
+            <select
+              [value]="prepareAssignments()[actor.id] ?? ''"
+              (change)="setAssignment(actor.id, $event)"
+            >
+              <option value="">Posiziona a mano</option>
+              @for (start of startOptions(); track start.id) {
+                <option [value]="start.id">
+                  {{ start.label ?? 'Partenza' }} ({{ start.x }}, {{ start.y }})
+                </option>
+              }
+            </select>
+          </label>
+        }
+      </div>
+    }
+  }
+  <div dialog-actions>
+    <app-button (pressed)="closePrepare()">Annulla</app-button>
+    <app-button variant="primary" [disabled]="prepareBusy()" (pressed)="startPreparedMap()">
+      {{ prepareBusy() ? 'Avvio…' : 'Avvia scena' }}
+    </app-button>
   </div>
 </app-dialog>
 

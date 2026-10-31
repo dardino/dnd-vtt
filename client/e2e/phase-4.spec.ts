@@ -86,8 +86,27 @@ const replacementMapFile = async (): Promise<{ name: string; mimeType: string; b
   return { name: 'mappa-sostituta.png', mimeType: 'image/png', buffer };
 };
 
-const uploadMap = async (page: Page): Promise<void> => {
-  await page.locator('#new-map-file').setInputFiles(await mapFile());
+const uploadMap = async (
+  page: Page,
+  request: APIRequestContext,
+  campaign: string,
+): Promise<void> => {
+  const assetResponse = await request.post('/api/v1/assets', {
+    multipart: { file: await mapFile() },
+  });
+  expect(assetResponse.status()).toBe(201);
+  const asset = await assetResponse.json() as { id: string };
+  const mapResponse = await request.post(`/api/v1/campaigns/${campaign}/maps`, {
+    data: { name: 'mappa-8k', imageAssetId: asset.id },
+  });
+  expect(mapResponse.status()).toBe(201);
+  const map = await mapResponse.json() as { id: string };
+  const sceneResponse = await request.post(`/api/v1/campaigns/${campaign}/scenes/from-map`, {
+    data: { mapId: map.id, name: 'mappa-8k', playerAssignments: [] },
+  });
+  expect(sceneResponse.status()).toBe(201);
+  await page.reload();
+  await openCampaign(page);
   const canvas = page.locator('.scene-canvas');
   await expect(canvas).toBeVisible({ timeout: 60_000 });
   await expect(canvas).toHaveAttribute('data-tiled', 'true', { timeout: 60_000 });
@@ -141,7 +160,7 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   await createGoblin(request, id);
   await openCampaign(page);
 
-  await uploadMap(page);
+  await uploadMap(page, request, id);
 
   const actorCard = page.locator('.available-actor', { hasText: 'Goblin E2E' });
   await expect(actorCard).toBeVisible();
@@ -197,7 +216,18 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   const moved = await activeScene(request, id);
   expect(tokenOf(moved.snapshot).y).toBeGreaterThan(dropped.y);
 
-  await page.getByLabel('Forma').selectOption('hex');
+  const beforeGrid = await activeScene(request, id);
+  await request.post(`/api/v1/campaigns/${id}/actions`, {
+    data: {
+      id: crypto.randomUUID(),
+      clientId: 'phase4-hex',
+      sceneId: beforeGrid.sceneId,
+      action: {
+        type: 'grid.update',
+        grid: { ...beforeGrid.snapshot.state.grid, type: 'hex' },
+      },
+    },
+  });
   await expect(canvas).toHaveAttribute('data-grid-type', 'hex');
   await expect.poll(async () => {
     const snapshot: SceneSnapshot = (await activeScene(request, id)).snapshot;
@@ -249,20 +279,28 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   await expect(page.locator('.scene-canvas__measure')).toContainText(`${measured.feet} ft`);
 });
 
-test('sostituisce la mappa della scena attiva', async ({ page }) => {
+test('l’editor sostituisce lo sfondo della mappa', async ({ page, request }) => {
   test.setTimeout(60_000);
-  await openCampaign(page);
-  const activeItem = page.locator('.scene-list__item', { hasText: 'mappa-8k' });
-  await expect(activeItem).toContainText('8192 × 1024');
+  const id = await campaignId(request);
+  await page.goto('/maps');
+  const card = page.locator('.map-card', { hasText: 'mappa-8k' });
+  await expect(card).toBeVisible({ timeout: 15_000 });
+  await card.locator('.map-card__preview').click();
+  await expect(page.locator('.editor')).toBeVisible({ timeout: 15_000 });
 
   const chooserPromise = page.waitForEvent('filechooser');
-  await activeItem.getByRole('button', { name: /Sostituisci mappa/ }).click();
+  await page.getByRole('button', { name: 'Sfondo' }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles(await replacementMapFile());
 
-  await expect(activeItem).toContainText('1024 × 512');
-  await expect(page.locator('.statusbar')).toContainText('Mappa sostituita');
-  await expect(page.locator('.scene-canvas')).toHaveAttribute('data-tiled', 'false');
+  await expect(page.locator('.editor__status')).toContainText('1024 × 512 px');
+  await page.getByRole('button', { name: 'Salva' }).click();
+  await expect(page.locator('.editor__title .badge')).toHaveText('salvata', { timeout: 10_000 });
+  await expect(page.locator('.editor__status')).toContainText('1024 × 512 px');
+
+  const maps = await request.get(`/api/v1/campaigns/${id}/maps`);
+  const items = (await maps.json() as { items: { name: string; widthPx: number; heightPx: number }[] }).items;
+  expect(items.find((entry) => entry.name === 'mappa-8k')).toMatchObject({ widthPx: 1024, heightPx: 512 });
 });
 
 test('due console convergono senza conflitti', async ({ page, context, request }) => {

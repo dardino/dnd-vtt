@@ -1,0 +1,105 @@
+<section class="maps-page">
+  <header class="maps-page__header">
+    <div>
+      <span class="eyebrow">Editor</span>
+      <h1>Mappe</h1>
+      <p class="muted">
+        Prepara sfondo, griglia, muri, porte, luci, mostri e punti di partenza.
+        Poi avvia la scena dalla console.
+      </p>
+    </div>
+    <div class="maps-page__actions">
+      @if (campaigns().length > 1) {
+        <label class="field">
+          <span>Campagna</span>
+          <select [value]="campaign()?.id ?? ''" (change)="selectCampaign($event)">
+            @for (entry of campaigns(); track entry.id) {
+              <option [value]="entry.id">{{ entry.name }}</option>
+            }
+          </select>
+        </label>
+      }
+      <app-button variant="primary" [disabled]="busy() || campaign() === null" (pressed)="openFilePicker()">
+        Nuova mappa
+      </app-button>
+      <a class="btn" routerLink="/dm">Console</a>
+    </div>
+  </header>
+
+  <input
+    #fileInput
+    class="file-input"
+    type="file"
+    accept="image/png,image/jpeg,image/webp"
+    (change)="uploadMap($event)"
+  />
+
+  @if (error(); as message) {
+    <p class="field-error" role="alert">{{ message }}</p>
+  }
+
+  @if (loading()) {
+    <p class="muted">Caricamento mappe…</p>
+  } @else if (campaigns().length === 0) {
+    <section class="maps-page__empty surface">
+      <h2>Nessuna campagna</h2>
+      <p class="muted">Crea una campagna dalla console, poi torna qui a costruire la prima mappa.</p>
+      <a class="btn" routerLink="/dm">Vai alla console</a>
+    </section>
+  } @else if (maps().length === 0) {
+    <section class="maps-page__empty surface">
+      <h2>Nessuna mappa</h2>
+      <p class="muted">Carica un PNG e inizia a disegnare muri e luci.</p>
+      <app-button variant="primary" [disabled]="busy()" (pressed)="openFilePicker()">
+        Crea la prima mappa
+      </app-button>
+    </section>
+  } @else {
+    <ul class="map-grid">
+      @for (map of maps(); track map.id) {
+        <li class="map-card surface">
+          <button type="button" class="map-card__preview" (click)="openEditor(map)">
+            @if (map.thumbUrl) {
+              <img [src]="map.thumbUrl" [alt]="map.name" />
+            } @else {
+              <span class="muted">Nessuna anteprima</span>
+            }
+          </button>
+          <div class="map-card__body">
+            <div class="map-card__title">
+              <strong>{{ map.name }}</strong>
+              <span class="badge">{{ map.grid.type === 'hex' ? 'esagonale' : 'quadrata' }}</span>
+            </div>
+            <p class="muted">
+              {{ map.widthPx }} × {{ map.heightPx }} px ·
+              {{ map.walls }} muri · {{ map.lights }} luci ·
+              {{ map.spawns }} spawn · {{ map.playerStarts }} partenze
+            </p>
+            <div class="map-card__actions">
+              <app-button (pressed)="openEditor(map)">Modifica</app-button>
+              <app-button variant="ghost" [disabled]="busy()" (pressed)="duplicate(map)">Duplica</app-button>
+              <app-button variant="danger" [disabled]="busy()" (pressed)="askDelete(map)">Elimina</app-button>
+            </div>
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>
+
+<app-dialog
+  [open]="deleteTarget() !== null"
+  title="Eliminare la mappa?"
+  (closed)="deleteTarget.set(null)"
+>
+  @if (deleteTarget(); as map) {
+    <p class="muted">
+      La mappa <strong>{{ map.name }}</strong> verrà eliminata. Le scene già create
+      continuano a funzionare con lo snapshot dei muri e delle luci.
+    </p>
+  }
+  <div dialog-actions>
+    <app-button (pressed)="deleteTarget.set(null)">Annulla</app-button>
+    <app-button variant="danger" [disabled]="busy()" (pressed)="confirmDelete()">Elimina</app-button>
+  </div>
+</app-dialog>

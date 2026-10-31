@@ -62,9 +62,9 @@ describe('fase 6: fog e disegni', () => {
     const hiddenScene = await createScene(app, hiddenCampaign);
     const revealedScene = await createScene(app, revealedCampaign);
     expect((await app.inject({ method: 'GET', url: `/api/v1/scenes/${hiddenScene}` }))
-      .json().state.fog).toEqual({ base: 'hidden', ops: [] });
+      .json().state.fog).toEqual({ base: 'hidden', ops: [], override: 'none' });
     expect((await app.inject({ method: 'GET', url: `/api/v1/scenes/${revealedScene}` }))
-      .json().state.fog).toEqual({ base: 'revealed', ops: [] });
+      .json().state.fog).toEqual({ base: 'revealed', ops: [], override: 'none' });
   });
 
   it('applica fog e disegni e li annulla dal log', async () => {
@@ -107,7 +107,7 @@ describe('fase 6: fog e disegni', () => {
     });
     expect(replaced.statusCode).toBe(200);
     snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
-    expect(snapshot.json().state.fog).toEqual({ base: 'revealed', ops: [] });
+    expect(snapshot.json().state.fog).toEqual({ base: 'revealed', ops: [], override: 'none' });
   });
 
   it('rifiuta la 2001esima operazione di fog con 413', async () => {
@@ -176,7 +176,7 @@ describe('fase 6: fog e disegni', () => {
     expect(reset.statusCode).toBe(200);
     expect(reset.json<{ cleared: number }>().cleared).toBe(1);
     const snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
-    expect(snapshot.json().state.fog).toEqual({ base: 'hidden', ops: [] });
+    expect(snapshot.json().state.fog).toEqual({ base: 'hidden', ops: [], override: 'none' });
     const history = await app.inject({
       method: 'GET',
       url: `/api/v1/campaigns/${campaignId}/actions`,

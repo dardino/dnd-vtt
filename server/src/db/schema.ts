@@ -16,11 +16,29 @@ export const campaigns = sqliteTable('campaigns', {
   index('campaigns_created_at_idx').on(table.createdAt, table.id),
 ]);
 
+export const maps = sqliteTable('maps', {
+  id: text('id').primaryKey(),
+  campaignId: text('campaign_id')
+    .notNull()
+    .references(() => campaigns.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  imageAssetId: text('image_asset_id'),
+  widthPx: integer('width_px').notNull(),
+  heightPx: integer('height_px').notNull(),
+  document: text('document').notNull(),
+  version: integer('version').notNull().default(1),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+}, (table) => [
+  index('maps_campaign_idx').on(table.campaignId, table.updatedAt, table.id),
+]);
+
 export const scenes = sqliteTable('scenes', {
   id: text('id').primaryKey(),
   campaignId: text('campaign_id')
     .notNull()
     .references(() => campaigns.id, { onDelete: 'cascade' }),
+  mapId: text('map_id').references(() => maps.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   imageAssetId: text('image_asset_id'),
   widthPx: integer('width_px').notNull(),
@@ -177,6 +195,7 @@ export const sessions = sqliteTable('sessions', {
 
 export const schema = {
   campaigns,
+  maps,
   scenes,
   actors,
   assets,

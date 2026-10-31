@@ -16,11 +16,13 @@ import {
   abilityModifier,
   DEFAULT_ACTOR_PORTRAIT,
   FOG_BRUSH_CELLS,
+  computeVisionGrid,
   fogBrushRadius,
   gridDrawingWidth,
   isTiledMap,
   snapTokenCell,
   sortInitiativeEntries,
+  tokenCenterCell,
   type Actor,
   type ActionLogEntry,
   type AppliedAction,
@@ -34,15 +36,20 @@ import {
   type GameAction,
   type GridConfig,
   type InitiativeEntry,
+  type MapDocument,
+  type MapSummary,
   type MeasureResult,
   type MonsterStatblock,
   type ProgramState,
+  type PublicDoor,
   type Scene,
   type SceneState,
   type Session,
   type Size,
   type TokenState,
   type Viewport,
+  type VisionGrid,
+  type VisionSource,
 } from '@dnd-vtt/shared';
 import { ActionStore } from '../../core/action.store';
 import { ActorService } from '../../core/actor.service';
@@ -53,6 +60,7 @@ import { CampaignService } from '../../core/campaign.service';
 import { DiceStore } from '../../core/dice.store';
 import { MeasurementService } from '../../core/measurement.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
+import { MapService } from '../../core/map.service';
 import { ProgramService } from '../../core/program.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SceneStore } from '../../core/scene.store';
@@ -71,13 +79,14 @@ import {
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
 type CanvasTool = SceneTool;
-type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'actors' | 'ai' | 'screens' | 'tokens';
+type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'scenography' | 'actors' | 'ai' | 'screens' | 'tokens';
 
 const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   campaign: true,
   scenes: true,
   grid: true,
   fog: true,
+  scenography: true,
   actors: true,
   ai: true,
   screens: true,
@@ -90,6 +99,7 @@ interface ScreenSummary {
 }
 
 const MAP_TOOL_SIZES_KEY = 'dnd-vtt.map-tool-sizes';
+const FOG_SNAP_KEY = 'dnd-vtt.fog-snap';
 const DEFAULT_BRUSH_CELLS = FOG_BRUSH_CELLS;
 const DEFAULT_PENCIL_TENTHS = 2.5;
 
@@ -120,6 +130,14 @@ const readMapToolSizes = (): MapToolSizes => {
   return { brushCells: DEFAULT_BRUSH_CELLS, pencilTenths: DEFAULT_PENCIL_TENTHS };
 };
 
+const readFogSnap = (): boolean => {
+  try {
+    return localStorage.getItem(FOG_SNAP_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+};
+
 const SIZE_CELLS: Record<Size, number> = {
   tiny: 1,
   small: 1,
@@ -128,6 +146,34 @@ const SIZE_CELLS: Record<Size, number> = {
   huge: 3,
   gargantuan: 4,
 };
+
+const toMapDocument = (map: {
+  name: string;
+  imageAssetId: string | null;
+  widthPx: number;
+  heightPx: number;
+  grid: GridConfig;
+  terrain: MapDocument['terrain'];
+  spawns: MapDocument['spawns'];
+  playerStarts: MapDocument['playerStarts'];
+  startView?: MapDocument['startView'];
+  fogBase: MapDocument['fogBase'];
+  showDoorIcons: boolean;
+  notes: string;
+}): MapDocument => ({
+  name: map.name,
+  imageAssetId: map.imageAssetId,
+  widthPx: map.widthPx,
+  heightPx: map.heightPx,
+  grid: map.grid,
+  terrain: map.terrain,
+  spawns: map.spawns,
+  playerStarts: map.playerStarts,
+  ...(map.startView === undefined ? {} : { startView: map.startView }),
+  fogBase: map.fogBase,
+  showDoorIcons: map.showDoorIcons,
+  notes: map.notes,
+});
 
 const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
 
@@ -152,11 +198,10 @@ export class DmShellPage implements OnInit {
   public readonly units = inject(MeasurementService);
   private readonly sceneActions = inject(SceneActionService);
   private readonly programsApi = inject(ProgramService);
+  private readonly mapsApi = inject(MapService);
   private readonly ai = inject(AiService);
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
-  private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
-  private readonly replaceInput = viewChild<ElementRef<HTMLInputElement>>('replaceInput');
   private readonly importInput = viewChild<ElementRef<HTMLInputElement>>('importInput');
   private sessionTimer: ReturnType<typeof setInterval> | null = null;
   private presenceSocket: WebSocket | null = null;
@@ -177,10 +222,6 @@ export class DmShellPage implements OnInit {
   public readonly notice = signal<string | null>(null);
   public readonly statusMessage = signal('Console pronta.');
   public readonly busy = signal(false);
-  public readonly uploading = signal(false);
-  public readonly replacing = signal(false);
-  public readonly uploadError = signal<string | null>(null);
-  public readonly replaceTarget = signal<Scene | null>(null);
 
   public readonly tool = signal<CanvasTool>('select');
   public readonly gridVisible = signal(true);
@@ -188,6 +229,7 @@ export class DmShellPage implements OnInit {
   private readonly storedToolSizes = readMapToolSizes();
   public readonly fogBrushCells = signal(this.storedToolSizes.brushCells);
   public readonly pencilTenths = signal(this.storedToolSizes.pencilTenths);
+  public readonly fogSnap = signal(readFogSnap());
   public readonly settingsOpen = signal(false);
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
   public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
@@ -199,6 +241,14 @@ export class DmShellPage implements OnInit {
   public readonly screens = signal<ScreenSummary[]>([]);
   public readonly screenDialog = signal<ScreenSummary | null>(null);
   public readonly takeTargetOpen = signal(false);
+  public readonly maps = signal<MapSummary[]>([]);
+  public readonly mapPickerOpen = signal(false);
+  public readonly mapsLoading = signal(false);
+  public readonly prepareMap = signal<MapSummary | null>(null);
+  public readonly prepareDoc = signal<MapDocument | null>(null);
+  public readonly prepareName = signal('');
+  public readonly prepareAssignments = signal<Record<string, string>>({});
+  public readonly prepareBusy = signal(false);
   public readonly screenViewport = signal<Viewport | null>(null);
   public readonly screenZoomLabel = computed(() =>
     Math.round((this.screenViewport()?.zoom ?? 1) * 100));
@@ -248,6 +298,56 @@ export class DmShellPage implements OnInit {
   public readonly state = computed<SceneState | null>(() => this.sceneStore.snapshot()?.state ?? null);
   public readonly tokens = computed<TokenState[]>(() => this.state()?.tokens ?? []);
   public readonly grid = computed<GridConfig | null>(() => this.state()?.grid ?? null);
+  public readonly sceneDoors = computed(() =>
+    (this.state()?.terrain.walls ?? []).filter((wall) => wall.kind === 'door'));
+
+  public readonly sceneLights = computed(() => this.state()?.terrain.lights ?? []);
+  public readonly partyPcs = computed(() => this.party().filter((actor) => actor.kind === 'pc'));
+  public readonly startOptions = computed(() => this.prepareDoc()?.playerStarts ?? []);
+  public readonly dmDoors = computed<PublicDoor[]>(() =>
+    (this.state()?.terrain.walls ?? [])
+      .filter((wall) => wall.kind === 'door')
+      .map((wall) => ({
+        id: wall.id,
+        x: wall.x,
+        y: wall.y,
+        dir: wall.dir,
+        state: wall.door === 'open' ? 'open' : 'closed',
+      })));
+
+  public readonly visionGrid = computed<VisionGrid | null>(() => {
+    const state = this.state();
+    const scene = this.activeScene();
+    if (state === null || scene === null || !state.terrain.visionEnabled || state.grid.type !== 'square') {
+      return null;
+    }
+    const actors = this.party();
+    const sources: VisionSource[] = state.tokens.flatMap((token) => {
+      const actor = token.actorId === undefined
+        ? undefined
+        : actors.find((entry) => entry.id === token.actorId);
+      if (actor === undefined || (actor.kind !== 'pc' && token.owner !== 'players')) {
+        return [];
+      }
+      const senses = actor.statblock.senses;
+      return [{
+        cell: tokenCenterCell(token),
+        ...(senses.darkvision === undefined ? {} : { darkvision: senses.darkvision }),
+        ...(senses.blindsight === undefined ? {} : { blindsight: senses.blindsight }),
+        ...(senses.truesight === undefined ? {} : { truesight: senses.truesight }),
+        ...(senses.tremorsense === undefined ? {} : { tremorsense: senses.tremorsense }),
+        ...(token.light === undefined ? {} : { light: token.light }),
+      }];
+    });
+    return computeVisionGrid({
+      widthPx: scene.widthPx,
+      heightPx: scene.heightPx,
+      grid: state.grid,
+      terrain: state.terrain,
+      sources,
+    });
+  });
+
   public readonly fogBrushRadiusPx = computed(() =>
     fogBrushRadius(this.grid()?.cellSizePx ?? 100, this.fogBrushCells()));
 
@@ -589,78 +689,6 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public async uploadMap(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (file === undefined || this.activeCampaign() === null) {
-      return;
-    }
-    this.uploading.set(true);
-    this.uploadError.set(null);
-    try {
-      const asset = await this.assetsApi.upload(file);
-      const name = file.name.replace(/\.[^.]+$/, '') || 'Mappa';
-      const scene = await this.campaignsApi.createScene(this.activeCampaign()?.id ?? '', {
-        name,
-        widthPx: asset.width,
-        heightPx: asset.height,
-        imageAssetId: asset.id,
-        fogBase: this.newSceneFog(),
-      });
-      this.scenes.update((items) => [scene, ...items]);
-      const refreshed = await this.campaignsApi.patch(scene.campaignId, { activeSceneId: scene.id });
-      this.activeCampaign.set(refreshed);
-      this.statusMessage.set(`Mappa caricata: ${asset.width} × ${asset.height} px`);
-      await this.loadScene(scene);
-    } catch (error) {
-      this.uploadError.set(messageFor(error));
-    } finally {
-      this.uploading.set(false);
-    }
-  }
-
-  public openFilePicker(): void {
-    this.fileInput()?.nativeElement.click();
-  }
-
-  public startReplaceMap(scene: Scene): void {
-    this.replaceTarget.set(scene);
-    this.uploadError.set(null);
-    this.replaceInput()?.nativeElement.click();
-  }
-
-  public async replaceMap(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    const scene = this.replaceTarget();
-    if (file === undefined || scene === null) {
-      return;
-    }
-    this.replacing.set(true);
-    this.uploadError.set(null);
-    try {
-      const asset = await this.assetsApi.upload(file);
-      const updated = await this.campaignsApi.updateScene(scene.id, {
-        imageAssetId: asset.id,
-        widthPx: asset.width,
-        heightPx: asset.height,
-      });
-      this.scenes.update((items) => items.map((entry) => (entry.id === updated.id ? updated : entry)));
-      if (this.activeScene()?.id === updated.id) {
-        this.activeScene.set(updated);
-        await this.loadMapAsset(updated);
-      }
-      this.statusMessage.set(`Mappa sostituita: ${asset.width} × ${asset.height} px`);
-    } catch (error) {
-      this.uploadError.set(messageFor(error));
-    } finally {
-      this.replacing.set(false);
-      this.replaceTarget.set(null);
-    }
-  }
-
   public async selectScene(scene: Scene): Promise<void> {
     const campaign = this.activeCampaign();
     if (campaign === null || scene.id === this.activeScene()?.id) {
@@ -674,6 +702,131 @@ export class DmShellPage implements OnInit {
     } catch (error) {
       this.notice.set(messageFor(error));
     }
+  }
+
+  public async openMapPicker(): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null) {
+      return;
+    }
+    this.mapsLoading.set(true);
+    this.mapPickerOpen.set(true);
+    try {
+      this.maps.set(await this.mapsApi.list(campaign.id));
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    } finally {
+      this.mapsLoading.set(false);
+    }
+  }
+
+  public closeMapPicker(): void {
+    this.mapPickerOpen.set(false);
+  }
+
+  public async chooseMap(map: MapSummary): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null) {
+      return;
+    }
+    try {
+      const doc = await this.mapsApi.get(map.id);
+      this.prepareMap.set(map);
+      this.prepareDoc.set(toMapDocument(doc));
+      this.prepareName.set(doc.name);
+      const assignments: Record<string, string> = {};
+      const starts = doc.playerStarts;
+      this.partyPcs().forEach((actor, index) => {
+        const start = starts[index];
+        if (start !== undefined) {
+          assignments[actor.id] = start.id;
+        }
+      });
+      this.prepareAssignments.set(assignments);
+      this.mapPickerOpen.set(false);
+      this.notice.set(null);
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    }
+  }
+
+  public closePrepare(): void {
+    this.prepareMap.set(null);
+    this.prepareDoc.set(null);
+    this.prepareAssignments.set({});
+  }
+
+  public setPrepareName(event: Event): void {
+    this.prepareName.set((event.target as HTMLInputElement).value);
+  }
+
+  public setAssignment(actorId: string, event: Event): void {
+    const startId = (event.target as HTMLSelectElement).value;
+    this.prepareAssignments.update((current) => {
+      const next = { ...current };
+      if (startId === '') {
+        delete next[actorId];
+      } else {
+        next[actorId] = startId;
+      }
+      return next;
+    });
+  }
+
+  public async startPreparedMap(): Promise<void> {
+    const campaign = this.activeCampaign();
+    const map = this.prepareMap();
+    if (campaign === null || map === null || this.prepareBusy()) {
+      return;
+    }
+    const assignments = this.prepareAssignments();
+    this.prepareBusy.set(true);
+    try {
+      const result = await this.mapsApi.createScene(campaign.id, {
+        mapId: map.id,
+        name: this.prepareName().trim() || map.name,
+        playerAssignments: Object.entries(assignments).map(([actorId, startId]) => ({
+          actorId,
+          startId,
+        })),
+      });
+      const updated = await this.campaignsApi.get(campaign.id);
+      this.activeCampaign.set(updated);
+      const scenes = await this.campaignsApi.listScenes(campaign.id);
+      this.scenes.set(scenes);
+      const scene = scenes.find((entry) => entry.id === result.sceneId);
+      this.closePrepare();
+      if (scene !== undefined) {
+        await this.loadScene(scene);
+      }
+      this.statusMessage.set(`Scena avviata: ${map.name}`);
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    } finally {
+      this.prepareBusy.set(false);
+    }
+  }
+
+  public async toggleDoor(wall: SceneState['terrain']['walls'][number]): Promise<void> {
+    if (wall.kind !== 'door') {
+      return;
+    }
+    await this.sendAction({
+      type: 'terrain.door',
+      wallId: wall.id,
+      state: wall.door === 'open' ? 'closed' : 'open',
+    });
+  }
+
+  public async toggleLight(light: SceneState['terrain']['lights'][number]): Promise<void> {
+    await this.sendAction({ type: 'terrain.light', lightId: light.id, enabled: !light.enabled });
+  }
+
+  public async toggleVision(event: Event): Promise<void> {
+    await this.sendAction({
+      type: 'terrain.vision',
+      enabled: (event.target as HTMLInputElement).checked,
+    });
   }
 
   public async changeAdvancementMode(event: Event): Promise<void> {
@@ -918,7 +1071,13 @@ export class DmShellPage implements OnInit {
 
   public async onTokenMoved(event: TokenMoveEvent): Promise<void> {
     this.statusMessage.set(`Token spostato in (${event.x}, ${event.y})`);
-    await this.sendAction({ type: 'token.move', tokenId: event.tokenId, x: event.x, y: event.y });
+    await this.sendAction({
+      type: 'token.move',
+      tokenId: event.tokenId,
+      x: event.x,
+      y: event.y,
+      ...(event.force === true ? { force: true } : {}),
+    });
   }
 
   public async onActorDropped(event: ActorDropEvent): Promise<void> {
@@ -1001,6 +1160,10 @@ export class DmShellPage implements OnInit {
   }
 
   public async changeGridType(event: Event): Promise<void> {
+    if (this.activeScene()?.mapId) {
+      this.notice.set('Griglia bloccata: modificala dall’editor della mappa.');
+      return;
+    }
     const value = (event.target as HTMLSelectElement).value;
     const grid = this.grid();
     if (grid === null || (value !== 'square' && value !== 'hex')) {
@@ -1011,6 +1174,10 @@ export class DmShellPage implements OnInit {
   }
 
   public async changeGridSize(event: Event): Promise<void> {
+    if (this.activeScene()?.mapId) {
+      this.notice.set('Griglia bloccata: modificala dall’editor della mappa.');
+      return;
+    }
     const value = Number((event.target as HTMLInputElement).value);
     const grid = this.grid();
     if (grid === null || !Number.isFinite(value)) {
@@ -1031,6 +1198,16 @@ export class DmShellPage implements OnInit {
   public setFogSoftness(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
     this.fogSoftness.set(Number.isFinite(value) ? Math.max(0, Math.min(200, value)) : 0);
+  }
+
+  public setFogSnap(event: Event): void {
+    const enabled = (event.target as HTMLInputElement).checked;
+    this.fogSnap.set(enabled);
+    try {
+      localStorage.setItem(FOG_SNAP_KEY, String(enabled));
+    } catch {
+      // localStorage può essere disabilitato: la scelta vale per la sessione.
+    }
   }
 
   public setBrushCells(event: Event): void {
@@ -1129,6 +1306,13 @@ export class DmShellPage implements OnInit {
     if (mode === null) {
       return;
     }
+    const automatic = this.state()?.terrain.visionEnabled === true
+      && this.state()?.grid.type === 'square';
+    if (automatic) {
+      await this.sendAction({ type: 'fog.override', override: mode });
+      this.statusMessage.set(mode === 'reveal' ? 'Fog: rivela tutto' : 'Fog: nascondi tutto');
+      return;
+    }
     if (mode === 'reveal') {
       await this.sendAction({ type: 'fog.replace', base: 'revealed', ops: [] });
       this.statusMessage.set('Fog: tutta la mappa rivelata');
@@ -1136,6 +1320,11 @@ export class DmShellPage implements OnInit {
       await this.sendAction({ type: 'fog.replace', base: 'hidden', ops: [] });
       this.statusMessage.set('Fog: tutta la mappa nascosta');
     }
+  }
+
+  public async clearFogOverride(): Promise<void> {
+    await this.sendAction({ type: 'fog.override', override: 'none' });
+    this.statusMessage.set('Fog: torna alla visione automatica');
   }
 
   public cancelFogChange(): void {
@@ -1193,13 +1382,14 @@ export class DmShellPage implements OnInit {
       await this.waitForViewportSave();
       this.cancelPendingScreenViewport();
       const current = await this.programsApi.get(campaign.id);
+      const startView = this.sceneStore.snapshot()?.state.startView;
       const composition = {
         base: {
           ...current.state.base,
           content: {
             type: 'map' as const,
             sceneId: scene.id,
-            viewport: {
+            viewport: startView ?? {
               x: scene.widthPx / 2,
               y: scene.heightPx / 2,
               zoom: 1,

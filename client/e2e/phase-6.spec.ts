@@ -93,6 +93,7 @@ test('disegna fog e annotazioni, annulla il disegno e persiste la fog', async ({
   await page.mouse.move(left + 160, top + 100, { steps: 4 });
   await page.mouse.up();
   await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.ops.length).toBe(1);
+  expect((await sceneState(request, sceneId)).state.fog.ops[0]?.shape.type).toBe('cells');
   expect((await sceneState(request, sceneId)).state.fog.ops[0]?.softness).toBe(0);
 
   await page.reload();
@@ -199,6 +200,7 @@ test('il pennello fog ha un diametro di 3 celle', async ({ page, request }) => {
     },
   });
   await openCampaign(page);
+  await page.getByRole('checkbox', { name: /Fog a celle/ }).uncheck();
 
   const canvas = page.locator('.scene-canvas');
   await expect(canvas).toBeVisible({ timeout: 10_000 });
@@ -229,6 +231,7 @@ test('le impostazioni mappa regolano matita e pennello e ripuliscono history e f
   const id = await campaignId(request);
   const sceneId = await ensureScene(request, id);
   await openCampaign(page);
+  await page.getByRole('checkbox', { name: /Fog a celle/ }).uncheck();
 
   const canvas = page.locator('.scene-canvas');
   await expect(canvas).toBeVisible({ timeout: 10_000 });
@@ -298,7 +301,7 @@ test('le impostazioni mappa regolano matita e pennello e ripuliscono history e f
   await page.getByRole('button', { name: 'Reset FOG' }).click();
   await expect(dialog).toBeHidden();
   await expect.poll(async () => (await sceneState(request, sceneId)).state.fog)
-    .toEqual({ base: 'hidden', ops: [] });
+    .toEqual({ base: 'hidden', ops: [], override: 'none' });
   await expect.poll(async () => {
     const history = await request.get(`/api/v1/campaigns/${id}/actions`);
     const items = (await history.json() as { items: { type: string }[] }).items;

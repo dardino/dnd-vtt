@@ -40,7 +40,11 @@ const describeAction = (state: SceneState, action: GameAction): string => {
       return `Token aggiunto: ${action.token.label}`;
     case 'token.move': {
       const token = state.tokens.find((entry) => entry.id === action.tokenId);
-      return `${tokenLabel(token, action.tokenId)}: spostato`;
+      return `${tokenLabel(token, action.tokenId)}: spostato${action.force === true ? ' (forzato)' : ''}`;
+    }
+    case 'token.light': {
+      const token = state.tokens.find((entry) => entry.id === action.tokenId);
+      return `${tokenLabel(token, action.tokenId)}: luce ${action.light === null ? 'rimossa' : 'impostata'}`;
     }
     case 'token.update': {
       const token = state.tokens.find((entry) => entry.id === action.tokenId);
@@ -72,10 +76,29 @@ const describeAction = (state: SceneState, action: GameAction): string => {
       return 'Fog: operazione annullata';
     case 'fog.replace':
       return 'Fog: copertura aggiornata';
+    case 'fog.override':
+      return action.override === 'reveal'
+        ? 'Fog: rivela tutto'
+        : action.override === 'hide'
+          ? 'Fog: nascondi tutto'
+          : 'Fog: override rimosso';
     case 'drawing.add':
       return 'Disegno aggiunto';
     case 'drawing.remove':
       return 'Disegno rimosso';
+    case 'terrain.door': {
+      const wall = state.terrain.walls.find((entry) => entry.id === action.wallId);
+      const label = wall?.kind === 'door' ? 'Porta' : 'Muro';
+      return `${label}: ${action.state === 'open' ? 'aperta' : action.state === 'secret' ? 'segreta' : 'chiusa'}`;
+    }
+    case 'terrain.light': {
+      const light = state.terrain.lights.find((entry) => entry.id === action.lightId);
+      return `Luce ${light?.id ?? action.lightId}: ${action.enabled ? 'accesa' : 'spenta'}`;
+    }
+    case 'terrain.ambient':
+      return `Luce ambientale: ${action.ambientLight}`;
+    case 'terrain.vision':
+      return `Visione automatica: ${action.enabled ? 'attiva' : 'manuale'}`;
     default:
       return 'azione';
   }
@@ -327,7 +350,7 @@ export const resetSceneFog = (
   const state = sceneStateSchema.parse(JSON.parse(row.state) as unknown);
   const nextState: SceneState = {
     ...state,
-    fog: { base: 'hidden', ops: [] },
+    fog: { base: 'hidden', ops: [], override: 'none' },
   };
   const stateVersion = row.stateVersion + 1;
   const updated = tx.update(scenes)

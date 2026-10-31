@@ -29,7 +29,8 @@ server parte comunque e `/api/v1/health` risponde `db: 'migration_pending'`.
 | `npm run build` | build di `shared`, `server` e `client` |
 | `npm run db:generate` | genera una migrazione Drizzle dallo schema |
 | `npm run db:migrate` | applica le migrazioni |
-| `npm run db:seed` | inserisce una campagna di prova, una scena e un goblin |
+| `npm run db:seed` | inserisce una campagna di prova con mappa demo, scena, luci e goblin |
+| `npm run db:reset` | cancella database/upload locali, migra e ricrea i dati demo (solo sviluppo) |
 | `npm run db:check` | verifica che schema e migrazioni non divergano |
 | `npm run srd:import` | rigenera i cataloghi SRD 5.2 da Open5e (richiede rete) |
 
@@ -154,5 +155,14 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   `/ai/status`, parser regex locale degli statblock e sezione "Chat IA" nella
   sidebar con anteprima e creazione mostro; la chat risponde `503 ai_disabled`.
   Restano fuori: provider OpenAI-compatible, streaming SSE e cronologia chat.
+- **Fase 10 core completata**: editor mappe su `/maps` con sfondo, griglia,
+  muri/porte/finestre/muri bassi, luci statiche, spawn SRD/attori e partenze PG.
+  La console avvia una scena da una mappa con “Avvia da mappa” e “Prepara scena”;
+  la visione è a celle con luce ambientale, torce, scurovisione/blindsight/
+  truesight, LOS e porte apribili. Il server filtra i token e il display riceve
+  solo `vision` e `doors` visibili. La fog manuale resta disponibile, a celle o
+  libera, con override “Rivela/Nascondi tutto” e “Vista automatica”. I muri
+  bloccano il movimento (porte chiuse incluse), con override DM. `db:reset`
+  ricrea una campagna demo con dungeon, luci, porte, goblin e partenze.
 
 I gate restano `npm run check` e `npm run test:e2e` prima di ogni commit.

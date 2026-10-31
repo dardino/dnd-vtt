@@ -1,7 +1,9 @@
 import {
-  isPointRevealed,
+  computeVisionGrid,
+  doorsForDisplay,
+  isTokenVisible,
   sceneStateSchema,
-  tokenCenterPx,
+  tokenCenterCell,
   type Display,
   type DisplayLayer,
   type DisplayState,
@@ -11,6 +13,7 @@ import {
   type PublicScene,
   type PublicToken,
   type Viewport,
+  type VisionSource,
 } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
 import { getAsset } from '../db/assets.repository.js';
@@ -171,13 +174,41 @@ const publicScene = (db: AppDatabase, sceneId: string, fogEnabled: boolean): Pub
   }
   const state = sceneStateSchema.parse(stored.state);
   const grid = state.grid;
-  const fog = fogEnabled ? state.fog : { base: 'revealed' as const, ops: [] };
+  const fog = fogEnabled ? state.fog : { base: 'revealed' as const, ops: [], override: 'none' as const };
+  const sources: VisionSource[] = fogEnabled
+    ? state.tokens.flatMap((token) => {
+      if (token.actorId === undefined) {
+        return [];
+      }
+      const actor = getActor(db, token.actorId);
+      if (actor === null || (actor.kind !== 'pc' && token.owner !== 'players')) {
+        return [];
+      }
+      const senses = actor.statblock.senses;
+      return [{
+        cell: tokenCenterCell(token),
+        ...(senses.darkvision === undefined ? {} : { darkvision: senses.darkvision }),
+        ...(senses.blindsight === undefined ? {} : { blindsight: senses.blindsight }),
+        ...(senses.truesight === undefined ? {} : { truesight: senses.truesight }),
+        ...(senses.tremorsense === undefined ? {} : { tremorsense: senses.tremorsense }),
+        ...(token.light === undefined ? {} : { light: token.light }),
+      }];
+    })
+    : [];
+  const vision = fogEnabled
+    ? computeVisionGrid({
+      widthPx: scene.widthPx,
+      heightPx: scene.heightPx,
+      grid,
+      terrain: state.terrain,
+      sources,
+    })
+    : null;
   const tokens: PublicToken[] = state.tokens.flatMap((token) => {
     if (!token.visible) {
       return [];
     }
-    const center = tokenCenterPx(grid, token);
-    if (!isPointRevealed(fog, center)) {
+    if (fogEnabled && !isTokenVisible(fog, vision, grid, token)) {
       return [];
     }
     const actor = token.actorId === undefined ? null : getActor(db, token.actorId);
@@ -208,6 +239,10 @@ const publicScene = (db: AppDatabase, sceneId: string, fogEnabled: boolean): Pub
     grid,
     tokens,
     fog,
+    ...(vision === null ? {} : { vision }),
+    ...(fogEnabled && state.showDoorIcons
+      ? { doors: doorsForDisplay(state.terrain, fog, vision, grid) }
+      : {}),
   };
 };
 

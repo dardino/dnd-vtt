@@ -1,15 +1,17 @@
 import {
   actorPortraitSchema,
   actorStatblockSchema,
+  mapDocumentSchema,
   type ActionLogEntry,
   type Actor,
   type Asset,
   type Campaign,
   type DiceRoll,
   type GameAction,
+  type Map,
   type Scene,
 } from '@dnd-vtt/shared';
-import type { actionLog, actors, assets, campaigns, diceRolls, scenes } from './schema.js';
+import type { actionLog, actors, assets, campaigns, diceRolls, maps, scenes } from './schema.js';
 
 export const toCampaign = (row: typeof campaigns.$inferSelect): Campaign => ({
   id: row.id,
@@ -26,6 +28,7 @@ export const toCampaign = (row: typeof campaigns.$inferSelect): Campaign => ({
 export const toScene = (row: typeof scenes.$inferSelect): Scene => ({
   id: row.id,
   campaignId: row.campaignId,
+  mapId: row.mapId,
   name: row.name,
   imageAssetId: row.imageAssetId,
   widthPx: row.widthPx,
@@ -34,6 +37,22 @@ export const toScene = (row: typeof scenes.$inferSelect): Scene => ({
   createdAt: row.createdAt,
   updatedAt: row.updatedAt,
 });
+
+export const toMap = (row: typeof maps.$inferSelect): Map => {
+  const document = mapDocumentSchema.parse(JSON.parse(row.document) as unknown);
+  return {
+    id: row.id,
+    campaignId: row.campaignId,
+    ...document,
+    name: row.name,
+    imageAssetId: row.imageAssetId,
+    widthPx: row.widthPx,
+    heightPx: row.heightPx,
+    version: row.version,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  };
+};
 
 /**
  * `playerNotes` non compare mai nel DTO della console DM (D26): resta nel

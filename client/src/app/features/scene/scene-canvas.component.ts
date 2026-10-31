@@ -17,7 +17,9 @@ import {
   HEX_ROW_RATIO,
   TILE_SIZE_PX,
   cellCenterPx,
+  edgeSegmentPx,
   gridDrawingWidth,
+  lastReachableCell,
   pixelToCell,
   snapTokenCell,
   tileLevelForScale,
@@ -30,9 +32,11 @@ import {
   type FogShape,
   type GridConfig,
   type MeasureResult,
+  type PublicDoor,
   type SceneState,
   type TokenState,
   type Viewport,
+  type VisionGrid,
 } from '@dnd-vtt/shared';
 import { MeasurementService } from '../../core/measurement.service';
 
@@ -65,6 +69,7 @@ export interface TokenMoveEvent {
   tokenId: string;
   x: number;
   y: number;
+  force?: boolean;
 }
 
 export interface ActorDropEvent {
@@ -114,6 +119,9 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly actorPortraits = input<Record<string, ActorPortraitThumb>>({});
   public readonly tokenPortraits = input<Record<string, ActorPortraitThumb>>({});
   public readonly viewport = input<Viewport | null>(null);
+  public readonly vision = input<VisionGrid | null>(null);
+  public readonly doors = input<PublicDoor[]>([]);
+  public readonly fogSnap = input(false);
   public readonly fogOpacity = input(0.5);
 
   public readonly tokenMoved = output<TokenMoveEvent>();
@@ -145,6 +153,7 @@ export class SceneCanvasComponent implements OnDestroy {
   private stage: Konva.Stage | null = null;
   private mapLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
+  private doorLayer: Konva.Layer | null = null;
   private fogLayer: Konva.Layer | null = null;
   private fogPreviewLayer: Konva.Layer | null = null;
   private tokenLayer: Konva.Layer | null = null;
@@ -159,6 +168,8 @@ export class SceneCanvasComponent implements OnDestroy {
   private lastGridVisible: boolean | null = null;
   private lastMapHash: string | null = null;
   private lastFog: SceneState['fog'] | null = null;
+  private lastVision: VisionGrid | null | undefined = undefined;
+  private lastDoors: PublicDoor[] | null = null;
   private lastDrawings: Drawing[] | null = null;
   private lastTool: string | null = null;
   private fogDraft: { start: Point; current: Point; points: Point[] } | null = null;
@@ -180,6 +191,8 @@ export class SceneCanvasComponent implements OnDestroy {
       this.actorPortraits();
       this.tokenPortraits();
       this.viewport();
+      this.vision();
+      this.doors();
       this.units.unit();
       if (this.stage !== null) {
         this.renderAll();
@@ -347,6 +360,7 @@ export class SceneCanvasComponent implements OnDestroy {
     this.stage = stage;
     this.mapLayer = new Konva.Layer({ listening: false });
     this.gridLayer = new Konva.Layer({ listening: false });
+    this.doorLayer = new Konva.Layer({ listening: false });
     this.fogLayer = new Konva.Layer({ listening: false });
     this.fogPreviewLayer = new Konva.Layer({ listening: false });
     this.tokenLayer = new Konva.Layer();
@@ -354,6 +368,7 @@ export class SceneCanvasComponent implements OnDestroy {
     this.measureLayer = new Konva.Layer({ listening: false });
     stage.add(this.mapLayer);
     stage.add(this.gridLayer);
+    stage.add(this.doorLayer);
     stage.add(this.fogLayer);
     stage.add(this.fogPreviewLayer);
     stage.add(this.tokenLayer);
@@ -431,9 +446,16 @@ export class SceneCanvasComponent implements OnDestroy {
       this.renderGrid();
     }
     const fog = this.state().fog;
-    if (fog !== this.lastFog) {
+    const vision = this.vision();
+    if (fog !== this.lastFog || vision !== this.lastVision) {
       this.lastFog = fog;
+      this.lastVision = vision;
       this.renderFog();
+    }
+    const doors = this.doors();
+    if (doors !== this.lastDoors) {
+      this.lastDoors = doors;
+      this.renderDoors();
     }
     const drawings = this.state().drawings;
     if (drawings !== this.lastDrawings) {
@@ -442,6 +464,7 @@ export class SceneCanvasComponent implements OnDestroy {
     }
     this.renderTokens();
     this.renderMeasure();
+    this.renderDoors();
     this.scheduleTiles();
     if (this.viewport() !== null) {
       this.applyViewportOrFit();
@@ -740,6 +763,73 @@ export class SceneCanvasComponent implements OnDestroy {
     }
   }
 
+  private renderDoors(): void {
+    const layer = this.doorLayer;
+    if (layer === null) {
+      return;
+    }
+    layer.destroyChildren();
+    const grid = this.state().grid;
+    for (const door of this.doors()) {
+      const segment = edgeSegmentPx(grid, door);
+      const color = door.state === 'open' ? '#7fbf7f' : '#c9a227';
+      if (door.state === 'open') {
+        const dx = segment.b.x - segment.a.x;
+        const dy = segment.b.y - segment.a.y;
+        const length = Math.hypot(dx, dy);
+        if (length === 0) {
+          continue;
+        }
+        const unitX = (dx / length) * Math.min(10, length / 4);
+        const unitY = (dy / length) * Math.min(10, length / 4);
+        layer.add(new Konva.Line({
+          points: [
+            segment.a.x,
+            segment.a.y,
+            segment.a.x + unitX,
+            segment.a.y + unitY,
+          ],
+          stroke: color,
+          strokeWidth: 4,
+          lineCap: 'round',
+          listening: false,
+        }));
+        layer.add(new Konva.Line({
+          points: [
+            segment.b.x,
+            segment.b.y,
+            segment.b.x - unitX,
+            segment.b.y - unitY,
+          ],
+          stroke: color,
+          strokeWidth: 4,
+          lineCap: 'round',
+          listening: false,
+        }));
+      } else {
+        layer.add(new Konva.Line({
+          points: [segment.a.x, segment.a.y, segment.b.x, segment.b.y],
+          stroke: color,
+          strokeWidth: 5,
+          lineCap: 'round',
+          listening: false,
+        }));
+        const midX = (segment.a.x + segment.b.x) / 2;
+        const midY = (segment.a.y + segment.b.y) / 2;
+        layer.add(new Konva.Circle({
+          x: midX,
+          y: midY,
+          radius: 4,
+          fill: color,
+          stroke: '#1b1b1b',
+          strokeWidth: 1,
+          listening: false,
+        }));
+      }
+    }
+    layer.draw();
+  }
+
   private renderFog(): void {
     const map = this.map();
     const layer = this.fogLayer;
@@ -751,6 +841,9 @@ export class SceneCanvasComponent implements OnDestroy {
       layer.draw();
       return;
     }
+    const grid = this.state().grid;
+    const fog = this.state().fog;
+    const vision = this.vision();
     const scale = Math.min(1, 4096 / Math.max(map.width, map.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(map.width * scale));
@@ -759,12 +852,42 @@ export class SceneCanvasComponent implements OnDestroy {
     if (context === null) {
       return;
     }
-    if (this.state().fog.base === 'hidden') {
+    const drawVision = vision !== null && fog.override === 'none';
+    if (fog.override === 'hide') {
       context.fillStyle = '#000';
       context.fillRect(0, 0, canvas.width, canvas.height);
+    } else if (fog.override === 'none') {
+      if (vision !== null) {
+        context.fillStyle = '#000';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.globalCompositeOperation = 'destination-out';
+        const cell = grid.cellSizePx * scale;
+        for (let row = 0; row < vision.rows; row += 1) {
+          for (let column = 0; column < vision.cols; column += 1) {
+            const level = vision.levels[row * vision.cols + column] ?? 0;
+            if (level === 0) {
+              continue;
+            }
+            context.globalAlpha = level === 2 ? 1 : 0.5;
+            context.fillRect(
+              grid.offsetX * scale + column * cell,
+              grid.offsetY * scale + row * cell,
+              cell + 0.5,
+              cell + 0.5,
+            );
+          }
+        }
+        context.globalAlpha = 1;
+        context.globalCompositeOperation = 'source-over';
+      } else if (fog.base === 'hidden') {
+        context.fillStyle = '#000';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+      }
     }
-    for (const op of this.state().fog.ops) {
-      this.paintFogOp(context, op, scale);
+    if (!drawVision || fog.override === 'none') {
+      for (const op of fog.ops) {
+        this.paintFogOp(context, op, scale);
+      }
     }
     layer.add(new Konva.Image({
       image: canvas,
@@ -824,6 +947,18 @@ export class SceneCanvasComponent implements OnDestroy {
         });
         context.stroke();
         break;
+      case 'cells': {
+        const grid = this.state().grid;
+        for (const cell of shape.cells) {
+          context.fillRect(
+            (grid.offsetX + cell.x * grid.cellSizePx) * scale,
+            (grid.offsetY + cell.y * grid.cellSizePx) * scale,
+            grid.cellSizePx * scale + 0.5,
+            grid.cellSizePx * scale + 0.5,
+          );
+        }
+        break;
+      }
       default:
         break;
     }
@@ -1076,13 +1211,26 @@ export class SceneCanvasComponent implements OnDestroy {
     group.on('dragstart', (event) => {
       event.cancelBubble = true;
     });
-    group.on('dragend', () => {
-      const snapped = snapTokenCell(grid, { x: group.x(), y: group.y() }, token.size);
+    group.on('dragend', (event) => {
+      const force = event.evt instanceof MouseEvent && event.evt.altKey;
+      const raw = snapTokenCell(grid, { x: group.x(), y: group.y() }, token.size);
+      const snapped = force
+        ? raw
+        : lastReachableCell(
+          { x: Math.round(token.x), y: Math.round(token.y) },
+          raw,
+          this.state().terrain,
+        );
       const next = tokenCenterPx(grid, { ...snapped, size: token.size });
       group.position(next);
       this.tokenLayer?.batchDraw();
       if (snapped.x !== token.x || snapped.y !== token.y) {
-        this.tokenMoved.emit({ tokenId: token.id, x: snapped.x, y: snapped.y });
+        this.tokenMoved.emit({
+          tokenId: token.id,
+          x: snapped.x,
+          y: snapped.y,
+          ...(force ? { force: true } : {}),
+        });
       }
     });
     return group;
@@ -1232,7 +1380,16 @@ export class SceneCanvasComponent implements OnDestroy {
     }
     const mode = this.fogMode();
     let shape: FogShape | null = null;
-    if (mode === 'rect') {
+    if (this.fogSnap()) {
+      const cells = mode === 'rect'
+        ? this.cellsInRect(draft.start, draft.current)
+        : mode === 'lasso'
+          ? this.cellsInPolygon(this.lassoPoints ?? [])
+          : this.cellsInBrush(draft.points);
+      if (cells.length > 0) {
+        shape = { type: 'cells', cells };
+      }
+    } else if (mode === 'rect') {
       const width = Math.abs(draft.current.x - draft.start.x);
       const height = Math.abs(draft.current.y - draft.start.y);
       if (width >= 1 && height >= 1) {
@@ -1254,10 +1411,83 @@ export class SceneCanvasComponent implements OnDestroy {
         id: crypto.randomUUID(),
         op: this.tool() === 'fog-hide' ? 'hide' : 'reveal',
         shape,
-        softness: Math.max(0, this.fogSoftness()),
+        softness: this.fogSnap() ? 0 : Math.max(0, this.fogSoftness()),
         createdAt: new Date().toISOString(),
       });
     }
+  }
+
+  private cellsInRect(start: Point, current: Point): CellPoint[] {
+    const grid = this.state().grid;
+    const first = pixelToCell(grid, {
+      x: Math.min(start.x, current.x),
+      y: Math.min(start.y, current.y),
+    });
+    const last = pixelToCell(grid, {
+      x: Math.max(start.x, current.x) - 0.001,
+      y: Math.max(start.y, current.y) - 0.001,
+    });
+    return this.clampCells(first, last);
+  }
+
+  private cellsInBrush(points: Point[]): CellPoint[] {
+    const grid = this.state().grid;
+    const radiusCells = Math.max(0.5, (this.brushRadius() / grid.cellSizePx));
+    const cells = new Map<string, CellPoint>();
+    for (const point of points) {
+      const center = pixelToCell(grid, point);
+      const radius = Math.ceil(radiusCells);
+      for (let y = center.y - radius; y <= center.y + radius; y += 1) {
+        for (let x = center.x - radius; x <= center.x + radius; x += 1) {
+          if (Math.hypot(x - center.x, y - center.y) <= radiusCells) {
+            cells.set(`${x}:${y}`, { x, y });
+          }
+        }
+      }
+    }
+    return this.clampCellList([...cells.values()]);
+  }
+
+  private cellsInPolygon(points: Point[]): CellPoint[] {
+    if (points.length < 3) {
+      return [];
+    }
+    const grid = this.state().grid;
+    const xs = points.map((point) => point.x);
+    const ys = points.map((point) => point.y);
+    const first = pixelToCell(grid, { x: Math.min(...xs), y: Math.min(...ys) });
+    const last = pixelToCell(grid, { x: Math.max(...xs), y: Math.max(...ys) });
+    const cells: CellPoint[] = [];
+    for (let y = first.y; y <= last.y; y += 1) {
+      for (let x = first.x; x <= last.x; x += 1) {
+        const center = cellCenterPx(grid, { x, y });
+        if (pointInPolygon(center, points)) {
+          cells.push({ x, y });
+        }
+      }
+    }
+    return this.clampCellList(cells);
+  }
+
+  private clampCells(first: CellPoint, last: CellPoint): CellPoint[] {
+    const cells: CellPoint[] = [];
+    for (let y = first.y; y <= last.y; y += 1) {
+      for (let x = first.x; x <= last.x; x += 1) {
+        cells.push({ x, y });
+      }
+    }
+    return this.clampCellList(cells);
+  }
+
+  private clampCellList(cells: CellPoint[]): CellPoint[] {
+    const map = this.map();
+    if (map === null) {
+      return cells;
+    }
+    const grid = this.state().grid;
+    const cols = Math.ceil((map.width - grid.offsetX) / grid.cellSizePx);
+    const rows = Math.ceil((map.height - grid.offsetY) / grid.cellSizePx);
+    return cells.filter((cell) => cell.x >= 0 && cell.y >= 0 && cell.x < cols && cell.y < rows);
   }
 
   private finishLasso(): void {
@@ -1267,11 +1497,14 @@ export class SceneCanvasComponent implements OnDestroy {
     }
     this.lassoPoints = null;
     this.renderDraftPreview();
+    const cells = this.fogSnap() ? this.cellsInPolygon(points) : [];
     this.fogApplied.emit({
       id: crypto.randomUUID(),
       op: this.tool() === 'fog-hide' ? 'hide' : 'reveal',
-      shape: { type: 'polygon', points },
-      softness: Math.max(0, this.fogSoftness()),
+      shape: cells.length > 0
+        ? { type: 'cells', cells }
+        : { type: 'polygon', points },
+      softness: this.fogSnap() ? 0 : Math.max(0, this.fogSoftness()),
       createdAt: new Date().toISOString(),
     });
   }
@@ -1395,3 +1628,23 @@ export class SceneCanvasComponent implements OnDestroy {
     };
   }
 }
+
+const pointInPolygon = (
+  point: { x: number; y: number },
+  polygon: Array<{ x: number; y: number }>,
+): boolean => {
+  let inside = false;
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+    const a = polygon[index];
+    const b = polygon[previous];
+    if (a === undefined || b === undefined) {
+      continue;
+    }
+    const intersects = (a.y > point.y) !== (b.y > point.y)
+      && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+  return inside;
+};
