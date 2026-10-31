@@ -973,6 +973,30 @@
 </app-dialog>
 
 <app-dialog
+  [open]="takeTargetOpen()"
+  title="Manda in onda su…"
+  (closed)="takeTargetOpen.set(false)"
+>
+  <p class="muted">Scegli lo schermo che deve ricevere la scena attiva.</p>
+  <ul class="screen-list">
+    @for (summary of screens(); track summary.display.id) {
+      <li>
+        <button type="button" class="screen-row" (click)="takeSceneTo(summary)">
+          <span class="screen-row__head">
+            <strong>{{ summary.display.code }}</strong>
+            <span class="badge">{{ summary.display.label }}</span>
+          </span>
+          <span class="muted">{{ screenProjectionLabel(summary) }}</span>
+        </button>
+      </li>
+    }
+  </ul>
+  <div dialog-actions>
+    <app-button (pressed)="takeTargetOpen.set(false)">Annulla</app-button>
+  </div>
+</app-dialog>
+
+<app-dialog
   [open]="screenDialog() !== null"
   [title]="'Schermo ' + (screenDialog()?.display?.code ?? '')"
   (closed)="closeScreenDialog()"

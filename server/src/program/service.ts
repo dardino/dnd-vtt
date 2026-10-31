@@ -5,6 +5,7 @@ import {
   type Display,
   type DisplayLayer,
   type DisplayState,
+  type ProgramComposition,
   type ProgramLayer,
   type ProgramState,
   type PublicScene,
@@ -15,7 +16,13 @@ import type { AppDatabase } from '../db/client.js';
 import { getAsset } from '../db/assets.repository.js';
 import { getActor } from '../db/actors.repository.js';
 import { getCampaign } from '../db/campaigns.repository.js';
-import { getDisplayByCode, touchDisplay } from '../db/displays.repository.js';
+import {
+  getDisplay,
+  getDisplayByCode,
+  getDisplayComposition,
+  touchDisplay,
+  updateDisplayComposition,
+} from '../db/displays.repository.js';
 import { listDiceRolls } from '../db/dice-rolls.repository.js';
 import { getProgramRow, insertProgram, updateProgram } from '../db/programs.repository.js';
 import { getScene, getSceneState } from '../db/scenes.repository.js';
@@ -80,6 +87,65 @@ export const putProgram = (
     throw new AppError('state_conflict', 409, 'Il program è stato modificato altrove');
   }
   return updated;
+};
+
+export const putDisplayComposition = (
+  db: AppDatabase,
+  campaignId: string,
+  displayId: string,
+  version: number,
+  composition: ProgramComposition,
+): { version: number; composition: ProgramComposition } => {
+  const display = getDisplay(db, displayId);
+  if (display === null || display.campaignId !== campaignId) {
+    throw notFound('Schermo non trovato');
+  }
+  const updated = updateDisplayComposition(db, displayId, composition, version);
+  if (updated === null) {
+    throw new AppError('state_conflict', 409, 'Lo schermo è stato aggiornato altrove', {
+      currentVersion: display.compositionVersion,
+    });
+  }
+  return { version: updated, composition };
+};
+
+export const putDisplayViewport = (
+  db: AppDatabase,
+  campaignId: string,
+  displayId: string,
+  version: number,
+  viewport: Viewport,
+): { version: number; viewport: Viewport } => {
+  const display = getDisplay(db, displayId);
+  if (display === null || display.campaignId !== campaignId) {
+    throw notFound('Schermo non trovato');
+  }
+  const program = getProgram(db, campaignId);
+  const override = getDisplayComposition(db, displayId);
+  const composition = override?.composition ?? {
+    base: program.state.base,
+    overlays: program.state.overlays,
+  };
+  const mapLayer = [composition.base, ...composition.overlays]
+    .find((layer) => layer.content.type === 'map');
+  if (mapLayer === undefined || mapLayer.content.type !== 'map') {
+    throw new AppError('validation_error', 422, 'Lo schermo non sta proiettando una mappa');
+  }
+  const content = { ...mapLayer.content, viewport };
+  const next = {
+    base: composition.base.id === mapLayer.id
+      ? { ...composition.base, content }
+      : composition.base,
+    overlays: composition.overlays.map((layer) =>
+      layer.id === mapLayer.id ? { ...layer, content } : layer),
+  };
+  const updated = updateDisplayComposition(db, displayId, next, version);
+  if (updated === null) {
+    throw new AppError('state_conflict', 409, 'Lo schermo è stato aggiornato altrove', {
+      currentVersion: display.compositionVersion,
+    });
+  }
+  return { version: updated, viewport };
 };
 
 const actorView = (db: AppDatabase, actorId: string): DisplayLayer['actor'] => {
@@ -203,9 +269,14 @@ export const projectDisplay = (db: AppDatabase, display: Display): DisplayState 
     throw notFound('Campagna non trovata');
   }
   const program = getProgram(db, display.campaignId);
-  const base = displayLayer(db, program.state.base);
-  const overlays = program.state.overlays.map((layer) => displayLayer(db, layer));
-  const mapLayer = [program.state.base, ...program.state.overlays]
+  const override = getDisplayComposition(db, display.id);
+  const composition = override?.composition ?? {
+    base: program.state.base,
+    overlays: program.state.overlays,
+  };
+  const base = displayLayer(db, composition.base);
+  const overlays = composition.overlays.map((layer) => displayLayer(db, layer));
+  const mapLayer = [composition.base, ...composition.overlays]
     .find((layer) => layer.content.type === 'map');
   let initiative: DisplayState['initiative'];
   if (mapLayer?.content.type === 'map') {

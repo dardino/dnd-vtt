@@ -196,6 +196,7 @@ export class DmShellPage implements OnInit {
   public readonly connectedDisplays = signal(0);
   public readonly screens = signal<ScreenSummary[]>([]);
   public readonly screenDialog = signal<ScreenSummary | null>(null);
+  public readonly takeTargetOpen = signal(false);
   public readonly screenViewport = signal<Viewport | null>(null);
   public readonly screenZoomLabel = computed(() =>
     Math.round((this.screenViewport()?.zoom ?? 1) * 100));
@@ -1148,22 +1149,35 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public async takeScene(): Promise<void> {
+  public takeScene(): void {
+    const online = this.screens();
+    if (online.length === 0) {
+      this.notice.set('Nessuno schermo online: apri uno schermo prima di mandare in onda.');
+      return;
+    }
+    if (online.length === 1 && online[0] !== undefined) {
+      void this.takeSceneTo(online[0]);
+      return;
+    }
+    this.takeTargetOpen.set(true);
+  }
+
+  public async takeSceneTo(summary: ScreenSummary): Promise<void> {
     const campaign = this.activeCampaign();
     const scene = this.activeScene();
     if (campaign === null || scene === null || this.programBusy()) {
       return;
     }
+    this.takeTargetOpen.set(false);
     this.cancelPendingScreenViewport();
     this.programBusy.set(true);
     try {
       const current = await this.programsApi.get(campaign.id);
-      const state: ProgramState = {
-        ...current.state,
+      const composition = {
         base: {
           ...current.state.base,
           content: {
-            type: 'map',
+            type: 'map' as const,
             sceneId: scene.id,
             viewport: {
               x: scene.widthPx / 2,
@@ -1174,15 +1188,21 @@ export class DmShellPage implements OnInit {
             cameraLocked: false,
           },
         },
-        updatedAt: new Date().toISOString(),
+        overlays: current.state.overlays,
       };
-      const updated = await this.programsApi.put(campaign.id, current.version, state);
-      this.programState.set(updated.state);
-      this.programVersion.set(updated.version);
-      this.statusMessage.set(`In onda: ${scene.name}`);
-      if (this.screenDialog() !== null) {
+      const updated = await this.programsApi.putDisplayComposition(
+        campaign.id,
+        summary.display.id,
+        summary.display.compositionVersion,
+        composition,
+      );
+      const display: Display = { ...summary.display, compositionVersion: updated.version };
+      this.screens.update((items) => items.map((item) =>
+        item.display.id === display.id ? { ...item, display } : item));
+      if (this.screenDialog()?.display.id === display.id) {
         void this.refreshScreenDialog();
       }
+      this.statusMessage.set(`In onda su ${display.code}: ${scene.name}`);
     } catch (error) {
       this.statusMessage.set(messageFor(error));
     } finally {
@@ -1715,28 +1735,23 @@ export class DmShellPage implements OnInit {
     const viewport = this.pendingViewport;
     this.pendingViewport = null;
     const campaign = this.activeCampaign();
-    if (viewport === null || campaign === null) {
+    const summary = this.screenDialog();
+    if (viewport === null || campaign === null || summary === null) {
       return;
     }
     try {
-      const current = await this.programsApi.get(campaign.id);
-      const base = current.state.base;
-      if (base.content.type !== 'map') {
-        return;
-      }
-      const state: ProgramState = {
-        ...current.state,
-        base: {
-          ...base,
-          content: { ...base.content, viewport },
-        },
-        updatedAt: new Date().toISOString(),
-      };
-      const updated = await this.programsApi.put(campaign.id, current.version, state);
-      this.programState.set(updated.state);
-      this.programVersion.set(updated.version);
+      const updated = await this.programsApi.putDisplayViewport(
+        campaign.id,
+        summary.display.id,
+        summary.display.compositionVersion,
+        viewport,
+      );
+      const display: Display = { ...summary.display, compositionVersion: updated.version };
+      this.screenDialog.set({ ...summary, display });
+      this.screens.update((items) => items.map((item) =>
+        item.display.id === display.id ? { ...item, display } : item));
     } catch {
-      // Se un'altra azione ha cambiato il program, il prossimo frame riprova.
+      // Se un'altra azione ha cambiato lo schermo, il prossimo frame riprova.
     } finally {
       if (this.pendingViewport !== null && this.viewportTimer === null) {
         this.queueScreenViewport(this.pendingViewport);

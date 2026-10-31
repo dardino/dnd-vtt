@@ -129,6 +129,8 @@ export const displays = sqliteTable('displays', {
     .references(() => campaigns.id, { onDelete: 'cascade' }),
   code: text('code').notNull(),
   label: text('label').notNull(),
+  composition: text('composition'),
+  compositionVersion: integer('composition_version').notNull().default(1),
   createdAt: text('created_at').notNull(),
   lastSeenAt: text('last_seen_at'),
   revokedAt: text('revoked_at'),

@@ -5,6 +5,7 @@ import type {
   Display,
   DisplayState,
   DisplayStateEnvelope,
+  ProgramComposition,
   ProgramState,
   ProgramVersion,
 } from '@dnd-vtt/shared';
@@ -33,6 +34,34 @@ export class ProgramService {
   public async createDisplay(campaignId: string, input: CreateDisplay = {}): Promise<Display> {
     return firstValueFrom(
       this.http.post<Display>(`/api/v1/campaigns/${campaignId}/displays`, input),
+    );
+  }
+
+  public async putDisplayComposition(
+    campaignId: string,
+    displayId: string,
+    version: number,
+    composition: ProgramComposition,
+  ): Promise<{ version: number; composition: ProgramComposition }> {
+    return firstValueFrom(
+      this.http.put<{ version: number; composition: ProgramComposition }>(
+        `/api/v1/campaigns/${campaignId}/displays/${displayId}/composition`,
+        { version, composition },
+      ),
+    );
+  }
+
+  public async putDisplayViewport(
+    campaignId: string,
+    displayId: string,
+    version: number,
+    viewport: { x: number; y: number; zoom: number },
+  ): Promise<{ version: number; viewport: { x: number; y: number; zoom: number } }> {
+    return firstValueFrom(
+      this.http.put<{ version: number; viewport: { x: number; y: number; zoom: number } }>(
+        `/api/v1/campaigns/${campaignId}/displays/${displayId}/viewport`,
+        { version, viewport },
+      ),
     );
   }
 

@@ -1,5 +1,10 @@
 import type { FastifyPluginCallback } from 'fastify';
-import { createDisplaySchema, putProgramSchema } from '@dnd-vtt/shared';
+import {
+  compositionSchema,
+  createDisplaySchema,
+  displayViewportRequestSchema,
+  putProgramSchema,
+} from '@dnd-vtt/shared';
 import { z } from 'zod';
 import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
@@ -13,10 +18,24 @@ import {
 } from '../db/displays.repository.js';
 import { AppError, notFound } from '../errors.js';
 import { parse } from '../http/validation.js';
-import { displayStateByCode, getProgram, putProgram } from './service.js';
+import {
+  displayStateByCode,
+  getProgram,
+  putDisplayComposition,
+  putDisplayViewport,
+  putProgram,
+} from './service.js';
 import { broadcastDisplays, onlineDisplayCodes } from '../realtime/hub.js';
 
 const idParamsSchema = z.strictObject({ id: z.string().uuid() });
+const displayParamsSchema = z.strictObject({
+  id: z.string().uuid(),
+  displayId: z.string().uuid(),
+});
+const displayCompositionSchema = z.strictObject({
+  version: z.number().int().min(1),
+  composition: compositionSchema,
+});
 const codeParamsSchema = z.strictObject({ code: z.string().min(1).max(12) });
 
 export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
@@ -43,12 +62,36 @@ export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallba
       return reply.send(program);
     });
 
+    app.put('/campaigns/:id/displays/:displayId/composition', async (request, reply) => {
+      requireDm(request, env);
+      const { id, displayId } = parse(displayParamsSchema, request.params);
+      const body = parse(displayCompositionSchema, request.body);
+      const result = putDisplayComposition(db, id, displayId, body.version, body.composition);
+      broadcastDisplays(id);
+      return reply.send(result);
+    });
+
+    app.put('/campaigns/:id/displays/:displayId/viewport', async (request, reply) => {
+      requireDm(request, env);
+      const { id, displayId } = parse(displayParamsSchema, request.params);
+      const body = parse(displayViewportRequestSchema, request.body);
+      const result = putDisplayViewport(db, id, displayId, body.version, body.viewport);
+      broadcastDisplays(id);
+      return reply.send(result);
+    });
+
     app.post('/campaigns/:id/displays', async (request, reply) => {
       requireDm(request, env);
       const { id } = parse(idParamsSchema, request.params);
       requireCampaign(id);
       const body = parse(createDisplaySchema, request.body);
-      return reply.status(201).send(insertDisplay(db, id, body.label ?? 'Schermo giocatori'));
+      const display = insertDisplay(db, id, body.label ?? 'Schermo giocatori');
+      const program = getProgram(db, id);
+      const seeded = putDisplayComposition(db, id, display.id, display.compositionVersion, {
+        base: program.state.base,
+        overlays: program.state.overlays,
+      });
+      return reply.status(201).send({ ...display, compositionVersion: seeded.version });
     });
 
     app.get('/campaigns/:id/displays', async (request, reply) => {

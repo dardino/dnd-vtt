@@ -136,10 +136,7 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   const screenList = page.locator('#sidebar-screens');
   await expect(screenList).toContainText(displayCode);
 
-  const beforeProgram = await screen.getAttribute('data-program-updated');
   await page.getByRole('button', { name: 'Manda in onda' }).click();
-  await expect.poll(async () => screen.getAttribute('data-program-updated'))
-    .not.toBe(beforeProgram);
   await expect(screen.locator('.scene-canvas')).toBeVisible({ timeout: 10_000 });
   await expect(screen).toHaveAttribute('data-token-portraits', '1');
 
@@ -201,4 +198,42 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   expect(scene.state.tokens[0]?.x).toBe(5);
   await display.close();
   await expect(onAir).toHaveText('OFF AIR');
+});
+
+test('con più schermi Manda in onda chiede il target', async ({ page, context, request }) => {
+  test.setTimeout(60_000);
+  const fixture = await createSceneFixture(request);
+  await page.goto(`/dm/campaigns/${fixture.campaignId}`);
+  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
+
+  const [first] = await Promise.all([
+    context.waitForEvent('page'),
+    page.getByRole('button', { name: 'Apri schermo' }).click(),
+  ]);
+  await first.waitForLoadState('domcontentloaded');
+  const [second] = await Promise.all([
+    context.waitForEvent('page'),
+    page.getByRole('button', { name: 'Apri schermo' }).click(),
+  ]);
+  await second.waitForLoadState('domcontentloaded');
+  const screenList = page.locator('#sidebar-screens');
+  await expect(screenList.locator('.screen-row')).toHaveCount(2, { timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Manda in onda' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole('heading', { name: 'Manda in onda su…' })).toBeVisible();
+  const rows = dialog.locator('.screen-row');
+  await expect(rows).toHaveCount(2);
+  const firstCode = new URL(first.url()).pathname.split('/').filter(Boolean).at(-1) ?? '';
+  await rows.filter({ hasText: firstCode }).click();
+
+  await expect(first.locator('.display .scene-canvas')).toBeVisible({ timeout: 10_000 });
+  const secondScale = await second.locator('.display .scene-canvas').getAttribute('data-camera-scale');
+  expect(secondScale).toBe('1');
+  await expect.poll(async () => first.locator('.display .scene-canvas').getAttribute('data-camera-scale'))
+    .not.toBe(secondScale);
+
+  await first.close();
+  await second.close();
 });

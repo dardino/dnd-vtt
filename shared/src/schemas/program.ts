@@ -89,6 +89,7 @@ export const displaySchema = z.strictObject({
   campaignId: z.string().uuid(),
   code: z.string().min(1),
   label: z.string(),
+  compositionVersion: z.number().int().min(1),
   createdAt: z.string().datetime(),
   lastSeenAt: z.string().datetime().nullable(),
   revokedAt: z.string().datetime().nullable(),
@@ -171,6 +172,18 @@ export const displayStateSchema = z.strictObject({
   rolls: z.array(diceRollSchema),
 });
 export type DisplayState = z.infer<typeof displayStateSchema>;
+
+export const displayCompositionSchema = z.strictObject({
+  version: z.number().int().min(1),
+  composition: compositionSchema,
+});
+export type DisplayComposition = z.infer<typeof displayCompositionSchema>;
+
+export const displayViewportRequestSchema = z.strictObject({
+  version: z.number().int().min(1),
+  viewport: viewportSchema,
+});
+export type DisplayViewportRequest = z.infer<typeof displayViewportRequestSchema>;
 
 export const displayStateEnvelopeSchema = z.strictObject({
   display: displaySchema,

@@ -1,4 +1,4 @@
-import type { Display } from '@dnd-vtt/shared';
+import type { Display, ProgramComposition } from '@dnd-vtt/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { DbExecutor } from './client.js';
@@ -14,6 +14,7 @@ const toDisplay = (row: typeof displays.$inferSelect): Display => ({
   campaignId: row.campaignId,
   code: row.code,
   label: row.label,
+  compositionVersion: row.compositionVersion,
   createdAt: row.createdAt,
   lastSeenAt: row.lastSeenAt,
   revokedAt: row.revokedAt,
@@ -29,6 +30,8 @@ export const insertDisplay = (db: DbExecutor, campaignId: string, label: string)
     campaignId,
     code,
     label,
+    composition: null,
+    compositionVersion: 1,
     createdAt: new Date().toISOString(),
     lastSeenAt: null,
     revokedAt: null,
@@ -64,3 +67,36 @@ export const revokeDisplay = (db: DbExecutor, id: string): boolean =>
     .set({ revokedAt: new Date().toISOString() })
     .where(eq(displays.id, id))
     .run().changes > 0;
+
+export interface DisplayCompositionRow {
+  composition: ProgramComposition;
+  version: number;
+}
+
+export const getDisplayComposition = (
+  db: DbExecutor,
+  id: string,
+): DisplayCompositionRow | null => {
+  const row = db
+    .select({ composition: displays.composition, version: displays.compositionVersion })
+    .from(displays)
+    .where(eq(displays.id, id))
+    .get();
+  if (row === undefined || row.composition === null) {
+    return null;
+  }
+  return { composition: JSON.parse(row.composition) as ProgramComposition, version: row.version };
+};
+
+export const updateDisplayComposition = (
+  db: DbExecutor,
+  id: string,
+  composition: ProgramComposition,
+  expectedVersion: number,
+): number | null => {
+  const result = db.update(displays)
+    .set({ composition: JSON.stringify(composition), compositionVersion: expectedVersion + 1 })
+    .where(and(eq(displays.id, id), eq(displays.compositionVersion, expectedVersion)))
+    .run();
+  return result.changes === 0 ? null : expectedVersion + 1;
+};
