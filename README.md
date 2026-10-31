@@ -115,7 +115,9 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   `/display/:code` senza shell. Lo schermo mostra in basso a destra il proprio
   codice in grigio con contorno nero; un click attiva/disattiva il fullscreen.
   La proiezione è filtrata dal server (`visible` e
-  fog), il display si aggiorna via WebSocket `/ws?role=display&code=…` con
+  fog) e include il thumbnail del ritratto dell’attore; “Manda in onda”
+  reimposta il viewport della mappa annullando eventuali pan/zoom fatti
+  dall’anteprima. Il display si aggiorna via WebSocket `/ws?role=display&code=…` con
   fallback polling ogni 5 s e riparte sempre da uno snapshot completo. La
   console tiene un WebSocket `role=dm` e mostra ON AIR/OFF AIR in base ai
   display realmente connessi, con BLACKOUT quando uno schermo è in onda ma

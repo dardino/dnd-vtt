@@ -9,6 +9,7 @@ import {
 import { ProgramService } from '../../core/program.service';
 import {
   SceneCanvasComponent,
+  type ActorPortraitThumb,
   type SceneMapImage,
 } from '../scene/scene-canvas.component';
 
@@ -80,6 +81,18 @@ export class DisplayPage implements OnInit, OnDestroy {
     (this.state()?.composition.base.scene?.tokens ?? [])
       .map((token) => `${token.id}:${token.x},${token.y}`)
       .join('|'));
+
+  public readonly tokenPortraits = computed<Record<string, ActorPortraitThumb>>(() => {
+    const portraits: Record<string, ActorPortraitThumb> = {};
+    for (const token of this.base()?.scene?.tokens ?? []) {
+      if (token.imageUrl !== null && token.portrait !== null) {
+        portraits[token.id] = { url: token.imageUrl, ...token.portrait };
+      }
+    }
+    return portraits;
+  });
+
+  public readonly tokenPortraitCount = computed(() => Object.keys(this.tokenPortraits()).length);
 
   public ngOnInit(): void {
     void this.load();

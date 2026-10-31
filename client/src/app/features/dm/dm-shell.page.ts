@@ -1154,6 +1154,7 @@ export class DmShellPage implements OnInit {
     if (campaign === null || scene === null || this.programBusy()) {
       return;
     }
+    this.cancelPendingScreenViewport();
     this.programBusy.set(true);
     try {
       const current = await this.programsApi.get(campaign.id);
@@ -1179,6 +1180,9 @@ export class DmShellPage implements OnInit {
       this.programState.set(updated.state);
       this.programVersion.set(updated.version);
       this.statusMessage.set(`In onda: ${scene.name}`);
+      if (this.screenDialog() !== null) {
+        void this.refreshScreenDialog();
+      }
     } catch (error) {
       this.statusMessage.set(messageFor(error));
     } finally {
@@ -1653,6 +1657,14 @@ export class DmShellPage implements OnInit {
 
   public endScreenPan(): void {
     this.screenDragging = false;
+  }
+
+  private cancelPendingScreenViewport(): void {
+    this.pendingViewport = null;
+    if (this.viewportTimer !== null) {
+      clearTimeout(this.viewportTimer);
+      this.viewportTimer = null;
+    }
   }
 
   private screenViewportFrom(summary: ScreenSummary): Viewport | null {

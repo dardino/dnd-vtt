@@ -114,6 +114,10 @@ const publicScene = (db: AppDatabase, sceneId: string, fogEnabled: boolean): Pub
     if (!isPointRevealed(fog, center)) {
       return [];
     }
+    const actor = token.actorId === undefined ? null : getActor(db, token.actorId);
+    const actorAsset = actor?.imageAssetId === null || actor?.imageAssetId === undefined
+      ? null
+      : getAsset(db, actor.imageAssetId);
     return [{
       id: token.id,
       label: token.label,
@@ -124,6 +128,8 @@ const publicScene = (db: AppDatabase, sceneId: string, fogEnabled: boolean): Pub
       elevation: token.elevation,
       hp: { current: token.hp.current, max: token.hp.max },
       conditions: token.conditions.map((condition) => condition.name),
+      imageUrl: actorAsset?.url ?? null,
+      portrait: actor?.portrait ?? null,
     }];
   });
   const asset = scene.imageAssetId === null ? null : getAsset(db, scene.imageAssetId);

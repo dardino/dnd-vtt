@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { actorPortraitSchema } from './actor.js';
 import { diceRollSchema } from './dice.js';
 import { fogStateSchema, gridConfigSchema, initiativeEntrySchema } from './scene.js';
 
@@ -109,6 +110,8 @@ export const publicTokenSchema = z.strictObject({
   elevation: z.number(),
   hp: z.strictObject({ current: z.number().int(), max: z.number().int() }).optional(),
   conditions: z.array(z.string()),
+  imageUrl: z.string().nullable(),
+  portrait: actorPortraitSchema.nullable(),
 });
 export type PublicToken = z.infer<typeof publicTokenSchema>;
 

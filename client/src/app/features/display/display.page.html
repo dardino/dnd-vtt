@@ -5,6 +5,7 @@
   [attr.data-blackout]="state()?.program?.blackout === true"
   [attr.data-token-count]="state()?.composition?.base?.scene?.tokens?.length ?? 0"
   [attr.data-token-summary]="tokenSummary()"
+  [attr.data-token-portraits]="tokenPortraitCount()"
   [style.--display-bg]="state()?.program?.background ?? '#000'"
   [class.display--blackout]="state()?.program?.blackout === true"
 >
@@ -23,6 +24,7 @@
             [readOnly]="true"
             [fogOpacity]="1"
             [viewport]="layer.viewport ?? null"
+            [tokenPortraits]="tokenPortraits()"
           />
         } @else {
           <div class="display-layer display-layer--base" [style]="frameStyle(layer)">

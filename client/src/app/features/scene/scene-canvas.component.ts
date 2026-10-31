@@ -107,6 +107,7 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly brushRadius = input(150);
   public readonly drawingWidthPx = input<number | null>(null);
   public readonly actorPortraits = input<Record<string, ActorPortraitThumb>>({});
+  public readonly tokenPortraits = input<Record<string, ActorPortraitThumb>>({});
   public readonly viewport = input<Viewport | null>(null);
   public readonly fogOpacity = input(0.5);
 
@@ -169,13 +170,18 @@ export class SceneCanvasComponent implements OnDestroy {
       this.gridVisible();
       this.readOnly();
       this.actorPortraits();
+      this.tokenPortraits();
       this.viewport();
       if (this.stage !== null) {
         this.renderAll();
       }
     });
     effect(() => {
-      for (const portrait of Object.values(this.actorPortraits())) {
+      const portraits = [
+        ...Object.values(this.actorPortraits()),
+        ...Object.values(this.tokenPortraits()),
+      ];
+      for (const portrait of portraits) {
         if (this.portraitImages.has(portrait.url)) {
           continue;
         }
@@ -939,7 +945,9 @@ export class SceneCanvasComponent implements OnDestroy {
       shadowOpacity: 0.25,
       shadowBlur: 6,
     });
-    const portrait = token.actorId === undefined ? undefined : this.actorPortraits()[token.actorId];
+    const portrait = token.actorId === undefined
+      ? this.tokenPortraits()[token.id]
+      : this.actorPortraits()[token.actorId];
     const portraitImage = portrait === undefined ? undefined : this.portraitImages.get(portrait.url);
     if (portrait !== undefined && portraitImage !== undefined) {
       const naturalWidth = portraitImage.naturalWidth;

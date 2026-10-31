@@ -10,6 +10,7 @@ import {
 } from '@dnd-vtt/shared';
 import {
   SceneCanvasComponent,
+  type ActorPortraitThumb,
   type SceneMapImage,
 } from '../scene/scene-canvas.component';
 
@@ -76,5 +77,15 @@ export class ScreenPreviewComponent {
       drawings: [],
       initiative: { active: false, round: 0, turnIndex: 0, entries: [] },
     };
+  }
+
+  public tokenPortraits(layer: DisplayLayer): Record<string, ActorPortraitThumb> {
+    const portraits: Record<string, ActorPortraitThumb> = {};
+    for (const token of layer.scene?.tokens ?? []) {
+      if (token.imageUrl !== null && token.portrait !== null) {
+        portraits[token.id] = { url: token.imageUrl, ...token.portrait };
+      }
+    }
+    return portraits;
   }
 }

@@ -8,6 +8,11 @@ const MAP_PNG = Buffer.from(
   'base64',
 );
 
+const PORTRAIT_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 const createSceneFixture = async (request: APIRequestContext): Promise<{
   campaignId: string;
   sceneId: string;
@@ -62,6 +67,18 @@ const createSceneFixture = async (request: APIRequestContext): Promise<{
     },
   });
   const actorId = (await actorResponse.json() as { id: string }).id;
+  const portraitResponse = await request.post('/api/v1/assets', {
+    multipart: {
+      file: { name: 'ritratto.png', mimeType: 'image/png', buffer: PORTRAIT_PNG },
+    },
+  });
+  const portraitAssetId = (await portraitResponse.json() as { id: string }).id;
+  await request.patch(`/api/v1/actors/${actorId}`, {
+    data: {
+      imageAssetId: portraitAssetId,
+      portrait: { focusX: 0.5, focusY: 0.4, zoom: 1.2 },
+    },
+  });
   const tokenId = crypto.randomUUID();
   await request.post(`/api/v1/campaigns/${campaignId}/actions`, {
     data: {
@@ -124,6 +141,7 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await expect.poll(async () => screen.getAttribute('data-program-updated'))
     .not.toBe(beforeProgram);
   await expect(screen.locator('.scene-canvas')).toBeVisible({ timeout: 10_000 });
+  await expect(screen).toHaveAttribute('data-token-portraits', '1');
 
   await screenList.locator('.screen-row').first().click();
   const viewer = page.getByRole('dialog').locator('.screen-viewer');
@@ -152,8 +170,12 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await page.mouse.up();
   await expect.poll(async () => screenCanvas.getAttribute('data-camera-x'))
     .not.toBe(beforeCameraX);
-  await page.getByRole('button', { name: 'Reimposta vista' }).click();
+  const zoomedScale = await screenCanvas.getAttribute('data-camera-scale');
   await page.getByRole('button', { name: 'Chiudi anteprima' }).click();
+
+  await page.getByRole('button', { name: 'Manda in onda' }).click();
+  await expect.poll(async () => screenCanvas.getAttribute('data-camera-scale'))
+    .not.toBe(zoomedScale);
 
   await page.getByRole('button', { name: 'Blackout' }).click();
   await expect(screen).toHaveAttribute('data-blackout', 'true', { timeout: 10_000 });

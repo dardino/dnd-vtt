@@ -179,6 +179,7 @@ Tooling monorepo
 | D80 | Il pan è **sempre col tasto destro**, indipendente dallo strumento; il ritratto attore è `3:4` con focus/zoom salvati su `actors.portrait` e usato per il thumbnail circolare di mappa e slot | l’editor resta usabile con fog/matita attivi senza cambiare strumento; il ritaglio è persistente, non duplica asset e vale sia per PG sia per mostri/NPC |
 | D81 | L’accordion **Schermi** legge solo i display online e la loro proiezione; l’anteprima in dialog è una vista 16:9 che modifica il `viewport` del map layer e lo persiste nel program con debounce | il DM gestisce lo schermo da remoto — pan e zoom si riflettono sul display via WebSocket — e gli schermi chiusi spariscono dalla lista |
 | D82 | Le sidebar ridotte sono una **rail stretta** con etichetta in `writing-mode: vertical-rl`; lo schermo display mostra il codice in basso a destra e il click gestisce il fullscreen | si recuperano colonne senza perdere l’accesso ai pannelli; il codice resta visibile anche in blackout e permette il fullscreen dal telecomando/telefono |
+| D83 | I `PublicToken` proiettati includono `imageUrl` e `portrait`; `TAKE` cancella i viewport pending dell’anteprima e riporta la mappa al fit 16:9 | lo schermo mostra il thumbnail del personaggio e “Manda in onda” è un reset affidabile della regia remota |
 
 ## 5. Struttura monorepo
 
