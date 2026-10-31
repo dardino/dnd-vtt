@@ -1,0 +1,69 @@
+<div
+  class="screen-preview"
+  [class.screen-preview--blackout]="state().program.blackout"
+  [style.background]="state().program.background"
+>
+  <ng-template #layerTemplate let-layer>
+    <div class="screen-preview__layer" [style]="frameStyle(layer)">
+      @switch (layer.type) {
+        @case ('map') {
+          @if (mapImage(layer); as map) {
+            @if (sceneState(layer); as scene) {
+              <app-scene-canvas
+                [map]="map"
+                [state]="scene"
+                [tool]="'select'"
+                [gridVisible]="true"
+                [readOnly]="true"
+                [fogOpacity]="1"
+              />
+            }
+          }
+        }
+        @case ('image') {
+          @if (layer.imageUrl) {
+            <img
+              class="screen-preview__image"
+              [src]="layer.imageUrl"
+              [style.object-fit]="layer.fit ?? 'contain'"
+              alt=""
+            />
+          }
+        }
+        @case ('text') {
+          <article class="screen-preview__card">
+            <h2>{{ layer.title }}</h2>
+            <p>{{ layer.body }}</p>
+          </article>
+        }
+        @case ('actor') {
+          @if (layer.actor; as actor) {
+            <article class="screen-preview__card">
+              @if (actor.imageUrl) {
+                <img [src]="actor.imageUrl" alt="" />
+              }
+              <h2>{{ actor.name }}</h2>
+              @if (actor.hp) {
+                <p>PF {{ actor.hp.current }}/{{ actor.hp.max }}</p>
+              }
+            </article>
+          }
+        }
+        @case ('initiative') {
+          <div class="screen-preview__card"><h2>Iniziativa</h2></div>
+        }
+      }
+    </div>
+  </ng-template>
+
+  <ng-container
+    [ngTemplateOutlet]="layerTemplate"
+    [ngTemplateOutletContext]="{ $implicit: base() }"
+  />
+  @for (layer of overlays(); track layer.id) {
+    <ng-container
+      [ngTemplateOutlet]="layerTemplate"
+      [ngTemplateOutletContext]="{ $implicit: layer }"
+    />
+  }
+</div>

@@ -97,6 +97,21 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await expect(onAir).toHaveText('ON AIR');
   await expect(onAir).toHaveClass(/is-onair/);
 
+  const displayCode = new URL(display.url()).pathname.split('/').filter(Boolean).at(-1) ?? '';
+  const screenList = page.locator('#sidebar-screens');
+  await expect(screenList).toContainText(displayCode);
+  await screenList.locator('.screen-row').first().click();
+  const viewer = page.getByRole('dialog').locator('.screen-viewer');
+  await expect(viewer.locator('app-screen-preview')).toBeVisible({ timeout: 10_000 });
+  const zoomLabel = page.getByRole('dialog').locator('.inline-controls .muted');
+  await expect(zoomLabel).toHaveText('Zoom 100%');
+  await viewer.hover();
+  await page.mouse.wheel(0, -120);
+  await expect(zoomLabel).not.toHaveText('Zoom 100%');
+  await page.getByRole('button', { name: 'Reimposta vista' }).click();
+  await expect(zoomLabel).toHaveText('Zoom 100%');
+  await page.getByRole('button', { name: 'Chiudi anteprima' }).click();
+
   const beforeProgram = await screen.getAttribute('data-program-updated');
   await page.getByRole('button', { name: 'Manda in onda' }).click();
   await expect.poll(async () => screen.getAttribute('data-program-updated'))

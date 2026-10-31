@@ -430,6 +430,9 @@ export class SceneCanvasComponent implements OnDestroy {
 
   private onWheel(event: Konva.KonvaEventObject<WheelEvent>): void {
     event.evt.preventDefault();
+    if (this.readOnly()) {
+      return;
+    }
     const stage = this.stage;
     if (stage === null) {
       return;
@@ -1017,7 +1020,12 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private onPointerDown(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void {
-    if (event.evt instanceof MouseEvent && event.evt.button === 2 && this.stage !== null) {
+    if (
+      event.evt instanceof MouseEvent
+      && event.evt.button === 2
+      && this.stage !== null
+      && !this.readOnly()
+    ) {
       const pointer = this.stage.getPointerPosition();
       if (pointer !== null) {
         this.rightPan = {

@@ -27,6 +27,8 @@ import {
   type Campaign,
   type CampaignExport,
   type DiceRoll,
+  type Display,
+  type DisplayState,
   type Drawing,
   type FogOp,
   type GameAction,
@@ -55,6 +57,7 @@ import { SceneStore } from '../../core/scene.store';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
+import { ScreenPreviewComponent } from './screen-preview.component';
 import {
   SceneCanvasComponent,
   type ActorDropEvent,
@@ -66,7 +69,7 @@ import {
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
 type CanvasTool = SceneTool;
-type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'actors' | 'ai' | 'tokens';
+type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'actors' | 'ai' | 'screens' | 'tokens';
 
 const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   campaign: true,
@@ -75,8 +78,14 @@ const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   fog: true,
   actors: true,
   ai: true,
+  screens: true,
   tokens: true,
 };
+
+interface ScreenSummary {
+  display: Display;
+  state: DisplayState | null;
+}
 
 const MAP_TOOL_SIZES_KEY = 'dnd-vtt.map-tool-sizes';
 const DEFAULT_BRUSH_CELLS = FOG_BRUSH_CELLS;
@@ -122,7 +131,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
 
 @Component({
   selector: 'app-dm-shell',
-  imports: [Button, Dialog, RouterLink, SceneCanvasComponent, DiceOverlayComponent],
+  imports: [Button, Dialog, RouterLink, SceneCanvasComponent, DiceOverlayComponent, ScreenPreviewComponent],
   templateUrl: './dm-shell.page.html',
   styleUrl: './dm-shell.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -184,6 +193,14 @@ export class DmShellPage implements OnInit {
   public readonly displayCode = signal<string | null>(null);
   public readonly programBusy = signal(false);
   public readonly connectedDisplays = signal(0);
+  public readonly screens = signal<ScreenSummary[]>([]);
+  public readonly screenDialog = signal<ScreenSummary | null>(null);
+  public readonly screenZoom = signal(1);
+  public readonly screenPanX = signal(0);
+  public readonly screenPanY = signal(0);
+  private screenTimer: ReturnType<typeof setInterval> | null = null;
+  private screenDragging = false;
+  private screenDragStart = { x: 0, y: 0, panX: 0, panY: 0 };
   public readonly sessions = signal<Session[]>([]);
   public readonly activeSession = signal<Session | null>(null);
   public readonly sessionBusy = signal(false);
@@ -357,6 +374,7 @@ export class DmShellPage implements OnInit {
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('keydown', this.onKeydown);
       this.stopSessionTimer();
+      this.stopScreenPolling();
       this.closePresence();
     });
     void this.start();
@@ -402,7 +420,6 @@ export class DmShellPage implements OnInit {
       this.activeCampaign.set(campaign);
       this.newSceneFog.set(campaign.fogDefault);
       this.lastCampaign.write(campaign.id);
-      this.mode.set('ready');
       this.notice.set(null);
       this.restorePanels(campaign.id);
       const scenes = await this.campaignsApi.listScenes(campaign.id);
@@ -410,6 +427,7 @@ export class DmShellPage implements OnInit {
       const party = await this.actorsApi.listByCampaign(campaign.id);
       this.party.set(party);
       await this.loadActorAssets(party);
+      await this.loadScreens(campaign.id);
       await this.dice.load(campaign.id);
       const program = await this.programsApi.get(campaign.id);
       this.programState.set(program.state);
@@ -446,6 +464,7 @@ export class DmShellPage implements OnInit {
       if (this.campaignId() !== campaign.id) {
         await this.router.navigate(['/dm/campaigns', campaign.id], { replaceUrl: true });
       }
+      this.mode.set('ready');
     } catch (error) {
       this.lastCampaign.clear();
       this.notice.set(messageFor(error));
@@ -1117,6 +1136,7 @@ export class DmShellPage implements OnInit {
       this.displayCode.set(display.code);
       window.open(`/display/${display.code}`, '_blank');
       this.statusMessage.set(`Schermo aperto: ${display.code}`);
+      await this.loadScreens(campaign.id);
     } catch (error) {
       this.statusMessage.set(messageFor(error));
     } finally {
@@ -1222,8 +1242,15 @@ export class DmShellPage implements OnInit {
   }
 
   public toggleSection(section: SidebarSection): void {
+    const opening = !this.sections()[section];
     this.sections.update((current) => ({ ...current, [section]: !current[section] }));
     this.persistPanels();
+    if (opening && section === 'screens') {
+      const campaign = this.activeCampaign();
+      if (campaign !== null) {
+        void this.loadScreens(campaign.id);
+      }
+    }
   }
 
   public isSectionOpen(section: SidebarSection): boolean {
@@ -1387,6 +1414,7 @@ export class DmShellPage implements OnInit {
   public openChoose(): void {
     this.notice.set(null);
     this.closePresence();
+    this.closeScreenDialog();
     this.mode.set('choose');
   }
 
@@ -1474,6 +1502,144 @@ export class DmShellPage implements OnInit {
         sections: this.sections(),
       }),
     );
+  }
+
+  public screenProjectionLabel(summary: ScreenSummary): string {
+    const state = summary.state;
+    if (state === null) {
+      return 'In attesa di proiezione';
+    }
+    if (state.program.blackout) {
+      return 'Blackout';
+    }
+    const base = state.composition.base;
+    const overlays = state.composition.overlays.length;
+    const suffix = overlays > 0 ? ` + ${overlays} overlay` : '';
+    switch (base.type) {
+      case 'map':
+        return `${base.scene?.name ?? 'Mappa'}${suffix}`;
+      case 'actor':
+        return `${base.actor?.name ?? 'Attore'}${suffix}`;
+      case 'image':
+        return `Immagine${suffix}`;
+      case 'text':
+        return `${base.title ?? 'Testo'}${suffix}`;
+      case 'initiative':
+        return `Iniziativa${suffix}`;
+      default:
+        return `Nero${suffix}`;
+    }
+  }
+
+  public screenLastSeen(summary: ScreenSummary): string {
+    if (summary.display.lastSeenAt === null) {
+      return 'mai collegato';
+    }
+    const seconds = Math.max(0, Math.round(
+      (Date.now() - Date.parse(summary.display.lastSeenAt)) / 1000,
+    ));
+    if (seconds < 60) {
+      return 'visto ora';
+    }
+    const minutes = Math.round(seconds / 60);
+    return `visto ${minutes} min fa`;
+  }
+
+  public async loadScreens(campaignId: string): Promise<void> {
+    try {
+      const displays = (await this.programsApi.listDisplays(campaignId))
+        .filter((display) => display.revokedAt === null);
+      const items = await Promise.all(displays.map(async (display): Promise<ScreenSummary> => {
+        try {
+          const envelope = await this.programsApi.getDisplayState(display.code);
+          return { display, state: envelope.state };
+        } catch {
+          return { display, state: null };
+        }
+      }));
+      this.screens.set(items);
+    } catch {
+      this.screens.set([]);
+    }
+  }
+
+  public openScreenDialog(summary: ScreenSummary): void {
+    this.screenDialog.set(summary);
+    this.screenZoom.set(1);
+    this.screenPanX.set(0);
+    this.screenPanY.set(0);
+    this.startScreenPolling();
+  }
+
+  public closeScreenDialog(): void {
+    this.screenDialog.set(null);
+    this.stopScreenPolling();
+  }
+
+  public zoomScreen(event: WheelEvent): void {
+    event.preventDefault();
+    const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
+    this.screenZoom.update((zoom) => Math.max(0.4, Math.min(4, zoom * factor)));
+  }
+
+  public resetScreenView(): void {
+    this.screenZoom.set(1);
+    this.screenPanX.set(0);
+    this.screenPanY.set(0);
+  }
+
+  public startScreenPan(event: PointerEvent): void {
+    const element = event.currentTarget as HTMLElement;
+    element.setPointerCapture(event.pointerId);
+    this.screenDragging = true;
+    this.screenDragStart = {
+      x: event.clientX,
+      y: event.clientY,
+      panX: this.screenPanX(),
+      panY: this.screenPanY(),
+    };
+  }
+
+  public moveScreenPan(event: PointerEvent): void {
+    if (!this.screenDragging) {
+      return;
+    }
+    this.screenPanX.set(this.screenDragStart.panX + event.clientX - this.screenDragStart.x);
+    this.screenPanY.set(this.screenDragStart.panY + event.clientY - this.screenDragStart.y);
+  }
+
+  public endScreenPan(): void {
+    this.screenDragging = false;
+  }
+
+  private startScreenPolling(): void {
+    this.stopScreenPolling();
+    this.screenTimer = setInterval(() => {
+      void this.refreshScreenDialog();
+    }, 2000);
+  }
+
+  private stopScreenPolling(): void {
+    if (this.screenTimer !== null) {
+      clearInterval(this.screenTimer);
+      this.screenTimer = null;
+    }
+  }
+
+  private async refreshScreenDialog(): Promise<void> {
+    const current = this.screenDialog();
+    if (current === null) {
+      return;
+    }
+    try {
+      const envelope = await this.programsApi.getDisplayState(current.display.code);
+      const updated: ScreenSummary = { display: envelope.display, state: envelope.state };
+      this.screenDialog.set(updated);
+      this.screens.update((items) =>
+        items.map((item) => (item.display.id === updated.display.id ? updated : item)));
+    } catch {
+      // Lo schermo può essere stato revocato mentre il dialog è aperto.
+    }
   }
 
   private async loadActorAssets(actors: Actor[]): Promise<void> {

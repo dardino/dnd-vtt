@@ -187,6 +187,7 @@ test('il pennello fog ha un diametro di 3 celle', async ({ page, request }) => {
   const top = (box?.y ?? 0) + 120;
 
   await page.getByRole('button', { name: 'Fog: rivela' }).click();
+  await expect(page.getByRole('button', { name: 'Fog: rivela' })).toHaveClass(/is-active/);
   await page.mouse.move(left, top);
   await page.mouse.down();
   await page.mouse.move(left + 80, top + 40, { steps: 4 });
@@ -225,6 +226,7 @@ test('le impostazioni mappa regolano matita e pennello e ripuliscono history e f
   await dialog.getByLabel(/Dimensione matita/).press('Tab');
   await dialog.getByRole('button', { name: 'Chiudi impostazioni' }).click();
   await expect(dialog).toBeHidden();
+  await page.waitForTimeout(100);
 
   const drawingsBefore = (await sceneState(request, sceneId)).state.drawings.length;
   await page.getByRole('button', { name: 'Disegno' }).click();

@@ -683,6 +683,68 @@
   white-space: nowrap;
 }
 
+.screen-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.screen-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-align: left;
+
+  &:hover {
+    border-color: var(--color-border-strong);
+  }
+}
+
+.screen-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.screen-row__projection {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.screen-viewer {
+  position: relative;
+  height: min(55vh, 28rem);
+  margin: var(--space-2) 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #000;
+  cursor: grab;
+  touch-action: none;
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.screen-viewer__stage {
+  position: absolute;
+  inset: 0;
+  transform-origin: center;
+}
+
 .token-list {
   display: grid;
   gap: var(--space-1);

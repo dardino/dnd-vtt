@@ -696,6 +696,43 @@
             </div>
           }
         </section>
+
+        <section class="accordion" [class.is-open]="isSectionOpen('screens')">
+          <button
+            type="button"
+            class="accordion__trigger"
+            [attr.aria-expanded]="isSectionOpen('screens')"
+            aria-controls="sidebar-screens"
+            aria-label="Schermi"
+            (click)="toggleSection('screens')"
+          >
+            <span class="accordion__label">Schermi</span>
+            <span class="accordion__count">{{ screens().length }}</span>
+            <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('screens') ? '▾' : '▸' }}</span>
+          </button>
+          @if (isSectionOpen('screens')) {
+            <div id="sidebar-screens" class="accordion__body">
+              @if (screens().length === 0) {
+                <p class="muted">Nessuno schermo attivo. Usa “Apri schermo”.</p>
+              } @else {
+                <ul class="screen-list">
+                  @for (summary of screens(); track summary.display.id) {
+                    <li>
+                      <button type="button" class="screen-row" (click)="openScreenDialog(summary)">
+                        <span class="screen-row__head">
+                          <strong>{{ summary.display.code }}</strong>
+                          <span class="badge">{{ summary.display.label }}</span>
+                        </span>
+                        <span class="screen-row__projection">{{ screenProjectionLabel(summary) }}</span>
+                        <span class="muted">{{ screenLastSeen(summary) }}</span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </section>
       }
     </aside>
 
@@ -924,5 +961,43 @@
   </p>
   <div dialog-actions>
     <app-button (pressed)="closeSettings()">Chiudi impostazioni</app-button>
+  </div>
+</app-dialog>
+
+<app-dialog
+  [open]="screenDialog() !== null"
+  [title]="'Schermo ' + (screenDialog()?.display?.code ?? '')"
+  (closed)="closeScreenDialog()"
+>
+  @if (screenDialog(); as summary) {
+    <p class="muted">
+      {{ screenProjectionLabel(summary) }} · {{ screenLastSeen(summary) }}
+    </p>
+    <div
+      class="screen-viewer"
+      (wheel)="zoomScreen($event)"
+      (pointerdown)="startScreenPan($event)"
+      (pointermove)="moveScreenPan($event)"
+      (pointerup)="endScreenPan()"
+      (pointercancel)="endScreenPan()"
+    >
+      <div
+        class="screen-viewer__stage"
+        [style.transform]="'translate(' + screenPanX() + 'px, ' + screenPanY() + 'px) scale(' + screenZoom() + ')'"
+      >
+        @if (summary.state; as state) {
+          <app-screen-preview [state]="state" />
+        } @else {
+          <p class="muted">Proiezione non disponibile.</p>
+        }
+      </div>
+    </div>
+    <div class="inline-controls">
+      <span class="muted">Zoom {{ (screenZoom() * 100).toFixed(0) }}%</span>
+      <app-button variant="ghost" (pressed)="resetScreenView()">Reimposta vista</app-button>
+    </div>
+  }
+  <div dialog-actions>
+    <app-button (pressed)="closeScreenDialog()">Chiudi anteprima</app-button>
   </div>
 </app-dialog>
