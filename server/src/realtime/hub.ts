@@ -77,6 +77,16 @@ export const sendDmHello = (socket: WebSocket, campaignId: string): void => {
   }));
 };
 
+export const onlineDisplayCodes = (campaignId: string): Set<string> => {
+  const codes = new Set<string>();
+  for (const client of clients) {
+    if (client.role === 'display' && client.campaignId === campaignId && client.code !== undefined) {
+      codes.add(client.code);
+    }
+  }
+  return codes;
+};
+
 export const broadcastDisplays = (campaignId: string): void => {
   if (database === null) {
     return;

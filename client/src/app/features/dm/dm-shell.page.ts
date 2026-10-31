@@ -1547,7 +1547,7 @@ export class DmShellPage implements OnInit {
 
   public async loadScreens(campaignId: string): Promise<void> {
     try {
-      const displays = (await this.programsApi.listDisplays(campaignId))
+      const displays = (await this.programsApi.listOnlineDisplays(campaignId))
         .filter((display) => display.revokedAt === null);
       const items = await Promise.all(displays.map(async (display): Promise<ScreenSummary> => {
         try {
@@ -1558,6 +1558,10 @@ export class DmShellPage implements OnInit {
         }
       }));
       this.screens.set(items);
+      const open = this.screenDialog();
+      if (open !== null && !items.some((item) => item.display.id === open.display.id)) {
+        this.closeScreenDialog();
+      }
     } catch {
       this.screens.set([]);
     }
@@ -1687,6 +1691,10 @@ export class DmShellPage implements OnInit {
           && typeof message.payload?.displays === 'number'
         ) {
           this.connectedDisplays.set(message.payload.displays);
+          const campaign = this.activeCampaign();
+          if (campaign !== null) {
+            void this.loadScreens(campaign.id);
+          }
         }
       } catch {
         // Un messaggio malformato non deve interrompere la console.

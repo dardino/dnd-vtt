@@ -43,6 +43,13 @@ export class ProgramService {
     return result.items;
   }
 
+  public async listOnlineDisplays(campaignId: string): Promise<Display[]> {
+    const result = await firstValueFrom(
+      this.http.get<{ items: Display[] }>(`/api/v1/campaigns/${campaignId}/displays/online`),
+    );
+    return result.items;
+  }
+
   public async getDisplayState(code: string): Promise<DisplayStateEnvelope> {
     return firstValueFrom(
       this.http.get<DisplayStateEnvelope>(`/api/v1/displays/${code}`),

@@ -113,6 +113,11 @@ test('la console usa la griglia a 12 colonne e riempie l altezza', async ({ page
   });
   expect(metrics.columns).toBe(12);
   expect(metrics.bottom).toBeGreaterThanOrEqual(metrics.viewport - 80);
+
+  await page.getByRole('button', { name: 'Riduci pannello campagna' }).click();
+  await expect(page.locator('.dm-panel--left .panel-label'))
+    .toHaveCSS('writing-mode', 'vertical-rl');
+  await page.getByRole('button', { name: 'Apri pannello campagna' }).click();
 });
 
 test('il wizard non si ferma a 1440 px su schermi larghi', async ({ page }) => {

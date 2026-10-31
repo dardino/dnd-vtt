@@ -112,15 +112,19 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
 
 - **Fase 7 core completato**: regia con `ProgramState` versionato, composizione
   `base + overlay`, pulsanti Apri schermo / Manda in onda / Blackout e pagina
-  `/display/:code` senza shell. La proiezione è filtrata dal server (`visible` e
+  `/display/:code` senza shell. Lo schermo mostra in basso a destra il proprio
+  codice in grigio con contorno nero; un click attiva/disattiva il fullscreen.
+  La proiezione è filtrata dal server (`visible` e
   fog), il display si aggiorna via WebSocket `/ws?role=display&code=…` con
   fallback polling ogni 5 s e riparte sempre da uno snapshot completo. La
   console tiene un WebSocket `role=dm` e mostra ON AIR/OFF AIR in base ai
   display realmente connessi, con BLACKOUT quando uno schermo è in onda ma
-  coperto. La sidebar destra ha l’accordion **Schermi** con ciò che ogni
-  schermo sta proiettando; cliccandolo si apre un’anteprima con pan e zoom
-  indipendenti dalla proiezione reale. Restano fuori dal core: editor PVW con
-  drag/resize degli overlay, camera live/libera e pairing QR.
+  coperto. La sidebar destra ha l’accordion **Schermi** con i soli display
+  online e ciò che stanno proiettando; cliccandone uno si apre un’anteprima
+  16:9 con pan e zoom indipendenti dalla proiezione reale. Le sidebar ridotte
+  diventano una barra stretta con l’etichetta in verticale. Restano fuori dal
+  core: editor PVW con drag/resize degli overlay, camera live/libera e pairing
+  QR.
 - **Fase 8 core completato**: link giocatore `/play/:token` con token hashato e
   revoca automatica dei link precedenti, scheda mobile con HP, condizioni e note
   private separate da `dmNotes`, matita DM `editingEnabled`. Avvio/chiusura

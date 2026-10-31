@@ -3,6 +3,11 @@ import type { SceneSnapshot } from '@dnd-vtt/shared';
 
 const CAMPAIGN_NAME = 'E2E Regia';
 
+const MAP_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 const createSceneFixture = async (request: APIRequestContext): Promise<{
   campaignId: string;
   sceneId: string;
@@ -12,8 +17,20 @@ const createSceneFixture = async (request: APIRequestContext): Promise<{
     data: { name: CAMPAIGN_NAME, description: 'Doppio schermo' },
   });
   const campaignId = (await campaignResponse.json() as { id: string }).id;
+  const mapResponse = await request.post('/api/v1/assets', {
+    multipart: {
+      file: { name: 'mappa.png', mimeType: 'image/png', buffer: MAP_PNG },
+    },
+  });
+  const mapAssetId = (await mapResponse.json() as { id: string }).id;
   const sceneResponse = await request.post(`/api/v1/campaigns/${campaignId}/scenes`, {
-    data: { name: 'Palco', widthPx: 1000, heightPx: 800, fogBase: 'revealed' },
+    data: {
+      name: 'Palco',
+      widthPx: 1000,
+      heightPx: 800,
+      fogBase: 'revealed',
+      imageAssetId: mapAssetId,
+    },
   });
   const sceneId = (await sceneResponse.json() as { id: string }).id;
   const actorResponse = await request.post('/api/v1/actors', {
@@ -98,11 +115,13 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await expect(onAir).toHaveClass(/is-onair/);
 
   const displayCode = new URL(display.url()).pathname.split('/').filter(Boolean).at(-1) ?? '';
+  await expect(display.locator('.display__code')).toHaveText(displayCode);
   const screenList = page.locator('#sidebar-screens');
   await expect(screenList).toContainText(displayCode);
   await screenList.locator('.screen-row').first().click();
   const viewer = page.getByRole('dialog').locator('.screen-viewer');
   await expect(viewer.locator('app-screen-preview')).toBeVisible({ timeout: 10_000 });
+  await expect(viewer.locator('.scene-canvas')).toBeVisible();
   const zoomLabel = page.getByRole('dialog').locator('.inline-controls .muted');
   await expect(zoomLabel).toHaveText('Zoom 100%');
   await viewer.hover();

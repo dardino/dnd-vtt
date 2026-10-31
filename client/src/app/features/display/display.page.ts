@@ -112,6 +112,14 @@ export class DisplayPage implements OnInit, OnDestroy {
     };
   }
 
+  public async toggleFullscreen(): Promise<void> {
+    if (document.fullscreenElement === null) {
+      await document.documentElement.requestFullscreen().catch(() => undefined);
+    } else {
+      await document.exitFullscreen().catch(() => undefined);
+    }
+  }
+
   private async load(): Promise<void> {
     try {
       const state = await this.programs.displayState(this.code());

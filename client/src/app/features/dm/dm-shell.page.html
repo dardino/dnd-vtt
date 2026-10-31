@@ -45,10 +45,14 @@
   >
     <aside class="dm-panel dm-panel--left" [class.is-collapsed]="!leftOpen()" aria-label="Campagna">
       <div class="panel-head">
-        <span class="eyebrow">Campagna</span>
-        <button type="button" class="panel-toggle" (click)="toggleLeft()">
-          {{ leftOpen() ? 'Riduci' : 'Apri' }}
-        </button>
+        <span class="eyebrow panel-label">Campagna</span>
+        <button
+          type="button"
+          class="panel-toggle"
+          [attr.aria-label]="leftOpen() ? 'Riduci pannello campagna' : 'Apri pannello campagna'"
+          [title]="leftOpen() ? 'Riduci' : 'Apri'"
+          (click)="toggleLeft()"
+        >{{ leftOpen() ? '‹' : '›' }}</button>
       </div>
       @if (leftOpen()) {
         <section class="accordion" [class.is-open]="isSectionOpen('campaign')">
@@ -632,10 +636,14 @@
 
     <aside class="dm-panel dm-panel--right" [class.is-collapsed]="!rightOpen()" aria-label="Token in mappa">
       <div class="panel-head">
-        <span class="eyebrow">Scena</span>
-        <button type="button" class="panel-toggle" (click)="toggleRight()">
-          {{ rightOpen() ? 'Riduci' : 'Apri' }}
-        </button>
+        <span class="eyebrow panel-label">Scena</span>
+        <button
+          type="button"
+          class="panel-toggle"
+          [attr.aria-label]="rightOpen() ? 'Riduci pannello scena' : 'Apri pannello scena'"
+          [title]="rightOpen() ? 'Riduci' : 'Apri'"
+          (click)="toggleRight()"
+        >{{ rightOpen() ? '›' : '‹' }}</button>
       </div>
       @if (rightOpen()) {
         <section class="accordion" [class.is-open]="isSectionOpen('tokens')">
@@ -713,7 +721,7 @@
           @if (isSectionOpen('screens')) {
             <div id="sidebar-screens" class="accordion__body">
               @if (screens().length === 0) {
-                <p class="muted">Nessuno schermo attivo. Usa “Apri schermo”.</p>
+                <p class="muted">Nessuno schermo online. Usa “Apri schermo”.</p>
               } @else {
                 <ul class="screen-list">
                   @for (summary of screens(); track summary.display.id) {

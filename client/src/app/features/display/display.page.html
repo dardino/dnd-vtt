@@ -91,4 +91,12 @@
   } @else {
     <div class="display__loading">In attesa della regia…</div>
   }
+
+  <button
+    type="button"
+    class="display__code"
+    [attr.aria-label]="'Codice schermo ' + code() + '. Attiva o disattiva fullscreen'"
+    title="Attiva/disattiva fullscreen"
+    (click)="toggleFullscreen()"
+  >{{ code() }}</button>
 </main>

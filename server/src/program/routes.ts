@@ -14,7 +14,7 @@ import {
 import { AppError, notFound } from '../errors.js';
 import { parse } from '../http/validation.js';
 import { displayStateByCode, getProgram, putProgram } from './service.js';
-import { broadcastDisplays } from '../realtime/hub.js';
+import { broadcastDisplays, onlineDisplayCodes } from '../realtime/hub.js';
 
 const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const codeParamsSchema = z.strictObject({ code: z.string().min(1).max(12) });
@@ -56,6 +56,14 @@ export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallba
       const { id } = parse(idParamsSchema, request.params);
       requireCampaign(id);
       return reply.send({ items: listDisplays(db, id) });
+    });
+
+    app.get('/campaigns/:id/displays/online', async (request, reply) => {
+      requireDm(request, env);
+      const { id } = parse(idParamsSchema, request.params);
+      requireCampaign(id);
+      const online = onlineDisplayCodes(id);
+      return reply.send({ items: listDisplays(db, id).filter((display) => online.has(display.code)) });
     });
 
     app.delete('/displays/:id', async (request, reply) => {

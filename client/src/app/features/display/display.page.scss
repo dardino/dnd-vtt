@@ -124,3 +124,26 @@
     }
   }
 }
+
+.display__code {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 20;
+  padding: 0.15rem 0.4rem;
+  border: 0;
+  background: transparent;
+  color: #d8d8d8;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  opacity: 0.75;
+  cursor: pointer;
+  -webkit-text-stroke: 0.5px #000;
+  text-shadow: 0 0 3px #000;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 1;
+  }
+}
