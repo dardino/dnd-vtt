@@ -363,6 +363,10 @@ export class SceneCanvasComponent implements OnDestroy {
     const height = Math.max(1, container.clientHeight);
     stage.size({ width, height });
     this.canvasSize.set({ width, height });
+    if (this.viewport() !== null) {
+      this.applyViewportOrFit();
+      return;
+    }
     this.renderGrid();
     this.renderMeasure();
     this.scheduleTiles();

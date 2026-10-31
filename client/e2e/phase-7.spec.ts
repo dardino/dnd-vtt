@@ -115,7 +115,7 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   test.setTimeout(60_000);
   const fixture = await createSceneFixture(request);
   await page.goto(`/dm/campaigns/${fixture.campaignId}`);
-  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
   const onAir = page.locator('.dm-topbar__onair');
   await expect(onAir).toHaveText('OFF AIR');
 
@@ -123,6 +123,7 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
     context.waitForEvent('page'),
     page.getByRole('button', { name: 'Apri schermo' }).click(),
   ]);
+  await display.waitForURL(/\/display\//);
   await display.waitForLoadState('domcontentloaded');
   const screen = display.locator('.display');
   await expect(screen).toBeVisible({ timeout: 15_000 });
@@ -138,9 +139,31 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await display.setViewportSize({ width: 800, height: 1200 });
   await expect(screenList).toContainText('800 × 1200', { timeout: 10_000 });
 
+  const versionBeforeTake = await screen.getAttribute('data-composition-version');
   await page.getByRole('button', { name: 'Manda in onda' }).click();
+  await expect.poll(async () => screen.getAttribute('data-composition-version'))
+    .not.toBe(versionBeforeTake);
   await expect(screen.locator('.scene-canvas')).toBeVisible({ timeout: 10_000 });
   await expect(screen).toHaveAttribute('data-token-portraits', '1');
+
+  const onlineResponse = await request.get(`/api/v1/campaigns/${fixture.campaignId}/displays/online`);
+  const onlineItems = (await onlineResponse.json() as {
+    items: { id: string; code: string }[];
+  }).items;
+  const target = onlineItems.find((item) => item.code === displayCode);
+  expect(target).toBeDefined();
+  const screenCanvasEl = screen.locator('.scene-canvas');
+  const baseScale = Number(await screenCanvasEl.getAttribute('data-camera-scale'));
+  await request.put(`/api/v1/campaigns/${fixture.campaignId}/displays/${target?.id}/viewport`, {
+    data: { viewport: { x: 500, y: 400, zoom: 2 } },
+  });
+  await expect.poll(async () => Number(await screenCanvasEl.getAttribute('data-camera-scale')))
+    .toBeCloseTo(baseScale * 2, 1);
+  await request.put(`/api/v1/campaigns/${fixture.campaignId}/displays/${target?.id}/viewport`, {
+    data: { viewport: { x: 500, y: 400, zoom: 1 } },
+  });
+  await expect.poll(async () => Number(await screenCanvasEl.getAttribute('data-camera-scale')))
+    .toBeCloseTo(baseScale, 1);
 
   await screenList.locator('.screen-row').first().click();
   const viewer = page.getByRole('dialog').locator('.screen-viewer');
@@ -149,14 +172,21 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   const viewerSize = await viewer.boundingBox();
   expect((viewerSize?.width ?? 0) / (viewerSize?.height ?? 1)).toBeCloseTo(800 / 1200, 1);
   const screenCanvas = screen.locator('.scene-canvas');
-  const beforeScale = await screenCanvas.getAttribute('data-camera-scale');
+  const beforeScale = Number(await screenCanvas.getAttribute('data-camera-scale'));
   const beforeCameraX = await screenCanvas.getAttribute('data-camera-x');
   const zoomLabel = page.getByRole('dialog').locator('.inline-controls .muted');
   await viewer.hover();
-  await page.mouse.wheel(0, -120);
+  for (let tick = 0; tick < 5; tick += 1) {
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(100);
+  }
   await expect(zoomLabel).not.toHaveText('Zoom 100%');
   await expect.poll(async () => screenCanvas.getAttribute('data-camera-scale'))
-    .not.toBe(beforeScale);
+    .not.toBe(String(beforeScale));
+  const dialogZoom = Number(await viewer.getAttribute('data-zoom'));
+  expect(dialogZoom).toBeGreaterThan(1.5);
+  await expect.poll(async () => Number(await screenCanvas.getAttribute('data-camera-scale')))
+    .toBeCloseTo(beforeScale * dialogZoom, 1);
   const viewerBox = await viewer.boundingBox();
   await page.mouse.move(
     (viewerBox?.x ?? 0) + (viewerBox?.width ?? 0) / 2,
@@ -208,17 +238,19 @@ test('con più schermi Manda in onda chiede il target', async ({ page, context, 
   test.setTimeout(60_000);
   const fixture = await createSceneFixture(request);
   await page.goto(`/dm/campaigns/${fixture.campaignId}`);
-  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
 
   const [first] = await Promise.all([
     context.waitForEvent('page'),
     page.getByRole('button', { name: 'Apri schermo' }).click(),
   ]);
+  await first.waitForURL(/\/display\//);
   await first.waitForLoadState('domcontentloaded');
   const [second] = await Promise.all([
     context.waitForEvent('page'),
     page.getByRole('button', { name: 'Apri schermo' }).click(),
   ]);
+  await second.waitForURL(/\/display\//);
   await second.waitForLoadState('domcontentloaded');
   const screenList = page.locator('#sidebar-screens');
   await expect(screenList.locator('.screen-row')).toHaveCount(2, { timeout: 15_000 });

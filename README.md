@@ -128,7 +128,10 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   uno si apre un’anteprima che usa lo stesso aspect ratio dello schermo
   (orizzontale o verticale) e pan/zooma la proiezione reale. Lo zoom è relativo
   al fit della risoluzione dello schermo: 100% = mappa adattata, anche in
-  fullscreen. Le sidebar ridotte diventano una barra stretta con l’etichetta in
+  fullscreen; quando lo schermo cambia dimensioni o entra in fullscreen il fit
+  viene ricalcolato mantenendo lo zoom relativo. I salvataggi di viewport sono
+  serializzati (l'ultimo gesto vince) e "Manda in onda" attende quelli in corso.
+  Le sidebar ridotte diventano una barra stretta con l'etichetta in
   verticale. Restano
   fuori dal core: editor PVW con drag/resize degli overlay, camera live/libera
   e pairing QR.

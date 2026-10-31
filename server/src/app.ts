@@ -64,7 +64,7 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
     crossOriginEmbedderPolicy: false,
   });
   void app.register(rateLimit, {
-    max: 300,
+    max: env.nodeEnv === 'test' ? 100_000 : 300,
     timeWindow: '1 minute',
     allowList: (request) => request.method === 'GET' || request.url.startsWith('/uploads/'),
     errorResponseBuilder: (request, context) => new AppError(

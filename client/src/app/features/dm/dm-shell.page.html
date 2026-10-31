@@ -1011,6 +1011,7 @@
     <div
       class="screen-viewer"
       [style.aspect-ratio]="screenAspect()"
+      [attr.data-zoom]="screenViewport()?.zoom ?? 1"
       (wheel)="zoomScreen($event)"
       (pointerdown)="startScreenPan($event)"
       (pointermove)="moveScreenPan($event)"

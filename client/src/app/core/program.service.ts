@@ -54,13 +54,12 @@ export class ProgramService {
   public async putDisplayViewport(
     campaignId: string,
     displayId: string,
-    version: number,
     viewport: { x: number; y: number; zoom: number },
   ): Promise<{ version: number; viewport: { x: number; y: number; zoom: number } }> {
     return firstValueFrom(
       this.http.put<{ version: number; viewport: { x: number; y: number; zoom: number } }>(
         `/api/v1/campaigns/${campaignId}/displays/${displayId}/viewport`,
-        { version, viewport },
+        { viewport },
       ),
     );
   }

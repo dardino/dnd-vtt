@@ -113,7 +113,7 @@ export const putDisplayViewport = (
   db: AppDatabase,
   campaignId: string,
   displayId: string,
-  version: number,
+  version: number | undefined,
   viewport: Viewport,
 ): { version: number; viewport: Viewport } => {
   const display = getDisplay(db, displayId);
@@ -139,7 +139,7 @@ export const putDisplayViewport = (
     overlays: composition.overlays.map((layer) =>
       layer.id === mapLayer.id ? { ...layer, content } : layer),
   };
-  const updated = updateDisplayComposition(db, displayId, next, version);
+  const updated = updateDisplayComposition(db, displayId, next, version ?? display.compositionVersion);
   if (updated === null) {
     throw new AppError('state_conflict', 409, 'Lo schermo è stato aggiornato altrove', {
       currentVersion: display.compositionVersion,

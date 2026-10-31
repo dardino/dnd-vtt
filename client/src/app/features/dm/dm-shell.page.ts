@@ -213,6 +213,8 @@ export class DmShellPage implements OnInit {
   private screenDragStart = { x: 0, y: 0, viewport: { x: 0, y: 0, zoom: 1 } };
   private viewportTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingViewport: Viewport | null = null;
+  private viewportSaving = false;
+  private viewportSave: Promise<void> | null = null;
   public readonly sessions = signal<Session[]>([]);
   public readonly activeSession = signal<Session | null>(null);
   public readonly sessionBusy = signal(false);
@@ -1148,7 +1150,7 @@ export class DmShellPage implements OnInit {
       this.displayCode.set(display.code);
       window.open(`/display/${display.code}`, '_blank');
       this.statusMessage.set(`Schermo aperto: ${display.code}`);
-      await this.loadScreens(campaign.id);
+      void this.loadScreens(campaign.id);
     } catch (error) {
       this.statusMessage.set(messageFor(error));
     } finally {
@@ -1179,6 +1181,8 @@ export class DmShellPage implements OnInit {
     this.cancelPendingScreenViewport();
     this.programBusy.set(true);
     try {
+      await this.waitForViewportSave();
+      this.cancelPendingScreenViewport();
       const current = await this.programsApi.get(campaign.id);
       const composition = {
         base: {
@@ -1197,10 +1201,11 @@ export class DmShellPage implements OnInit {
         },
         overlays: current.state.overlays,
       };
+      const latest = await this.programsApi.getDisplayState(summary.display.code);
       const updated = await this.programsApi.putDisplayComposition(
         campaign.id,
         summary.display.id,
-        summary.display.compositionVersion,
+        latest.display.compositionVersion,
         composition,
       );
       const display: Display = { ...summary.display, compositionVersion: updated.version };
@@ -1603,7 +1608,10 @@ export class DmShellPage implements OnInit {
         if (match === undefined) {
           this.closeScreenDialog();
         } else {
-          this.screenDialog.set({ ...match, state: open.state });
+          this.screenDialog.set({
+            ...match,
+            state: this.viewportDirty() ? open.state : match.state,
+          });
         }
       }
     } catch {
@@ -1615,6 +1623,7 @@ export class DmShellPage implements OnInit {
     this.screenDialog.set(summary);
     this.screenViewport.set(this.screenViewportFrom(summary));
     this.startScreenPolling();
+    void this.refreshScreenDialog();
   }
 
   public closeScreenDialog(): void {
@@ -1737,7 +1746,7 @@ export class DmShellPage implements OnInit {
 
   private queueScreenViewport(viewport: Viewport): void {
     this.pendingViewport = viewport;
-    if (this.viewportTimer !== null) {
+    if (this.viewportSaving || this.viewportTimer !== null) {
       return;
     }
     this.viewportTimer = setTimeout(() => {
@@ -1747,6 +1756,9 @@ export class DmShellPage implements OnInit {
   }
 
   private async flushScreenViewport(): Promise<void> {
+    if (this.viewportSaving) {
+      return;
+    }
     const viewport = this.pendingViewport;
     this.pendingViewport = null;
     const campaign = this.activeCampaign();
@@ -1754,23 +1766,78 @@ export class DmShellPage implements OnInit {
     if (viewport === null || campaign === null || summary === null) {
       return;
     }
+    this.viewportSaving = true;
+    const save = this.saveScreenViewport(
+      campaign.id,
+      summary.display.id,
+      summary.display.code,
+      viewport,
+    );
+    this.viewportSave = save;
     try {
-      const updated = await this.programsApi.putDisplayViewport(
-        campaign.id,
-        summary.display.id,
-        summary.display.compositionVersion,
-        viewport,
-      );
-      const display: Display = { ...summary.display, compositionVersion: updated.version };
-      this.screenDialog.set({ ...summary, display });
-      this.screens.update((items) => items.map((item) =>
-        item.display.id === display.id ? { ...item, display } : item));
-    } catch {
-      // Se un'altra azione ha cambiato lo schermo, il prossimo frame riprova.
+      await save;
     } finally {
-      if (this.pendingViewport !== null && this.viewportTimer === null) {
+      if (this.viewportSave === save) {
+        this.viewportSave = null;
+      }
+      this.viewportSaving = false;
+      if (this.pendingViewport !== null) {
         this.queueScreenViewport(this.pendingViewport);
       }
+    }
+  }
+
+  private async saveScreenViewport(
+    campaignId: string,
+    displayId: string,
+    code: string,
+    viewport: Viewport,
+  ): Promise<void> {
+    try {
+      const updated = await this.programsApi.putDisplayViewport(campaignId, displayId, viewport);
+      this.applyDisplayVersion(displayId, updated.version);
+    } catch (error) {
+      if (error instanceof HttpErrorResponse && error.status === 409) {
+        try {
+          const envelope = await this.programsApi.getDisplayState(code);
+          this.applyDisplayMeta(displayId, envelope.display);
+        } catch {
+          // Lo schermo potrebbe essere stato chiuso.
+        }
+      }
+      if (this.pendingViewport === null) {
+        this.pendingViewport = viewport;
+      }
+    }
+  }
+
+  private applyDisplayVersion(displayId: string, version: number): void {
+    this.screenDialog.update((current) => current === null || current.display.id !== displayId
+      ? current
+      : { ...current, display: { ...current.display, compositionVersion: version } });
+    this.screens.update((items) => items.map((item) => item.display.id === displayId
+      ? { ...item, display: { ...item.display, compositionVersion: version } }
+      : item));
+  }
+
+  private applyDisplayMeta(displayId: string, source: Display): void {
+    this.screenDialog.update((current) => current === null || current.display.id !== displayId
+      ? current
+      : { ...current, display: source });
+    this.screens.update((items) => items.map((item) => item.display.id === displayId
+      ? { ...item, display: source }
+      : item));
+  }
+
+  private viewportDirty(): boolean {
+    return this.screenDragging || this.pendingViewport !== null || this.viewportSaving;
+  }
+
+  private async waitForViewportSave(): Promise<void> {
+    let save = this.viewportSave;
+    while (save !== null) {
+      await save;
+      save = this.viewportSave;
     }
   }
 
@@ -1795,11 +1862,12 @@ export class DmShellPage implements OnInit {
     }
     try {
       const envelope = await this.programsApi.getDisplayState(current.display.code);
+      const dirty = this.viewportDirty();
       let state = envelope.state;
       const localViewport = this.screenViewport();
       if (
-        localViewport !== null
-        && (this.screenDragging || this.pendingViewport !== null)
+        dirty
+        && localViewport !== null
         && state.composition.base.type === 'map'
       ) {
         state = {
@@ -1817,7 +1885,7 @@ export class DmShellPage implements OnInit {
       const nextViewport = state.composition.base.type === 'map'
         ? state.composition.base.viewport ?? null
         : null;
-      if (!this.screenDragging && this.pendingViewport === null && nextViewport !== null) {
+      if (!dirty && nextViewport !== null) {
         this.screenViewport.set(nextViewport);
       }
     } catch {

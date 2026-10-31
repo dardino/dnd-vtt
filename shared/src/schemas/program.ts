@@ -183,7 +183,7 @@ export const displayCompositionSchema = z.strictObject({
 export type DisplayComposition = z.infer<typeof displayCompositionSchema>;
 
 export const displayViewportRequestSchema = z.strictObject({
-  version: z.number().int().min(1),
+  version: z.number().int().min(1).optional(),
   viewport: viewportSchema,
 });
 export type DisplayViewportRequest = z.infer<typeof displayViewportRequestSchema>;
