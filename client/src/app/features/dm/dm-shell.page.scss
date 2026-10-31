@@ -98,10 +98,23 @@
 }
 
 .dm-layout {
-  @include layout.grid-12(0);
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  --dm-left-base: clamp(16rem, 18vw, 20rem);
+  --dm-right-base: clamp(20rem, 22vw, 24rem);
+  --dm-left: var(--dm-left-base);
+  --dm-right: var(--dm-right-base);
+  display: grid;
+  grid-template-columns: var(--dm-left) minmax(0, 1fr) var(--dm-right);
+  grid-template-rows: minmax(0, 1fr) auto;
   flex: 1;
   min-height: 0;
+}
+
+.dm-layout--left-collapsed {
+  --dm-left: 3.25rem;
+}
+
+.dm-layout--right-collapsed {
+  --dm-right: 3.25rem;
 }
 
 .dm-panel {
@@ -114,12 +127,10 @@
   background: var(--color-bg-raised);
 
   &--left {
-    grid-column: span 2;
     border-right: var(--border-width) solid var(--color-border);
   }
 
   &--right {
-    grid-column: span 3;
     border-left: var(--border-width) solid var(--color-border);
   }
 
@@ -130,23 +141,11 @@
 }
 
 .dm-layout--left-collapsed .dm-panel--left {
-  grid-column: span 1;
-}
-
-.dm-layout--left-collapsed .dm-main {
-  grid-column: span 8;
+  align-items: center;
 }
 
 .dm-layout--right-collapsed .dm-panel--right {
-  grid-column: span 1;
-}
-
-.dm-layout--right-collapsed .dm-main {
-  grid-column: span 9;
-}
-
-.dm-layout--left-collapsed.dm-layout--right-collapsed .dm-main {
-  grid-column: span 10;
+  align-items: center;
 }
 
 .dm-panel.is-collapsed {
@@ -288,7 +287,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  grid-column: span 7;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -860,7 +858,6 @@
 
 .slots {
   display: flex;
-  grid-column: span 12;
   gap: var(--space-2);
   min-width: 0;
   padding: var(--space-2) var(--space-3);
@@ -991,7 +988,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  grid-column: span 12;
+  grid-column: 1 / -1;
   padding: var(--space-1) var(--space-3);
   border-top: var(--border-width) solid var(--color-border);
   background: var(--color-bg-sunken);
@@ -1158,22 +1155,19 @@
 }
 
 @media (max-width: 1200px) {
-  .dm-panel--left {
-    grid-column: span 1;
-  }
-
-  .dm-main {
-    grid-column: span 9;
-  }
-
-  .dm-panel--right {
-    grid-column: span 2;
+  .dm-layout {
+    --dm-left-base: 14rem;
+    --dm-right-base: 18rem;
   }
 }
 
 @media (max-width: 980px) {
+  .dm-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .dm-main {
-    grid-column: span 12;
+    grid-column: 1;
   }
 
   .dm-panel--left,

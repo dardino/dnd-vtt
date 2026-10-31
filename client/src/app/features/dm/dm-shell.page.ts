@@ -309,9 +309,8 @@ export class DmShellPage implements OnInit {
       .filter((wall) => wall.kind === 'door')
       .map((wall) => ({
         id: wall.id,
-        x: wall.x,
-        y: wall.y,
-        dir: wall.dir,
+        a: wall.a,
+        b: wall.b,
         state: wall.door === 'open' ? 'open' : 'closed',
       })));
 

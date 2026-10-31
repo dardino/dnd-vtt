@@ -1,46 +1,44 @@
-import type { GridConfig, Terrain, TokenState, WallEdge } from '../../schemas/scene.js';
+import type {
+  DoorState,
+  GridConfig,
+  Terrain,
+  TokenState,
+  WallKind,
+  WallPoint,
+  WallSegment,
+} from '../../schemas/scene.js';
 import type { CellPoint } from './grid.js';
-import { pixelToCell } from './grid.js';
 
-export interface EdgeRef {
+export interface GridEdge {
   x: number;
   y: number;
   dir: 'h' | 'v';
+  kind: WallKind;
+  door?: DoorState;
 }
 
-export const edgeKey = (edge: EdgeRef): string => `${edge.dir}:${edge.x}:${edge.y}`;
+export const edgeKey = (edge: Pick<GridEdge, 'x' | 'y' | 'dir'>): string =>
+  `${edge.dir}:${edge.x}:${edge.y}`;
 
-export const edgeId = (edge: EdgeRef): string => `edge-${edge.dir}-${edge.x}-${edge.y}`;
-
-export const edgeFromCells = (from: CellPoint, to: CellPoint): EdgeRef[] => {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  if (dx === 0 && dy === 0) {
-    return [];
-  }
-  const edges: EdgeRef[] = [];
-  if (dx !== 0) {
-    edges.push({ x: dx > 0 ? to.x : from.x, y: from.y, dir: 'v' });
-  }
-  if (dy !== 0) {
-    edges.push({ x: from.x, y: dy > 0 ? to.y : from.y, dir: 'h' });
-  }
-  return edges;
-};
-
-export const edgeMidpointPx = (
+export const latticePointPx = (
   grid: GridConfig,
-  edge: EdgeRef,
-): { x: number; y: number } => {
-  const cell = grid.cellSizePx;
-  return edge.dir === 'h'
-    ? { x: grid.offsetX + (edge.x + 0.5) * cell, y: grid.offsetY + edge.y * cell }
-    : { x: grid.offsetX + edge.x * cell, y: grid.offsetY + (edge.y + 0.5) * cell };
-};
+  point: WallPoint,
+): { x: number; y: number } => ({
+  x: grid.offsetX + point.x * grid.cellSizePx,
+  y: grid.offsetY + point.y * grid.cellSizePx,
+});
+
+export const wallSegmentPx = (
+  grid: GridConfig,
+  segment: Pick<WallSegment, 'a' | 'b'>,
+): { a: { x: number; y: number }; b: { x: number; y: number } } => ({
+  a: latticePointPx(grid, segment.a),
+  b: latticePointPx(grid, segment.b),
+});
 
 export const edgeSegmentPx = (
   grid: GridConfig,
-  edge: EdgeRef,
+  edge: Pick<GridEdge, 'x' | 'y' | 'dir'>,
 ): { a: { x: number; y: number }; b: { x: number; y: number } } => {
   const cell = grid.cellSizePx;
   if (edge.dir === 'h') {
@@ -55,7 +53,17 @@ export const edgeSegmentPx = (
   };
 };
 
-export const edgeBlocksSight = (edge: WallEdge): boolean => {
+export const edgeMidpointPx = (
+  grid: GridConfig,
+  edge: Pick<GridEdge, 'x' | 'y' | 'dir'>,
+): { x: number; y: number } => {
+  const cell = grid.cellSizePx;
+  return edge.dir === 'h'
+    ? { x: grid.offsetX + (edge.x + 0.5) * cell, y: grid.offsetY + edge.y * cell }
+    : { x: grid.offsetX + edge.x * cell, y: grid.offsetY + (edge.y + 0.5) * cell };
+};
+
+export const edgeBlocksSight = (edge: GridEdge): boolean => {
   if (edge.kind === 'wall') {
     return true;
   }
@@ -67,65 +75,125 @@ export const edgeBlocksSight = (edge: WallEdge): boolean => {
 
 export const edgeBlocksLight = edgeBlocksSight;
 
-export const edgeBlocksMovement = (edge: WallEdge): boolean => {
+export const edgeBlocksMovement = (edge: GridEdge): boolean => {
   if (edge.kind === 'wall' || edge.kind === 'window' || edge.kind === 'lowWall') {
     return true;
   }
   return edge.kind === 'door' && edge.door !== 'open';
 };
 
-export const blockingEdges = (
-  terrain: Terrain | undefined,
-  mode: 'sight' | 'light' | 'movement',
-): WallEdge[] => {
-  if (terrain === undefined) {
-    return [];
-  }
-  const predicate = mode === 'movement' ? edgeBlocksMovement : mode === 'light' ? edgeBlocksLight : edgeBlocksSight;
-  return terrain.walls.filter(predicate);
+const nearestEdges = (point: WallPoint): GridEdge[] => {
+  const horizontal: GridEdge = {
+    x: Math.floor(point.x),
+    y: Math.round(point.y),
+    dir: 'h',
+    kind: 'wall',
+  };
+  const vertical: GridEdge = {
+    x: Math.round(point.x),
+    y: Math.floor(point.y),
+    dir: 'v',
+    kind: 'wall',
+  };
+  return [horizontal, vertical];
 };
 
-export const findEdge = (
-  terrain: Terrain | undefined,
-  edge: EdgeRef,
-): WallEdge | undefined => terrain?.walls.find((entry) => edgeKey(entry) === edgeKey(edge));
-
 /**
- * Converte una polilinea libera in una catena di lati della griglia. Campiona
- * il tratto a passi sub-cella e registra ogni cambio di cella, cos� anche una
- * torre circolare diventa un anello di edge senza buchi.
+ * Rasterizza un muro vettoriale negli edge di cella che la visione e il
+ * movimento sanno usare. I muri orizzontali/verticali restano esatti; un
+ * diagonale diventa una catena di edge (la resa visiva resta il vettore).
  */
-export const rasterizeWallTrace = (
-  points: Array<{ x: number; y: number }>,
-  grid: GridConfig,
-): EdgeRef[] => {
-  if (points.length < 2) {
-    return [];
-  }
-  const step = Math.max(2, Math.min(12, grid.cellSizePx / 6));
-  const edges = new Map<string, EdgeRef>();
-  let previous = pixelToCell(grid, points[0] ?? { x: 0, y: 0 });
-  for (let index = 1; index < points.length; index += 1) {
-    const from = points[index - 1];
-    const to = points[index];
-    if (from === undefined || to === undefined) {
-      continue;
+export const deriveSegmentEdges = (segment: WallSegment): GridEdge[] => {
+  const edges = new Map<string, GridEdge>();
+  const add = (edge: GridEdge): void => {
+    edges.set(edgeKey(edge), {
+      ...edge,
+      kind: segment.kind,
+      ...(segment.door === undefined ? {} : { door: segment.door }),
+    });
+  };
+  const dx = segment.b.x - segment.a.x;
+  const dy = segment.b.y - segment.a.y;
+  if (Math.abs(dy) < 1e-9 && Math.abs(segment.a.y - Math.round(segment.a.y)) < 1e-9) {
+    const y = Math.round(segment.a.y);
+    const from = Math.min(segment.a.x, segment.b.x);
+    const to = Math.max(segment.a.x, segment.b.x);
+    for (let x = Math.floor(from); x < Math.ceil(to); x += 1) {
+      add({ x, y, dir: 'h', kind: segment.kind });
     }
-    const length = Math.hypot(to.x - from.x, to.y - from.y);
-    const steps = Math.max(1, Math.ceil(length / step));
-    for (let tick = 0; tick <= steps; tick += 1) {
-      const ratio = tick / steps;
-      const point = { x: from.x + (to.x - from.x) * ratio, y: from.y + (to.y - from.y) * ratio };
-      const cell = pixelToCell(grid, point);
-      if (cell.x !== previous.x || cell.y !== previous.y) {
-        for (const edge of edgeFromCells(previous, cell)) {
-          edges.set(edgeKey(edge), edge);
-        }
-        previous = cell;
-      }
+    return [...edges.values()];
+  }
+  if (Math.abs(dx) < 1e-9 && Math.abs(segment.a.x - Math.round(segment.a.x)) < 1e-9) {
+    const x = Math.round(segment.a.x);
+    const from = Math.min(segment.a.y, segment.b.y);
+    const to = Math.max(segment.a.y, segment.b.y);
+    for (let y = Math.floor(from); y < Math.ceil(to); y += 1) {
+      add({ x, y, dir: 'v', kind: segment.kind });
+    }
+    return [...edges.values()];
+  }
+  const length = Math.hypot(dx, dy);
+  const steps = Math.max(1, Math.ceil(length / 0.08));
+  for (let index = 0; index <= steps; index += 1) {
+    const ratio = index / steps;
+    const point = {
+      x: segment.a.x + dx * ratio,
+      y: segment.a.y + dy * ratio,
+    };
+    for (const edge of nearestEdges(point)) {
+      add(edge);
     }
   }
   return [...edges.values()];
+};
+
+export const blockingEdges = (
+  terrain: Terrain | undefined,
+  mode: 'sight' | 'light' | 'movement',
+): GridEdge[] => {
+  if (terrain === undefined) {
+    return [];
+  }
+  const blocked = new Map<string, GridEdge>();
+  for (const segment of terrain.walls) {
+    for (const edge of deriveSegmentEdges(segment)) {
+      const blocks = mode === 'movement'
+        ? edgeBlocksMovement(edge)
+        : mode === 'light'
+          ? edgeBlocksLight(edge)
+          : edgeBlocksSight(edge);
+      if (blocks) {
+        blocked.set(edgeKey(edge), edge);
+      }
+    }
+  }
+  return [...blocked.values()];
+};
+
+export const edgeFromCells = (from: CellPoint, to: CellPoint): GridEdge[] => {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  if (dx === 0 && dy === 0) {
+    return [];
+  }
+  const edges: GridEdge[] = [];
+  if (dx !== 0) {
+    edges.push({
+      x: dx > 0 ? to.x : from.x,
+      y: from.y,
+      dir: 'v',
+      kind: 'wall',
+    });
+  }
+  if (dy !== 0) {
+    edges.push({
+      x: from.x,
+      y: dy > 0 ? to.y : from.y,
+      dir: 'h',
+      kind: 'wall',
+    });
+  }
+  return edges;
 };
 
 const cellsAlongLine = (from: CellPoint, to: CellPoint): CellPoint[] => {

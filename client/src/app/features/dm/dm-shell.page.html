@@ -289,7 +289,7 @@
                     <div class="interactive-list">
                       @for (door of sceneDoors(); track door.id) {
                         <button type="button" class="interactive-row" (click)="toggleDoor(door)">
-                          <span>{{ door.door === 'secret' ? 'Porta segreta' : 'Porta' }} ({{ door.x }}, {{ door.y }})</span>
+                          <span>{{ door.door === 'secret' ? 'Porta segreta' : 'Porta' }} ({{ door.a.x }}, {{ door.a.y }})</span>
                           <span class="badge">{{ door.door === 'open' ? 'aperta' : door.door === 'secret' ? 'segreta' : 'chiusa' }}</span>
                         </button>
                       }

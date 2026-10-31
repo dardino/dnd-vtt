@@ -6,11 +6,10 @@ import type {
   TokenLight,
   TokenState,
   VisionGrid,
-  WallEdge,
 } from '../../schemas/scene.js';
 import type { CellPoint } from './grid.js';
 import { cellCenterPx } from './grid.js';
-import { blockingEdges, edgeKey, hasLineOfSight } from './edges.js';
+import { blockingEdges, deriveSegmentEdges, edgeKey, hasLineOfSight, type GridEdge } from './edges.js';
 
 export interface VisionSource {
   cell: CellPoint;
@@ -302,7 +301,7 @@ export const isTokenVisible = (
   return false;
 };
 
-const adjacentCells = (edge: WallEdge): CellPoint[] =>
+const adjacentCells = (edge: GridEdge): CellPoint[] =>
   edge.dir === 'h'
     ? [{ x: edge.x, y: edge.y - 1 }, { x: edge.x, y: edge.y }]
     : [{ x: edge.x - 1, y: edge.y }, { x: edge.x, y: edge.y }];
@@ -314,20 +313,21 @@ export const doorsForDisplay = (
   grid: GridConfig,
 ): PublicDoor[] => {
   const doors: PublicDoor[] = [];
-  for (const edge of terrain.walls) {
-    if (edge.kind !== 'door' || edge.door === 'secret') {
+  for (const segment of terrain.walls) {
+    if (segment.kind !== 'door' || segment.door === 'secret') {
       continue;
     }
-    const visible = adjacentCells(edge).some((cell) => isCellVisible(fog, vision, grid, cell));
+    const visible = deriveSegmentEdges(segment)
+      .flatMap(adjacentCells)
+      .some((cell) => isCellVisible(fog, vision, grid, cell));
     if (!visible) {
       continue;
     }
     doors.push({
-      id: edge.id,
-      x: edge.x,
-      y: edge.y,
-      dir: edge.dir,
-      state: edge.door === 'open' ? 'open' : 'closed',
+      id: segment.id,
+      a: segment.a,
+      b: segment.b,
+      state: segment.door === 'open' ? 'open' : 'closed',
     });
   }
   return doors;

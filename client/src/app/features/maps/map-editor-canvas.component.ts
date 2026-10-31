@@ -5,6 +5,7 @@ import {
   type OnDestroy,
   afterNextRender,
   effect,
+  inject,
   input,
   output,
   signal,
@@ -14,19 +15,20 @@ import Konva from 'konva';
 import {
   HEX_ROW_RATIO,
   cellCenterPx,
-  edgeMidpointPx,
-  edgeSegmentPx,
+  latticePointPx,
   pixelToCell,
-  rasterizeWallTrace,
+  wallSegmentPx,
   type CellPoint,
-  type EdgeRef,
   type GridConfig,
   type MapSpawn,
   type MapView,
   type PlayerStart,
   type Terrain,
   type WallKind,
+  type WallPoint,
+  type WallSegment,
 } from '@dnd-vtt/shared';
+import { MeasurementService } from '../../core/measurement.service';
 
 export type EditorTool
   = | 'select'
@@ -51,9 +53,10 @@ export interface EditorMapImage {
   height: number;
 }
 
-export interface EdgesPaintedEvent {
-  edges: EdgeRef[];
-  kind: WallKind | 'erase';
+export type WallDraft = Omit<WallSegment, 'id'> & { id?: string };
+
+export interface WallsDrawnEvent {
+  walls: WallDraft[];
 }
 
 interface Camera {
@@ -86,7 +89,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public readonly startView = input<MapView | null>(null);
   public readonly showGrid = input(true);
 
-  public readonly edgesPainted = output<EdgesPaintedEvent>();
+  public readonly wallsDrawn = output<WallsDrawnEvent>();
+  public readonly wallRemoved = output<string>();
   public readonly lightPlaced = output<CellPoint>();
   public readonly spawnRequested = output<CellPoint>();
   public readonly startPlaced = output<CellPoint>();
@@ -96,6 +100,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public readonly gridLines = signal(0);
 
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
+  private readonly units = inject(MeasurementService);
   private stage: Konva.Stage | null = null;
   private mapLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
@@ -106,9 +111,13 @@ export class MapEditorCanvasComponent implements OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private camera = signal<Camera>({ scale: 1, x: 0, y: 0 });
   private fitted = false;
-  private draft: EdgeRef[] = [];
-  private draftKind: WallKind | null = null;
+  private wallStart: WallPoint | null = null;
+  private wallCurrent: WallPoint | null = null;
+  private wallDraftKind: WallKind | null = null;
   private freehand: Array<{ x: number; y: number }> | null = null;
+  private erasing = false;
+  private erased = new Set<string>();
+  private lastTool: EditorTool | null = null;
   private loadedImage: { url: string; element: HTMLImageElement } | null = null;
   private lastImageUrl: string | null = null;
   private panning: { clientX: number; clientY: number; stageX: number; stageY: number } | null = null;
@@ -277,10 +286,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (pointer === null) {
       return;
     }
-    const world = {
-      x: (pointer.x - stage.x()) / stage.scaleX(),
-      y: (pointer.y - stage.y()) / stage.scaleY(),
-    };
+    const world = this.worldPoint(pointer);
     const tool = this.tool();
     if (tool === 'select') {
       this.selectAt(world);
@@ -300,17 +306,22 @@ export class MapEditorCanvasComponent implements OnDestroy {
       }
       return;
     }
+    if (tool === 'eraser') {
+      this.erasing = true;
+      this.erased.clear();
+      this.eraseAt(world);
+      return;
+    }
     if (tool === 'freehand') {
       this.freehand = [world];
+      this.renderOverlay();
       return;
     }
-    const edge = this.nearestEdge(world);
-    if (edge === null) {
-      return;
-    }
-    this.draftKind = tool === 'eraser' ? 'wall' : tool;
-    this.draft = [edge];
-    this.renderDraft();
+    const point = this.nearestLatticePoint(world);
+    this.wallStart = point;
+    this.wallCurrent = point;
+    this.wallDraftKind = tool;
+    this.renderOverlay();
   }
 
   private onPointerMove(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void {
@@ -334,31 +345,23 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.renderAll();
       return;
     }
-    if (this.freehand !== null) {
-      const pointer = stage.getPointerPosition();
-      if (pointer !== null) {
-        this.freehand.push({
-          x: (pointer.x - stage.x()) / stage.scaleX(),
-          y: (pointer.y - stage.y()) / stage.scaleY(),
-        });
-        this.renderDraft();
-      }
+    const pointer = stage.getPointerPosition();
+    if (pointer === null) {
       return;
     }
-    if (this.draftKind !== null) {
-      const pointer = stage.getPointerPosition();
-      if (pointer === null) {
-        return;
-      }
-      const edge = this.nearestEdge({
-        x: (pointer.x - stage.x()) / stage.scaleX(),
-        y: (pointer.y - stage.y()) / stage.scaleY(),
-      });
-      if (edge !== null && !this.draft.some((entry) =>
-        entry.x === edge.x && entry.y === edge.y && entry.dir === edge.dir)) {
-        this.draft.push(edge);
-        this.renderDraft();
-      }
+    const world = this.worldPoint(pointer);
+    if (this.erasing) {
+      this.eraseAt(world);
+      return;
+    }
+    if (this.freehand !== null) {
+      this.freehand.push(world);
+      this.renderOverlay();
+      return;
+    }
+    if (this.wallDraftKind !== null) {
+      this.wallCurrent = this.nearestLatticePoint(world);
+      this.renderOverlay();
     }
   }
 
@@ -367,47 +370,93 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.panning = null;
       return;
     }
+    if (this.erasing) {
+      this.erasing = false;
+      this.erased.clear();
+      return;
+    }
     if (this.freehand !== null) {
       const traces = this.freehand;
       this.freehand = null;
-      if (traces.length >= 2) {
-        this.edgesPainted.emit({
-          edges: rasterizeWallTrace(traces, this.grid()),
-          kind: 'wall',
-        });
+      const walls = this.wallsFromTrace(traces);
+      if (walls.length > 0) {
+        this.wallsDrawn.emit({ walls });
       }
       this.renderAll();
       return;
     }
-    if (this.draftKind !== null && this.draft.length > 0) {
-      this.edgesPainted.emit({
-        edges: this.draft,
-        kind: this.tool() === 'eraser' ? 'erase' : this.draftKind,
-      });
-      this.draft = [];
-      this.draftKind = null;
+    if (this.wallDraftKind !== null) {
+      const start = this.wallStart;
+      const current = this.wallCurrent;
+      const kind = this.wallDraftKind;
+      this.wallStart = null;
+      this.wallCurrent = null;
+      this.wallDraftKind = null;
+      if (
+        start !== null
+        && current !== null
+        && (start.x !== current.x || start.y !== current.y)
+      ) {
+        this.wallsDrawn.emit({
+          walls: [{ a: start, b: current, kind, ...(kind === 'door' ? { door: 'closed' } : {}) }],
+        });
+      }
       this.renderAll();
     }
   }
 
-  private nearestEdge(point: { x: number; y: number }): EdgeRef | null {
+  private worldPoint(pointer: { x: number; y: number }): { x: number; y: number } {
+    const stage = this.stage;
+    if (stage === null) {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: (pointer.x - stage.x()) / stage.scaleX(),
+      y: (pointer.y - stage.y()) / stage.scaleY(),
+    };
+  }
+
+  private nearestLatticePoint(world: { x: number; y: number }): WallPoint {
     const grid = this.grid();
-    const cell = grid.cellSizePx;
-    const gx = (point.x - grid.offsetX) / cell;
-    const gy = (point.y - grid.offsetY) / cell;
-    const horizontal = {
-      x: Math.max(0, Math.floor(gx)),
-      y: Math.max(0, Math.round(gy)),
-      dir: 'h' as const,
+    return {
+      x: Math.round((world.x - grid.offsetX) / grid.cellSizePx),
+      y: Math.round((world.y - grid.offsetY) / grid.cellSizePx),
     };
-    const vertical = {
-      x: Math.max(0, Math.round(gx)),
-      y: Math.max(0, Math.floor(gy)),
-      dir: 'v' as const,
-    };
-    const horizontalDistance = Math.abs(gy - Math.round(gy));
-    const verticalDistance = Math.abs(gx - Math.round(gx));
-    return horizontalDistance <= verticalDistance ? horizontal : vertical;
+  }
+
+  private wallsFromTrace(points: Array<{ x: number; y: number }>): WallDraft[] {
+    const grid = this.grid();
+    const lattice = points
+      .map((point) => ({
+        x: (point.x - grid.offsetX) / grid.cellSizePx,
+        y: (point.y - grid.offsetY) / grid.cellSizePx,
+      }))
+      .filter((point, index, all) => {
+        const previous = all[index - 1];
+        return previous === undefined || Math.hypot(point.x - previous.x, point.y - previous.y) > 0.08;
+      });
+    return lattice.slice(1).map((point, index) => ({
+      a: lattice[index] as WallPoint,
+      b: point,
+      kind: 'wall' as const,
+    }));
+  }
+
+  private eraseAt(world: { x: number; y: number }): void {
+    const grid = this.grid();
+    const threshold = Math.max(8, grid.cellSizePx * 0.18);
+    const wall = this.terrain().walls.find((entry) => {
+      if (this.erased.has(entry.id)) {
+        return false;
+      }
+      const segment = wallSegmentPx(grid, entry);
+      return distanceToSegment(world, segment.a, segment.b) <= threshold;
+    });
+    if (wall === undefined) {
+      return;
+    }
+    this.erased.add(wall.id);
+    this.wallRemoved.emit(wall.id);
   }
 
   private selectAt(world: { x: number; y: number }): void {
@@ -429,15 +478,24 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.elementSelected.emit({ type: 'light', id: light.id });
       return;
     }
-    const edge = this.terrain().walls.find((entry) => {
-      const segment = edgeSegmentPx(grid, entry);
+    const wall = this.terrain().walls.find((entry) => {
+      const segment = wallSegmentPx(grid, entry);
       const distance = distanceToSegment(world, segment.a, segment.b);
       return distance <= Math.max(6, grid.cellSizePx * 0.12);
     });
-    this.elementSelected.emit(edge === undefined ? null : { type: 'wall', id: edge.id });
+    this.elementSelected.emit(wall === undefined ? null : { type: 'wall', id: wall.id });
   }
 
   private renderAll(): void {
+    if (this.tool() !== this.lastTool) {
+      this.lastTool = this.tool();
+      this.wallStart = null;
+      this.wallCurrent = null;
+      this.wallDraftKind = null;
+      this.freehand = null;
+      this.erasing = false;
+      this.erased.clear();
+    }
     const url = this.image()?.url ?? null;
     if (url !== this.lastImageUrl) {
       this.lastImageUrl = url;
@@ -563,52 +621,30 @@ export class MapEditorCanvasComponent implements OnDestroy {
     layer.destroyChildren();
     const grid = this.grid();
     const selected = this.selected();
-    for (const edge of this.terrain().walls) {
-      const segment = edgeSegmentPx(grid, edge);
-      const color = WALL_COLORS[edge.kind];
-      const isSelected = selected?.type === 'wall' && selected.id === edge.id;
+    for (const wall of this.terrain().walls) {
+      const segment = wallSegmentPx(grid, wall);
+      const color = WALL_COLORS[wall.kind];
+      const isSelected = selected?.type === 'wall' && selected.id === wall.id;
       layer.add(new Konva.Line({
         points: [segment.a.x, segment.a.y, segment.b.x, segment.b.y],
         stroke: isSelected ? '#4ea1ff' : color,
         strokeWidth: isSelected ? 7 : 5,
         lineCap: 'round',
-        dash: edge.kind === 'window' || edge.kind === 'lowWall' ? [8, 6] : undefined,
-        opacity: edge.kind === 'door' && edge.door === 'open' ? 0.35 : 1,
+        dash: wall.kind === 'window' || wall.kind === 'lowWall' ? [8, 6] : undefined,
+        opacity: wall.kind === 'door' && wall.door === 'open' ? 0.35 : 1,
         listening: false,
       }));
-      if (edge.kind === 'door') {
-        const midpoint = edgeMidpointPx(grid, edge);
+      if (wall.kind === 'door') {
         layer.add(new Konva.Circle({
-          x: midpoint.x,
-          y: midpoint.y,
+          x: (segment.a.x + segment.b.x) / 2,
+          y: (segment.a.y + segment.b.y) / 2,
           radius: 5,
-          fill: edge.door === 'secret' ? '#9b59b6' : color,
+          fill: wall.door === 'secret' ? '#9b59b6' : color,
           stroke: '#1b1b1b',
           strokeWidth: 1,
           listening: false,
         }));
       }
-    }
-    for (const edge of this.draft) {
-      const segment = edgeSegmentPx(grid, edge);
-      layer.add(new Konva.Line({
-        points: [segment.a.x, segment.a.y, segment.b.x, segment.b.y],
-        stroke: '#4ea1ff',
-        strokeWidth: 6,
-        opacity: 0.7,
-        listening: false,
-      }));
-    }
-    if (this.freehand !== null && this.freehand.length > 1) {
-      layer.add(new Konva.Line({
-        points: this.freehand.flatMap((point) => [point.x, point.y]),
-        stroke: '#4ea1ff',
-        strokeWidth: 4,
-        lineCap: 'round',
-        lineJoin: 'round',
-        opacity: 0.8,
-        listening: false,
-      }));
     }
     layer.draw();
   }
@@ -781,11 +817,66 @@ export class MapEditorCanvasComponent implements OnDestroy {
         listening: false,
       }));
     }
+    if (this.freehand !== null && this.freehand.length > 1) {
+      const scale = this.stage?.scaleX() ?? 1;
+      layer.add(new Konva.Line({
+        points: this.freehand.flatMap((point) => [point.x, point.y]),
+        stroke: '#4ea1ff',
+        strokeWidth: Math.max(2, 3 / Math.max(scale, 0.05)),
+        lineCap: 'round',
+        lineJoin: 'round',
+        opacity: 0.85,
+        listening: false,
+      }));
+    }
+    if (
+      this.wallStart !== null
+      && this.wallCurrent !== null
+      && this.wallDraftKind !== null
+      && (this.wallStart.x !== this.wallCurrent.x || this.wallStart.y !== this.wallCurrent.y)
+    ) {
+      const grid = this.grid();
+      const a = latticePointPx(grid, this.wallStart);
+      const b = latticePointPx(grid, this.wallCurrent);
+      const scale = this.stage?.scaleX() ?? 1;
+      const strokeWidth = Math.max(2, 3 / Math.max(scale, 0.05));
+      layer.add(new Konva.Line({
+        points: [a.x, a.y, b.x, b.y],
+        stroke: '#4ea1ff',
+        strokeWidth,
+        lineCap: 'round',
+        dash: [10 / Math.max(scale, 0.05), 6 / Math.max(scale, 0.05)],
+        listening: false,
+      }));
+      for (const point of [a, b]) {
+        layer.add(new Konva.Circle({
+          x: point.x,
+          y: point.y,
+          radius: 6 / Math.max(scale, 0.05),
+          fill: '#4ea1ff',
+          stroke: '#0f1c2e',
+          strokeWidth: 2 / Math.max(scale, 0.05),
+          listening: false,
+        }));
+      }
+      const cells = Math.hypot(
+        this.wallCurrent.x - this.wallStart.x,
+        this.wallCurrent.y - this.wallStart.y,
+      );
+      const feet = cells * grid.feetPerCell;
+      layer.add(new Konva.Text({
+        x: (a.x + b.x) / 2 + 10 / Math.max(scale, 0.05),
+        y: (a.y + b.y) / 2 - 18 / Math.max(scale, 0.05),
+        text: `${this.units.formatDistance(feet)} · ${cells.toFixed(1)} celle`,
+        fontSize: 14 / Math.max(scale, 0.05),
+        fill: '#eaf4ff',
+        stroke: '#0f1c2e',
+        strokeWidth: 3 / Math.max(scale, 0.05),
+        fillAfterStrokeEnabled: true,
+        listening: false,
+      }));
+    }
     layer.draw();
-  }
-
-  private renderDraft(): void {
-    this.renderWalls();
   }
 
   private publishCamera(): void {

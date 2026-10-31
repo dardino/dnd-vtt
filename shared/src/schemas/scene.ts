@@ -55,20 +55,25 @@ export const doorStateSchema = z.enum(['open', 'closed', 'secret']);
 export type DoorState = z.infer<typeof doorStateSchema>;
 
 /**
- * Muro su un lato della griglia. `x,y` sono coordinate della lattice:
- * - `dir: 'h'` va da (x, y) a (x + 1, y)
- * - `dir: 'v'` va da (x, y) a (x, y + 1)
- * Cos� un muro condiviso tra due celle esiste una volta sola.
+ * Muro vettoriale tra due intersezioni della griglia (coordinate lattice).
+ * Per il muro disegnato con lo strumento dedicato i due punti sono interi;
+ * il tratto libero usa coordinate frazionarie. La visione a celle deriva da
+ * questi segmenti gli edge bloccanti.
  */
-export const wallEdgeSchema = z.strictObject({
+export const wallPointSchema = z.strictObject({
+  x: z.number(),
+  y: z.number(),
+});
+export type WallPoint = z.infer<typeof wallPointSchema>;
+
+export const wallSegmentSchema = z.strictObject({
   id: z.string().min(1),
   kind: wallKindSchema,
-  x: z.number().int().min(0),
-  y: z.number().int().min(0),
-  dir: z.enum(['h', 'v']),
+  a: wallPointSchema,
+  b: wallPointSchema,
   door: doorStateSchema.optional(),
 });
-export type WallEdge = z.infer<typeof wallEdgeSchema>;
+export type WallSegment = z.infer<typeof wallSegmentSchema>;
 
 export const lightShapeSchema = z.enum(['circle', 'cone']);
 export type LightShape = z.infer<typeof lightShapeSchema>;
@@ -98,7 +103,7 @@ export const defaultTerrain = {
   ambientLight: 'dark' as const,
   visionLimitFeet: 120,
   visionEnabled: false,
-  walls: [] as WallEdge[],
+  walls: [] as WallSegment[],
   lights: [] as Light[],
 };
 
@@ -106,7 +111,7 @@ export const terrainSchema = z.strictObject({
   ambientLight: ambientLightSchema.default('dark'),
   visionLimitFeet: z.number().positive().default(120),
   visionEnabled: z.boolean().default(true),
-  walls: z.array(wallEdgeSchema).max(4000).default([]),
+  walls: z.array(wallSegmentSchema).max(4000).default([]),
   lights: z.array(lightSchema).max(500).default([]),
 });
 export type Terrain = z.infer<typeof terrainSchema>;
@@ -120,9 +125,8 @@ export type VisionGrid = z.infer<typeof visionGridSchema>;
 
 export const publicDoorSchema = z.strictObject({
   id: z.string().min(1),
-  x: z.number().int(),
-  y: z.number().int(),
-  dir: z.enum(['h', 'v']),
+  a: wallPointSchema,
+  b: wallPointSchema,
   state: z.enum(['open', 'closed']),
 });
 export type PublicDoor = z.infer<typeof publicDoorSchema>;

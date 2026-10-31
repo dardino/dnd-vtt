@@ -95,13 +95,13 @@ test('cambia campagna e riapre la scelta', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'E2E Campagna' })).toBeVisible();
 });
 
-test('la console usa la griglia a 12 colonne e riempie l altezza', async ({ page }) => {
+test('la console usa un layout a tre colonne e riempie l altezza', async ({ page }) => {
   await openCampaign(page);
   const layout = page.locator('.dm-layout');
   await expect.poll(async () => layout.evaluate((element) =>
     getComputedStyle(element).gridTemplateColumns
       .split(' ')
-      .filter((entry) => entry !== '').length)).toBe(12);
+      .filter((entry) => entry !== '').length)).toBe(3);
   const metrics = await layout.evaluate((element) => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
@@ -111,7 +111,7 @@ test('la console usa la griglia a 12 colonne e riempie l altezza', async ({ page
       viewport: window.innerHeight,
     };
   });
-  expect(metrics.columns).toBe(12);
+  expect(metrics.columns).toBe(3);
   expect(metrics.bottom).toBeGreaterThanOrEqual(metrics.viewport - 80);
 
   await page.getByRole('button', { name: 'Riduci pannello campagna' }).click();

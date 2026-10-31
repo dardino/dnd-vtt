@@ -17,7 +17,7 @@ import {
   HEX_ROW_RATIO,
   TILE_SIZE_PX,
   cellCenterPx,
-  edgeSegmentPx,
+  latticePointPx,
   gridDrawingWidth,
   lastReachableCell,
   pixelToCell,
@@ -771,11 +771,12 @@ export class SceneCanvasComponent implements OnDestroy {
     layer.destroyChildren();
     const grid = this.state().grid;
     for (const door of this.doors()) {
-      const segment = edgeSegmentPx(grid, door);
+      const a = latticePointPx(grid, door.a);
+      const b = latticePointPx(grid, door.b);
       const color = door.state === 'open' ? '#7fbf7f' : '#c9a227';
       if (door.state === 'open') {
-        const dx = segment.b.x - segment.a.x;
-        const dy = segment.b.y - segment.a.y;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
         const length = Math.hypot(dx, dy);
         if (length === 0) {
           continue;
@@ -783,24 +784,14 @@ export class SceneCanvasComponent implements OnDestroy {
         const unitX = (dx / length) * Math.min(10, length / 4);
         const unitY = (dy / length) * Math.min(10, length / 4);
         layer.add(new Konva.Line({
-          points: [
-            segment.a.x,
-            segment.a.y,
-            segment.a.x + unitX,
-            segment.a.y + unitY,
-          ],
+          points: [a.x, a.y, a.x + unitX, a.y + unitY],
           stroke: color,
           strokeWidth: 4,
           lineCap: 'round',
           listening: false,
         }));
         layer.add(new Konva.Line({
-          points: [
-            segment.b.x,
-            segment.b.y,
-            segment.b.x - unitX,
-            segment.b.y - unitY,
-          ],
+          points: [b.x, b.y, b.x - unitX, b.y - unitY],
           stroke: color,
           strokeWidth: 4,
           lineCap: 'round',
@@ -808,17 +799,15 @@ export class SceneCanvasComponent implements OnDestroy {
         }));
       } else {
         layer.add(new Konva.Line({
-          points: [segment.a.x, segment.a.y, segment.b.x, segment.b.y],
+          points: [a.x, a.y, b.x, b.y],
           stroke: color,
           strokeWidth: 5,
           lineCap: 'round',
           listening: false,
         }));
-        const midX = (segment.a.x + segment.b.x) / 2;
-        const midY = (segment.a.y + segment.b.y) / 2;
         layer.add(new Konva.Circle({
-          x: midX,
-          y: midY,
+          x: (a.x + b.x) / 2,
+          y: (a.y + b.y) / 2,
           radius: 4,
           fill: color,
           stroke: '#1b1b1b',

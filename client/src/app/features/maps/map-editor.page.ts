@@ -13,8 +13,6 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
-  edgeId,
-  edgeKey,
   type Actor,
   type AmbientLight,
   type GridConfig,
@@ -25,8 +23,8 @@ import {
   type PlayerStart,
   type SrdMonster,
   type Terrain,
-  type WallEdge,
   type WallKind,
+  type WallSegment,
 } from '@dnd-vtt/shared';
 import { ActorService } from '../../core/actor.service';
 import { AssetService } from '../../core/asset.service';
@@ -39,7 +37,7 @@ import {
   type EditorMapImage,
   type EditorSelection,
   type EditorTool,
-  type EdgesPaintedEvent,
+  type WallsDrawnEvent,
 } from './map-editor-canvas.component';
 
 const SRD_SIZE_CELLS: Record<string, number> = {
@@ -239,37 +237,32 @@ export class MapEditorPage implements OnInit, OnDestroy {
     this.selected.set(selection);
   }
 
-  public onEdgesPainted(event: EdgesPaintedEvent): void {
+  public onWallsDrawn(event: WallsDrawnEvent): void {
     this.updateDoc((doc) => {
       const cols = Math.ceil((doc.widthPx - doc.grid.offsetX) / doc.grid.cellSizePx);
       const rows = Math.ceil((doc.heightPx - doc.grid.offsetY) / doc.grid.cellSizePx);
-      const walls = new Map(doc.terrain.walls.map((wall) => [edgeKey(wall), wall]));
-      for (const edge of event.edges) {
-        const inBounds = edge.dir === 'h'
-          ? edge.x >= 0 && edge.x < cols && edge.y >= 0 && edge.y <= rows
-          : edge.x >= 0 && edge.x <= cols && edge.y >= 0 && edge.y < rows;
+      for (const wall of event.walls) {
+        const inBounds = wall.a.x >= 0 && wall.a.x <= cols && wall.a.y >= 0 && wall.a.y <= rows
+          && wall.b.x >= 0 && wall.b.x <= cols && wall.b.y >= 0 && wall.b.y <= rows;
         if (!inBounds) {
           continue;
         }
-        const key = edgeKey(edge);
-        if (event.kind === 'erase') {
-          walls.delete(key);
-          continue;
-        }
-        const existing = walls.get(key);
-        const kind: WallKind = event.kind;
-        const wall: WallEdge = {
-          id: existing?.id ?? edgeId(edge),
-          kind,
-          x: edge.x,
-          y: edge.y,
-          dir: edge.dir,
-          ...(kind === 'door' ? { door: existing?.door ?? 'closed' } : {}),
-        };
-        walls.set(key, wall);
+        doc.terrain.walls.push({
+          ...wall,
+          id: wall.id || crypto.randomUUID(),
+          ...(wall.kind === 'door' ? { door: wall.door ?? 'closed' } : {}),
+        });
       }
-      doc.terrain.walls = [...walls.values()];
     });
+  }
+
+  public onWallRemoved(id: string): void {
+    this.updateDoc((doc) => {
+      doc.terrain.walls = doc.terrain.walls.filter((wall) => wall.id !== id);
+    });
+    if (this.selected()?.type === 'wall' && this.selected()?.id === id) {
+      this.selected.set(null);
+    }
   }
 
   public placeLight(cell: { x: number; y: number }): void {
@@ -395,7 +388,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
     });
   }
 
-  public updateWall(kind: WallKind, door?: WallEdge['door']): void {
+  public updateWall(kind: WallKind, door?: WallSegment['door']): void {
     const wall = this.selectedWall();
     if (wall === null) {
       return;
@@ -425,7 +418,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public updateDoor(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value as WallEdge['door'];
+    const value = (event.target as HTMLSelectElement).value as WallSegment['door'];
     this.updateDoc((doc) => {
       const target = doc.terrain.walls.find((entry) => entry.id === this.selectedWall()?.id);
       if (target !== undefined) {

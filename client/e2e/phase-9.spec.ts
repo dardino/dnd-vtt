@@ -109,16 +109,11 @@ const createMap = async (
     diagonalRule: '5-5-5',
     hexOffset: 'odd-r',
   };
-  const walls = [];
-  for (let y = 0; y <= 8; y += 1) {
-    walls.push({
-      id: `edge-v-5-${y}`,
-      x: 5,
-      y,
-      dir: 'v' as const,
-      ...(y === 2 ? { kind: 'door' as const, door: 'closed' as const } : { kind: 'wall' as const }),
-    });
-  }
+  const walls = [
+    { id: 'wall-north', kind: 'wall' as const, a: { x: 5, y: 0 }, b: { x: 5, y: 2 } },
+    { id: 'door-crypt', kind: 'door' as const, door: 'closed' as const, a: { x: 5, y: 2 }, b: { x: 5, y: 3 } },
+    { id: 'wall-south', kind: 'wall' as const, a: { x: 5, y: 3 }, b: { x: 5, y: 9 } },
+  ];
   document.terrain = {
     ambientLight: 'dark',
     visionLimitFeet: 120,
@@ -179,7 +174,7 @@ test('la mappa si apre nell’editor con muri, luci e spawn', async ({ page, req
   await page.goto(`/maps/${mapId}`);
   await expect(page.locator('.editor')).toBeVisible({ timeout: 15_000 });
   await expect(page.locator('.editor__title input')).toHaveValue('Mappa visione');
-  await expect(page.locator('.editor__status')).toContainText('9 muri');
+  await expect(page.locator('.editor__status')).toContainText('3 muri');
   await expect(page.locator('.editor__status')).toContainText('1 luci');
   await expect(page.locator('.editor__status')).toContainText('1 spawn');
   await expect(page.locator('.editor__status')).toContainText('1 partenze');
@@ -201,21 +196,49 @@ test('la mappa si apre nell’editor con muri, luci e spawn', async ({ page, req
     x: Number(element.getAttribute('data-camera-x')),
     y: Number(element.getAttribute('data-camera-y')),
   }));
-  const world = { x: 9.5 * CELL, y: 9 * CELL };
-  const screen = {
-    x: (box?.x ?? 0) + camera.x + world.x * camera.scale,
-    y: (box?.y ?? 0) + camera.y + world.y * camera.scale,
+  const worldStart = { x: 9 * CELL, y: 9 * CELL };
+  const worldEnd = { x: 12 * CELL, y: 9 * CELL };
+  const screenStart = {
+    x: (box?.x ?? 0) + camera.x + worldStart.x * camera.scale,
+    y: (box?.y ?? 0) + camera.y + worldStart.y * camera.scale,
   };
-  await page.mouse.move(screen.x, screen.y);
+  const screenEnd = {
+    x: (box?.x ?? 0) + camera.x + worldEnd.x * camera.scale,
+    y: (box?.y ?? 0) + camera.y + worldEnd.y * camera.scale,
+  };
+  await page.mouse.move(screenStart.x, screenStart.y);
   await page.mouse.down();
+  await page.mouse.move(screenEnd.x, screenEnd.y, { steps: 6 });
+  await expect(page.locator('.editor__status')).toContainText('3 muri');
+  await page.mouse.up();
+  await expect(page.locator('.editor__status')).toContainText('4 muri');
+
+  const diagonalStart = {
+    x: (box?.x ?? 0) + camera.x + 14 * CELL * camera.scale,
+    y: (box?.y ?? 0) + camera.y + 11 * CELL * camera.scale,
+  };
+  const diagonalEnd = {
+    x: (box?.x ?? 0) + camera.x + 16 * CELL * camera.scale,
+    y: (box?.y ?? 0) + camera.y + 13 * CELL * camera.scale,
+  };
+  await page.mouse.move(diagonalStart.x, diagonalStart.y);
+  await page.mouse.down();
+  await page.mouse.move(diagonalEnd.x, diagonalEnd.y, { steps: 6 });
+  await expect(page.locator('.editor__status')).toContainText('4 muri');
   await page.mouse.up();
 
-  await expect(page.locator('.editor__status')).toContainText('10 muri');
+  await expect(page.locator('.editor__status')).toContainText('5 muri');
   await page.getByRole('button', { name: 'Salva' }).click();
   await expect(page.locator('.editor__title .badge')).toHaveText('salvata', { timeout: 10_000 });
   const saved = await request.get(`/api/v1/maps/${mapId}`);
-  const savedMap = await saved.json() as { terrain: { walls: unknown[] } };
-  expect(savedMap.terrain.walls).toHaveLength(10);
+  const savedMap = await saved.json() as {
+    terrain: { walls: { a: { x: number; y: number }; b: { x: number; y: number } }[] };
+  };
+  expect(savedMap.terrain.walls).toHaveLength(5);
+  expect(savedMap.terrain.walls.some((wall) =>
+    wall.a.x === 9 && wall.a.y === 9 && wall.b.x === 12 && wall.b.y === 9)).toBe(true);
+  expect(savedMap.terrain.walls.some((wall) =>
+    wall.a.x === 14 && wall.a.y === 11 && wall.b.x === 16 && wall.b.y === 13)).toBe(true);
 });
 
 test('la visione filtra i token, la porta li rivela e la fog manuale li nasconde', async ({ page, request }) => {
@@ -243,7 +266,7 @@ test('la visione filtra i token, la porta li rivela e la fog manuale li nasconde
       id: crypto.randomUUID(),
       clientId: 'phase9-door',
       sceneId: activeSceneId,
-      action: { type: 'terrain.door', wallId: 'edge-v-5-2', state: 'open' },
+      action: { type: 'terrain.door', wallId: 'door-crypt', state: 'open' },
     },
   });
   await expect(screen).toHaveAttribute('data-token-count', '2', { timeout: 15_000 });

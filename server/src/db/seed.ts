@@ -7,33 +7,35 @@ import { insertCampaign } from './campaigns.repository.js';
 import { insertMap } from './maps.repository.js';
 import { createSceneFromMap } from '../maps/service.js';
 import { campaigns } from './schema.js';
-import { defaultTerrain, wallEdgeSchema, type WallEdge } from '@dnd-vtt/shared';
+import { defaultTerrain, wallSegmentSchema, type WallSegment } from '@dnd-vtt/shared';
 
-const edge = (x: number, y: number, dir: 'h' | 'v', kind: WallEdge['kind'] = 'wall', door?: WallEdge['door']): WallEdge =>
-  wallEdgeSchema.parse({ id: `edge-${dir}-${x}-${y}`, x, y, dir, kind, ...(door === undefined ? {} : { door }) });
+const wall = (
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  kind: WallSegment['kind'] = 'wall',
+  door?: WallSegment['door'],
+): WallSegment =>
+  wallSegmentSchema.parse({
+    id: `wall-${ax}-${ay}-${bx}-${by}-${kind}`,
+    kind,
+    a: { x: ax, y: ay },
+    b: { x: bx, y: by },
+    ...(door === undefined ? {} : { door }),
+  });
 
-const demoWalls = (): WallEdge[] => {
-  const walls: WallEdge[] = [];
-  for (let x = 1; x <= 16; x += 1) {
-    if (x !== 4) {
-      walls.push(edge(x, 1, 'h'));
-    }
-    walls.push(edge(x, 9, 'h'));
-  }
-  walls.push(edge(4, 1, 'h', 'window'));
-  for (let y = 1; y <= 8; y += 1) {
-    walls.push(edge(1, y, 'v'));
-    walls.push(edge(17, y, 'v'));
-  }
-  for (let y = 1; y <= 3; y += 1) {
-    walls.push(edge(11, y, 'v'));
-  }
-  walls.push(edge(11, 4, 'v', 'door', 'closed'));
-  for (let y = 5; y <= 8; y += 1) {
-    walls.push(edge(11, y, 'v'));
-  }
-  return walls;
-};
+const demoWalls = (): WallSegment[] => [
+  wall(1, 1, 4, 1),
+  wall(4, 1, 5, 1, 'window'),
+  wall(5, 1, 17, 1),
+  wall(1, 9, 17, 9),
+  wall(1, 1, 1, 9),
+  wall(17, 1, 17, 9),
+  wall(11, 1, 11, 4),
+  wall(11, 4, 11, 5, 'door', 'closed'),
+  wall(11, 5, 11, 9),
+];
 
 const demoPng = async (): Promise<Buffer> => {
   const svg = `

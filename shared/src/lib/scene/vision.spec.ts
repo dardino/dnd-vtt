@@ -2,10 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultTerrain,
   type Terrain,
-  type WallEdge,
+  type WallSegment,
 } from '../../schemas/scene.js';
 import { computeVisionGrid, isCellVisible, isTokenVisible } from './vision.js';
-import { lastReachableCell, rasterizeWallTrace } from './edges.js';
+import { deriveSegmentEdges, lastReachableCell } from './edges.js';
 
 const grid = {
   type: 'square' as const,
@@ -17,11 +17,16 @@ const grid = {
   hexOffset: 'odd-r' as const,
 };
 
-const wall = (x: number, y: number, dir: 'h' | 'v', extra: Partial<WallEdge> = {}): WallEdge => ({
-  id: `edge-${dir}-${x}-${y}`,
-  x,
-  y,
-  dir,
+const wall = (
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  extra: Partial<WallSegment> = {},
+): WallSegment => ({
+  id: `wall-${ax}-${ay}-${bx}-${by}`,
+  a: { x: ax, y: ay },
+  b: { x: bx, y: by },
   kind: 'wall',
   ...extra,
 });
@@ -47,7 +52,7 @@ describe('visione a celle', () => {
   });
 
   it('la scurovisione vede nel buio ma il muro blocca', () => {
-    const walls = Array.from({ length: 10 }, (_, y) => wall(3, y, 'v'));
+    const walls = [wall(3, 0, 3, 10)];
     const vision = computeVisionGrid({
       widthPx: 700,
       heightPx: 700,
@@ -62,7 +67,7 @@ describe('visione a celle', () => {
 
   it('una porta chiusa blocca la luce, aperta la lascia passare', () => {
     const closed = terrain({
-      walls: [wall(3, 1, 'v', { kind: 'door', door: 'closed' })],
+      walls: [wall(3, 1, 3, 2, { kind: 'door', door: 'closed' })],
       lights: [{
         id: 'torch',
         x: 1,
@@ -86,12 +91,12 @@ describe('visione a celle', () => {
 
     const open = terrain({
       ...closed,
-      walls: [wall(3, 1, 'v', { kind: 'door', door: 'open' })],
+      walls: [wall(3, 1, 3, 2, { kind: 'door', door: 'open' })],
     });
     expect(computeVisionGrid({
       widthPx: 700,
       heightPx: 700,
-      grid,
+      grid: grid,
       terrain: open,
       sources: source,
     })?.levels[1 * 10 + 4]).toBeGreaterThan(0);
@@ -123,18 +128,15 @@ describe('visione a celle', () => {
   });
 
   it('il movimento si ferma prima del muro', () => {
-    const walls = Array.from({ length: 10 }, (_, y) => wall(3, y, 'v'));
+    const walls = [wall(3, 0, 3, 10)];
     expect(lastReachableCell({ x: 1, y: 1 }, { x: 4, y: 1 }, terrain({ walls })))
       .toEqual({ x: 2, y: 1 });
   });
 
-  it('rasterizza un tratto libero in edge connessi', () => {
-    const edges = rasterizeWallTrace(
-      [{ x: 70, y: 70 }, { x: 280, y: 70 }],
-      grid,
-    );
-    expect(edges.length).toBeGreaterThan(0);
-    expect(edges.every((edge) => edge.dir === 'v' || edge.dir === 'h')).toBe(true);
-    expect(new Set(edges.map((edge) => `${edge.dir}:${edge.x}:${edge.y}`)).size).toBe(edges.length);
+  it('un muro diagonale produce edge di cella coerenti', () => {
+    const edges = deriveSegmentEdges(wall(0, 0, 3, 3));
+    expect(edges.length).toBeGreaterThan(3);
+    expect(edges.some((edge) => edge.dir === 'h')).toBe(true);
+    expect(edges.some((edge) => edge.dir === 'v')).toBe(true);
   });
 });
