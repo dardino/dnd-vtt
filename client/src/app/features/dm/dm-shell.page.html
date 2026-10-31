@@ -226,7 +226,7 @@
                       (change)="changeGridSize($event)"
                     />
                   </label>
-                  <p class="muted">Diagonale {{ gridConfig.diagonalRule }} · {{ gridConfig.feetPerCell }} ft per cella</p>
+                  <p class="muted">Diagonale {{ gridConfig.diagonalRule }} · {{ units.formatDistance(gridConfig.feetPerCell) }} per cella</p>
                 }
               </div>
             }
@@ -937,6 +937,17 @@
   (closed)="closeSettings()"
 >
   <div class="form">
+    <label class="field">
+      <span>Unità di misura</span>
+      <select [value]="units.unit()" (change)="setMeasurementUnit($event)">
+        <option value="imperial">Anglosassone (ft)</option>
+        <option value="metric">Metrica (m)</option>
+      </select>
+      <small class="muted">
+        Griglia, righello, velocità, sensi, gittate e incantesimi usano questa unità.
+        I dati restano salvati in piedi.
+      </small>
+    </label>
     <label class="field">
       <span>Dimensione pennello (celle)</span>
       <input

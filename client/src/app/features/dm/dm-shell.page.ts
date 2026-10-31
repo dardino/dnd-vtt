@@ -51,6 +51,7 @@ import { AssetService } from '../../core/asset.service';
 import { AuthService } from '../../core/auth.service';
 import { CampaignService } from '../../core/campaign.service';
 import { DiceStore } from '../../core/dice.store';
+import { MeasurementService } from '../../core/measurement.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
 import { ProgramService } from '../../core/program.service';
 import { SceneActionService } from '../../core/scene-action.service';
@@ -148,6 +149,7 @@ export class DmShellPage implements OnInit {
   public readonly sceneStore = inject(SceneStore);
   public readonly actions = inject(ActionStore);
   public readonly dice = inject(DiceStore);
+  public readonly units = inject(MeasurementService);
   private readonly sceneActions = inject(SceneActionService);
   private readonly programsApi = inject(ProgramService);
   private readonly ai = inject(AiService);
@@ -348,7 +350,7 @@ export class DmShellPage implements OnInit {
 
   public readonly measureLabel = computed(() => {
     const measure = this.measureResult();
-    return measure === null ? '—' : `${measure.feet} ft`;
+    return measure === null ? '—' : this.units.formatDistance(measure.feet);
   });
 
   public readonly sessionLabel = computed(() => {
@@ -719,7 +721,9 @@ export class DmShellPage implements OnInit {
   public onMeasured(measure: MeasureResult | null): void {
     this.measureResult.set(measure);
     if (measure !== null) {
-      this.statusMessage.set(`Misura: ${measure.feet} ft (${measure.cells} celle)`);
+      this.statusMessage.set(
+        `Misura: ${this.units.formatDistance(measure.feet)} (${measure.cells} celle)`,
+      );
     }
   }
 
@@ -1062,6 +1066,11 @@ export class DmShellPage implements OnInit {
 
   public closeSettings(): void {
     this.settingsOpen.set(false);
+  }
+
+  public setMeasurementUnit(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    this.units.set(value === 'metric' ? 'metric' : 'imperial');
   }
 
   public async clearHistory(): Promise<void> {

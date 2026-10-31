@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import type { SceneSnapshot } from '@dnd-vtt/shared';
+import { cellCenterPx, type GridConfig, type SceneSnapshot } from '@dnd-vtt/shared';
 
 const CAMPAIGN_NAME = 'E2E Campagna';
 
@@ -49,6 +49,28 @@ const ensureScene = async (request: APIRequestContext, id: string): Promise<stri
 const sceneState = async (request: APIRequestContext, sceneId: string): Promise<SceneSnapshot> => {
   const response = await request.get(`/api/v1/scenes/${sceneId}`);
   return response.json() as Promise<SceneSnapshot>;
+};
+
+const canvasPoint = async (
+  page: Page,
+  grid: GridConfig,
+  cell: { x: number; y: number },
+): Promise<{ x: number; y: number }> => {
+  const camera = await page.locator('.scene-canvas').evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return {
+      x: rect.x,
+      y: rect.y,
+      scale: Number(element.getAttribute('data-camera-scale')),
+      cameraX: Number(element.getAttribute('data-camera-x')),
+      cameraY: Number(element.getAttribute('data-camera-y')),
+    };
+  });
+  const world = cellCenterPx(grid, cell);
+  return {
+    x: camera.x + camera.cameraX + world.x * camera.scale,
+    y: camera.y + camera.cameraY + world.y * camera.scale,
+  };
 };
 
 test('disegna fog e annotazioni, annulla il disegno e persiste la fog', async ({ page, request }) => {
@@ -282,6 +304,42 @@ test('le impostazioni mappa regolano matita e pennello e ripuliscono history e f
     const items = (await history.json() as { items: { type: string }[] }).items;
     return items.filter((entry) => entry.type.startsWith('fog.')).length;
   }).toBe(0);
+});
+
+test('la unità metrica converte griglia, righello e strumenti', async ({ page, request }) => {
+  const id = await campaignId(request);
+  const sceneId = await ensureScene(request, id);
+  await openCampaign(page);
+
+  const canvas = page.locator('.scene-canvas');
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+  await expect.poll(async () => canvas.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: 'Impostazioni mappa' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel('Unità di misura').selectOption('metric');
+  await expect(dialog).toContainText('Metrica (m)');
+  await dialog.getByRole('button', { name: 'Chiudi impostazioni' }).click();
+  await expect(dialog).toBeHidden();
+
+  const grid = (await sceneState(request, sceneId)).state.grid;
+  await expect(page.locator('#sidebar-grid')).toContainText('1,5 m per cella');
+
+  await page.getByRole('button', { name: 'Misura distanza' }).click();
+  const from = await canvasPoint(page, grid, { x: 1, y: 1 });
+  const to = await canvasPoint(page, grid, { x: 3, y: 1 });
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 4 });
+  await page.mouse.up();
+  await expect(canvas.locator('.scene-canvas__measure')).toContainText('3 m');
+  await expect(page.locator('.statusbar')).toContainText('Misura 3 m');
+
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible();
+  await expect(page.locator('#sidebar-grid')).toContainText('1,5 m per cella');
 });
 
 test('il tasto destro fa pan con qualsiasi strumento', async ({ page, request }) => {

@@ -42,6 +42,11 @@
   margin-top: var(--space-2);
 }
 
+.player__unit {
+  background: transparent;
+  cursor: pointer;
+}
+
 .player__tabs {
   display: flex;
   gap: var(--space-1);

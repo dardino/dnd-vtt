@@ -6,6 +6,7 @@ import {
   afterNextRender,
   computed,
   effect,
+  inject,
   input,
   output,
   signal,
@@ -33,6 +34,7 @@ import {
   type TokenState,
   type Viewport,
 } from '@dnd-vtt/shared';
+import { MeasurementService } from '../../core/measurement.service';
 
 export type SceneTool
   = | 'select'
@@ -121,6 +123,7 @@ export class SceneCanvasComponent implements OnDestroy {
 
   private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
+  private readonly units = inject(MeasurementService);
 
   public readonly camera = signal<Camera>({ scale: 1, x: 0, y: 0 });
   public readonly tiled = signal(false);
@@ -131,7 +134,9 @@ export class SceneCanvasComponent implements OnDestroy {
 
   public readonly statusLabel = computed(() => {
     const measure = this.measurement();
-    return measure === null ? '' : `${measure.feet} ft · ${measure.cells} celle`;
+    return measure === null
+      ? ''
+      : `${this.units.formatDistance(measure.feet)} · ${measure.cells} celle`;
   });
 
   private stage: Konva.Stage | null = null;
@@ -172,6 +177,7 @@ export class SceneCanvasComponent implements OnDestroy {
       this.actorPortraits();
       this.tokenPortraits();
       this.viewport();
+      this.units.unit();
       if (this.stage !== null) {
         this.renderAll();
       }
@@ -1283,7 +1289,7 @@ export class SceneCanvasComponent implements OnDestroy {
       layer.add(new Konva.Text({
         x: (from.x + to.x) / 2 + 8 / Math.max(scale, 0.1),
         y: (from.y + to.y) / 2 - 8 / Math.max(scale, 0.1),
-        text: `${measure.feet} ft`,
+        text: this.units.formatDistance(measure.feet),
         fontSize: Math.max(11, 13 / Math.max(scale, 0.15)),
         fontFamily: 'system-ui, sans-serif',
         fill: colors.text,

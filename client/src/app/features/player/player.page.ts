@@ -13,6 +13,7 @@ import {
   type PlayerSheetView,
   type Skill,
 } from '@dnd-vtt/shared';
+import { MeasurementService } from '../../core/measurement.service';
 import { PlayerService } from '../../core/player.service';
 
 type PlayerTab = 'combat' | 'abilities' | 'spells' | 'equipment' | 'notes' | 'rolls';
@@ -55,6 +56,7 @@ const SKILL_LABELS: Record<Skill, string> = {
 export class PlayerPage implements OnInit {
   public readonly token = input.required<string>();
   private readonly players = inject(PlayerService);
+  public readonly units = inject(MeasurementService);
 
   public readonly view = signal<PlayerSheetView | null>(null);
   public readonly loading = signal(true);
@@ -112,6 +114,25 @@ export class PlayerPage implements OnInit {
 
   public ngOnInit(): void {
     void this.load();
+  }
+
+  public senseText(senses: {
+    darkvision?: number;
+    blindsight?: number;
+    tremorsense?: number;
+    truesight?: number;
+  }): string {
+    const labels = {
+      darkvision: 'Scurovisione',
+      blindsight: 'Vista cieca',
+      tremorsense: 'Percezione tellurica',
+      truesight: 'Vista vera',
+    } as const;
+    return (['darkvision', 'blindsight', 'tremorsense', 'truesight'] as const)
+      .flatMap((sense) => (senses[sense] === undefined
+        ? []
+        : [`${labels[sense]} ${this.units.formatDistance(senses[sense])}`]))
+      .join(' · ');
   }
 
   public setTab(tab: PlayerTab): void {

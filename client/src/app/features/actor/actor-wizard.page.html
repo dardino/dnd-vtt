@@ -109,8 +109,8 @@
             <input type="number" min="0" [value]="ac()" (input)="setNumber(ac, $event)" />
           </label>
           <label class="field">
-            <span>Velocità (ft)</span>
-            <input type="number" min="0" [value]="speed()" (input)="setNumber(speed, $event)" />
+            <span>Velocità ({{ units.symbol() }})</span>
+            <input type="number" min="0" [value]="units.inputValue(speed())" (input)="setFeet(speed, $event)" />
           </label>
         </section>
       </div>
@@ -121,20 +121,20 @@
         <section class="surface mini">
           <h2>Sensi</h2>
           <label class="field">
-            <span>Scurovisione (ft)</span>
-            <input type="number" min="0" [value]="senses().darkvision" (input)="setSense('darkvision', $event)" />
+            <span>Scurovisione ({{ units.symbol() }})</span>
+            <input type="number" min="0" [value]="units.inputValue(senses().darkvision)" (input)="setSense('darkvision', $event)" />
           </label>
           <label class="field">
-            <span>Vista cieca (ft)</span>
-            <input type="number" min="0" [value]="senses().blindsight" (input)="setSense('blindsight', $event)" />
+            <span>Vista cieca ({{ units.symbol() }})</span>
+            <input type="number" min="0" [value]="units.inputValue(senses().blindsight)" (input)="setSense('blindsight', $event)" />
           </label>
           <label class="field">
-            <span>Percezione tellurica (ft)</span>
-            <input type="number" min="0" [value]="senses().tremorsense" (input)="setSense('tremorsense', $event)" />
+            <span>Percezione tellurica ({{ units.symbol() }})</span>
+            <input type="number" min="0" [value]="units.inputValue(senses().tremorsense)" (input)="setSense('tremorsense', $event)" />
           </label>
           <label class="field">
-            <span>Vista vera (ft)</span>
-            <input type="number" min="0" [value]="senses().truesight" (input)="setSense('truesight', $event)" />
+            <span>Vista vera ({{ units.symbol() }})</span>
+            <input type="number" min="0" [value]="units.inputValue(senses().truesight)" (input)="setSense('truesight', $event)" />
           </label>
         </section>
         <section class="surface mini">

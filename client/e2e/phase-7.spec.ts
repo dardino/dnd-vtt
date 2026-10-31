@@ -17,6 +17,7 @@ const createSceneFixture = async (request: APIRequestContext): Promise<{
   campaignId: string;
   sceneId: string;
   tokenId: string;
+  actorId: string;
 }> => {
   const campaignResponse = await request.post('/api/v1/campaigns', {
     data: { name: CAMPAIGN_NAME, description: 'Doppio schermo' },
@@ -49,7 +50,7 @@ const createSceneFixture = async (request: APIRequestContext): Promise<{
         abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
         hp: { current: 7, max: 7, temp: 0 },
         speed: { walk: 30 },
-        senses: {},
+        senses: { darkvision: 60 },
         languages: ['common'],
         conditions: [],
         creatureType: 'goblinoid',
@@ -61,7 +62,11 @@ const createSceneFixture = async (request: APIRequestContext): Promise<{
         damageVulnerabilities: [],
         conditionImmunities: [],
         traits: [],
-        actions: [],
+        actions: [{
+          name: 'Scimitarra',
+          description: 'Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage.',
+          recharge: 'none',
+        }],
         reactions: [],
       },
     },
@@ -103,7 +108,7 @@ const createSceneFixture = async (request: APIRequestContext): Promise<{
       },
     },
   });
-  return { campaignId, sceneId, tokenId };
+  return { campaignId, sceneId, tokenId, actorId };
 };
 
 const snapshot = async (request: APIRequestContext, sceneId: string): Promise<SceneSnapshot> => {
@@ -273,4 +278,19 @@ test('con più schermi Manda in onda chiede il target', async ({ page, context, 
 
   await first.close();
   await second.close();
+});
+
+test('la scheda converte velocità, sensi e portata nella unità metrica', async ({ page, request }) => {
+  const fixture = await createSceneFixture(request);
+  await page.addInitScript(() => {
+    localStorage.setItem('dnd-vtt.measurement-unit', 'metric');
+  });
+  await page.goto(`/dm/campaigns/${fixture.campaignId}/actors/${fixture.actorId}/sheet`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Goblin Palco' })).toBeVisible();
+  await expect(page.locator('.stat-grid')).toContainText('9 m');
+  await expect(page.locator('.stat-grid')).toContainText('Scurovisione 18 m');
+
+  await page.getByRole('button', { name: 'Tratti e azioni' }).click();
+  await expect(page.locator('.feature-row', { hasText: 'Scimitarra' }))
+    .toContainText('reach 1,5 m.');
 });

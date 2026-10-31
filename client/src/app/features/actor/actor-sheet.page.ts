@@ -27,6 +27,7 @@ import {
   type LevelUpInput,
   type LevelUpPreview,
   type PcStatblock,
+  type ResolvedItem,
   type ResourcePool,
   type SrdClass,
   type Skill,
@@ -34,6 +35,7 @@ import {
 import { ActorService } from '../../core/actor.service';
 import { AssetService } from '../../core/asset.service';
 import { CampaignService } from '../../core/campaign.service';
+import { MeasurementService } from '../../core/measurement.service';
 import { PlayerService } from '../../core/player.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
@@ -87,6 +89,7 @@ export class ActorSheetPage implements OnInit {
   private readonly sceneActions = inject(SceneActionService);
   private readonly catalogService = inject(SrdCatalogService);
   private readonly players = inject(PlayerService);
+  public readonly units = inject(MeasurementService);
 
   public readonly view = signal<DmSheetView | null>(null);
   public readonly campaign = signal<Campaign | null>(null);
@@ -806,8 +809,48 @@ export class ActorSheetPage implements OnInit {
   public speedText(speed: { walk?: number; fly?: number; swim?: number; climb?: number; burrow?: number }): string {
     const labels = { walk: 'camminata', fly: 'volo', swim: 'nuoto', climb: 'scalata', burrow: 'scavo' } as const;
     return (['walk', 'fly', 'swim', 'climb', 'burrow'] as const)
-      .flatMap((mode) => (speed[mode] === undefined ? [] : [`${labels[mode]} ${speed[mode]} ft`]))
+      .flatMap((mode) => (speed[mode] === undefined
+        ? []
+        : [`${labels[mode]} ${this.units.formatDistance(speed[mode])}`]))
       .join(' · ');
+  }
+
+  public senseText(senses: {
+    darkvision?: number;
+    blindsight?: number;
+    tremorsense?: number;
+    truesight?: number;
+  }): string {
+    const labels = {
+      darkvision: 'Scurovisione',
+      blindsight: 'Vista cieca',
+      tremorsense: 'Percezione tellurica',
+      truesight: 'Vista vera',
+    } as const;
+    return (['darkvision', 'blindsight', 'tremorsense', 'truesight'] as const)
+      .flatMap((sense) => (senses[sense] === undefined
+        ? []
+        : [`${labels[sense]} ${this.units.formatDistance(senses[sense])}`]))
+      .join(' · ');
+  }
+
+  public spellRangeText(range: string): string {
+    return this.units.formatText(range);
+  }
+
+  public itemRange(item: ResolvedItem | undefined): string | null {
+    if (item?.data.category !== 'weapon' || item.data.range === undefined) {
+      return null;
+    }
+    return this.units.formatRange(item.data.range.normal, item.data.range.long);
+  }
+
+  public attackRangeText(itemId: string): string | null {
+    return this.itemRange(this.view()?.inventory.find((item) => item.id === itemId));
+  }
+
+  public formatRulesText(text: string): string {
+    return this.units.formatText(text);
   }
 
   public async createPlayerLink(): Promise<void> {

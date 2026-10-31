@@ -182,6 +182,7 @@ Tooling monorepo
 | D83 | I `PublicToken` proiettati includono `imageUrl` e `portrait`; `TAKE` cancella i viewport pending dell’anteprima | lo schermo mostra il thumbnail del personaggio e “Manda in onda” è un reset affidabile della regia |
 | D84 | Lo schermo riporta via WebSocket la propria `window.innerWidth/Height`; il server la salva sul display e la usa per ricostruire l'aspect ratio dell'anteprima | la dialog è una vista in scala del monitor reale: verticale resta verticale, fullscreen cambia il fit senza toccare lo zoom relativo |
 | D85 | I salvataggi del viewport sono **serializzati** con l'ultimo gesto che vince; il client non invia `version` e il server accetta il campo come opzionale. `Manda in onda` attende i salvataggi in corso e rilegge la versione corrente prima di scrivere | lo zoom rapido non perde più colpi per 409 concorrenti e il TAKE non viene sovrascritto da un pan/zoom partito prima |
+| D86 | L'unità di misura è una **preferenza di presentazione** del client (`ft` o `m`, salvata in `localStorage`); i dati restano in piedi sul server. Griglia, righello, velocità, sensi, gittate e testi SRD passano da `MeasurementService`, con input metrici riconvertiti in piedi prima del salvataggio | il tavolo può usare la metrica senza migrazioni né doppie unità nel database; la conversione resta coerente tra mappa, schede e schermo giocatore |
 
 ## 5. Struttura monorepo
 

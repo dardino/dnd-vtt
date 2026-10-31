@@ -165,9 +165,9 @@
                   <section class="surface mini">
                     <span class="eyebrow">Specie</span>
                     <strong>{{ race.name }}</strong>
-                    <p class="muted">{{ race.speed }} ft · {{ race.sizes.join(' / ') }}</p>
+                    <p class="muted">{{ units.formatDistance(race.speed) }} · {{ race.sizes.join(' / ') }}</p>
                     @if (race.darkvision) {
-                      <p class="muted">Scurovisione {{ race.darkvision }} ft</p>
+                      <p class="muted">Scurovisione {{ units.formatDistance(race.darkvision) }}</p>
                     }
                   </section>
                 }

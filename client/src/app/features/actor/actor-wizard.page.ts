@@ -11,6 +11,7 @@ import {
   type SrdMonster,
 } from '@dnd-vtt/shared';
 import { ActorService } from '../../core/actor.service';
+import { MeasurementService } from '../../core/measurement.service';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
 
 type FeatureKind = 'traits' | 'actions' | 'reactions';
@@ -46,6 +47,7 @@ export class ActorWizardPage implements OnInit {
   private readonly actors = inject(ActorService);
   private readonly router = inject(Router);
   public readonly catalogService = inject(SrdCatalogService);
+  public readonly units = inject(MeasurementService);
 
   public readonly steps = STEPS;
   public readonly sizes = Object.keys(SIZE_LABELS) as Size[];
@@ -190,6 +192,10 @@ export class ActorWizardPage implements OnInit {
     signalValue.set(Number((event.target as HTMLInputElement).value));
   }
 
+  public setFeet(signalValue: { set: (value: number) => void }, event: Event): void {
+    signalValue.set(this.units.feetFromInput(Number((event.target as HTMLInputElement).value)));
+  }
+
   public setSize(event: Event): void {
     this.size.set((event.target as HTMLSelectElement).value as Size);
   }
@@ -208,7 +214,7 @@ export class ActorWizardPage implements OnInit {
   public setSense(sense: 'darkvision' | 'blindsight' | 'tremorsense' | 'truesight', event: Event): void {
     this.senses.update((values) => ({
       ...values,
-      [sense]: Number((event.target as HTMLInputElement).value),
+      [sense]: this.units.feetFromInput(Number((event.target as HTMLInputElement).value)),
     }));
   }
 

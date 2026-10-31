@@ -14,7 +14,17 @@
       <div class="player__badges">
         <span class="badge">HP {{ sheet.statblock.hp.current }}/{{ sheet.statblock.hp.max }}</span>
         <span class="badge">CA {{ sheet.derived?.ac ?? '—' }}</span>
+        <span class="badge">Vel. {{ units.formatDistance(sheet.statblock.speed.walk ?? 0) }}</span>
+        @if (senseText(sheet.statblock.senses); as senses) {
+          <span class="badge">{{ senses }}</span>
+        }
         @if (!sheet.editingEnabled) { <span class="badge">sola lettura</span> }
+        <button
+          type="button"
+          class="badge player__unit"
+          (click)="units.toggle()"
+          [attr.aria-label]="'Unità di misura: ' + units.symbol() + '. Cambia unità'"
+        >{{ units.symbol() }}</button>
       </div>
     </header>
 
@@ -65,7 +75,7 @@
           @for (feature of sheet.statblock.kind === 'pc' ? sheet.statblock.snapshot.features : []; track feature.id) {
             <article class="player__feature">
               <strong>{{ feature.name }}</strong>
-              <p>{{ feature.description }}</p>
+              <p>{{ units.formatText(feature.description) }}</p>
             </article>
           }
         </section>
@@ -106,8 +116,8 @@
             @for (spell of sheet.statblock.snapshot.spells; track spell.id) {
               <article class="player__feature">
                 <strong>{{ spell.name }} <span class="badge">{{ spell.level }}</span></strong>
-                <p>{{ spell.school }} · {{ spell.castingTime }} · {{ spell.range }}</p>
-                <p>{{ spell.description }}</p>
+                <p>{{ spell.school }} · {{ spell.castingTime }} · {{ units.formatText(spell.range) }}</p>
+                <p>{{ units.formatText(spell.description) }}</p>
               </article>
             }
           </section>

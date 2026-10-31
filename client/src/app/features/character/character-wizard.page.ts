@@ -18,8 +18,9 @@ import {
   type SrdItem,
   type SrdSpell,
 } from '@dnd-vtt/shared';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
 import { ActorService } from '../../core/actor.service';
+import { MeasurementService } from '../../core/measurement.service';
+import { SrdCatalogService } from '../../core/srd-catalog.service';
 import {
   CharacterWizardStore,
   WIZARD_STEPS,
@@ -54,6 +55,7 @@ export class CharacterWizardPage implements OnInit {
   public readonly campaignId = input('demo');
   public readonly store = inject(CharacterWizardStore);
   public readonly catalogService = inject(SrdCatalogService);
+  public readonly units = inject(MeasurementService);
   private readonly actors = inject(ActorService);
   private readonly router = inject(Router);
 

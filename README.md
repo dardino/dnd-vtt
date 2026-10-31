@@ -109,6 +109,11 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   rimossa davvero e non sommata come un secondo strato. Azioni
   `fog.apply`/`fog.remove`/`fog.replace` reversibili, fog iniziale scelta
   all’upload, disegni annotativi, undo dal dock e export PNG della scena.
+- **Unità di misura**: in **Impostazioni mappa** si sceglie anglosassone (ft) o
+  metrica (m), con preferenza salvata in `localStorage`. La griglia, il righello,
+  la statusbar, velocità, sensi, gittate delle armi, portate e testi SRD vengono
+  convertiti nella UI (1,5 m ogni 5 ft); il server continua a salvare tutto in
+  piedi. Anche la scheda giocatore ha un piccolo toggle ft/m.
 
 - **Fase 7 core completato**: regia con `ProgramState` versionato, composizione
   `base + overlay`, pulsanti Apri schermo / Manda in onda / Blackout e pagina
