@@ -96,7 +96,8 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   griglia (circa 7 esagoni o 9 quadrati di area), quindi resta coerente
   cambiando la cella; la matita delle annotazioni è circa un quarto di cella.
   La toolbar ha **Impostazioni mappa** per regolare pennello (in celle) e
-  matita (in decimi di cella), **Svuota history** (mantiene la scena corrente
+  matita (in decimi di cella), con dimensioni ricordate in `localStorage`,
+  **Svuota history** (mantiene la scena corrente
   come nuovo punto di partenza) e **Reset FOG** (ricopre tutto e rimuove dalla
   history solo le azioni fog). Undo/redo dell’editor coprono matita, fog e le
   altre azioni di scena, con pulsanti in toolbar e scorciatoie Ctrl+Z /

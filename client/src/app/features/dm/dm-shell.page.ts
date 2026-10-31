@@ -76,6 +76,37 @@ const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   tokens: true,
 };
 
+const MAP_TOOL_SIZES_KEY = 'dnd-vtt.map-tool-sizes';
+const DEFAULT_BRUSH_CELLS = FOG_BRUSH_CELLS;
+const DEFAULT_PENCIL_TENTHS = 2.5;
+
+interface MapToolSizes {
+  brushCells: number;
+  pencilTenths: number;
+}
+
+const readMapToolSizes = (): MapToolSizes => {
+  try {
+    const raw = localStorage.getItem(MAP_TOOL_SIZES_KEY);
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as Partial<MapToolSizes>;
+      const brushCells = Number(parsed.brushCells);
+      const pencilTenths = Number(parsed.pencilTenths);
+      return {
+        brushCells: Number.isFinite(brushCells)
+          ? Math.max(0.5, Math.min(20, brushCells))
+          : DEFAULT_BRUSH_CELLS,
+        pencilTenths: Number.isFinite(pencilTenths)
+          ? Math.max(0.5, Math.min(10, pencilTenths))
+          : DEFAULT_PENCIL_TENTHS,
+      };
+    }
+  } catch {
+    // localStorage può essere disabilitato: si usano i default.
+  }
+  return { brushCells: DEFAULT_BRUSH_CELLS, pencilTenths: DEFAULT_PENCIL_TENTHS };
+};
+
 const SIZE_CELLS: Record<Size, number> = {
   tiny: 1,
   small: 1,
@@ -139,8 +170,9 @@ export class DmShellPage implements OnInit {
   public readonly tool = signal<CanvasTool>('select');
   public readonly gridVisible = signal(true);
   public readonly fogSoftness = signal(0);
-  public readonly fogBrushCells = signal(FOG_BRUSH_CELLS);
-  public readonly pencilTenths = signal(2.5);
+  private readonly storedToolSizes = readMapToolSizes();
+  public readonly fogBrushCells = signal(this.storedToolSizes.brushCells);
+  public readonly pencilTenths = signal(this.storedToolSizes.pencilTenths);
   public readonly settingsOpen = signal(false);
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
   public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
@@ -933,12 +965,29 @@ export class DmShellPage implements OnInit {
 
   public setBrushCells(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
-    this.fogBrushCells.set(Number.isFinite(value) ? Math.max(0.5, Math.min(20, value)) : 3);
+    this.fogBrushCells.set(
+      Number.isFinite(value) ? Math.max(0.5, Math.min(20, value)) : DEFAULT_BRUSH_CELLS,
+    );
+    this.persistToolSizes();
   }
 
   public setPencilTenths(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
-    this.pencilTenths.set(Number.isFinite(value) ? Math.max(0.5, Math.min(10, value)) : 2.5);
+    this.pencilTenths.set(
+      Number.isFinite(value) ? Math.max(0.5, Math.min(10, value)) : DEFAULT_PENCIL_TENTHS,
+    );
+    this.persistToolSizes();
+  }
+
+  private persistToolSizes(): void {
+    try {
+      localStorage.setItem(MAP_TOOL_SIZES_KEY, JSON.stringify({
+        brushCells: this.fogBrushCells(),
+        pencilTenths: this.pencilTenths(),
+      }));
+    } catch {
+      // La preferenza resta valida per la sessione.
+    }
   }
 
   public openSettings(): void {
