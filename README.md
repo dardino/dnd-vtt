@@ -134,8 +134,11 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   (orizzontale o verticale) e pan/zooma la proiezione reale. Lo zoom è relativo
   al fit della risoluzione dello schermo: 100% = mappa adattata, anche in
   fullscreen; quando lo schermo cambia dimensioni o entra in fullscreen il fit
-  viene ricalcolato mantenendo lo zoom relativo. I salvataggi di viewport sono
-  serializzati (l'ultimo gesto vince) e "Manda in onda" attende quelli in corso.
+  viene ricalcolato mantenendo lo zoom relativo. I limiti di zoom sono anch'essi
+  relativi al fit (5%–3200%), quindi anche una mappa a bassa risoluzione si
+  ingrandisce come una 4K: dialog e schermo reale restano allineati. I salvataggi
+  di viewport sono serializzati (l'ultimo gesto vince) e "Manda in onda" attende
+  quelli in corso.
   Le sidebar ridotte diventano una barra stretta con l'etichetta in
   verticale. Restano
   fuori dal core: editor PVW con drag/resize degli overlay, camera live/libera

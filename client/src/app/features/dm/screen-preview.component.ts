@@ -1,7 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, input } from '@angular/core';
 import {
-  isTiledMap,
   type Condition,
   type DisplayLayer,
   type DisplayState,
@@ -47,7 +46,9 @@ export class ScreenPreviewComponent {
       hash: scene.id,
       width: scene.widthPx,
       height: scene.heightPx,
-      tiled: isTiledMap(scene.widthPx, scene.heightPx),
+      // L'anteprima usa la stessa immagine intera dello schermo reale: la
+      // piramide di tile è indicizzata per asset e non per scena.
+      tiled: false,
     };
   }
 

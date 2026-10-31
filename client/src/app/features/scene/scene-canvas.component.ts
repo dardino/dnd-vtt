@@ -84,8 +84,11 @@ interface Point {
   y: number;
 }
 
-const MIN_SCALE = 0.03;
-const MAX_SCALE = 4;
+// Lo zoom è sempre relativo al fit: un'immagine piccola su uno schermo grande
+// produce un fitScale alto e non deve esaurire il margine di ingrandimento.
+const MIN_ZOOM = 0.05;
+const MAX_ZOOM = 32;
+const MIN_SCALE = 0.01;
 const VIEW_PADDING = 48;
 const IDLE_MS = 160;
 
@@ -217,7 +220,8 @@ export class SceneCanvasComponent implements OnDestroy {
       return;
     }
     const oldScale = stage.scaleX();
-    const newScale = clamp(oldScale * factor, MIN_SCALE, MAX_SCALE);
+    const bounds = this.scaleBounds();
+    const newScale = clamp(oldScale * factor, bounds.min, bounds.max);
     const center = { x: stage.width() / 2, y: stage.height() / 2 };
     const world = {
       x: (center.x - stage.x()) / oldScale,
@@ -235,13 +239,11 @@ export class SceneCanvasComponent implements OnDestroy {
     if (stage === null || map === null) {
       return;
     }
-    const scale = clamp(
-      Math.min(
-        (stage.width() - VIEW_PADDING) / map.width,
-        (stage.height() - VIEW_PADDING) / map.height,
-      ),
-      0.01,
-      MAX_SCALE,
+    const width = Math.max(1, stage.width() - VIEW_PADDING);
+    const height = Math.max(1, stage.height() - VIEW_PADDING);
+    const scale = Math.max(
+      Math.min(width / map.width, height / map.height),
+      MIN_SCALE,
     );
     stage.scale({ x: scale, y: scale });
     stage.position({
@@ -253,6 +255,28 @@ export class SceneCanvasComponent implements OnDestroy {
     this.scheduleTiles();
   }
 
+  /**
+   * Scala dello stage che mostra l'intera mappa nello spazio disponibile.
+   * È il riferimento di "100%": lo zoom salvato è sempre un multiplo di questo
+   * valore, così dialog e schermo reale restano coerenti a ogni risoluzione.
+   */
+  private fitScale(): number {
+    const stage = this.stage;
+    const map = this.map();
+    if (stage === null || map === null) {
+      return 1;
+    }
+    return Math.min(stage.width() / map.width, stage.height() / map.height);
+  }
+
+  private scaleBounds(): { min: number; max: number } {
+    if (this.stage === null || this.map() === null) {
+      return { min: MIN_SCALE, max: 1 };
+    }
+    const fit = Math.max(this.fitScale(), 0.0001);
+    return { min: fit * MIN_ZOOM, max: fit * MAX_ZOOM };
+  }
+
   private applyViewportOrFit(): void {
     const viewport = this.viewport();
     const stage = this.stage;
@@ -261,8 +285,8 @@ export class SceneCanvasComponent implements OnDestroy {
       this.fit();
       return;
     }
-    const fitScale = Math.min(stage.width() / map.width, stage.height() / map.height);
-    const scale = clamp(fitScale * viewport.zoom, MIN_SCALE, MAX_SCALE);
+    const bounds = this.scaleBounds();
+    const scale = clamp(this.fitScale() * viewport.zoom, bounds.min, bounds.max);
     stage.scale({ x: scale, y: scale });
     stage.position({
       x: stage.width() / 2 - viewport.x * scale,
@@ -485,7 +509,8 @@ export class SceneCanvasComponent implements OnDestroy {
     }
     const oldScale = stage.scaleX();
     const factor = event.evt.deltaY < 0 ? 1.08 : 1 / 1.08;
-    const newScale = clamp(oldScale * factor, MIN_SCALE, MAX_SCALE);
+    const bounds = this.scaleBounds();
+    const newScale = clamp(oldScale * factor, bounds.min, bounds.max);
     const world = {
       x: (pointer.x - stage.x()) / oldScale,
       y: (pointer.y - stage.y()) / oldScale,

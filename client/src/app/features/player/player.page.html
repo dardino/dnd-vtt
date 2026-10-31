@@ -14,7 +14,7 @@
       <div class="player__badges">
         <span class="badge">HP {{ sheet.statblock.hp.current }}/{{ sheet.statblock.hp.max }}</span>
         <span class="badge">CA {{ sheet.derived?.ac ?? '—' }}</span>
-        <span class="badge">Vel. {{ units.formatDistance(sheet.statblock.speed.walk ?? 0) }}</span>
+        <span class="badge">Vel. {{ units.formatDistance(sheet.statblock.speed.walk) }}</span>
         @if (senseText(sheet.statblock.senses); as senses) {
           <span class="badge">{{ senses }}</span>
         }

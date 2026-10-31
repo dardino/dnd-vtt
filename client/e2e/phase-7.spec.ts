@@ -13,7 +13,10 @@ const PORTRAIT_PNG = Buffer.from(
   'base64',
 );
 
-const createSceneFixture = async (request: APIRequestContext): Promise<{
+const createSceneFixture = async (
+  request: APIRequestContext,
+  size: { width: number; height: number } = { width: 1000, height: 800 },
+): Promise<{
   campaignId: string;
   sceneId: string;
   tokenId: string;
@@ -32,8 +35,8 @@ const createSceneFixture = async (request: APIRequestContext): Promise<{
   const sceneResponse = await request.post(`/api/v1/campaigns/${campaignId}/scenes`, {
     data: {
       name: 'Palco',
-      widthPx: 1000,
-      heightPx: 800,
+      widthPx: size.width,
+      heightPx: size.height,
       fogBase: 'revealed',
       imageAssetId: mapAssetId,
     },
@@ -278,6 +281,47 @@ test('con più schermi Manda in onda chiede il target', async ({ page, context, 
 
   await first.close();
   await second.close();
+});
+
+test('lo zoom resta relativo al fit anche con mappe a bassa risoluzione', async ({ page, context, request }) => {
+  test.setTimeout(60_000);
+  const fixture = await createSceneFixture(request, { width: 474, height: 276 });
+  await page.goto(`/dm/campaigns/${fixture.campaignId}`);
+  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
+
+  const [display] = await Promise.all([
+    context.waitForEvent('page'),
+    page.getByRole('button', { name: 'Apri schermo' }).click(),
+  ]);
+  await display.waitForURL(/\/display\//);
+  await display.waitForLoadState('domcontentloaded');
+  const screen = display.locator('.display');
+  await expect(screen).toBeVisible({ timeout: 15_000 });
+
+  await page.getByRole('button', { name: 'Manda in onda' }).click();
+  const canvas = screen.locator('.scene-canvas');
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+
+  // 100% coincide con il fit: la mappa piccola riempie lo schermo, senza il
+  // vecchio tetto assoluto di scala che si esauriva subito.
+  const fit = Math.min(1280 / 474, 720 / 276);
+  await expect.poll(async () => Number(await canvas.getAttribute('data-camera-scale')))
+    .toBeCloseTo(fit, 1);
+
+  await page.locator('#sidebar-screens .screen-row').first().click();
+  const viewer = page.getByRole('dialog').locator('.screen-viewer');
+  await expect(viewer.locator('.scene-canvas')).toBeVisible({ timeout: 10_000 });
+  await viewer.hover();
+  for (let tick = 0; tick < 8; tick += 1) {
+    await page.mouse.wheel(0, -120);
+    await page.waitForTimeout(60);
+  }
+  const dialogZoom = Number(await viewer.getAttribute('data-zoom'));
+  expect(dialogZoom).toBeGreaterThan(1.5);
+  await expect.poll(async () => Number(await canvas.getAttribute('data-camera-scale')))
+    .toBeCloseTo(fit * dialogZoom, 1);
+
+  await display.close();
 });
 
 test('la scheda converte velocità, sensi e portata nella unità metrica', async ({ page, request }) => {
