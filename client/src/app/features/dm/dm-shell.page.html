@@ -244,7 +244,7 @@
                 <div class="field">
                   <span>Pennello</span>
                   <p class="muted">
-                    {{ fogBrushCells }} celle di diametro · {{ fogBrushDiameterPx() }} px
+                    {{ fogBrushCells() }} celle di diametro · {{ fogBrushDiameterPx() }} px
                     (griglia {{ grid()?.cellSizePx ?? '—' }} px)
                   </p>
                 </div>
@@ -464,7 +464,7 @@
                   (click)="redoLastBatch()"
                 >↷</button>
                 <span class="tool-divider"></span>
-                <button type="button" class="tool" aria-label="Focus" title="Nascondi le sidebar" (click)="toggleLeft(); toggleRight()">F</button>
+                <button type="button" class="tool" aria-label="Impostazioni mappa" title="Impostazioni mappa" (click)="openSettings()">⚙</button>
               </nav>
 
               <div class="dm-scene__body">
@@ -479,6 +479,7 @@
                     [readOnly]="readOnly()"
                     [fogSoftness]="fogSoftness()"
                     [brushRadius]="fogBrushRadiusPx()"
+                    [drawingWidthPx]="pencilWidthPx()"
                     (tokenMoved)="onTokenMoved($event)"
                     (tokenSelected)="onTokenSelected($event)"
                     (actorDropped)="onActorDropped($event)"
@@ -864,5 +865,49 @@
   <div dialog-actions>
     <app-button (pressed)="cancelFogChange()">Annulla</app-button>
     <app-button variant="primary" (pressed)="confirmFogChange()">Conferma</app-button>
+  </div>
+</app-dialog>
+
+<app-dialog
+  [open]="settingsOpen()"
+  title="Impostazioni mappa"
+  (closed)="closeSettings()"
+>
+  <div class="form">
+    <label class="field">
+      <span>Dimensione pennello (celle)</span>
+      <input
+        type="number"
+        min="0.5"
+        max="20"
+        step="0.5"
+        [value]="fogBrushCells()"
+        (change)="setBrushCells($event)"
+      />
+      <small class="muted">Diametro {{ fogBrushDiameterPx() }} px sulla griglia attuale.</small>
+    </label>
+    <label class="field">
+      <span>Dimensione matita (decimi di cella)</span>
+      <input
+        type="number"
+        min="0.5"
+        max="10"
+        step="0.5"
+        [value]="pencilTenths()"
+        (change)="setPencilTenths($event)"
+      />
+      <small class="muted">{{ pencilWidthPx() }} px sulla griglia attuale.</small>
+    </label>
+  </div>
+  <div class="initiative__actions">
+    <app-button variant="danger" (pressed)="clearHistory()">Svuota history</app-button>
+    <app-button variant="danger" (pressed)="resetFog()">Reset FOG</app-button>
+  </div>
+  <p class="muted">
+    Svuota history mantiene la scena com'è e la rende il nuovo punto di partenza.
+    Reset FOG ricopre tutta la mappa e rimuove dalla history solo le azioni fog.
+  </p>
+  <div dialog-actions>
+    <app-button (pressed)="closeSettings()">Chiudi impostazioni</app-button>
   </div>
 </app-dialog>

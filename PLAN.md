@@ -175,6 +175,7 @@ Tooling monorepo
 | D76 | I **link giocatore** sono token casuali salvati hashati; crearne uno nuovo revoca i precedenti, `playerNotes` vive fuori da `dmNotes` e l'export incorpora gli asset WebP come base64 | il token non è recuperabile dal database, le note private non finiscono mai nella vista DM e l'import ricrea sempre una campagna nuova con id rimappati |
 | D77 | La **Fase 9 è opzionale e spenta di default**: nessun provider IA configurato, parser regex locale per gli statblock e chat che risponde `503 ai_disabled`; la sidebar mostra lo stato e il parser resta usabile | il tavolo non dipende da rete o chiavi esterne, l'import testuale funziona comunque e l'interfaccia dichiara chiaramente la funzione non disponibile |
 | D78 | Il workflow `check` compila `shared` prima del lint (`lint.dependsOn: ['^build']`) | il lint type-aware non legge un `dist` assente o in scrittura durante l'esecuzione parallela di Turbo |
+| D79 | Le impostazioni della toolbar regolano pennello in **celle di griglia** e matita in **decimi di cella**; `Svuota history` cancella il log lasciando intatto lo stato corrente, `Reset FOG` riporta la scena a tutta coperta e cancella solo le righe fog del log | le dimensioni restano coerenti cambiando la griglia; la history può ripartire da zero senza perdere la scena, e il reset fog non rende non annullabili le altre azioni |
 
 ## 5. Struttura monorepo
 

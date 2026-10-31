@@ -95,11 +95,14 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   `413`. Il pennello ha diametro di 3 celle e si adatta alla dimensione della
   griglia (circa 7 esagoni o 9 quadrati di area), quindi resta coerente
   cambiando la cella; la matita delle annotazioni è circa un quarto di cella.
-  Undo/redo dell’editor coprono matita, fog e le altre azioni di scena, con
-  pulsanti in toolbar e scorciatoie Ctrl+Z / Ctrl+Shift+Z; l’inverso di
-  `fog.apply` è `fog.remove`, quindi l’op viene rimossa davvero e non sommata
-  come un secondo strato. Azioni `fog.apply`/`fog.remove`/`fog.replace`
-  reversibili, fog iniziale scelta
+  La toolbar ha **Impostazioni mappa** per regolare pennello (in celle) e
+  matita (in decimi di cella), **Svuota history** (mantiene la scena corrente
+  come nuovo punto di partenza) e **Reset FOG** (ricopre tutto e rimuove dalla
+  history solo le azioni fog). Undo/redo dell’editor coprono matita, fog e le
+  altre azioni di scena, con pulsanti in toolbar e scorciatoie Ctrl+Z /
+  Ctrl+Shift+Z; l’inverso di `fog.apply` è `fog.remove`, quindi l’op viene
+  rimossa davvero e non sommata come un secondo strato. Azioni
+  `fog.apply`/`fog.remove`/`fog.replace` reversibili, fog iniziale scelta
   all’upload, disegni annotativi, undo dal dock e export PNG della scena.
 
 - **Fase 7 core completato**: regia con `ProgramState` versionato, composizione

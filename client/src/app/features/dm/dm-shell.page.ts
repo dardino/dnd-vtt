@@ -16,6 +16,7 @@ import {
   abilityModifier,
   FOG_BRUSH_CELLS,
   fogBrushRadius,
+  gridDrawingWidth,
   isTiledMap,
   snapTokenCell,
   sortInitiativeEntries,
@@ -138,7 +139,9 @@ export class DmShellPage implements OnInit {
   public readonly tool = signal<CanvasTool>('select');
   public readonly gridVisible = signal(true);
   public readonly fogSoftness = signal(0);
-  public readonly fogBrushCells = FOG_BRUSH_CELLS;
+  public readonly fogBrushCells = signal(FOG_BRUSH_CELLS);
+  public readonly pencilTenths = signal(2.5);
+  public readonly settingsOpen = signal(false);
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
   public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
   public readonly programState = signal<ProgramState | null>(null);
@@ -178,10 +181,13 @@ export class DmShellPage implements OnInit {
   public readonly tokens = computed<TokenState[]>(() => this.state()?.tokens ?? []);
   public readonly grid = computed<GridConfig | null>(() => this.state()?.grid ?? null);
   public readonly fogBrushRadiusPx = computed(() =>
-    fogBrushRadius(this.grid()?.cellSizePx ?? 100));
+    fogBrushRadius(this.grid()?.cellSizePx ?? 100, this.fogBrushCells()));
 
   public readonly fogBrushDiameterPx = computed(() =>
     Math.round(this.fogBrushRadiusPx() * 2));
+
+  public readonly pencilWidthPx = computed(() =>
+    gridDrawingWidth(this.grid()?.cellSizePx ?? 70, this.pencilTenths() / 10));
 
   public readonly selectedToken = computed<TokenState | null>(() => {
     const id = this.selectedTokenId();
@@ -923,6 +929,56 @@ export class DmShellPage implements OnInit {
   public setFogSoftness(event: Event): void {
     const value = Number((event.target as HTMLInputElement).value);
     this.fogSoftness.set(Number.isFinite(value) ? Math.max(0, Math.min(200, value)) : 0);
+  }
+
+  public setBrushCells(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.fogBrushCells.set(Number.isFinite(value) ? Math.max(0.5, Math.min(20, value)) : 3);
+  }
+
+  public setPencilTenths(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.pencilTenths.set(Number.isFinite(value) ? Math.max(0.5, Math.min(10, value)) : 2.5);
+  }
+
+  public openSettings(): void {
+    this.settingsOpen.set(true);
+  }
+
+  public closeSettings(): void {
+    this.settingsOpen.set(false);
+  }
+
+  public async clearHistory(): Promise<void> {
+    const campaign = this.activeCampaign();
+    if (campaign === null) {
+      return;
+    }
+    try {
+      const result = await this.sceneActions.clearHistory(campaign.id);
+      await this.actions.refreshHistory(campaign.id);
+      this.settingsOpen.set(false);
+      this.statusMessage.set(`History svuotata: ${result.cleared} azioni rimosse.`);
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    }
+  }
+
+  public async resetFog(): Promise<void> {
+    const campaign = this.activeCampaign();
+    const scene = this.activeScene();
+    if (campaign === null || scene === null) {
+      return;
+    }
+    try {
+      const result = await this.sceneActions.resetFog(campaign.id, scene.id);
+      await this.sceneStore.load(scene.id);
+      await this.actions.refreshHistory(campaign.id);
+      this.settingsOpen.set(false);
+      this.statusMessage.set(`FOG ripristinata: ${result.cleared} azioni fog rimosse.`);
+    } catch (error) {
+      this.notice.set(messageFor(error));
+    }
   }
 
   public async onFogApplied(op: FogOp): Promise<void> {

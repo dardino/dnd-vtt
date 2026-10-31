@@ -146,3 +146,19 @@ export const pruneActionLog = (db: DbExecutor, campaignId: string): void => {
     .where(and(eq(actionLog.campaignId, campaignId), notInArray(actionLog.id, keep)))
     .run();
 };
+
+export const deleteActionLogForCampaign = (db: DbExecutor, campaignId: string): number =>
+  db.delete(actionLog).where(eq(actionLog.campaignId, campaignId)).run().changes;
+
+export const deleteFogActionLogForScene = (
+  db: DbExecutor,
+  campaignId: string,
+  sceneId: string,
+): number =>
+  db.delete(actionLog)
+    .where(and(
+      eq(actionLog.campaignId, campaignId),
+      eq(actionLog.sceneId, sceneId),
+      inArray(actionLog.type, ['fog.apply', 'fog.remove', 'fog.replace']),
+    ))
+    .run().changes;

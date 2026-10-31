@@ -13,6 +13,8 @@ import {
 import { and, eq } from 'drizzle-orm';
 import type { AppDatabase, DbExecutor } from '../db/client.js';
 import {
+  deleteActionLogForCampaign,
+  deleteFogActionLogForScene,
   findActionLogEntry,
   insertActionLog,
   listActionLog,
@@ -23,6 +25,7 @@ import {
   markActionsUndone,
   pruneActionLog,
 } from '../db/action-log.repository.js';
+import { getCampaign } from '../db/campaigns.repository.js';
 import { getScene, getSceneState } from '../db/scenes.repository.js';
 import { scenes } from '../db/schema.js';
 import { AppError, notFound } from '../errors.js';
@@ -291,5 +294,55 @@ export const redoLastBatch = (
   return {
     snapshot: snapshotFrom(tx, sceneId, state, stateVersion),
     redone: batch.length,
+  };
+});
+
+/**
+ * Svuota la history della campagna lasciando intatto lo stato corrente:
+ * quello che è a schermo diventa il nuovo punto di partenza.
+ */
+export const clearCampaignHistory = (
+  db: AppDatabase,
+  campaignId: string,
+): { cleared: number } => db.transaction((tx) => {
+  if (getCampaign(tx, campaignId) === null) {
+    throw notFound('Campagna non trovata');
+  }
+  return { cleared: deleteActionLogForCampaign(tx, campaignId) };
+});
+
+/**
+ * Riporta la fog a "tutta coperta" e rimuove dalla history solo le azioni fog
+ * della scena. Le altre azioni restano annullabili.
+ */
+export const resetSceneFog = (
+  db: AppDatabase,
+  campaignId: string,
+  sceneId: string,
+): { snapshot: SceneSnapshot; cleared: number } => db.transaction((tx) => {
+  const row = tx.select().from(scenes).where(eq(scenes.id, sceneId)).get();
+  if (row === undefined || row.campaignId !== campaignId) {
+    throw notFound('Scena non trovata');
+  }
+  const state = sceneStateSchema.parse(JSON.parse(row.state) as unknown);
+  const nextState: SceneState = {
+    ...state,
+    fog: { base: 'hidden', ops: [] },
+  };
+  const stateVersion = row.stateVersion + 1;
+  const updated = tx.update(scenes)
+    .set({
+      state: JSON.stringify(nextState),
+      stateVersion,
+      updatedAt: new Date().toISOString(),
+    })
+    .where(and(eq(scenes.id, row.id), eq(scenes.stateVersion, row.stateVersion)))
+    .run();
+  if (updated.changes === 0) {
+    throw new AppError('state_conflict', 409, 'La scena è stata modificata altrove');
+  }
+  return {
+    snapshot: snapshotFrom(tx, sceneId, nextState, stateVersion),
+    cleared: deleteFogActionLogForScene(tx, campaignId, sceneId),
   };
 });

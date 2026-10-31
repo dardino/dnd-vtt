@@ -97,6 +97,7 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly readOnly = input(false);
   public readonly fogSoftness = input(0);
   public readonly brushRadius = input(150);
+  public readonly drawingWidthPx = input<number | null>(null);
   public readonly fogOpacity = input(0.5);
 
   public readonly tokenMoved = output<TokenMoveEvent>();
@@ -1143,7 +1144,8 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private drawingWidth(): number {
-    return gridDrawingWidth(this.state().grid.cellSizePx);
+    const override = this.drawingWidthPx();
+    return override ?? gridDrawingWidth(this.state().grid.cellSizePx);
   }
 
   private publishCamera(): void {

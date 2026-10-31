@@ -134,4 +134,54 @@ describe('fase 6: fog e disegni', () => {
     expect(response.statusCode).toBe(413);
     expect(response.json().error.code).toBe('payload_too_large');
   });
+
+  it('svuota la history mantenendo lo stato corrente', async () => {
+    const campaignId = await createCampaign(app, 'hidden');
+    const sceneId = await createScene(app, campaignId);
+    await send(app, campaignId, sceneId, { type: 'fog.apply', op: rectOp('keep-state') });
+    const cleared = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/campaigns/${campaignId}/actions`,
+    });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json<{ cleared: number }>().cleared).toBeGreaterThan(0);
+    const history = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${campaignId}/actions`,
+    });
+    expect(history.json<{ items: unknown[] }>().items).toHaveLength(0);
+    const snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
+    expect(snapshot.json().state.fog.ops).toHaveLength(1);
+  });
+
+  it('riporta la fog a tutta coperta e rimuove solo le azioni fog', async () => {
+    const campaignId = await createCampaign(app, 'hidden');
+    const sceneId = await createScene(app, campaignId);
+    await send(app, campaignId, sceneId, { type: 'fog.apply', op: rectOp('reset-1') });
+    await send(app, campaignId, sceneId, {
+      type: 'drawing.add',
+      drawing: {
+        id: 'drawing-reset',
+        points: [{ x: 0, y: 0 }, { x: 10, y: 10 }],
+        color: '#fff',
+        width: 2,
+        visible: true,
+      },
+    });
+    const reset = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/actions/reset-fog`,
+      payload: { sceneId },
+    });
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json<{ cleared: number }>().cleared).toBe(1);
+    const snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
+    expect(snapshot.json().state.fog).toEqual({ base: 'hidden', ops: [] });
+    const history = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${campaignId}/actions`,
+    });
+    const items = history.json<{ items: { type: string }[] }>().items;
+    expect(items.map((entry) => entry.type)).toEqual(['drawing.add']);
+  });
 });

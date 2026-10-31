@@ -1,5 +1,5 @@
 import type { FastifyPluginCallback } from 'fastify';
-import { actionRequestSchema, undoActionRequestSchema } from '@dnd-vtt/shared';
+import { actionRequestSchema, resetFogRequestSchema, undoActionRequestSchema } from '@dnd-vtt/shared';
 import { z } from 'zod';
 import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
@@ -7,8 +7,10 @@ import type { AppDatabase } from '../db/client.js';
 import { parse } from '../http/validation.js';
 import {
   applySceneAction,
+  clearCampaignHistory,
   listCampaignActions,
   redoLastBatch,
+  resetSceneFog,
   syncCampaignActions,
   undoThrough,
 } from '../actions/service.js';
@@ -59,6 +61,19 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallbac
     app.post('/campaigns/:id/actions/redo', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const result = redoLastBatch(db, id);
+      broadcastDisplays(id);
+      return reply.send(result);
+    });
+
+    app.delete('/campaigns/:id/actions', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      return reply.send(clearCampaignHistory(db, id));
+    });
+
+    app.post('/campaigns/:id/actions/reset-fog', async (request, reply) => {
+      const { id } = parse(idParamsSchema, request.params);
+      const body = parse(resetFogRequestSchema, request.body);
+      const result = resetSceneFog(db, id, body.sceneId);
       broadcastDisplays(id);
       return reply.send(result);
     });

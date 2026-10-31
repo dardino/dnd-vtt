@@ -298,3 +298,19 @@ export const redoResultSchema = z.strictObject({
   redone: z.number().int().min(1),
 });
 export type RedoResult = z.infer<typeof redoResultSchema>;
+
+export const clearHistoryResultSchema = z.strictObject({
+  cleared: z.number().int().min(0),
+});
+export type ClearHistoryResult = z.infer<typeof clearHistoryResultSchema>;
+
+export const resetFogRequestSchema = z.strictObject({
+  sceneId: z.string().uuid(),
+});
+export type ResetFogRequest = z.infer<typeof resetFogRequestSchema>;
+
+export const resetFogResultSchema = z.strictObject({
+  snapshot: sceneSnapshotSchema,
+  cleared: z.number().int().min(0),
+});
+export type ResetFogResult = z.infer<typeof resetFogResultSchema>;

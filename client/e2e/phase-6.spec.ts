@@ -201,3 +201,83 @@ test('il pennello fog ha un diametro di 3 celle', async ({ page, request }) => {
     expect(brush.shape.radius).toBe(96);
   }
 });
+
+test('le impostazioni mappa regolano matita e pennello e ripuliscono history e fog', async ({ page, request }) => {
+  const id = await campaignId(request);
+  const sceneId = await ensureScene(request, id);
+  await openCampaign(page);
+
+  const canvas = page.locator('.scene-canvas');
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+  await expect.poll(async () => canvas.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeGreaterThan(0);
+  const box = await canvas.boundingBox();
+  const left = (box?.x ?? 0) + 160;
+  const top = (box?.y ?? 0) + 160;
+  const cell = (await sceneState(request, sceneId)).state.grid.cellSizePx;
+
+  await page.getByRole('button', { name: 'Impostazioni mappa' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel(/Dimensione pennello/).fill('4');
+  await dialog.getByLabel(/Dimensione pennello/).press('Tab');
+  await dialog.getByLabel(/Dimensione matita/).fill('5');
+  await dialog.getByLabel(/Dimensione matita/).press('Tab');
+  await dialog.getByRole('button', { name: 'Chiudi impostazioni' }).click();
+  await expect(dialog).toBeHidden();
+
+  const drawingsBefore = (await sceneState(request, sceneId)).state.drawings.length;
+  await page.getByRole('button', { name: 'Disegno' }).click();
+  await expect(page.getByRole('button', { name: 'Disegno' })).toHaveClass(/is-active/);
+  await page.mouse.move(left, top);
+  await page.mouse.down();
+  await page.mouse.move(left + 80, top + 40, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.drawings.length)
+    .toBe(drawingsBefore + 1);
+  const drawing = (await sceneState(request, sceneId)).state.drawings.at(-1);
+  expect(drawing?.width).toBe(cell * 0.5);
+
+  const opsBefore = (await sceneState(request, sceneId)).state.fog.ops.length;
+  await page.getByRole('button', { name: 'Fog: rivela' }).click();
+  await expect(page.getByRole('button', { name: 'Fog: rivela' })).toHaveClass(/is-active/);
+  await page.mouse.move(left, top);
+  await page.mouse.down();
+  await page.mouse.move(left + 70, top + 30, { steps: 4 });
+  await page.mouse.up();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.ops.length)
+    .toBe(opsBefore + 1);
+  const fogOps = (await sceneState(request, sceneId)).state.fog.ops;
+  const lastFog = fogOps.at(-1);
+  if (lastFog?.shape.type === 'brush') {
+    expect(lastFog.shape.radius).toBe((cell * 4) / 2);
+  } else {
+    throw new Error('atteso un tratto fog a pennello');
+  }
+
+  await page.getByRole('button', { name: 'Impostazioni mappa' }).click();
+  await page.getByRole('button', { name: 'Svuota history' }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(async () => {
+    const history = await request.get(`/api/v1/campaigns/${id}/actions`);
+    return (await history.json() as { items: unknown[] }).items.length;
+  }).toBe(0);
+
+  await page.mouse.move(left, top);
+  await page.mouse.down();
+  await page.mouse.move(left + 50, top + 30, { steps: 3 });
+  await page.mouse.up();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.ops.length)
+    .toBeGreaterThan(0);
+
+  await page.getByRole('button', { name: 'Impostazioni mappa' }).click();
+  await page.getByRole('button', { name: 'Reset FOG' }).click();
+  await expect(dialog).toBeHidden();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog)
+    .toEqual({ base: 'hidden', ops: [] });
+  await expect.poll(async () => {
+    const history = await request.get(`/api/v1/campaigns/${id}/actions`);
+    const items = (await history.json() as { items: { type: string }[] }).items;
+    return items.filter((entry) => entry.type.startsWith('fog.')).length;
+  }).toBe(0);
+});
