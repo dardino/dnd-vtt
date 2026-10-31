@@ -281,3 +281,32 @@ test('le impostazioni mappa regolano matita e pennello e ripuliscono history e f
     return items.filter((entry) => entry.type.startsWith('fog.')).length;
   }).toBe(0);
 });
+
+test('il tasto destro fa pan con qualsiasi strumento', async ({ page, request }) => {
+  const id = await campaignId(request);
+  const sceneId = await ensureScene(request, id);
+  await openCampaign(page);
+
+  const canvas = page.locator('.scene-canvas');
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+  await expect.poll(async () => canvas.evaluate((element) => element.getBoundingClientRect().width))
+    .toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Fog: rivela' }).click();
+  await expect(page.getByRole('button', { name: 'Fog: rivela' })).toHaveClass(/is-active/);
+
+  const opsBefore = (await sceneState(request, sceneId)).state.fog.ops.length;
+  const beforeX = await canvas.getAttribute('data-camera-x');
+  const beforeY = await canvas.getAttribute('data-camera-y');
+  const box = await canvas.boundingBox();
+  const left = (box?.x ?? 0) + 200;
+  const top = (box?.y ?? 0) + 200;
+
+  await page.mouse.move(left, top);
+  await page.mouse.down({ button: 'right' });
+  await page.mouse.move(left + 90, top + 60, { steps: 5 });
+  await page.mouse.up({ button: 'right' });
+
+  await expect.poll(async () => canvas.getAttribute('data-camera-x')).not.toBe(beforeX);
+  expect(await canvas.getAttribute('data-camera-y')).not.toBe(beforeY);
+  expect((await sceneState(request, sceneId)).state.fog.ops.length).toBe(opsBefore);
+});

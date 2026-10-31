@@ -42,9 +42,78 @@
           <button type="button" class="sheet__levelup" [disabled]="playerLinkBusy()" (click)="createPlayerLink()">
             Condividi scheda
           </button>
+        } @else {
+          <button type="button" class="sheet__levelup" (click)="toggleEditMode()">
+            ✎ {{ editMode() ? 'Chiudi modifica' : 'Modifica' }}
+          </button>
         }
       </div>
     </header>
+
+    @if (!pc() && editMode()) {
+      <section class="surface actor-edit">
+        <h2>Modifica attore</h2>
+        <label class="field">
+          <span>Nome</span>
+          <input type="text" [value]="nameDraft()" (input)="setActorName($event)" />
+        </label>
+        <div class="inline-controls">
+          <button type="button" class="btn" [disabled]="busy()" (click)="saveActorName()">Salva</button>
+        </div>
+      </section>
+    }
+
+    @if (pc() || editMode()) {
+      <section class="surface portrait-editor">
+        <h2>Ritratto</h2>
+        <div
+          class="portrait-editor__frame"
+          (pointerdown)="startPortraitDrag($event)"
+          (pointermove)="movePortrait($event)"
+          (pointerup)="finishPortraitDrag()"
+          (pointercancel)="finishPortraitDrag()"
+        >
+          @if (portraitUrl(); as url) {
+            <img
+              [src]="url"
+              alt=""
+              draggable="false"
+              [style.object-position]="(portraitFocusX() * 100) + '% ' + (portraitFocusY() * 100) + '%'"
+              [style.transform]="'scale(' + portraitZoom() + ')'"
+            />
+            <span
+              class="portrait-editor__crop"
+              aria-hidden="true"
+              [style.left.%]="portraitFocusX() * 100"
+              [style.top.%]="portraitFocusY() * 100"
+            ></span>
+          } @else {
+            <span class="muted">Nessun ritratto</span>
+          }
+        </div>
+        <p class="muted">Trascina il cerchio per scegliere il ritaglio del thumbnail.</p>
+        <input #portraitInput class="file-input" type="file" accept="image/*" (change)="uploadPortrait($event)" />
+        <div class="inline-controls">
+          <button type="button" class="btn" [disabled]="portraitBusy()" (click)="portraitInput.click()">
+            {{ portraitBusy() ? 'Caricamento…' : 'Carica ritratto' }}
+          </button>
+          @if (portraitUrl() !== null) {
+            <label class="field field--inline">
+              <span>Zoom</span>
+              <input
+                type="range"
+                min="1"
+                max="3"
+                step="0.05"
+                [value]="portraitZoom()"
+                (input)="setPortraitZoom($event)"
+                (change)="savePortrait()"
+              />
+            </label>
+          }
+        </div>
+      </section>
+    }
 
     @if (playerUrl() !== null || playerLinkError() !== null || playerEditing() === false) {
       <section class="surface player-link">

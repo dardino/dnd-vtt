@@ -380,8 +380,8 @@
                   type="button"
                   class="tool"
                   [class.is-active]="tool() === 'select'"
-                  aria-label="Seleziona e pan"
-                  title="Seleziona e pan"
+                  aria-label="Seleziona"
+                  title="Seleziona"
                   (click)="setTool('select')"
                 >↖</button>
                 <button
@@ -480,6 +480,7 @@
                     [fogSoftness]="fogSoftness()"
                     [brushRadius]="fogBrushRadiusPx()"
                     [drawingWidthPx]="pencilWidthPx()"
+                    [actorPortraits]="actorPortraits()"
                     (tokenMoved)="onTokenMoved($event)"
                     (tokenSelected)="onTokenSelected($event)"
                     (actorDropped)="onActorDropped($event)"
@@ -711,21 +712,35 @@
             (keydown.enter)="selectActor(actor)"
             (keydown.space)="selectActor(actor); $event.preventDefault()"
           >
-            <div class="slot__head">
-              <span class="slot__name">{{ actor.name }}</span>
-              <span class="slot__kind">{{ actor.kind === 'pc' ? 'PG' : actor.kind === 'monster' ? 'Mostro' : 'NPC' }}</span>
+            <div class="slot__portrait">
+              @if (portraitFor(actor); as portrait) {
+                <img
+                  [src]="portrait.url"
+                  [style.object-position]="(portrait.focusX * 100) + '% ' + (portrait.focusY * 100) + '%'"
+                  [style.transform]="'scale(' + portrait.zoom + ')'"
+                  alt=""
+                />
+              } @else {
+                <span aria-hidden="true">{{ actor.name.slice(0, 1) }}</span>
+              }
             </div>
-            <span class="slot__subtitle">{{ actorSubtitle(actor) }}</span>
-            <div class="slot__hp" aria-hidden="true" [style.--slot-hp]="hpRatio(actor)">
-              <span></span>
-            </div>
-            <div class="slot__foot">
-              <span class="muted">{{ actor.hp?.current ?? 0 }}/{{ actor.hp?.max ?? 0 }} PF</span>
-              <a
-                class="slot__sheet"
-                [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', actor.id, 'sheet']"
-                (click)="$event.stopPropagation()"
-              >Scheda</a>
+            <div class="slot__body">
+              <div class="slot__head">
+                <span class="slot__name">{{ actor.name }}</span>
+                <span class="slot__kind">{{ actor.kind === 'pc' ? 'PG' : actor.kind === 'monster' ? 'Mostro' : 'NPC' }}</span>
+              </div>
+              <span class="slot__subtitle">{{ actorSubtitle(actor) }}</span>
+              <div class="slot__hp" aria-hidden="true" [style.--slot-hp]="hpRatio(actor)">
+                <span></span>
+              </div>
+              <div class="slot__foot">
+                <span class="muted">{{ actor.hp?.current ?? 0 }}/{{ actor.hp?.max ?? 0 }} PF</span>
+                <a
+                  class="slot__sheet"
+                  [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', actor.id, 'sheet']"
+                  (click)="$event.stopPropagation()"
+                >Scheda</a>
+              </div>
             </div>
           </div>
         } @else {

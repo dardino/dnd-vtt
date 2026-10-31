@@ -14,6 +14,7 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import {
   abilityModifier,
+  DEFAULT_ACTOR_PORTRAIT,
   FOG_BRUSH_CELLS,
   fogBrushRadius,
   gridDrawingWidth,
@@ -57,6 +58,7 @@ import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import {
   SceneCanvasComponent,
   type ActorDropEvent,
+  type ActorPortraitThumb,
   type SceneMapImage,
   type SceneTool,
   type TokenMoveEvent,
@@ -157,6 +159,7 @@ export class DmShellPage implements OnInit {
   public readonly activeCampaign = signal<Campaign | null>(null);
   public readonly scenes = signal<Scene[]>([]);
   public readonly party = signal<Actor[]>([]);
+  public readonly actorAssetUrls = signal<Record<string, string>>({});
   public readonly activeScene = signal<Scene | null>(null);
   public readonly mapImage = signal<SceneMapImage | null>(null);
   public readonly notice = signal<string | null>(null);
@@ -270,6 +273,34 @@ export class DmShellPage implements OnInit {
   public readonly availableActors = computed<Actor[]>(() =>
     this.party().filter((actor) => actor.kind !== 'pc'));
 
+  public readonly actorPortraits = computed<Record<string, ActorPortraitThumb>>(() => {
+    const urls = this.actorAssetUrls();
+    const portraits: Record<string, ActorPortraitThumb> = {};
+    for (const actor of this.party()) {
+      if (actor.imageAssetId === null) {
+        continue;
+      }
+      const url = urls[actor.imageAssetId];
+      if (url === undefined) {
+        continue;
+      }
+      const portrait = actor.portrait ?? DEFAULT_ACTOR_PORTRAIT;
+      portraits[actor.id] = { url, ...portrait };
+    }
+    return portraits;
+  });
+
+  public portraitFor(actor: Actor): ActorPortraitThumb | null {
+    if (actor.imageAssetId === null) {
+      return null;
+    }
+    const url = this.actorAssetUrls()[actor.imageAssetId];
+    if (url === undefined) {
+      return null;
+    }
+    return { url, ...(actor.portrait ?? DEFAULT_ACTOR_PORTRAIT) };
+  }
+
   public readonly zoomLabel = computed(() => `${Math.round(this.zoom() * 100)}%`);
   public readonly blackout = computed(() => this.programState()?.blackout === true);
   public readonly airLabel = computed(() => {
@@ -376,7 +407,9 @@ export class DmShellPage implements OnInit {
       this.restorePanels(campaign.id);
       const scenes = await this.campaignsApi.listScenes(campaign.id);
       this.scenes.set(scenes);
-      this.party.set(await this.actorsApi.listByCampaign(campaign.id));
+      const party = await this.actorsApi.listByCampaign(campaign.id);
+      this.party.set(party);
+      await this.loadActorAssets(party);
       await this.dice.load(campaign.id);
       const program = await this.programsApi.get(campaign.id);
       this.programState.set(program.state);
@@ -1441,6 +1474,29 @@ export class DmShellPage implements OnInit {
         sections: this.sections(),
       }),
     );
+  }
+
+  private async loadActorAssets(actors: Actor[]): Promise<void> {
+    const ids = [...new Set(
+      actors
+        .map((actor) => actor.imageAssetId)
+        .filter((id): id is string => id !== null),
+    )];
+    const entries = await Promise.all(ids.map(async (id) => {
+      try {
+        const asset = await this.assetsApi.get(id);
+        return [id, asset.url] as const;
+      } catch {
+        return null;
+      }
+    }));
+    const urls: Record<string, string> = {};
+    for (const entry of entries) {
+      if (entry !== null) {
+        urls[entry[0]] = entry[1];
+      }
+    }
+    this.actorAssetUrls.set(urls);
   }
 
   private connectPresence(campaignId: string): void {

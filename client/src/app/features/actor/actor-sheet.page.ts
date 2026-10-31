@@ -12,12 +12,14 @@ import {
   abilityModifier,
   conditionNameSchema,
   currencyToCopper,
+  DEFAULT_ACTOR_PORTRAIT,
   formatGp,
   formatModifier,
   skills as ALL_SKILLS,
   xpForNextLevel,
   xpThresholdForLevel,
   type Ability,
+  type ActorPortrait,
   type Campaign,
   type Condition,
   type ConditionName,
@@ -30,6 +32,7 @@ import {
   type Skill,
 } from '@dnd-vtt/shared';
 import { ActorService } from '../../core/actor.service';
+import { AssetService } from '../../core/asset.service';
 import { CampaignService } from '../../core/campaign.service';
 import { PlayerService } from '../../core/player.service';
 import { SceneActionService } from '../../core/scene-action.service';
@@ -79,6 +82,7 @@ export class ActorSheetPage implements OnInit {
   public readonly actorId = input.required<string>();
 
   private readonly actorsApi = inject(ActorService);
+  private readonly assetsApi = inject(AssetService);
   private readonly campaignsApi = inject(CampaignService);
   private readonly sceneActions = inject(SceneActionService);
   private readonly catalogService = inject(SrdCatalogService);
@@ -92,6 +96,14 @@ export class ActorSheetPage implements OnInit {
   public readonly error = signal<string | null>(null);
   public readonly tab = signal<SheetTab>('combat');
   public readonly notesDraft = signal('');
+  public readonly nameDraft = signal('');
+  public readonly editMode = signal(false);
+  public readonly portraitUrl = signal<string | null>(null);
+  public readonly portraitFocusX = signal(DEFAULT_ACTOR_PORTRAIT.focusX);
+  public readonly portraitFocusY = signal(DEFAULT_ACTOR_PORTRAIT.focusY);
+  public readonly portraitZoom = signal(DEFAULT_ACTOR_PORTRAIT.zoom);
+  public readonly portraitBusy = signal(false);
+  private portraitDragging = false;
   public readonly savingNotes = signal(false);
   public readonly notesSaved = signal(false);
   public readonly busy = signal(false);
@@ -653,11 +665,138 @@ export class ActorSheetPage implements OnInit {
     }
   }
 
+  public toggleEditMode(): void {
+    this.editMode.update((value) => !value);
+  }
+
+  public setActorName(event: Event): void {
+    this.nameDraft.set((event.target as HTMLInputElement).value);
+  }
+
+  public async saveActorName(): Promise<void> {
+    const name = this.nameDraft().trim();
+    if (name === '') {
+      return;
+    }
+    this.busy.set(true);
+    try {
+      await this.actorsApi.patchActor(this.actorId(), { name });
+      await this.reload();
+      this.editMode.set(false);
+    } catch (error) {
+      this.error.set(this.messageFor(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  public async uploadPortrait(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (file === undefined) {
+      return;
+    }
+    this.portraitBusy.set(true);
+    try {
+      const asset = await this.assetsApi.upload(file);
+      await this.actorsApi.patchActor(this.actorId(), {
+        imageAssetId: asset.id,
+        portrait: this.portrait(),
+      });
+      this.portraitUrl.set(asset.url);
+      await this.reload();
+    } catch (error) {
+      this.error.set(this.messageFor(error));
+    } finally {
+      this.portraitBusy.set(false);
+    }
+  }
+
+  public startPortraitDrag(event: PointerEvent): void {
+    if (this.portraitUrl() === null) {
+      return;
+    }
+    const element = event.currentTarget as HTMLElement;
+    element.setPointerCapture(event.pointerId);
+    this.portraitDragging = true;
+    this.movePortrait(event);
+  }
+
+  public movePortrait(event: PointerEvent): void {
+    if (!this.portraitDragging) {
+      return;
+    }
+    const element = event.currentTarget as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    this.portraitFocusX.set(Math.max(0.02, Math.min(0.98, x)));
+    this.portraitFocusY.set(Math.max(0.02, Math.min(0.98, y)));
+  }
+
+  public finishPortraitDrag(): void {
+    if (!this.portraitDragging) {
+      return;
+    }
+    this.portraitDragging = false;
+    void this.savePortrait();
+  }
+
+  public setPortraitZoom(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    if (Number.isFinite(value)) {
+      this.portraitZoom.set(Math.max(1, Math.min(3, value)));
+    }
+  }
+
+  public async savePortrait(): Promise<void> {
+    if (this.portraitUrl() === null) {
+      return;
+    }
+    try {
+      await this.actorsApi.patchActor(this.actorId(), { portrait: this.portrait() });
+    } catch (error) {
+      this.error.set(this.messageFor(error));
+    }
+  }
+
+  private portrait(): ActorPortrait {
+    return {
+      focusX: this.portraitFocusX(),
+      focusY: this.portraitFocusY(),
+      zoom: this.portraitZoom(),
+    };
+  }
+
+  private async syncPortrait(): Promise<void> {
+    const actor = this.view()?.actor;
+    if (actor === undefined) {
+      return;
+    }
+    this.nameDraft.set(actor.name);
+    const portrait = actor.portrait ?? DEFAULT_ACTOR_PORTRAIT;
+    this.portraitFocusX.set(portrait.focusX);
+    this.portraitFocusY.set(portrait.focusY);
+    this.portraitZoom.set(portrait.zoom);
+    if (actor.imageAssetId === null) {
+      this.portraitUrl.set(null);
+      return;
+    }
+    try {
+      const asset = await this.assetsApi.get(actor.imageAssetId);
+      this.portraitUrl.set(asset.url);
+    } catch {
+      this.portraitUrl.set(null);
+    }
+  }
+
   private async reload(): Promise<void> {
     try {
       const view = await this.actorsApi.getSheet(this.actorId());
       this.view.set(view);
       this.xpDraft.set(view.actor.xp);
+      await this.syncPortrait();
       this.error.set(null);
     } catch (error) {
       this.error.set(this.messageFor(error));
@@ -731,6 +870,7 @@ export class ActorSheetPage implements OnInit {
       this.view.set(view);
       this.notesDraft.set(view.actor.dmNotes ?? '');
       this.xpDraft.set(view.actor.xp);
+      await this.syncPortrait();
       if (view.statblock.kind === 'pc') {
         const link = await this.players.getLink(this.actorId());
         if (link !== null) {

@@ -176,6 +176,7 @@ Tooling monorepo
 | D77 | La **Fase 9 è opzionale e spenta di default**: nessun provider IA configurato, parser regex locale per gli statblock e chat che risponde `503 ai_disabled`; la sidebar mostra lo stato e il parser resta usabile | il tavolo non dipende da rete o chiavi esterne, l'import testuale funziona comunque e l'interfaccia dichiara chiaramente la funzione non disponibile |
 | D78 | Il workflow `check` compila `shared` prima del lint (`lint.dependsOn: ['^build']`) | il lint type-aware non legge un `dist` assente o in scrittura durante l'esecuzione parallela di Turbo |
 | D79 | Le impostazioni della toolbar regolano pennello in **celle di griglia** e matita in **decimi di cella**; `Svuota history` cancella il log lasciando intatto lo stato corrente, `Reset FOG` riporta la scena a tutta coperta e cancella solo le righe fog del log | le dimensioni restano coerenti cambiando la griglia; la history può ripartire da zero senza perdere la scena, e il reset fog non rende non annullabili le altre azioni |
+| D80 | Il pan è **sempre col tasto destro**, indipendente dallo strumento; il ritratto attore è `3:4` con focus/zoom salvati su `actors.portrait` e usato per il thumbnail circolare di mappa e slot | l’editor resta usabile con fog/matita attivi senza cambiare strumento; il ritaglio è persistente, non duplica asset e vale sia per PG sia per mostri/NPC |
 
 ## 5. Struttura monorepo
 

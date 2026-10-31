@@ -42,6 +42,13 @@ export type SceneTool
     | 'fog-lasso'
     | 'draw';
 
+export interface ActorPortraitThumb {
+  url: string;
+  focusX: number;
+  focusY: number;
+  zoom: number;
+}
+
 export interface SceneMapImage {
   url: string;
   previewUrl: string;
@@ -98,6 +105,7 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly fogSoftness = input(0);
   public readonly brushRadius = input(150);
   public readonly drawingWidthPx = input<number | null>(null);
+  public readonly actorPortraits = input<Record<string, ActorPortraitThumb>>({});
   public readonly fogOpacity = input(0.5);
 
   public readonly tokenMoved = output<TokenMoveEvent>();
@@ -146,7 +154,9 @@ export class SceneCanvasComponent implements OnDestroy {
   private drawingDraft: Point[] | null = null;
   private lassoPoints: Point[] | null = null;
   private draggingMeasure = false;
+  private rightPan: { stageX: number; stageY: number; pointerX: number; pointerY: number } | null = null;
   private loadingImages = new Map<string, Promise<HTMLImageElement>>();
+  private portraitImages = new Map<string, HTMLImageElement>();
 
   constructor() {
     effect(() => {
@@ -156,8 +166,20 @@ export class SceneCanvasComponent implements OnDestroy {
       this.tool();
       this.gridVisible();
       this.readOnly();
+      this.actorPortraits();
       if (this.stage !== null) {
         this.renderAll();
+      }
+    });
+    effect(() => {
+      for (const portrait of Object.values(this.actorPortraits())) {
+        if (this.portraitImages.has(portrait.url)) {
+          continue;
+        }
+        void this.loadImage(portrait.url).then((image) => {
+          this.portraitImages.set(portrait.url, image);
+          this.renderTokens();
+        }).catch(() => undefined);
       }
     });
     afterNextRender(() => {
@@ -280,6 +302,7 @@ export class SceneCanvasComponent implements OnDestroy {
     stage.add(this.measureLayer);
 
     stage.on('wheel', (event) => this.onWheel(event));
+    stage.on('contextmenu', (event) => event.evt.preventDefault());
     stage.on('dragstart', () => this.beginInteraction());
     stage.on('dragmove', () => this.publishCamera());
     stage.on('dragend', () => this.scheduleTiles());
@@ -889,7 +912,53 @@ export class SceneCanvasComponent implements OnDestroy {
       shadowOpacity: 0.25,
       shadowBlur: 6,
     });
-    group.add(surface);
+    const portrait = token.actorId === undefined ? undefined : this.actorPortraits()[token.actorId];
+    const portraitImage = portrait === undefined ? undefined : this.portraitImages.get(portrait.url);
+    if (portrait !== undefined && portraitImage !== undefined) {
+      const naturalWidth = portraitImage.naturalWidth;
+      const naturalHeight = portraitImage.naturalHeight;
+      const baseScale = Math.max(footprint / naturalWidth, footprint / naturalHeight);
+      const imageScale = baseScale * portrait.zoom;
+      const imageWidth = naturalWidth * imageScale;
+      const imageHeight = naturalHeight * imageScale;
+      const clip = new Konva.Group({
+        opacity: token.visible ? 1 : 0.45,
+        clipFunc: (context) => {
+          context.beginPath();
+          if (grid.type === 'hex') {
+            context.arc(0, 0, footprint / 2, 0, Math.PI * 2, false);
+          } else {
+            context.roundRect(-footprint / 2, -footprint / 2, footprint, footprint, 6);
+          }
+          context.closePath();
+        },
+      });
+      clip.add(new Konva.Image({
+        image: portraitImage,
+        x: -portrait.focusX * imageWidth,
+        y: -portrait.focusY * imageHeight,
+        width: imageWidth,
+        height: imageHeight,
+        listening: false,
+      }));
+      group.add(clip);
+      group.add(new Konva.Rect({
+        x: -footprint / 2,
+        y: -footprint / 2,
+        width: footprint,
+        height: footprint,
+        cornerRadius: grid.type === 'hex' ? footprint / 2 : 6,
+        fillEnabled: false,
+        stroke: selected ? colors.accent : colors.text,
+        strokeWidth: (selected ? 2.5 : 1.25) / Math.max(scale, 0.2),
+        opacity: token.visible ? 1 : 0.45,
+        shadowColor: '#000',
+        shadowOpacity: 0.25,
+        shadowBlur: 6,
+      }));
+    } else {
+      group.add(surface);
+    }
 
     const barWidth = footprint * 0.8;
     const barHeight = Math.max(3, 5 / Math.max(scale, 0.2));
@@ -913,14 +982,15 @@ export class SceneCanvasComponent implements OnDestroy {
 
     const fontSize = Math.max(10, 12 / Math.max(scale, 0.15));
     group.add(new Konva.Text({
-      x: -footprint,
+      x: -footprint * 2,
       y: footprint / 2 + 2,
-      width: footprint * 2,
+      width: footprint * 4,
       align: 'center',
       text: token.label,
       fontSize,
       fontFamily: 'system-ui, sans-serif',
       fill: colors.text,
+      wrap: 'none',
       listening: false,
     }));
 
@@ -944,6 +1014,20 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private onPointerDown(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void {
+    if (event.evt instanceof MouseEvent && event.evt.button === 2 && this.stage !== null) {
+      const pointer = this.stage.getPointerPosition();
+      if (pointer !== null) {
+        this.rightPan = {
+          stageX: this.stage.x(),
+          stageY: this.stage.y(),
+          pointerX: pointer.x,
+          pointerY: pointer.y,
+        };
+        this.stage.draggable(false);
+      }
+      event.evt.preventDefault();
+      return;
+    }
     const tool = this.tool();
     if (tool === 'select' || this.stage === null) {
       return;
@@ -977,6 +1061,18 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private onPointerMove(): void {
+    const stage = this.stage;
+    if (this.rightPan !== null && stage !== null) {
+      const pointer = stage.getPointerPosition();
+      if (pointer !== null) {
+        stage.position({
+          x: this.rightPan.stageX + pointer.x - this.rightPan.pointerX,
+          y: this.rightPan.stageY + pointer.y - this.rightPan.pointerY,
+        });
+        this.publishCamera();
+      }
+      return;
+    }
     const point = this.worldPoint();
     if (point === null) {
       return;
@@ -1006,6 +1102,11 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private onPointerUp(): void {
+    if (this.rightPan !== null) {
+      this.rightPan = null;
+      this.stage?.draggable(this.tool() === 'select' && !this.readOnly());
+      return;
+    }
     if (this.draggingMeasure) {
       this.draggingMeasure = false;
       const measure = this.measurement();

@@ -105,6 +105,9 @@ export const exportCampaign = async (
     sheetVersion: row.sheetVersion,
     dmNotes: row.dmNotes,
     imageAssetId: row.imageAssetId,
+    portrait: row.portrait === null
+      ? null
+      : JSON.parse(row.portrait) as Actor['portrait'],
     hp: row.hpCurrent === null || row.hpMax === null
       ? null
       : { current: row.hpCurrent, max: row.hpMax, temp: row.hpTemp ?? 0 },
@@ -192,8 +195,14 @@ export const importCampaign = async (
         dmNotes: actor.dmNotes,
       });
       actorMap.set(actor.id, createdActor.id);
-      if (imageAssetId !== undefined) {
-        db.update(actors).set({ imageAssetId }).where(eq(actors.id, createdActor.id)).run();
+      if (imageAssetId !== undefined || actor.portrait !== null) {
+        db.update(actors)
+          .set({
+            ...(imageAssetId === undefined ? {} : { imageAssetId }),
+            ...(actor.portrait === null ? {} : { portrait: JSON.stringify(actor.portrait) }),
+          })
+          .where(eq(actors.id, createdActor.id))
+          .run();
       }
     } else {
       const createdActor = insertActor(db, {
@@ -205,6 +214,7 @@ export const importCampaign = async (
         xp: actor.xp,
         ...(actor.dmNotes === null ? {} : { dmNotes: actor.dmNotes }),
         ...(imageAssetId === undefined ? {} : { imageAssetId }),
+        ...(actor.portrait === null ? {} : { portrait: actor.portrait }),
       });
       actorMap.set(actor.id, createdActor.id);
     }

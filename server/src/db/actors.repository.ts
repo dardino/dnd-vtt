@@ -78,6 +78,7 @@ export const insertActor = (db: DbExecutor, input: CreateActor): Actor => {
     playerNotes: null,
     dmNotes: input.dmNotes ?? null,
     imageAssetId: input.imageAssetId ?? null,
+    portrait: input.portrait === undefined ? null : JSON.stringify(input.portrait),
     hpCurrent: input.statblock.hp.current,
     hpMax: input.statblock.hp.max,
     hpTemp: input.statblock.hp.temp,
@@ -110,6 +111,7 @@ export const insertPcActor = (db: DbExecutor, input: PcActorInsert): Actor => {
     playerNotes: input.playerNotes,
     dmNotes: input.dmNotes,
     imageAssetId: null,
+    portrait: null,
     hpCurrent: input.statblock.hp.current,
     hpMax: input.statblock.hp.max,
     hpTemp: input.statblock.hp.temp,
@@ -148,7 +150,14 @@ export const updateActor = (
   if (current === undefined) {
     return null;
   }
-  const updated = { ...patch, updatedAt: new Date().toISOString() };
+  const { portrait, ...rest } = patch;
+  const updated = {
+    ...rest,
+    ...(portrait === undefined
+      ? {}
+      : { portrait: portrait === null ? null : JSON.stringify(portrait) }),
+    updatedAt: new Date().toISOString(),
+  };
   db.update(actors).set(updated).where(eq(actors.id, id)).run();
   return toActor(mergeDefined(current, updated));
 };

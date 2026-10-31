@@ -70,11 +70,15 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   equipaggiamento automatico e tiri 4d6kh3 dal server; wizard mostro/NPC a 6
   step con import dal catalogo SRD; scheda console a tab con snapshot,
   `sheetVersion`, inventario, incantesimi e note del DM. I personaggi senza
-  campagna sono rifiutati.
+  campagna sono rifiutati. La scheda ha un ritratto 3:4 con cerchio di ritaglio
+  per il thumbnail, visibile sulla mappa e nello slot; mostri e NPC hanno il
+  pulsante ✎ Modifica per nome e ritratto.
 - **Fase 4 completata**: upload mappe con preview e piramide di tile oltre
   2048 px, griglia quadrata e esagonale pointy-top `odd-r`, scena Konva con
   pan, zoom, drag & drop con snap, token di dimensione variabile e misura
-  distanza con la stessa geometria di `shared`. La shell ha barra del titolo,
+  distanza con la stessa geometria di `shared`. Il pan è sempre disponibile con
+  il tasto destro, anche con fog, matita o misura attivi; il pulsante sinistro
+  è solo “Seleziona”. Le etichette dei token non spezzano le parole. La shell ha barra del titolo,
   sidebar a sezioni accordion collassabili con stato ricordato, toolbar
   verticale, dock azioni, 10 slot riservati ai PG e statusbar; mostri e NPC
   fuori mappa vivono nell'accordion Attori e passano in “In mappa” quando

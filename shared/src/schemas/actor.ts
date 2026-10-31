@@ -19,6 +19,19 @@ import {
 export const actorKindSchema = z.enum(['monster', 'npc', 'pc']);
 export type ActorKind = z.infer<typeof actorKindSchema>;
 
+export const actorPortraitSchema = z.strictObject({
+  focusX: z.number().min(0).max(1),
+  focusY: z.number().min(0).max(1),
+  zoom: z.number().min(1).max(4),
+});
+export type ActorPortrait = z.infer<typeof actorPortraitSchema>;
+
+export const DEFAULT_ACTOR_PORTRAIT: ActorPortrait = {
+  focusX: 0.5,
+  focusY: 0.5,
+  zoom: 1.25,
+};
+
 /**
  * Attore come lo vede la console DM: `playerNotes` non attraversa mai questo
  * confine (D26). Per i `pc` lo stato canonico degli HP è nell'attore.
@@ -34,6 +47,7 @@ export const actorSchema = z.strictObject({
   sheetVersion: z.number().int().min(1),
   dmNotes: z.string().nullable(),
   imageAssetId: z.string().uuid().nullable(),
+  portrait: actorPortraitSchema.nullable(),
   hp: hpSchema.nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -48,6 +62,7 @@ const createActorBase = {
   xp: z.number().int().min(0).default(0),
   dmNotes: z.string().max(20000).optional(),
   imageAssetId: z.string().uuid().optional(),
+  portrait: actorPortraitSchema.optional(),
 } as const;
 
 /**
@@ -67,6 +82,7 @@ export const updateActorSchema = z
     name: z.string().trim().min(1).max(120).optional(),
     dmNotes: z.string().max(20000).nullable().optional(),
     imageAssetId: z.string().uuid().nullable().optional(),
+    portrait: actorPortraitSchema.nullable().optional(),
     xp: z.number().int().min(0).optional(),
   })
   .refine((patch) => Object.keys(patch).length > 0, { message: 'nessun campo da aggiornare' });

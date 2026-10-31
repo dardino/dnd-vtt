@@ -18,6 +18,11 @@ const openCampaign = async (page: Page): Promise<void> => {
 
 test.describe.configure({ mode: 'serial' });
 
+const PORTRAIT_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 test('crea un combattente di livello 5 e apre la scheda', async ({ page }) => {
   await openCampaign(page);
   await page.getByRole('link', { name: 'Crea personaggio' }).click();
@@ -56,6 +61,13 @@ test('crea un combattente di livello 5 e apre la scheda', async ({ page }) => {
   await expect(page.getByRole('heading', { level: 1, name: 'E2E Eroe' })).toBeVisible();
   await page.getByRole('button', { name: 'Equipaggiamento' }).click();
   await expect(page.locator('.plain-list')).toContainText('Chain Mail');
+
+  await page.locator('.portrait-editor input[type=file]').setInputFiles({
+    name: 'portrait.png',
+    mimeType: 'image/png',
+    buffer: PORTRAIT_PNG,
+  });
+  await expect(page.locator('.portrait-editor__frame img')).toBeVisible();
 });
 
 test('crea un mostro importato dal catalogo SRD', async ({ page }) => {
@@ -75,11 +87,20 @@ test('crea un mostro importato dal catalogo SRD', async ({ page }) => {
 
   await expect(page).toHaveURL(/\/dm\/campaigns\/[0-9a-f-]+\/actors\/[0-9a-f-]+\/sheet$/);
   await expect(page.getByRole('heading', { level: 1, name: 'Goblin' })).toBeVisible();
+
+  await page.getByRole('button', { name: /Modifica/ }).click();
+  await page.locator('.portrait-editor input[type=file]').setInputFiles({
+    name: 'goblin.png',
+    mimeType: 'image/png',
+    buffer: PORTRAIT_PNG,
+  });
+  await expect(page.locator('.portrait-editor__frame img')).toBeVisible();
 });
 
 test('la console tiene i PG negli slot e i mostri fuori mappa', async ({ page }) => {
   await openCampaign(page);
   await expect(page.locator('.slot', { hasText: 'E2E Eroe' })).toBeVisible();
+  await expect(page.locator('.slot', { hasText: 'E2E Eroe' }).locator('img')).toBeVisible();
   await expect(page.locator('.slot', { hasText: 'Goblin' })).toHaveCount(0);
   await expect(page.locator('.available-actor', { hasText: 'Goblin' })).toBeVisible();
   await expect(page.locator('.slots')).not.toContainText('Goblin');

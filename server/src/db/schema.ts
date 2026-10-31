@@ -45,6 +45,7 @@ export const actors = sqliteTable('actors', {
   playerNotes: text('player_notes'),
   dmNotes: text('dm_notes'),
   imageAssetId: text('image_asset_id'),
+  portrait: text('portrait'),
   hpCurrent: integer('hp_current'),
   hpMax: integer('hp_max'),
   hpTemp: integer('hp_temp'),

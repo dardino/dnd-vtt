@@ -1,4 +1,5 @@
 import {
+  actorPortraitSchema,
   actorStatblockSchema,
   type ActionLogEntry,
   type Actor,
@@ -53,6 +54,9 @@ export const toActor = (row: typeof actors.$inferSelect): Actor => {
     sheetVersion: row.sheetVersion,
     dmNotes: row.dmNotes,
     imageAssetId: row.imageAssetId,
+    portrait: row.portrait === null
+      ? null
+      : actorPortraitSchema.parse(JSON.parse(row.portrait) as unknown),
     hp,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
