@@ -121,7 +121,8 @@ nessun commit se lint, typecheck, test, build o `db:check` falliscono.
   display realmente connessi, con BLACKOUT quando uno schermo è in onda ma
   coperto. La sidebar destra ha l’accordion **Schermi** con i soli display
   online e ciò che stanno proiettando; cliccandone uno si apre un’anteprima
-  16:9 con pan e zoom indipendenti dalla proiezione reale. Le sidebar ridotte
+  16:9 che **comanda la proiezione reale**: pan e zoom modificano il viewport
+  del program e lo schermo si aggiorna via WebSocket. Le sidebar ridotte
   diventano una barra stretta con l’etichetta in verticale. Restano fuori dal
   core: editor PVW con drag/resize degli overlay, camera live/libera e pairing
   QR.

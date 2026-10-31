@@ -118,23 +118,42 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   await expect(display.locator('.display__code')).toHaveText(displayCode);
   const screenList = page.locator('#sidebar-screens');
   await expect(screenList).toContainText(displayCode);
-  await screenList.locator('.screen-row').first().click();
-  const viewer = page.getByRole('dialog').locator('.screen-viewer');
-  await expect(viewer.locator('app-screen-preview')).toBeVisible({ timeout: 10_000 });
-  await expect(viewer.locator('.scene-canvas')).toBeVisible();
-  const zoomLabel = page.getByRole('dialog').locator('.inline-controls .muted');
-  await expect(zoomLabel).toHaveText('Zoom 100%');
-  await viewer.hover();
-  await page.mouse.wheel(0, -120);
-  await expect(zoomLabel).not.toHaveText('Zoom 100%');
-  await page.getByRole('button', { name: 'Reimposta vista' }).click();
-  await expect(zoomLabel).toHaveText('Zoom 100%');
-  await page.getByRole('button', { name: 'Chiudi anteprima' }).click();
 
   const beforeProgram = await screen.getAttribute('data-program-updated');
   await page.getByRole('button', { name: 'Manda in onda' }).click();
   await expect.poll(async () => screen.getAttribute('data-program-updated'))
     .not.toBe(beforeProgram);
+  await expect(screen.locator('.scene-canvas')).toBeVisible({ timeout: 10_000 });
+
+  await screenList.locator('.screen-row').first().click();
+  const viewer = page.getByRole('dialog').locator('.screen-viewer');
+  await expect(viewer.locator('app-screen-preview')).toBeVisible({ timeout: 10_000 });
+  await expect(viewer.locator('.scene-canvas')).toBeVisible();
+  const screenCanvas = screen.locator('.scene-canvas');
+  const beforeScale = await screenCanvas.getAttribute('data-camera-scale');
+  const beforeCameraX = await screenCanvas.getAttribute('data-camera-x');
+  const zoomLabel = page.getByRole('dialog').locator('.inline-controls .muted');
+  await viewer.hover();
+  await page.mouse.wheel(0, -120);
+  await expect(zoomLabel).not.toHaveText('Zoom 100%');
+  await expect.poll(async () => screenCanvas.getAttribute('data-camera-scale'))
+    .not.toBe(beforeScale);
+  const viewerBox = await viewer.boundingBox();
+  await page.mouse.move(
+    (viewerBox?.x ?? 0) + (viewerBox?.width ?? 0) / 2,
+    (viewerBox?.y ?? 0) + (viewerBox?.height ?? 0) / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    (viewerBox?.x ?? 0) + (viewerBox?.width ?? 0) / 2 + 70,
+    (viewerBox?.y ?? 0) + (viewerBox?.height ?? 0) / 2 + 40,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+  await expect.poll(async () => screenCanvas.getAttribute('data-camera-x'))
+    .not.toBe(beforeCameraX);
+  await page.getByRole('button', { name: 'Reimposta vista' }).click();
+  await page.getByRole('button', { name: 'Chiudi anteprima' }).click();
 
   await page.getByRole('button', { name: 'Blackout' }).click();
   await expect(screen).toHaveAttribute('data-blackout', 'true', { timeout: 10_000 });

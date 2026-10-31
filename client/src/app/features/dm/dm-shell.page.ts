@@ -42,6 +42,7 @@ import {
   type Session,
   type Size,
   type TokenState,
+  type Viewport,
 } from '@dnd-vtt/shared';
 import { ActionStore } from '../../core/action.store';
 import { ActorService } from '../../core/actor.service';
@@ -195,12 +196,15 @@ export class DmShellPage implements OnInit {
   public readonly connectedDisplays = signal(0);
   public readonly screens = signal<ScreenSummary[]>([]);
   public readonly screenDialog = signal<ScreenSummary | null>(null);
-  public readonly screenZoom = signal(1);
-  public readonly screenPanX = signal(0);
-  public readonly screenPanY = signal(0);
+  public readonly screenViewport = signal<Viewport | null>(null);
+  public readonly screenZoomLabel = computed(() =>
+    Math.round((this.screenViewport()?.zoom ?? 1) * 100));
+
   private screenTimer: ReturnType<typeof setInterval> | null = null;
   private screenDragging = false;
-  private screenDragStart = { x: 0, y: 0, panX: 0, panY: 0 };
+  private screenDragStart = { x: 0, y: 0, viewport: { x: 0, y: 0, zoom: 1 } };
+  private viewportTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingViewport: Viewport | null = null;
   public readonly sessions = signal<Session[]>([]);
   public readonly activeSession = signal<Session | null>(null);
   public readonly sessionBusy = signal(false);
@@ -1160,7 +1164,11 @@ export class DmShellPage implements OnInit {
           content: {
             type: 'map',
             sceneId: scene.id,
-            viewport: { x: scene.widthPx / 2, y: scene.heightPx / 2, zoom: 1 },
+            viewport: {
+              x: scene.widthPx / 2,
+              y: scene.heightPx / 2,
+              zoom: this.screenFitZoom(scene.widthPx, scene.heightPx),
+            },
             fog: true,
             cameraLocked: false,
           },
@@ -1569,38 +1577,63 @@ export class DmShellPage implements OnInit {
 
   public openScreenDialog(summary: ScreenSummary): void {
     this.screenDialog.set(summary);
-    this.screenZoom.set(1);
-    this.screenPanX.set(0);
-    this.screenPanY.set(0);
+    this.screenViewport.set(this.screenViewportFrom(summary));
     this.startScreenPolling();
   }
 
   public closeScreenDialog(): void {
     this.screenDialog.set(null);
+    this.screenViewport.set(null);
+    this.screenDragging = false;
+    this.pendingViewport = null;
+    if (this.viewportTimer !== null) {
+      clearTimeout(this.viewportTimer);
+      this.viewportTimer = null;
+    }
     this.stopScreenPolling();
   }
 
   public zoomScreen(event: WheelEvent): void {
     event.preventDefault();
+    const viewport = this.screenViewport();
+    if (viewport === null) {
+      return;
+    }
     const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
-    this.screenZoom.update((zoom) => Math.max(0.4, Math.min(4, zoom * factor)));
+    this.applyScreenViewport({
+      ...viewport,
+      zoom: Math.max(0.2, Math.min(5, viewport.zoom * factor)),
+    }, true);
   }
 
   public resetScreenView(): void {
-    this.screenZoom.set(1);
-    this.screenPanX.set(0);
-    this.screenPanY.set(0);
+    const state = this.screenDialog()?.state;
+    const scene = state?.composition.base.type === 'map'
+      ? state.composition.base.scene
+      : undefined;
+    if (scene === undefined) {
+      this.applyScreenViewport({ x: 0, y: 0, zoom: 1 }, true);
+      return;
+    }
+    this.applyScreenViewport({
+      x: scene.widthPx / 2,
+      y: scene.heightPx / 2,
+      zoom: this.screenFitZoom(scene.widthPx, scene.heightPx),
+    }, true);
   }
 
   public startScreenPan(event: PointerEvent): void {
+    const viewport = this.screenViewport();
+    if (viewport === null) {
+      return;
+    }
     const element = event.currentTarget as HTMLElement;
     element.setPointerCapture(event.pointerId);
     this.screenDragging = true;
     this.screenDragStart = {
       x: event.clientX,
       y: event.clientY,
-      panX: this.screenPanX(),
-      panY: this.screenPanY(),
+      viewport,
     };
   }
 
@@ -1608,12 +1641,95 @@ export class DmShellPage implements OnInit {
     if (!this.screenDragging) {
       return;
     }
-    this.screenPanX.set(this.screenDragStart.panX + event.clientX - this.screenDragStart.x);
-    this.screenPanY.set(this.screenDragStart.panY + event.clientY - this.screenDragStart.y);
+    const start = this.screenDragStart.viewport;
+    const dx = event.clientX - this.screenDragStart.x;
+    const dy = event.clientY - this.screenDragStart.y;
+    this.applyScreenViewport({
+      x: start.x - dx / start.zoom,
+      y: start.y - dy / start.zoom,
+      zoom: start.zoom,
+    }, true);
   }
 
   public endScreenPan(): void {
     this.screenDragging = false;
+  }
+
+  private screenViewportFrom(summary: ScreenSummary): Viewport | null {
+    const base = summary.state?.composition.base;
+    return base?.type === 'map' ? base.viewport ?? null : null;
+  }
+
+  private screenFitZoom(widthPx: number, heightPx: number): number {
+    return Math.max(0.05, Math.min(1920 / widthPx, 1080 / heightPx));
+  }
+
+  private applyScreenViewport(viewport: Viewport, persist: boolean): void {
+    this.screenViewport.set(viewport);
+    const current = this.screenDialog();
+    if (current !== null && current.state !== null) {
+      const base = current.state.composition.base;
+      const state: DisplayState = base.type === 'map'
+        ? {
+          ...current.state,
+          composition: {
+            ...current.state.composition,
+            base: { ...base, viewport },
+          },
+        }
+        : current.state;
+      const updated: ScreenSummary = { ...current, state };
+      this.screenDialog.set(updated);
+      this.screens.update((items) =>
+        items.map((item) => (item.display.id === updated.display.id ? updated : item)));
+    }
+    if (persist) {
+      this.queueScreenViewport(viewport);
+    }
+  }
+
+  private queueScreenViewport(viewport: Viewport): void {
+    this.pendingViewport = viewport;
+    if (this.viewportTimer !== null) {
+      return;
+    }
+    this.viewportTimer = setTimeout(() => {
+      this.viewportTimer = null;
+      void this.flushScreenViewport();
+    }, 120);
+  }
+
+  private async flushScreenViewport(): Promise<void> {
+    const viewport = this.pendingViewport;
+    this.pendingViewport = null;
+    const campaign = this.activeCampaign();
+    if (viewport === null || campaign === null) {
+      return;
+    }
+    try {
+      const current = await this.programsApi.get(campaign.id);
+      const base = current.state.base;
+      if (base.content.type !== 'map') {
+        return;
+      }
+      const state: ProgramState = {
+        ...current.state,
+        base: {
+          ...base,
+          content: { ...base.content, viewport },
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      const updated = await this.programsApi.put(campaign.id, current.version, state);
+      this.programState.set(updated.state);
+      this.programVersion.set(updated.version);
+    } catch {
+      // Se un'altra azione ha cambiato il program, il prossimo frame riprova.
+    } finally {
+      if (this.pendingViewport !== null && this.viewportTimer === null) {
+        this.queueScreenViewport(this.pendingViewport);
+      }
+    }
   }
 
   private startScreenPolling(): void {
@@ -1637,10 +1753,31 @@ export class DmShellPage implements OnInit {
     }
     try {
       const envelope = await this.programsApi.getDisplayState(current.display.code);
-      const updated: ScreenSummary = { display: envelope.display, state: envelope.state };
+      let state = envelope.state;
+      const localViewport = this.screenViewport();
+      if (
+        localViewport !== null
+        && (this.screenDragging || this.pendingViewport !== null)
+        && state.composition.base.type === 'map'
+      ) {
+        state = {
+          ...state,
+          composition: {
+            ...state.composition,
+            base: { ...state.composition.base, viewport: localViewport },
+          },
+        };
+      }
+      const updated: ScreenSummary = { display: envelope.display, state };
       this.screenDialog.set(updated);
       this.screens.update((items) =>
         items.map((item) => (item.display.id === updated.display.id ? updated : item)));
+      const nextViewport = state.composition.base.type === 'map'
+        ? state.composition.base.viewport ?? null
+        : null;
+      if (!this.screenDragging && this.pendingViewport === null && nextViewport !== null) {
+        this.screenViewport.set(nextViewport);
+      }
     } catch {
       // Lo schermo può essere stato revocato mentre il dialog è aperto.
     }

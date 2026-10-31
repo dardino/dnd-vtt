@@ -989,10 +989,7 @@
       (pointerup)="endScreenPan()"
       (pointercancel)="endScreenPan()"
     >
-      <div
-        class="screen-viewer__stage"
-        [style.transform]="'translate(' + screenPanX() + 'px, ' + screenPanY() + 'px) scale(' + screenZoom() + ')'"
-      >
+      <div class="screen-viewer__stage">
         @if (summary.state; as state) {
           <app-screen-preview [state]="state" />
         } @else {
@@ -1001,7 +998,7 @@
       </div>
     </div>
     <div class="inline-controls">
-      <span class="muted">Zoom {{ (screenZoom() * 100).toFixed(0) }}%</span>
+      <span class="muted">Zoom {{ screenZoomLabel() }}%</span>
       <app-button variant="ghost" (pressed)="resetScreenView()">Reimposta vista</app-button>
     </div>
   }

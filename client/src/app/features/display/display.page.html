@@ -22,6 +22,7 @@
             [gridVisible]="true"
             [readOnly]="true"
             [fogOpacity]="1"
+            [viewport]="layer.viewport ?? null"
           />
         } @else {
           <div class="display-layer display-layer--base" [style]="frameStyle(layer)">

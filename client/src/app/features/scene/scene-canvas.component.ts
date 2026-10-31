@@ -31,6 +31,7 @@ import {
   type MeasureResult,
   type SceneState,
   type TokenState,
+  type Viewport,
 } from '@dnd-vtt/shared';
 
 export type SceneTool
@@ -106,6 +107,7 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly brushRadius = input(150);
   public readonly drawingWidthPx = input<number | null>(null);
   public readonly actorPortraits = input<Record<string, ActorPortraitThumb>>({});
+  public readonly viewport = input<Viewport | null>(null);
   public readonly fogOpacity = input(0.5);
 
   public readonly tokenMoved = output<TokenMoveEvent>();
@@ -167,6 +169,7 @@ export class SceneCanvasComponent implements OnDestroy {
       this.gridVisible();
       this.readOnly();
       this.actorPortraits();
+      this.viewport();
       if (this.stage !== null) {
         this.renderAll();
       }
@@ -232,6 +235,24 @@ export class SceneCanvasComponent implements OnDestroy {
     stage.position({
       x: (stage.width() - map.width * scale) / 2,
       y: (stage.height() - map.height * scale) / 2,
+    });
+    this.publishCamera();
+    this.renderGrid();
+    this.scheduleTiles();
+  }
+
+  private applyViewportOrFit(): void {
+    const viewport = this.viewport();
+    const stage = this.stage;
+    if (viewport === null || stage === null) {
+      this.fit();
+      return;
+    }
+    const scale = clamp(viewport.zoom, MIN_SCALE, MAX_SCALE);
+    stage.scale({ x: scale, y: scale });
+    stage.position({
+      x: stage.width() / 2 - viewport.x * scale,
+      y: stage.height() / 2 - viewport.y * scale,
     });
     this.publishCamera();
     this.renderGrid();
@@ -380,6 +401,9 @@ export class SceneCanvasComponent implements OnDestroy {
     this.renderTokens();
     this.renderMeasure();
     this.scheduleTiles();
+    if (this.viewport() !== null) {
+      this.applyViewportOrFit();
+    }
   }
 
   private loadMap(map: SceneMapImage | null): void {
@@ -411,7 +435,7 @@ export class SceneCanvasComponent implements OnDestroy {
         this.previewNode = node;
       }
       this.mapLayer.draw();
-      this.fit();
+      this.applyViewportOrFit();
       this.renderFog();
       this.renderDrawings();
       this.scheduleTiles();
