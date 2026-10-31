@@ -93,6 +93,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public readonly elementMoved = output<{ selection: EditorSelection; cell: CellPoint }>();
   public readonly elementSelected = output<EditorSelection | null>();
   public readonly cameraChanged = output<Camera>();
+  public readonly gridLines = signal(0);
 
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
   private stage: Konva.Stage | null = null;
@@ -495,9 +496,13 @@ export class MapEditorCanvasComponent implements OnDestroy {
     const grid = this.grid();
     const image = this.image();
     if (!this.showGrid() || image === null) {
+      this.gridLines.set(0);
       layer.draw();
       return;
     }
+    const scale = this.stage?.scaleX() ?? 1;
+    const strokeWidth = Math.max(0.5, 1 / Math.max(scale, 0.05));
+    const stroke = 'rgba(110, 180, 255, 0.42)';
     if (grid.type === 'hex') {
       const radius = grid.cellSizePx / Math.sqrt(3);
       const rowStep = grid.cellSizePx * HEX_ROW_RATIO;
@@ -519,33 +524,35 @@ export class MapEditorCanvasComponent implements OnDestroy {
           layer.add(new Konva.Line({
             points,
             closed: true,
-            stroke: 'rgba(255,255,255,0.10)',
-            strokeWidth: 1,
+            stroke,
+            strokeWidth,
             listening: false,
           }));
         }
       }
       layer.draw();
+      this.gridLines.set(layer.getChildren().length);
       return;
     }
     const cell = grid.cellSizePx;
     for (let x = grid.offsetX; x <= image.width; x += cell) {
       layer.add(new Konva.Line({
         points: [x, grid.offsetY, x, image.height],
-        stroke: 'rgba(255,255,255,0.10)',
-        strokeWidth: 1,
+        stroke,
+        strokeWidth,
         listening: false,
       }));
     }
     for (let y = grid.offsetY; y <= image.height; y += cell) {
       layer.add(new Konva.Line({
         points: [grid.offsetX, y, image.width, y],
-        stroke: 'rgba(255,255,255,0.10)',
-        strokeWidth: 1,
+        stroke,
+        strokeWidth,
         listening: false,
       }));
     }
     layer.draw();
+    this.gridLines.set(layer.getChildren().length);
   }
 
   private renderWalls(): void {

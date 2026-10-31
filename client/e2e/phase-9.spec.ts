@@ -187,6 +187,13 @@ test('la mappa si apre nell’editor con muri, luci e spawn', async ({ page, req
   await page.getByRole('button', { name: 'Muro', exact: true }).click();
   const canvas = page.locator('.map-editor-canvas');
   await expect(canvas).toBeVisible();
+  await expect.poll(async () => Number(await canvas.getAttribute('data-grid-lines')))
+    .toBeGreaterThan(0);
+  await page.getByRole('button', { name: 'Griglia', exact: true }).click();
+  await expect(canvas).toHaveAttribute('data-grid-lines', '0');
+  await page.getByRole('button', { name: 'Griglia', exact: true }).click();
+  await expect.poll(async () => Number(await canvas.getAttribute('data-grid-lines')))
+    .toBeGreaterThan(0);
   const box = await canvas.boundingBox();
   expect(box).not.toBeNull();
   const camera = await canvas.evaluate((element) => ({
