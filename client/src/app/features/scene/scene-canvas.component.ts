@@ -981,16 +981,19 @@ export class SceneCanvasComponent implements OnDestroy {
     }));
 
     const fontSize = Math.max(10, 12 / Math.max(scale, 0.15));
+    const labelWidth = footprint * 4;
+    const longestWord = Math.max(1, ...token.label.split(/\s+/).map((word) => word.length));
+    const labelFontSize = Math.min(fontSize, labelWidth / (longestWord * 0.62));
     group.add(new Konva.Text({
       x: -footprint * 2,
       y: footprint / 2 + 2,
-      width: footprint * 4,
+      width: labelWidth,
       align: 'center',
       text: token.label,
-      fontSize,
+      fontSize: labelFontSize,
       fontFamily: 'system-ui, sans-serif',
       fill: colors.text,
-      wrap: 'none',
+      wrap: 'word',
       listening: false,
     }));
 

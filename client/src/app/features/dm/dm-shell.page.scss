@@ -749,7 +749,7 @@
   display: grid;
   grid-template-columns: 2.9rem minmax(0, 1fr);
   align-items: center;
-  flex: 0 0 13rem;
+  flex: 0 0 14.5rem;
   gap: var(--space-2);
   min-height: 4.4rem;
   padding: var(--space-2);
@@ -808,11 +808,16 @@
 }
 
 .slot__name {
-  overflow: hidden;
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
   font-size: var(--text-sm);
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.15;
+  overflow-wrap: normal;
+  text-overflow: clip;
+  white-space: normal;
+  word-break: normal;
 }
 
 .slot__kind,
