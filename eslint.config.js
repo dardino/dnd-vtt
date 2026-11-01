@@ -37,7 +37,7 @@ export default tseslint.config(
       '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
       '@stylistic/semi': ['error', 'always'],
       '@stylistic/comma-dangle': ['error', 'always-multiline'],
-      '@stylistic/max-len': ['error', { code: 120, ignoreUrls: true, ignoreStrings: true }],
+      '@stylistic/max-len': ['error', { code: 110, ignoreUrls: true, ignoreStrings: true }],
       '@stylistic/member-delimiter-style': ['error', {
         multiline: { delimiter: 'semi', requireLast: true },
         singleline: { delimiter: 'semi', requireLast: false },

@@ -110,7 +110,9 @@ export class ActorSheetPage implements OnInit {
   public readonly playerLinkBusy = signal(false);
   public readonly playerLinkError = signal<string | null>(null);
 
-  public readonly abilities = computed<{ key: Ability; label: string; score: number; modifier: number }[]>(() => {
+  public readonly abilities = computed<
+    { key: Ability; label: string; score: number; modifier: number }[]
+  >(() => {
     const statblock = this.view()?.statblock;
     if (statblock === undefined) {
       return [];

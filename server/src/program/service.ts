@@ -357,7 +357,10 @@ export const projectDisplay = (db: AppDatabase, display: Display): DisplayState 
   };
 };
 
-export const displayStateByCode = (db: AppDatabase, code: string): { display: Display; state: DisplayState } => {
+export const displayStateByCode = (
+  db: AppDatabase,
+  code: string,
+): { display: Display; state: DisplayState } => {
   const display = getDisplayByCode(db, code);
   if (display === null) {
     throw notFound('Schermo non trovato');

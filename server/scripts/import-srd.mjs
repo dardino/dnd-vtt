@@ -347,8 +347,12 @@ const mapClass = (classData, subclasses) => {
     : {
       ability: SPELLCASTING_ABILITY[id],
       progression: classData.caster_type.toLowerCase(),
-      cantripsKnown: cantripsTable === undefined ? Array.from({ length: 20 }, () => 0) : tableValues(cantripsTable),
-      preparedSpells: preparedTable === undefined ? Array.from({ length: 20 }, () => 0) : tableValues(preparedTable),
+      cantripsKnown: cantripsTable === undefined
+        ? Array.from({ length: 20 }, () => 0)
+        : tableValues(cantripsTable),
+      preparedSpells: preparedTable === undefined
+        ? Array.from({ length: 20 }, () => 0)
+        : tableValues(preparedTable),
       slots: classData.caster_type === 'PACT' ? Array.from({ length: 20 }, () => Array.from({ length: 9 }, () => 0)) : spellSlotTable(classData),
       ...(classData.caster_type === 'PACT'
         ? {
@@ -381,13 +385,16 @@ const mapClass = (classData, subclasses) => {
     ...(traits.toolChoices === undefined ? {} : { toolChoices: traits.toolChoices }),
     armorTraining: traits.armorTraining,
     weaponProficiencies: traits.weaponProficiencies,
-    weaponMasteryCount: masteryTable === undefined ? Array.from({ length: 20 }, () => 0) : tableValues(masteryTable),
+    weaponMasteryCount: masteryTable === undefined
+      ? Array.from({ length: 20 }, () => 0)
+      : tableValues(masteryTable),
     startingGold: traits.startingGold,
     startingEquipment: parseStartingEquipment(
       classData.features.find((feature) => feature.feature_type === 'CORE_TRAITS_TABLE')?.desc ?? '',
     ),
     subclassLevel,
-    asiLevels: [...new Set((asiFeature?.gained_at ?? []).map((gained) => gained.level))].sort((a, b) => a - b),
+    asiLevels: [...new Set((asiFeature?.gained_at ?? []).map((gained) => gained.level))]
+      .sort((a, b) => a - b),
     features,
     subclasses: subclassCatalog,
     ...(spellcasting === undefined ? {} : { spellcasting }),
@@ -550,7 +557,9 @@ const mapArmorData = (armor, name) => {
     category: 'armor',
     armorCategory: shield ? 'shield' : armor.category,
     baseAc: armor.ac_base,
-    ...(armor.ac_cap_dexmod === null || armor.ac_cap_dexmod === undefined ? {} : { dexCap: armor.ac_cap_dexmod }),
+    ...(armor.ac_cap_dexmod === null || armor.ac_cap_dexmod === undefined
+      ? {}
+      : { dexCap: armor.ac_cap_dexmod }),
     ...(armor.strength_score_required === null || armor.strength_score_required === undefined
       ? {}
       : { strength: armor.strength_score_required }),
@@ -702,8 +711,12 @@ const main = async () => {
     ]);
 
   const currentClasses = classRows.filter((row) => row.key.startsWith(`${DOCUMENT}_`));
-  const baseClasses = currentClasses.filter((row) => row.subclass_of === null || row.subclass_of === undefined);
-  const subclassRows = currentClasses.filter((row) => row.subclass_of !== null && row.subclass_of !== undefined);
+  const baseClasses = currentClasses.filter(
+    (row) => row.subclass_of === null || row.subclass_of === undefined,
+  );
+  const subclassRows = currentClasses.filter(
+    (row) => row.subclass_of !== null && row.subclass_of !== undefined,
+  );
   const onlyCurrent = (row) => row.key.startsWith(`${DOCUMENT}_`);
   const classes = uniqueById(baseClasses.map((row) => mapClass(row, subclassRows)));
   const species = uniqueById(speciesRows.filter(onlyCurrent).map(mapSpecies));
@@ -765,7 +778,8 @@ const main = async () => {
 
   console.warn(
     `SRD ${VERSION}: ${classes.length} classi, ${species.length} specie, ${backgrounds.length} background, `
-    + `${feats.length} talenti, ${spells.length} incantesimi, ${items.length} oggetti, ${monsters.length} mostri`,
+    + `${feats.length} talenti, ${spells.length} incantesimi, ${items.length} oggetti, `
+    + `${monsters.length} mostri`,
   );
 };
 

@@ -85,8 +85,12 @@ describe('recommendEquipment', () => {
     expect(ids(result)).toContain('shield');
     expect(ids(result)).toContain('battleaxe');
     expect(ids(result)).not.toContain('leather-armor');
-    const total = result.reduce((sum, entry) =>
-      sum + (catalogItems.find((candidate) => candidate.id === entry.itemId)?.valueGp ?? 0) * entry.quantity, 0);
+    const total = result.reduce(
+      (sum, entry) =>
+        sum + (catalogItems.find((candidate) => candidate.id === entry.itemId)?.valueGp ?? 0)
+        * entry.quantity,
+      0,
+    );
     expect(total).toBeLessThanOrEqual(155);
   });
 
@@ -123,9 +127,12 @@ describe('recommendEquipment', () => {
     expect(ids(result)).toContain('leather-armor');
     expect(ids(result)).toContain('thieves-tools');
     expect(ids(result)).toContain('shortsword');
-    expect(result.reduce((sum, entry) =>
-      sum + (catalogItems.find((candidate) => candidate.id === entry.itemId)?.valueGp ?? 0) * entry.quantity, 0))
-      .toBeLessThanOrEqual(100);
+    expect(result.reduce(
+      (sum, entry) =>
+        sum + (catalogItems.find((candidate) => candidate.id === entry.itemId)?.valueGp ?? 0)
+        * entry.quantity,
+      0,
+    )).toBeLessThanOrEqual(100);
   });
 
   it('non supera un budget insufficiente', () => {
@@ -135,8 +142,12 @@ describe('recommendEquipment', () => {
       abilities,
       budgetGp: 1,
     });
-    const total = result.reduce((sum, entry) =>
-      sum + (catalogItems.find((candidate) => candidate.id === entry.itemId)?.valueGp ?? 0) * entry.quantity, 0);
+    const total = result.reduce(
+      (sum, entry) =>
+        sum + (catalogItems.find((candidate) => candidate.id === entry.itemId)?.valueGp ?? 0)
+        * entry.quantity,
+      0,
+    );
     expect(total).toBeLessThanOrEqual(1);
   });
 });

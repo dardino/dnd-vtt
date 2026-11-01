@@ -140,8 +140,16 @@ export const computeVisionGrid = (options: VisionOptions): VisionGrid | null => 
 
   for (const source of sources) {
     const radius = Math.ceil(maxFeet / feetPerCell);
-    for (let y = Math.max(0, source.cell.y - radius); y <= Math.min(rows - 1, source.cell.y + radius); y += 1) {
-      for (let x = Math.max(0, source.cell.x - radius); x <= Math.min(cols - 1, source.cell.x + radius); x += 1) {
+    for (
+      let y = Math.max(0, source.cell.y - radius);
+      y <= Math.min(rows - 1, source.cell.y + radius);
+      y += 1
+    ) {
+      for (
+        let x = Math.max(0, source.cell.x - radius);
+        x <= Math.min(cols - 1, source.cell.x + radius);
+        x += 1
+      ) {
         const target = { x, y };
         const feet = distanceFeetBetween(source.cell, target, grid);
         if (feet > maxFeet) {

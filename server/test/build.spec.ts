@@ -16,7 +16,9 @@ const level5Wizard = (): PcBuild => {
   const cantripTarget = wizard.spellcasting.cantripsKnown[level - 1] ?? 0;
   const preparedTarget = wizard.spellcasting.preparedSpells[level - 1] ?? 0;
   const wizardSpells = catalog.spells.filter((spell) => spell.classes.includes('wizard'));
-  const cantrips = wizardSpells.filter((spell) => spell.level === 0).slice(0, cantripTarget).map((spell) => spell.id);
+  const cantrips = wizardSpells.filter((spell) => spell.level === 0)
+    .slice(0, cantripTarget)
+    .map((spell) => spell.id);
   const prepared = wizardSpells
     .filter((spell) => spell.level >= 1 && spell.level <= 3)
     .slice(0, preparedTarget)

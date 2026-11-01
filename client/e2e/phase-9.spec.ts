@@ -14,7 +14,9 @@ const campaignFixture = { name: CAMPAIGN_NAME, description: 'Mappe e visione' } 
 
 const ensurePc = async (request: APIRequestContext, id: string): Promise<string> => {
   const actorsResponse = await request.get(`/api/v1/actors?campaignId=${id}&limit=200`);
-  const existing = (await actorsResponse.json() as { items: { id: string; kind: string; name: string }[] }).items
+  const existing = (await actorsResponse.json() as {
+    items: { id: string; kind: string; name: string }[];
+  }).items
     .find((actor) => actor.kind === 'pc' && actor.name === 'E2E Esploratore');
   if (existing !== undefined) {
     return existing.id;

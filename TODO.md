@@ -293,7 +293,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 ## 7. Tooling e allineamento al piano (P2)
 
-- [ ] **T1 — `max-len` a 110** · S · D6
+- [x] **T1 — `max-len` a 110** · S · D6
   - **Proposta:** commit separato di sola formattazione (`eslint --fix`), poi abbassare la regola.
   - **Fatto quando:** `max-len` 110 senza modifiche funzionali.
 

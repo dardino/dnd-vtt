@@ -233,7 +233,12 @@ export const syncCampaignActions = (
   sceneId?: string,
 ) => listActionLogSince(db, campaignId, sinceVersion, sceneId);
 
-const snapshotFrom = (db: DbExecutor, sceneId: string, state: SceneState, stateVersion: number): SceneSnapshot => {
+const snapshotFrom = (
+  db: DbExecutor,
+  sceneId: string,
+  state: SceneState,
+  stateVersion: number,
+): SceneSnapshot => {
   const scene = getScene(db, sceneId);
   if (scene === null) {
     throw notFound('Scena non trovata');

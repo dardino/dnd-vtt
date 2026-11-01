@@ -49,7 +49,9 @@ describe('catalogo SRD 5.2', () => {
       expect(characterClass.savingThrows).toHaveLength(2);
       expect(characterClass.weaponMasteryCount).toHaveLength(20);
       expect(characterClass.asiLevels.every((level) => level >= 1 && level <= 20)).toBe(true);
-      expect(characterClass.features.every((feature) => feature.level >= 1 && feature.level <= 20)).toBe(true);
+      expect(
+        characterClass.features.every((feature) => feature.level >= 1 && feature.level <= 20),
+      ).toBe(true);
       expect(characterClass.subclasses).toHaveLength(1);
       if (characterClass.spellcasting !== undefined) {
         expect(characterClass.spellcasting.cantripsKnown).toHaveLength(20);
@@ -116,7 +118,10 @@ describe('catalogo SRD 5.2', () => {
 
   it('ha mostri con caratteristiche, difese e azioni valide', () => {
     for (const monster of catalog.monsters) {
-      expect(Object.values(monster.abilities).every((score) => score >= 1 && score <= 30), monster.id).toBe(true);
+      expect(
+        Object.values(monster.abilities).every((score) => score >= 1 && score <= 30),
+        monster.id,
+      ).toBe(true);
       expect(monster.hp.max).toBeGreaterThan(0);
       expect(monster.ac).toBeGreaterThanOrEqual(0);
       expect(monster.damageResistances.every((entry) => typeof entry === 'string')).toBe(true);

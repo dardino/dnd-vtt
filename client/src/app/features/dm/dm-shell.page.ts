@@ -965,7 +965,12 @@ export class DmShellPage implements OnInit {
     if (initiative === null) {
       return;
     }
-    await this.setInitiative(sortInitiativeEntries(initiative.entries), initiative.active, initiative.round, 0);
+    await this.setInitiative(
+      sortInitiativeEntries(initiative.entries),
+      initiative.active,
+      initiative.round,
+      0,
+    );
   }
 
   public async nextInitiativeTurn(): Promise<void> {

@@ -610,7 +610,12 @@ const validateSpells = (context: Context): void => {
       (spellcasting.slots[build.level - 1] ?? []).map((max, index) => ({ level: index + 1, max })),
     );
 
-  const checkSpell = (id: string, expectedLevel: number | undefined, step: BuildStep, field: string): void => {
+  const checkSpell = (
+    id: string,
+    expectedLevel: number | undefined,
+    step: BuildStep,
+    field: string,
+  ): void => {
     const spell = context.spellById.get(id);
     if (spell === undefined) {
       addError(context, step, 'spell_unknown', `Incantesimo inesistente: ${id}`, field);
@@ -659,7 +664,10 @@ const abilityCapFor = (build: PcBuild, featById: Map<string, SrdFeat>, ability: 
       continue;
     }
     const feat = featById.get(choice.featId);
-    if (feat?.abilityIncrease !== undefined && choice.increases?.some((increase) => increase.ability === ability)) {
+    if (
+      feat?.abilityIncrease !== undefined
+      && choice.increases?.some((increase) => increase.ability === ability)
+    ) {
       cap = Math.max(cap, feat.abilityIncrease.max);
     }
   }

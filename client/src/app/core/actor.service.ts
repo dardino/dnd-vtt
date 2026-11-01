@@ -33,7 +33,9 @@ export class ActorService {
     );
   }
 
-  public async rollStats(campaignId: string): Promise<{ rollId: string; values: number[]; expiresAt: string }> {
+  public async rollStats(
+    campaignId: string,
+  ): Promise<{ rollId: string; values: number[]; expiresAt: string }> {
     return firstValueFrom(
       this.http.post<{ rollId: string; values: number[]; expiresAt: string }>(
         `/api/v1/campaigns/${campaignId}/actors/roll-stats`,

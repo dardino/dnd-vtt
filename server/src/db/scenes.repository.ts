@@ -45,7 +45,10 @@ export const getScene = (db: DbExecutor, id: string): Scene | null => {
   return row === undefined ? null : toScene(row);
 };
 
-export const getSceneState = (db: DbExecutor, id: string): { state: SceneState; stateVersion: number } | null => {
+export const getSceneState = (
+  db: DbExecutor,
+  id: string,
+): { state: SceneState; stateVersion: number } | null => {
   const row = db.select().from(scenes).where(eq(scenes.id, id)).get();
   if (row === undefined) {
     return null;

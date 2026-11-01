@@ -57,7 +57,8 @@ test('la pagina è servita con nonce CSP e nessuna violazione', async ({ page })
     const violations: string[] = [];
     document.addEventListener('securitypolicyviolation', (event) => {
       violations.push(
-        `${event.violatedDirective} ${event.blockedURI} ${event.sourceFile}:${event.lineNumber} ${event.sample}`,
+        `${event.violatedDirective} ${event.blockedURI} ${event.sourceFile}:${event.lineNumber}`
+        + ` ${event.sample}`,
       );
     });
     Object.assign(window, { __cspViolations: violations });

@@ -21,7 +21,11 @@ const rawText = (raw: unknown): string => {
   return Buffer.from(raw as ArrayBuffer).toString('utf8');
 };
 
-export const realtimeRoutes = (env: AppEnv, db: AppDatabase, hub: RealtimeHub): FastifyPluginAsync => async (app) => {
+export const realtimeRoutes = (
+  env: AppEnv,
+  db: AppDatabase,
+  hub: RealtimeHub,
+): FastifyPluginAsync => async (app) => {
   await app.register(websocket);
   app.get('/ws', { websocket: true }, (socket, request) => {
     const query = request.query as Record<string, string | undefined>;

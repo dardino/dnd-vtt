@@ -118,7 +118,10 @@ export const srdRoutes: FastifyPluginCallback = (app, _options, done) => {
       }
       const { level, class: classId, q } = request.query;
       const parsedLevel = level === undefined ? undefined : Number(level);
-      if (parsedLevel !== undefined && (!Number.isInteger(parsedLevel) || parsedLevel < 0 || parsedLevel > 9)) {
+      if (
+        parsedLevel !== undefined
+        && (!Number.isInteger(parsedLevel) || parsedLevel < 0 || parsedLevel > 9)
+      ) {
         return sendError(reply, 400, 'bad_request', 'Il livello dell incantesimo deve essere tra 0 e 9');
       }
       const spells = catalog.spells.filter((spell: SrdSpell) =>
