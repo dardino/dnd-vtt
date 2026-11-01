@@ -11,6 +11,7 @@ const DISPLAY_CODE = 'ABCD-1234';
 type Listener = (event: Event) => void;
 
 class FakeSocket {
+  static readonly OPEN = 1;
   static readonly instances: FakeSocket[] = [];
 
   static reset(): void {
@@ -27,6 +28,7 @@ class FakeSocket {
 
   readyState = 0;
   readonly url: string;
+  readonly sent: string[] = [];
   private readonly listeners = new Map<string, Listener[]>();
 
   constructor(url: string) {
@@ -40,8 +42,8 @@ class FakeSocket {
     this.listeners.set(type, registered);
   }
 
-  send(): void {
-    // Il servizio non invia frame nel passo A1b.
+  send(data: string): void {
+    this.sent.push(data);
   }
 
   close(): void {
@@ -157,6 +159,27 @@ describe('RealtimeService', () => {
     socket.receive(envelope('hello', { role: 'display', display: { id: 'd1' }, state: displayState() }));
     expect(received).toHaveLength(1);
     expect(received[0]?.state.campaign.name).toBe('Realtime');
+  });
+
+  it('invia il viewport display all\'apertura e dopo una riconnessione', async () => {
+    service.connectDisplay(DISPLAY_CODE);
+    service.sendDisplayViewport(1280, 720);
+
+    // Socket ancora in apertura: il frame resta in attesa.
+    expect(FakeSocket.at(0).sent).toHaveLength(0);
+    FakeSocket.at(0).open();
+    expect(FakeSocket.at(0).sent).toHaveLength(1);
+    expect(JSON.parse(FakeSocket.at(0).sent[0] ?? '{}')).toMatchObject({
+      v: 1,
+      type: 'viewport',
+      width: 1280,
+      height: 720,
+    });
+
+    FakeSocket.at(0).fail();
+    await vi.advanceTimersByTimeAsync(1_000);
+    FakeSocket.at(1).open();
+    expect(FakeSocket.at(1).sent).toHaveLength(1);
   });
 
   it('smista action.applied, presence.updated e display.updated', () => {

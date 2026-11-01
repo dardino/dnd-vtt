@@ -12,6 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import type { Subscription } from 'rxjs';
 import {
   abilityModifier,
   DEFAULT_ACTOR_PORTRAIT,
@@ -63,6 +64,7 @@ import { MeasurementService } from '../../core/measurement.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
 import { MapService } from '../../core/map.service';
 import { ProgramService } from '../../core/program.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SceneStore } from '../../core/scene.store';
 import { Button } from '../../components/button/button';
@@ -192,14 +194,12 @@ export class DmShellPage implements OnInit {
   private readonly programsApi = inject(ProgramService);
   private readonly mapsApi = inject(MapService);
   private readonly ai = inject(AiService);
+  private readonly realtime = inject(RealtimeService);
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
   private readonly importInput = viewChild<ElementRef<HTMLInputElement>>('importInput');
   private sessionTimer: ReturnType<typeof setInterval> | null = null;
-  private presenceSocket: WebSocket | null = null;
-  private presenceTimer: ReturnType<typeof setTimeout> | null = null;
-  private presenceCampaignId: string | null = null;
-  private presenceRetry = 1;
+  private presenceSubscription: Subscription | null = null;
 
   public readonly campaignId = input<string>();
 
@@ -467,11 +467,20 @@ export class DmShellPage implements OnInit {
 
   public ngOnInit(): void {
     window.addEventListener('keydown', this.onKeydown);
+    this.presenceSubscription = this.realtime.presence$.subscribe((presence) => {
+      this.connectedDisplays.set(presence.displays);
+      const campaign = this.activeCampaign();
+      if (campaign !== null) {
+        void this.loadScreens(campaign.id);
+      }
+    });
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('keydown', this.onKeydown);
       this.stopSessionTimer();
       this.stopScreenPolling();
-      this.closePresence();
+      this.presenceSubscription?.unsubscribe();
+      this.presenceSubscription = null;
+      this.realtime.disconnect();
     });
     void this.start();
   }
@@ -527,7 +536,7 @@ export class DmShellPage implements OnInit {
       await this.dice.load(campaign.id);
       const program = await this.programsApi.get(campaign.id);
       this.programState.set(program.state);
-      this.connectPresence(campaign.id);
+      this.realtime.connectDm(campaign.id);
       const sessions = await this.campaignsApi.listSessions(campaign.id);
       this.sessions.set(sessions);
       const ai = await this.ai.status();
@@ -1631,7 +1640,8 @@ export class DmShellPage implements OnInit {
 
   public openChoose(): void {
     this.notice.set(null);
-    this.closePresence();
+    this.realtime.disconnect();
+    this.connectedDisplays.set(0);
     this.closeScreenDialog();
     this.mode.set('choose');
   }
@@ -1640,7 +1650,7 @@ export class DmShellPage implements OnInit {
     const campaign = this.activeCampaign();
     if (campaign !== null) {
       this.mode.set('ready');
-      this.connectPresence(campaign.id);
+      this.realtime.connectDm(campaign.id);
     }
   }
 
@@ -2101,64 +2111,6 @@ export class DmShellPage implements OnInit {
       }
     }
     this.actorAssetUrls.set(urls);
-  }
-
-  private connectPresence(campaignId: string): void {
-    this.closePresence();
-    this.presenceCampaignId = campaignId;
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(
-      `${protocol}//${location.host}/ws?role=dm&campaignId=${encodeURIComponent(campaignId)}`,
-    );
-    this.presenceSocket = socket;
-    socket.addEventListener('open', () => {
-      this.presenceRetry = 1;
-    });
-    socket.addEventListener('message', (event) => {
-      try {
-        const message = JSON.parse(event.data as string) as {
-          type?: string;
-          payload?: { displays?: number };
-        };
-        if (
-          (message.type === 'hello' || message.type === 'presence.updated')
-          && typeof message.payload?.displays === 'number'
-        ) {
-          this.connectedDisplays.set(message.payload.displays);
-          const campaign = this.activeCampaign();
-          if (campaign !== null) {
-            void this.loadScreens(campaign.id);
-          }
-        }
-      } catch {
-        // Un messaggio malformato non deve interrompere la console.
-      }
-    });
-    socket.addEventListener('close', () => {
-      if (this.presenceSocket !== socket) {
-        return;
-      }
-      this.presenceSocket = null;
-      this.connectedDisplays.set(0);
-      if (this.presenceCampaignId !== campaignId) {
-        return;
-      }
-      const delay = Math.min(30_000, this.presenceRetry * 1000);
-      this.presenceRetry = Math.min(30, this.presenceRetry * 2);
-      this.presenceTimer = setTimeout(() => this.connectPresence(campaignId), delay);
-    });
-  }
-
-  private closePresence(): void {
-    this.presenceCampaignId = null;
-    if (this.presenceTimer !== null) {
-      clearTimeout(this.presenceTimer);
-      this.presenceTimer = null;
-    }
-    const socket = this.presenceSocket;
-    this.presenceSocket = null;
-    socket?.close();
-    this.connectedDisplays.set(0);
   }
 
   private startSessionTimer(reset = true): void {

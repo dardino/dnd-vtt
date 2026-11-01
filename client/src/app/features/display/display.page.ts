@@ -1,6 +1,8 @@
 import { Component, type OnDestroy, type OnInit, computed, inject, input, signal } from '@angular/core';
 import type { DisplayLayer, DisplayState } from '@dnd-vtt/shared';
+import type { Subscription } from 'rxjs';
 import { ProgramService } from '../../core/program.service';
+import { RealtimeService } from '../../core/realtime.service';
 import { DisplayLayerComponent } from './display-layer.component';
 
 @Component({
@@ -12,12 +14,11 @@ import { DisplayLayerComponent } from './display-layer.component';
 export class DisplayPage implements OnInit, OnDestroy {
   public readonly code = input.required<string>();
   private readonly programs = inject(ProgramService);
+  private readonly realtime = inject(RealtimeService);
 
   public readonly state = signal<DisplayState | null>(null);
   public readonly error = signal<string | null>(null);
-  private socket: WebSocket | null = null;
-  private retry = 1;
-  private readonly timers: ReturnType<typeof setTimeout>[] = [];
+  private subscription: Subscription | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private readonly onResize = (): void => this.sendViewport();
 
@@ -36,11 +37,16 @@ export class DisplayPage implements OnInit, OnDestroy {
       .length);
 
   public ngOnInit(): void {
+    this.subscription = this.realtime.display$.subscribe((payload) => {
+      this.state.set(payload.state);
+      this.error.set(null);
+    });
     void this.load();
-    this.connect();
+    this.realtime.connectDisplay(this.code());
+    this.sendViewport();
     window.addEventListener('resize', this.onResize);
     this.pollTimer = setInterval(() => {
-      if (this.socket === null || this.socket.readyState !== WebSocket.OPEN) {
+      if (this.realtime.status() !== 'open') {
         void this.load();
       }
     }, 5000);
@@ -48,13 +54,12 @@ export class DisplayPage implements OnInit, OnDestroy {
 
   public ngOnDestroy(): void {
     window.removeEventListener('resize', this.onResize);
-    this.socket?.close();
-    this.socket = null;
+    this.subscription?.unsubscribe();
+    this.subscription = null;
+    this.realtime.disconnect();
     if (this.pollTimer !== null) {
       clearInterval(this.pollTimer);
-    }
-    for (const timer of this.timers) {
-      clearTimeout(timer);
+      this.pollTimer = null;
     }
   }
 
@@ -77,50 +82,6 @@ export class DisplayPage implements OnInit, OnDestroy {
   }
 
   private sendViewport(): void {
-    const socket = this.socket;
-    if (socket === null || socket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-    socket.send(JSON.stringify({
-      v: 1,
-      type: 'viewport',
-      width: window.innerWidth,
-      height: window.innerHeight,
-    }));
-  }
-
-  private connect(): void {
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const socket = new WebSocket(
-      `${protocol}//${location.host}/ws?role=display&code=${encodeURIComponent(this.code())}`,
-    );
-    this.socket = socket;
-    socket.addEventListener('open', () => {
-      this.retry = 1;
-      this.sendViewport();
-    });
-    socket.addEventListener('message', (event) => {
-      try {
-        const message = JSON.parse(event.data as string) as {
-          type?: string;
-          payload?: { state?: DisplayState };
-        };
-        if ((message.type === 'hello' || message.type === 'display.updated') && message.payload?.state !== undefined) {
-          this.state.set(message.payload.state);
-          this.error.set(null);
-        }
-      } catch {
-        // Un messaggio malformato non deve interrompere lo schermo.
-      }
-    });
-    socket.addEventListener('close', () => {
-      if (this.socket !== socket) {
-        return;
-      }
-      this.socket = null;
-      const delay = Math.min(30_000, this.retry * 1000);
-      this.retry = Math.min(30, this.retry * 2);
-      this.timers.push(setTimeout(() => this.connect(), delay));
-    });
+    this.realtime.sendDisplayViewport(window.innerWidth, window.innerHeight);
   }
 }

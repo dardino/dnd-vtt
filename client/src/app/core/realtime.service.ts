@@ -149,6 +149,7 @@ export class RealtimeService {
   private socket: WebSocket | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private backoffMs = INITIAL_BACKOFF_MS;
+  private viewport: { width: number; height: number } | null = null;
 
   constructor() {
     this.actions$ = this.actionsSubject.asObservable();
@@ -167,8 +168,19 @@ export class RealtimeService {
     this.connect({ role: 'display', code });
   }
 
+  /**
+   * Memorizza le dimensioni della finestra display e le invia al socket.
+   * Il valore viene rimandato a ogni riapertura, così il server conosce
+   * l'aspect ratio anche dopo una riconnessione.
+   */
+  sendDisplayViewport(width: number, height: number): void {
+    this.viewport = { width, height };
+    this.flushViewport();
+  }
+
   disconnect(): void {
     this.target = null;
+    this.viewport = null;
     this.clearRetry();
     this.releaseSocket();
     this.backoffMs = INITIAL_BACKOFF_MS;
@@ -204,6 +216,7 @@ export class RealtimeService {
       }
       this.backoffMs = INITIAL_BACKOFF_MS;
       this.status.set('open');
+      this.flushViewport();
     });
     socket.addEventListener('message', (event) => {
       if (this.socket !== socket) {
@@ -288,6 +301,20 @@ export class RealtimeService {
       this.retryTimer = null;
       this.startSocket(true);
     }, delay);
+  }
+
+  private flushViewport(): void {
+    const viewport = this.viewport;
+    const socket = this.socket;
+    if (viewport === null || socket === null || socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    socket.send(JSON.stringify({
+      v: 1,
+      type: 'viewport',
+      width: viewport.width,
+      height: viewport.height,
+    }));
   }
 
   private clearRetry(): void {
