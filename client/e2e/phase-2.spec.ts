@@ -114,6 +114,11 @@ test('la console usa un layout a tre colonne e riempie l altezza', async ({ page
   expect(metrics.columns).toBe(3);
   expect(metrics.bottom).toBeGreaterThanOrEqual(metrics.viewport - 80);
 
+  const slotsWidth = await page.locator('.slots').evaluate((element) =>
+    element.getBoundingClientRect().width);
+  const layoutWidth = await layout.evaluate((element) => element.getBoundingClientRect().width);
+  expect(slotsWidth).toBeGreaterThan(layoutWidth - 2);
+
   await page.getByRole('button', { name: 'Riduci pannello campagna' }).click();
   await expect(page.locator('.dm-panel--left .panel-label'))
     .toHaveCSS('writing-mode', 'vertical-rl');
