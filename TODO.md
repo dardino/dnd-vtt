@@ -109,7 +109,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
     dal primo gradino previsto (70/60 e 60/50) con un margine minimo sul misurato; debito: alzare a
     80/75 quando `shared/src/schemas` e `server/src/sessions` saranno coperti.
 
-- [ ] **Q2 — Test componenti client critici** · M
+- [x] **Q2 — Test componenti client critici** · M
   - **Proposta:** TestBed + vitest per `Dialog` (Esc singolo, `aria-labelledby`), `Button` (ARIA), `ActionStore` (TTL/guard), `SceneCanvas` (smoke render/fog), `ActorSheet` (patch HP).
   - **Fatto quando:** i cinque componenti hanno test di regressione.
 
