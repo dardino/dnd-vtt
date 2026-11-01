@@ -25,7 +25,7 @@ import {
   putDisplayViewport,
   putProgram,
 } from './service.js';
-import { broadcastDisplays, onlineDisplayCodes } from '../realtime/hub.js';
+import type { RealtimeHub } from '../realtime/hub.js';
 
 const displayParamsSchema = z.strictObject({
   id: z.string().uuid(),
@@ -33,7 +33,7 @@ const displayParamsSchema = z.strictObject({
 });
 const codeParamsSchema = z.strictObject({ code: z.string().min(1).max(12) });
 
-export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
+export const programRoutes = (env: AppEnv, db: AppDatabase, hub: RealtimeHub): FastifyPluginCallback =>
   (app, _options, done) => {
     app.get('/campaigns/:id/program', async (request, reply) => {
       requireDm(request, env);
@@ -47,7 +47,7 @@ export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallba
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(putProgramSchema, request.body);
       const program = putProgram(db, id, body.version, body.state);
-      broadcastDisplays(id);
+      hub.broadcastDisplays(id);
       return reply.send(program);
     });
 
@@ -56,7 +56,7 @@ export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallba
       const { id, displayId } = parse(displayParamsSchema, request.params);
       const body = parse(displayCompositionSchema, request.body);
       const result = putDisplayComposition(db, id, displayId, body.version, body.composition);
-      broadcastDisplays(id);
+      hub.broadcastDisplays(id);
       return reply.send(result);
     });
 
@@ -65,7 +65,7 @@ export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallba
       const { id, displayId } = parse(displayParamsSchema, request.params);
       const body = parse(displayViewportRequestSchema, request.body);
       const result = putDisplayViewport(db, id, displayId, body.version, body.viewport);
-      broadcastDisplays(id);
+      hub.broadcastDisplays(id);
       return reply.send(result);
     });
 
@@ -94,7 +94,7 @@ export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallba
       requireDm(request, env);
       const { id } = parse(idParamsSchema, request.params);
       requireCampaign(db, id);
-      const online = onlineDisplayCodes(id);
+      const online = hub.onlineDisplayCodes(id);
       return reply.send({ items: listDisplays(db, id).filter((display) => online.has(display.code)) });
     });
 

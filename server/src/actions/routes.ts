@@ -14,14 +14,14 @@ import {
   syncCampaignActions,
   undoThrough,
 } from '../actions/service.js';
-import { broadcastDisplays } from '../realtime/hub.js';
+import type { RealtimeHub } from '../realtime/hub.js';
 
 const syncQuerySchema = z.strictObject({
   sinceVersion: z.coerce.number().int().min(0),
   sceneId: z.string().uuid().optional(),
 });
 
-export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
+export const actionRoutes = (env: AppEnv, db: AppDatabase, hub: RealtimeHub): FastifyPluginCallback =>
   (app, _options, done) => {
     app.addHook('preHandler', dmPreHandler(env));
 
@@ -33,7 +33,7 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallbac
         request: body,
         origin: 'dm',
       });
-      broadcastDisplays(id);
+      hub.broadcastDisplays(id);
       return reply.send(applied);
     });
 
@@ -50,14 +50,14 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallbac
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(undoActionRequestSchema, request.body);
       const result = undoThrough(db, id, body.entryId);
-      broadcastDisplays(id);
+      hub.broadcastDisplays(id);
       return reply.send(result);
     });
 
     app.post('/campaigns/:id/actions/redo', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const result = redoLastBatch(db, id);
-      broadcastDisplays(id);
+      hub.broadcastDisplays(id);
       return reply.send(result);
     });
 
@@ -70,7 +70,7 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallbac
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(resetFogRequestSchema, request.body);
       const result = resetSceneFog(db, id, body.sceneId);
-      broadcastDisplays(id);
+      hub.broadcastDisplays(id);
       return reply.send(result);
     });
 

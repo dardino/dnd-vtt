@@ -11,112 +11,115 @@ interface RealtimeClient {
   code?: string;
 }
 
-const clients = new Set<RealtimeClient>();
-let database: AppDatabase | null = null;
+export class RealtimeHub {
+  private readonly clients = new Set<RealtimeClient>();
+  private readonly db: AppDatabase;
 
-const displayCount = (campaignId: string): number => {
-  let count = 0;
-  for (const client of clients) {
-    if (client.role === 'display' && client.campaignId === campaignId) {
-      count += 1;
+  constructor(db: AppDatabase) {
+    this.db = db;
+  }
+
+  private displayCount(campaignId: string): number {
+    let count = 0;
+    for (const client of this.clients) {
+      if (client.role === 'display' && client.campaignId === campaignId) {
+        count += 1;
+      }
+    }
+    return count;
+  }
+
+  broadcastPresence(campaignId: string): void {
+    const displays = this.displayCount(campaignId);
+    for (const client of this.clients) {
+      if (client.role !== 'dm' || client.campaignId !== campaignId) {
+        continue;
+      }
+      if (client.socket.readyState !== 1) {
+        continue;
+      }
+      client.socket.send(envelope('presence.updated', { displays }));
     }
   }
-  return count;
-};
 
-export const broadcastPresence = (campaignId: string): void => {
-  const displays = displayCount(campaignId);
-  for (const client of clients) {
-    if (client.role !== 'dm' || client.campaignId !== campaignId) {
-      continue;
-    }
-    if (client.socket.readyState !== 1) {
-      continue;
-    }
-    client.socket.send(envelope('presence.updated', { displays }));
-  }
-};
-
-const removeClient = (client: RealtimeClient): void => {
-  if (clients.delete(client) && client.role === 'display') {
-    broadcastPresence(client.campaignId);
-  }
-};
-
-export const initRealtime = (db: AppDatabase): void => {
-  database = db;
-};
-
-export const registerRealtimeClient = (
-  socket: WebSocket,
-  role: 'dm' | 'display',
-  campaignId: string,
-  code?: string,
-): void => {
-  const client: RealtimeClient = { socket, role, campaignId, ...(code === undefined ? {} : { code }) };
-  clients.add(client);
-  socket.on('close', () => removeClient(client));
-  socket.on('error', () => removeClient(client));
-  if (role === 'display') {
-    broadcastPresence(campaignId);
-  }
-};
-
-export const sendDmHello = (socket: WebSocket, campaignId: string): void => {
-  socket.send(envelope('hello', {
-    role: 'dm',
-    campaignId,
-    displays: displayCount(campaignId),
-  }));
-};
-
-export const onlineDisplayCodes = (campaignId: string): Set<string> => {
-  const codes = new Set<string>();
-  for (const client of clients) {
-    if (client.role === 'display' && client.campaignId === campaignId && client.code !== undefined) {
-      codes.add(client.code);
+  private removeClient(client: RealtimeClient): void {
+    if (this.clients.delete(client) && client.role === 'display') {
+      this.broadcastPresence(client.campaignId);
     }
   }
-  return codes;
-};
 
-export const broadcastDisplays = (campaignId: string): void => {
-  if (database === null) {
-    return;
-  }
-  for (const client of clients) {
-    if (client.role !== 'display' || client.campaignId !== campaignId || client.code === undefined) {
-      continue;
+  registerClient(
+    socket: WebSocket,
+    role: 'dm' | 'display',
+    campaignId: string,
+    code?: string,
+  ): void {
+    const client: RealtimeClient = { socket, role, campaignId, ...(code === undefined ? {} : { code }) };
+    this.clients.add(client);
+    socket.on('close', () => this.removeClient(client));
+    socket.on('error', () => this.removeClient(client));
+    if (role === 'display') {
+      this.broadcastPresence(campaignId);
     }
-    const display = getDisplayByCode(database, client.code);
+  }
+
+  sendDmHello(socket: WebSocket, campaignId: string): void {
+    socket.send(envelope('hello', {
+      role: 'dm',
+      campaignId,
+      displays: this.displayCount(campaignId),
+    }));
+  }
+
+  onlineDisplayCodes(campaignId: string): Set<string> {
+    const codes = new Set<string>();
+    for (const client of this.clients) {
+      if (client.role === 'display' && client.campaignId === campaignId && client.code !== undefined) {
+        codes.add(client.code);
+      }
+    }
+    return codes;
+  }
+
+  broadcastDisplays(campaignId: string): void {
+    for (const client of this.clients) {
+      if (client.role !== 'display' || client.campaignId !== campaignId || client.code === undefined) {
+        continue;
+      }
+      const display = getDisplayByCode(this.db, client.code);
+      if (display === null) {
+        client.socket.close(4403, 'display revoked');
+        this.removeClient(client);
+        continue;
+      }
+      if (client.socket.readyState !== 1) {
+        continue;
+      }
+      try {
+        const state = projectDisplay(this.db, display);
+        client.socket.send(envelope('display.updated', { state }));
+      } catch {
+        // Un errore di proiezione non deve chiudere le altre console.
+      }
+    }
+  }
+
+  sendDisplayHello(socket: WebSocket, code: string): boolean {
+    const display = getDisplayByCode(this.db, code);
     if (display === null) {
-      client.socket.close(4403, 'display revoked');
-      removeClient(client);
-      continue;
+      return false;
     }
-    if (client.socket.readyState !== 1) {
-      continue;
-    }
-    try {
-      const state = projectDisplay(database, display);
-      client.socket.send(envelope('display.updated', { state }));
-    } catch {
-      // Un errore di proiezione non deve chiudere le altre console.
-    }
+    const state = projectDisplay(this.db, display);
+    socket.send(envelope('hello', { role: 'display', display, state }));
+    return true;
   }
-};
 
-export const sendDisplayHello = (socket: WebSocket, code: string): boolean => {
-  if (database === null) {
-    return false;
+  close(): void {
+    for (const client of this.clients) {
+      if (client.socket.readyState === 1) {
+        client.socket.close(1001, 'server shutting down');
+      }
+    }
+    this.clients.clear();
   }
-  const display = getDisplayByCode(database, code);
-  if (display === null) {
-    return false;
-  }
-  const state = projectDisplay(database, display);
-  socket.send(envelope('hello', { role: 'display', display, state }));
-  return true;
-};
-
-export const notifyDisplays = broadcastDisplays;
+}

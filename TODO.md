@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** **S0 completato**, **D9 implementato** (immagine non ancora verificata con Docker). Prossimo passo: **A3 → A2 → A1 → A4**, con le attività D6 e **S1/S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
+**Blocco attivo:** **S0 completato**, **D9 implementato** (immagine non ancora verificata con Docker), **A3 completato**. Prossimo passo: **A2 → A1 → A4**, con le attività D6 e **S1/S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -43,7 +43,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** emettere `token.update` (uno per token cambiato) nella stessa transazione; migrare i test all'endpoint azioni e **rimuovere** `PUT /scenes/:id/state`.
   - **Fatto quando:** nessuna scrittura di stato fuori dal log; undo/redo copre la sync; test aggiornati.
 
-- [ ] **A3 — Stato di modulo → servizi iniettati** · M
+- [x] **A3 — Stato di modulo → servizi iniettati** · M — ✅ 1 novembre 2026
   - **Problema:** `hub.ts` (`clients`, `database`), `dice/service.ts` (`idempotency`), `roll-stats.ts` (`rolls`) sono singleton di modulo: due `buildApp` nello stesso processo condividono stato.
   - **Proposta:** `RealtimeHub` come classe creata in `buildApp` e passata alle route; `IdempotencyCache`/`RollStats` come istanze con TTL e `dispose()`.
   - **Fatto quando:** due app in un test sono isolate; cleanup deterministico.

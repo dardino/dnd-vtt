@@ -12,7 +12,9 @@ import { allowedHosts, type AppEnv } from './config/env.js';
 import type { DatabaseHandle } from './db/client.js';
 import { migrationStatus } from './db/migrations.js';
 import { AppError } from './errors.js';
-import { initRealtime } from './realtime/hub.js';
+import { RealtimeHub } from './realtime/hub.js';
+import { DiceService } from './dice/service.js';
+import { RollStats } from './actors/roll-stats.js';
 import { authRoutes } from './auth/auth.js';
 import { actionRoutes } from './actions/routes.js';
 import { actorRoutes } from './actors/routes.js';
@@ -56,6 +58,17 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
       ? { level: env.logLevel }
       : false,
     trustProxy: false,
+  });
+
+  const hub = new RealtimeHub(database.db);
+  const dice = new DiceService(database.db);
+  const rollStats = new RollStats();
+
+  app.addHook('onClose', (_instance, done) => {
+    hub.close();
+    dice.dispose();
+    rollStats.dispose();
+    done();
   });
 
   app.setValidatorCompiler(validatorCompiler);
@@ -190,18 +203,17 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   void app.register(campaignRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(mapRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(sceneRoutes(env, database.db), { prefix: '/api/v1' });
-  void app.register(actorRoutes(env, database.db), { prefix: '/api/v1' });
-  void app.register(actionRoutes(env, database.db), { prefix: '/api/v1' });
-  void app.register(diceRoutes(env, database.db), { prefix: '/api/v1' });
+  void app.register(actorRoutes(env, database.db, hub, rollStats), { prefix: '/api/v1' });
+  void app.register(actionRoutes(env, database.db, hub), { prefix: '/api/v1' });
+  void app.register(diceRoutes(env, hub, dice), { prefix: '/api/v1' });
   void app.register(exportRoutes(env, database.db), { prefix: '/api/v1' });
-  void app.register(programRoutes(env, database.db), { prefix: '/api/v1' });
+  void app.register(programRoutes(env, database.db, hub), { prefix: '/api/v1' });
   void app.register(playerRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(sessionRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(assetRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(aiRoutes(env, database.db), { prefix: '/api/v1' });
 
-  initRealtime(database.db);
-  void app.register(realtimeRoutes(env, database.db));
+  void app.register(realtimeRoutes(env, database.db, hub));
 
   void app.register(fastifyStatic, {
     root: env.uploadDir,

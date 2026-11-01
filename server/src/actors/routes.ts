@@ -26,8 +26,8 @@ import {
 import { createPc, getDmSheet, patchPcSheet } from '../actors/pc-service.js';
 import { applyLevelUp, previewLevelUp } from '../actors/level-up-service.js';
 import { restActors } from '../actors/rest-service.js';
-import { rollAbilityScores } from '../actors/roll-stats.js';
-import { broadcastDisplays } from '../realtime/hub.js';
+import type { RollStats } from '../actors/roll-stats.js';
+import type { RealtimeHub } from '../realtime/hub.js';
 
 const actorQuerySchema = pageQuerySchema.extend({
   kind: z.enum(['monster', 'npc', 'pc']).optional(),
@@ -35,14 +35,19 @@ const actorQuerySchema = pageQuerySchema.extend({
   q: z.string().trim().min(1).max(120).optional(),
 });
 
-export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
+export const actorRoutes = (
+  env: AppEnv,
+  db: AppDatabase,
+  hub: RealtimeHub,
+  rollStats: RollStats,
+): FastifyPluginCallback =>
   (app, _options, done) => {
     app.addHook('preHandler', dmPreHandler(env));
 
     const broadcastActor = (actorId: string): void => {
       const actor = getActor(db, actorId);
       if (actor?.campaignId !== null && actor?.campaignId !== undefined) {
-        broadcastDisplays(actor.campaignId);
+        hub.broadcastDisplays(actor.campaignId);
       }
     };
 
@@ -65,7 +70,7 @@ export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
     app.post('/campaigns/:id/actors', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(createPcSchema, request.body);
-      return reply.status(201).send(createPc(db, id, body));
+      return reply.status(201).send(createPc(db, id, body, rollStats));
     });
 
     app.post('/campaigns/:id/actors/roll-stats', async (request, reply) => {
@@ -73,7 +78,7 @@ export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
       if (getCampaign(db, id) === null) {
         throw notFound('Campagna non trovata');
       }
-      return reply.send(rollAbilityScores());
+      return reply.send(rollStats.rollAbilityScores());
     });
 
     app.get('/actors/:id/sheet', async (request, reply) => {
@@ -107,7 +112,7 @@ export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(restRequestSchema, request.body);
       const actors = restActors(db, id, body);
-      broadcastDisplays(id);
+      hub.broadcastDisplays(id);
       return reply.send({ actors });
     });
 

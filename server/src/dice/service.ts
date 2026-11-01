@@ -15,7 +15,11 @@ import { getSceneState } from '../db/scenes.repository.js';
 import { AppError, notFound } from '../errors.js';
 
 const IDEMPOTENCY_TTL_MS = 30_000;
-const idempotency = new Map<string, { expiresAt: number; roll: DiceRoll }>();
+
+interface CachedRoll {
+  expiresAt: number;
+  roll: DiceRoll;
+}
 
 interface ResolvedToken {
   actorId: string | null;
@@ -50,71 +54,76 @@ const resolveToken = (
   };
 };
 
-export const rollForDm = (
-  db: AppDatabase,
-  campaignId: string,
-  request: DiceRollRequest,
-): DiceRoll => {
-  if (getCampaign(db, campaignId) === null) {
-    throw notFound('Campagna non trovata');
+export class DiceService {
+  private readonly db: AppDatabase;
+  private readonly idempotency = new Map<string, CachedRoll>();
+
+  constructor(db: AppDatabase) {
+    this.db = db;
   }
-  const now = Date.now();
-  const idempotencyKey = request.requestId === undefined ? undefined : `${campaignId}:${request.requestId}`;
-  if (idempotencyKey !== undefined) {
-    const cached = idempotency.get(idempotencyKey);
-    if (cached !== undefined && cached.expiresAt > now) {
-      return cached.roll;
+
+  rollForDm(campaignId: string, request: DiceRollRequest): DiceRoll {
+    if (getCampaign(this.db, campaignId) === null) {
+      throw notFound('Campagna non trovata');
     }
-    if (cached !== undefined) {
-      idempotency.delete(idempotencyKey);
-    }
-  }
-  let result;
-  try {
-    result = rollDice({ formula: request.formula, mode: request.mode });
-  } catch (error) {
-    if (error instanceof DiceFormulaError) {
-      throw new AppError('validation_error', 422, error.message, { formula: request.formula });
-    }
-    throw error;
-  }
-  const token = resolveToken(db, campaignId, request.sceneId, request.tokenId);
-  const nowIso = new Date(now).toISOString();
-  const roll = db.transaction((tx) => insertDiceRoll(tx, {
-    id: uuidv7(),
-    campaignId,
-    sceneId: token.sceneId,
-    actorId: token.actorId,
-    tokenId: request.tokenId ?? null,
-    origin: 'dm',
-    formula: result.formula,
-    mode: result.mode,
-    dice: result.dice,
-    modifier: result.modifier,
-    total: result.total,
-    visibility: request.visibility,
-    label: token.label,
-    createdAt: nowIso,
-  }));
-  db.transaction((tx) => pruneDiceRolls(tx, campaignId));
-  if (idempotencyKey !== undefined) {
-    idempotency.set(idempotencyKey, { expiresAt: now + IDEMPOTENCY_TTL_MS, roll });
-    for (const [key, entry] of idempotency) {
-      if (entry.expiresAt <= now) {
-        idempotency.delete(key);
+    const now = Date.now();
+    const idempotencyKey = request.requestId === undefined ? undefined : `${campaignId}:${request.requestId}`;
+    if (idempotencyKey !== undefined) {
+      const cached = this.idempotency.get(idempotencyKey);
+      if (cached !== undefined && cached.expiresAt > now) {
+        return cached.roll;
+      }
+      if (cached !== undefined) {
+        this.idempotency.delete(idempotencyKey);
       }
     }
+    let result;
+    try {
+      result = rollDice({ formula: request.formula, mode: request.mode });
+    } catch (error) {
+      if (error instanceof DiceFormulaError) {
+        throw new AppError('validation_error', 422, error.message, { formula: request.formula });
+      }
+      throw error;
+    }
+    const token = resolveToken(this.db, campaignId, request.sceneId, request.tokenId);
+    const nowIso = new Date(now).toISOString();
+    const roll = this.db.transaction((tx) => insertDiceRoll(tx, {
+      id: uuidv7(),
+      campaignId,
+      sceneId: token.sceneId,
+      actorId: token.actorId,
+      tokenId: request.tokenId ?? null,
+      origin: 'dm',
+      formula: result.formula,
+      mode: result.mode,
+      dice: result.dice,
+      modifier: result.modifier,
+      total: result.total,
+      visibility: request.visibility,
+      label: token.label,
+      createdAt: nowIso,
+    }));
+    this.db.transaction((tx) => pruneDiceRolls(tx, campaignId));
+    if (idempotencyKey !== undefined) {
+      this.idempotency.set(idempotencyKey, { expiresAt: now + IDEMPOTENCY_TTL_MS, roll });
+      for (const [key, entry] of this.idempotency) {
+        if (entry.expiresAt <= now) {
+          this.idempotency.delete(key);
+        }
+      }
+    }
+    return roll;
   }
-  return roll;
-};
 
-export const listDiceRolls = (
-  db: AppDatabase,
-  campaignId: string,
-  visibility?: DiceVisibility,
-): DiceRollList => {
-  if (getCampaign(db, campaignId) === null) {
-    throw notFound('Campagna non trovata');
+  listDiceRolls(campaignId: string, visibility?: DiceVisibility): DiceRollList {
+    if (getCampaign(this.db, campaignId) === null) {
+      throw notFound('Campagna non trovata');
+    }
+    return listDiceRollsRepo(this.db, campaignId, visibility);
   }
-  return listDiceRollsRepo(db, campaignId, visibility);
-};
+
+  dispose(): void {
+    this.idempotency.clear();
+  }
+}

@@ -16,10 +16,15 @@ import {
 } from '../db/actors.repository.js';
 import { AppError, notFound } from '../errors.js';
 import { SrdVersionUnknownError, loadSrdCatalog } from '../srd/load.js';
-import { resolveRoll } from './roll-stats.js';
+import type { RollStats } from './roll-stats.js';
 import { updateTokensForActor } from './token-sync.js';
 
-export const createPc = (db: AppDatabase, campaignId: string, input: CreatePc): Actor => {
+export const createPc = (
+  db: AppDatabase,
+  campaignId: string,
+  input: CreatePc,
+  rollStats: RollStats,
+): Actor => {
   if (getCampaign(db, campaignId) === null) {
     throw notFound('Campagna non trovata');
   }
@@ -38,7 +43,7 @@ export const createPc = (db: AppDatabase, campaignId: string, input: CreatePc): 
   }
   if (input.build.abilityGeneration.method === 'rolled') {
     const rollId = input.build.abilityGeneration.rollId;
-    const stored = rollId === undefined ? null : resolveRoll(rollId);
+    const stored = rollId === undefined ? null : rollStats.resolveRoll(rollId);
     if (stored === null) {
       throw new AppError('roll_expired', 409, 'Il tiro delle caratteristiche è scaduto');
     }

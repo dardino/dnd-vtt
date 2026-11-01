@@ -5,7 +5,7 @@ import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import { getCampaign } from '../db/campaigns.repository.js';
 import { getDisplayByCode, updateDisplayViewportSize } from '../db/displays.repository.js';
-import { broadcastPresence, registerRealtimeClient, sendDisplayHello, sendDmHello } from './hub.js';
+import type { RealtimeHub } from './hub.js';
 import { envelope } from './protocol.js';
 
 const rawText = (raw: unknown): string => {
@@ -21,7 +21,7 @@ const rawText = (raw: unknown): string => {
   return Buffer.from(raw as ArrayBuffer).toString('utf8');
 };
 
-export const realtimeRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginAsync => async (app) => {
+export const realtimeRoutes = (env: AppEnv, db: AppDatabase, hub: RealtimeHub): FastifyPluginAsync => async (app) => {
   await app.register(websocket);
   app.get('/ws', { websocket: true }, (socket, request) => {
     const query = request.query as Record<string, string | undefined>;
@@ -34,8 +34,8 @@ export const realtimeRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginAsync
         socket.close(4403, 'display revoked');
         return;
       }
-      registerRealtimeClient(socket, 'display', display.campaignId, code);
-      if (!sendDisplayHello(socket, code)) {
+      hub.registerClient(socket, 'display', display.campaignId, code);
+      if (!hub.sendDisplayHello(socket, code)) {
         socket.close(4403, 'display unavailable');
         return;
       }
@@ -50,8 +50,8 @@ export const realtimeRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginAsync
         socket.close(4403, 'campaign not found');
         return;
       }
-      registerRealtimeClient(socket, 'dm', campaignId);
-      sendDmHello(socket, campaignId);
+      hub.registerClient(socket, 'dm', campaignId);
+      hub.sendDmHello(socket, campaignId);
     } else {
       socket.close(4401, 'invalid role');
       return;
@@ -73,7 +73,7 @@ export const realtimeRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginAsync
             const display = getDisplayByCode(db, code);
             if (display !== null) {
               updateDisplayViewportSize(db, display.id, width, height);
-              broadcastPresence(display.campaignId);
+              hub.broadcastPresence(display.campaignId);
             }
           }
         }
