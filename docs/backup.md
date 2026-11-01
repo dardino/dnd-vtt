@@ -10,9 +10,12 @@ Tutto lo stato persistente del VTT sta nel volume `dnd-vtt_dnd-data` montato su
 Il backup corretto è **a container fermo**: SQLite in modalità WAL non va
 copiato mentre il server scrive, e il tar di un DB aperto può essere incoerente.
 
-> Il backup contiene note private del DM, link giocatore e il segreto di
-> sessione: trattalo come materiale sensibile. Conservalo cifrato (BitLocker,
-> 7-Zip con password, volume cifrato) e non condividerlo.
+> **Il backup contiene dati sensibili:** il database con note private del DM,
+> link giocatore (token in chiaro nel DB), gli upload e `.session-secret`, il
+> segreto HMAC che firma i cookie DM. Chi ottiene l'archivio può impersonare il
+> DM finché il segreto resta lo stesso. Trattalo come materiale riservato:
+> cifralo sempre (vedi [Cifratura del backup](#cifratura-del-backup)) e non
+> condividerlo.
 
 ## Backup (Windows PowerShell)
 
@@ -45,6 +48,73 @@ tar tzf $a.FullName | Select-String 'dnd.db|uploads/|\.session-secret'
 Su Linux/macOS lo stesso comando funziona con `$(date +%Y%m%d-%H%M%S)` e
 `"$PWD/backup:/backup"`.
 
+## Cifratura del backup
+
+L'archivio contiene `.session-secret` e dati privati: **non lasciarlo mai in
+chiaro**. Cifralo subito dopo la creazione e cancella il `.tar.gz` intermedio
+(se il filesystem non è già cifrato, la cancellazione non è una garanzia:
+cifra durante la scrittura o usa un volume temporaneo cifrato).
+
+### 7-Zip con AES-256 (Windows, multipiattaforma)
+
+```powershell
+$a = Get-ChildItem .\backup\dnd-data-*.tar.gz |
+  Sort-Object LastWriteTime -Descending |
+  Select-Object -First 1
+
+# -p: password (meglio prompt interattivo: -p senza valore), -mhe=on nasconde i nomi
+7z a -t7z -mhe=on -m0=lzma2 -mx=9 "$($a.FullName).7z" $a.FullName
+
+Remove-Item $a.FullName
+```
+
+Verifica che l'archivio si apra con la password e che `dnd.db` sia presente:
+
+```powershell
+7z l ".\backup\dnd-data-YYYYMMDD-HHmmss.tar.gz.7z"
+```
+
+Senza 7-Zip si può cifrare con `age` o GPG (sotto), oppure con BitLocker sul
+volume che ospita `.\backup`.
+
+### age (consigliato su Linux/macOS)
+
+```sh
+age -r age1... -o "backup/dnd-data-$stamp.tar.gz.age" "backup/dnd-data-$stamp.tar.gz"
+rm "backup/dnd-data-$stamp.tar.gz"
+# restore:
+age -d -i ~/.config/age/keys.txt backup/dnd-data-YYYYMMDD-HHmmss.tar.gz.age | tar xzf - -C /data
+```
+
+Conserva la chiave privata **fuori** dal server e dal backup. La perdita della
+chiave rende il backup inutilizzabile.
+
+### GPG simmetrico (alternativa)
+
+```sh
+gpg --symmetric --cipher-algo AES256 --output "backup/dnd-data-$stamp.tar.gz.gpg" "backup/dnd-data-$stamp.tar.gz"
+rm "backup/dnd-data-$stamp.tar.gz"
+# restore:
+gpg --decrypt backup/dnd-data-YYYYMMDD-HHmmss.tar.gz.gpg | tar xzf - -C /data
+```
+
+## Permessi e archiviazione
+
+- La cartella `backup/` deve essere leggibile solo dall'utente che esegue i
+  backup e dagli amministratori.
+  - Linux/macOS: `chmod 700 backup` e `chmod 600 backup/*`.
+  - Windows: rimuovi `Users`/`Everyone` dall'ACL e lascia solo il tuo account e
+    `Administrators` (`icacls .\backup /inheritance:r /grant:r "$env:USERNAME:(OI)(CI)F" /grant:r "Administrators:(OI)(CI)F"`).
+- Tieni i backup cifrati fuori dal repository Git e fuori dal volume Docker del
+  server: una copia su un altro disco/NAS o in object storage cifrato.
+- Ruota le password/chiavi di cifratura se sospetti una compromissione e
+  considera compromesso `.session-secret` incluso nell'archivio: ruotalo
+  cancellandolo dal volume e riavviando (tutte le sessioni DM decadono).
+- Verifica periodicamente un restore su un'istanza di prova; un backup mai
+  testato non è un backup.
+- Conserva più generazioni (es. 7 giornalieri + 4 settimanali) e non eliminare
+  l'ultima copia verificata.
+
 ## Backup del solo database SQLite
 
 Se ti serve solo il DB (senza upload), ferma comunque il container e copia i tre
@@ -66,6 +136,13 @@ chiusura SQLite ha già consolidato il database; se ci sono, vanno inclusi
 nell'archivio.
 
 ## Restore
+
+Se l'archivio è cifrato (consigliato), decifralo prima in una cartella
+temporanea e usa il `.tar.gz` risultante nei comandi sotto:
+
+```powershell
+7z x .\backup\dnd-data-20261101-120000.tar.gz.7z -o.\backup
+```
 
 1. Ferma tutto e conserva il volume attuale (nel dubbio, fai prima un backup):
 

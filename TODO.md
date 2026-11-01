@@ -186,8 +186,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Implementato:** `server/test/security.spec.ts` copre la matrice DM senza sessione da IP non loopback (`X-Forwarded-For` + Host ammesso → 401 su letture e scritture), rate limit login dietro proxy (`TRUST_PROXY=1`, sesto tentativo → 429 per IP reale senza bloccare altri client), header helmet (`nosniff`, `referrer-policy`, HSTS) su `/api/v1/health`, upload non immagine e polyglot GIF+HTML → 415, export senza `playerNotes` di default e con `includePrivateNotes=true`. CSWSH, 404 su `originals/`, SVG e 5 login falliti restano coperti dai test esistenti e non sono duplicati.
   - **Fatto quando:** la suite gira in CI e fallisce su regressioni.
 
-- [ ] **S9 — Dipendenze e dati a riposo** · S
+- [x] **S9 — Dipendenze e dati a riposo** · S — ✅ 1 novembre 2026
   - **Proposta:** `npm audit` in CI con soglia high/critical e Dependabot/Renovate; documentare backup cifrati del DB (contiene note private e link giocatore) e permessi dei file.
+  - **Implementato:** script root `audit` = `npm audit --omit=dev --audit-level=high`, eseguito come step **bloccante** in CI (rimossi `continue-on-error` e il vecchio audit senza `--omit=dev`); gli avvisi moderate vengono riportati senza fermare la build, high/critical falliscono. `.github/dependabot.yml` con aggiornamenti settimanali per npm (root, workspace inclusi), `github-actions` e `docker` (raggruppa minor/patch npm). `docs/backup.md` documenta contenuto sensibile dell'archivio (DB con note private, link giocatore, upload, `.session-secret`), cifratura con 7-Zip AES-256, age o GPG, restore e permessi/archiviazione (`chmod 600/700` o ACL Windows, copia fuori sede, test di restore).
+  - **Nota:** `npm audit` oggi passa con 3 moderate (`glob`/`minimatch` via `@fastify/static`); il fix richiede un downgrade breaking e non è applicato. La scansione Trivy in `release.yml` resta advisory (fuori scope di questo passo).
   - **Fatto quando:** CI controlla le dipendenze e la procedura di backup è scritta.
 
 ### Checklist "internet-ready"
@@ -201,7 +203,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] S6 Codici display documentati e allungati a 8 caratteri
 - [ ] S7 HTTPS, proxy e cookie `secure`
 - [x] S8 Test di regressione sicurezza in CI
-- [ ] S9 Audit dipendenze e backup cifrati
+- [x] S9 Audit dipendenze e backup cifrati
 
 ## 5. Refactor god component (P2)
 
@@ -389,7 +391,7 @@ Se esce `armv6l`, il target `arm64` non è utilizzabile su quella macchina. Se e
 - [x] Documentare host server, IP LAN, firewall e `PUBLIC_URL`/`ALLOWED_ORIGINS`.
 - [x] Documentare backup, restore e upgrade delle migrazioni.
 
-> **Nota D9 (1 novembre 2026):** l'immagine **non è stata verificata con `docker build` in questo ambiente** (Docker assente). Sono stati eseguiti `npm run check` (lint, typecheck, test, build, `db:check`, `check:bundles`) e l'ispezione statica di `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `deploy/Caddyfile`, `.github/workflows/release.yml` e degli script. La prima build multi-arch va validata su Docker Desktop (o in CI) prima di considerare la release affidabile. Restano aperti: validazione display su Pi 1 e resa bloccante della scansione Trivy (S9).
+> **Nota D9 (1 novembre 2026):** l'immagine **non è stata verificata con `docker build` in questo ambiente** (Docker assente). Sono stati eseguiti `npm run check` (lint, typecheck, test, build, `db:check`, `check:bundles`) e l'ispezione statica di `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `deploy/Caddyfile`, `.github/workflows/release.yml` e degli script. La prima build multi-arch va validata su Docker Desktop (o in CI) prima di considerare la release affidabile. Restano aperti: validazione display su Pi 1 e resa bloccante della scansione Trivy (follow-up, oggi advisory).
 
 ---
 
