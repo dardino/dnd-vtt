@@ -70,6 +70,10 @@ Note:
   rifiutate con `Host non consentito`.
 - `SESSION_SECRET` vuota fa generare un segreto in `data/.session-secret`
   dentro il volume. Impostala solo se vuoi gestirla tu (minimo 32 caratteri).
+- `KEEP_ORIGINALS` è `false` per default: l'upload non scrive l'originale con
+  EXIF in `uploads/originals/` e nel DB resta `original_path=''` (la deduplica
+  usa l'hash SHA-256). Metti `true` solo se ti servono gli originali per
+  ri-processing o ispezione: i metadati restano nel volume e occupano spazio.
 - Non committare `.env`: è già in `.gitignore` e in `.dockerignore`.
 - Se `.env` manca, Compose avvia comunque il container (`env_file` è
   opzionale), ma `createEnv` lo ferma con un errore esplicito su `DM_PASSWORD`
@@ -144,7 +148,7 @@ docker compose down -v       # ATTENZIONE: elimina anche dnd-data (DB e upload)
 Il volume si chiama `dnd-vtt_dnd-data` (deriva da `name: dnd-vtt`). Contiene:
 
 - `dnd.db`, `dnd.db-wal`, `dnd.db-shm`;
-- `uploads/` (WebP serviti, thumbnail, `originals/`);
+- `uploads/` (WebP serviti, thumbnail; `originals/` solo con `KEEP_ORIGINALS=true`);
 - `.session-secret`.
 
 Su Windows usa sempre il **named volume** (già configurato): SQLite su bind

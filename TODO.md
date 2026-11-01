@@ -163,9 +163,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Implementato:** `bodyLimit: env.maxJsonBytes` a livello di istanza Fastify, così `MAX_JSON_MB` (default 2 MB) vale per tutti i body JSON, import compreso; l'`allowList` vive in `server/src/http/rate-limit.ts` (`isRateLimitExempt`) ed esenta solo `/uploads/`, `GET /api/v1/health`, `GET /api/v1/srd*` e `GET /api/v1/campaigns/:id/actions` (polling ogni 2 s). Export, player sheet, snapshot e display lookup passano dal limite globale, che resta 300/min (100.000 in test); rate limit display e login invariati. Test: 413 `payload_too_large` oltre `MAX_JSON_MB` e unit test della allowList.
   - **Fatto quando:** export limitato e limiti documentati.
 
-- [ ] **S5 — Originali su disco** · S
+- [x] **S5 — Originali su disco** · S — ✅ 1 novembre 2026
   - **Problema:** gli originali con EXIF restano in `uploads/originals/` indefinitamente; non sono serviti, ma sono un residuo sensibile.
   - **Proposta:** non scriverli affatto (la deduplica usa l'hash nel DB) oppure `KEEP_ORIGINALS=false` di default con cleanup.
+  - **Implementato:** `KEEP_ORIGINALS` (default `false`) in `AppEnv`. Con il default `storeAsset` non crea `uploads/originals/`, non scrive il buffer e salva `original_path=''`: la deduplica resta sull'hash SHA-256 nel DB. Con `true` il comportamento è quello precedente. Nessuna migrazione, gli originali già presenti non vengono cancellati. Static continua a non servire `originals/`. Test: default senza file e 404, `KEEP_ORIGINALS=true` con originale presente.
   - **Fatto quando:** il default non lascia metadati EXIF su disco.
 
 - [x] **S6 — Codici display e URL** · S — ✅ 1 novembre 2026

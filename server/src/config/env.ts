@@ -31,6 +31,21 @@ const rawEnvSchema = z.object({
       return /^\d+$/.test(normalized) ? Number(normalized) : value;
     }, z.union([z.boolean(), z.number().int().min(1).max(10)]))
     .default(false),
+  KEEP_ORIGINALS: z
+    .preprocess((value) => {
+      if (typeof value !== 'string') {
+        return value;
+      }
+      const normalized = value.trim().toLowerCase();
+      if (normalized === '' || normalized === 'false') {
+        return false;
+      }
+      if (normalized === 'true') {
+        return true;
+      }
+      return value;
+    }, z.boolean())
+    .default(false),
   DATABASE_PATH: z.string().min(1).default('data/dnd.db'),
   UPLOAD_DIR: z.string().min(1).default('data/uploads'),
   CLIENT_DIST: z.string().min(1).default('client/dist/browser'),
@@ -55,6 +70,8 @@ export interface AppEnv {
   cookieSecure: boolean;
   /** `false`, `true` (fidati di ogni proxy) o numero di hop fidati. */
   trustProxy: boolean | number;
+  /** Conserva gli originali con EXIF in `uploads/originals/` (default `false`). */
+  keepOriginals: boolean;
   databasePath: string;
   uploadDir: string;
   clientDist: string;
@@ -211,6 +228,7 @@ export const createEnv = (
     sessionSecret: loadSessionSecret(repoRoot, values.SESSION_SECRET, values.NODE_ENV),
     cookieSecure,
     trustProxy: values.TRUST_PROXY,
+    keepOriginals: values.KEEP_ORIGINALS,
     databasePath: absolute(repoRoot, values.DATABASE_PATH),
     uploadDir: absolute(repoRoot, values.UPLOAD_DIR),
     clientDist: absolute(repoRoot, values.CLIENT_DIST),

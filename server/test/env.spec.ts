@@ -75,6 +75,17 @@ describe('configurazione env', () => {
     expect(env.allowedOrigins).toContain('https://vtt.example');
   });
 
+  it('disattiva keepOriginals per default', () => {
+    expect(createEnv(base).keepOriginals).toBe(false);
+    expect(createEnv({ ...base, KEEP_ORIGINALS: '' }).keepOriginals).toBe(false);
+    expect(createEnv({ ...base, KEEP_ORIGINALS: 'false' }).keepOriginals).toBe(false);
+  });
+
+  it('accetta KEEP_ORIGINALS=true e rifiuta valori non booleani', () => {
+    expect(createEnv({ ...base, KEEP_ORIGINALS: 'true' }).keepOriginals).toBe(true);
+    expect(() => createEnv({ ...base, KEEP_ORIGINALS: 'yes' })).toThrow(/KEEP_ORIGINALS/);
+  });
+
   it('rifiuta un SESSION_SECRET troppo corto', () => {
     expect(() => createEnv({ ...base, SESSION_SECRET: 'corto' })).toThrow(/SESSION_SECRET/);
   });

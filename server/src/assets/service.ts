@@ -54,8 +54,9 @@ const writeTiles = async (
 };
 
 /**
- * L'originale viene conservato, ma il file servito è sempre il WebP
- * ri-codificato da `sharp`: niente SVG, niente polyglot, niente EXIF.
+ * Il file servito è sempre il WebP ri-codificato da `sharp`: niente SVG,
+ * niente polyglot, niente EXIF. Con `KEEP_ORIGINALS=false` (default) il buffer
+ * originale non viene scritto su disco: la deduplica usa solo l'hash nel DB.
  * Le mappe oltre 2048 px ricevono preview e piramide di tile (D48).
  */
 export const storeAsset = async (
@@ -95,21 +96,23 @@ export const storeAsset = async (
     .resize({ width: THUMB_WIDTH, withoutEnlargement: true })
     .webp({ quality: 75 })
     .toBuffer();
-  const extension = FORMAT_EXTENSION[format];
-  const originalPath = `originals/${hash}.${extension}`;
+  const originalPath = env.keepOriginals ? `originals/${hash}.${FORMAT_EXTENSION[format]}` : '';
   const webpPath = `webp/${hash}.webp`;
   const previewPath = `previews/${hash}.webp`;
   const thumbPath = `thumbs/${hash}.webp`;
-  await mkdir(join(env.uploadDir, 'originals'), { recursive: true });
   await mkdir(join(env.uploadDir, 'webp'), { recursive: true });
   await mkdir(join(env.uploadDir, 'previews'), { recursive: true });
   await mkdir(join(env.uploadDir, 'thumbs'), { recursive: true });
-  await Promise.all([
-    writeFile(join(env.uploadDir, originalPath), buffer),
+  const writes: Promise<void>[] = [
     writeFile(join(env.uploadDir, webpPath), webp),
     writeFile(join(env.uploadDir, previewPath), preview),
     writeFile(join(env.uploadDir, thumbPath), thumb),
-  ]);
+  ];
+  if (originalPath !== '') {
+    await mkdir(join(env.uploadDir, 'originals'), { recursive: true });
+    writes.push(writeFile(join(env.uploadDir, originalPath), buffer));
+  }
+  await Promise.all(writes);
   if (isTiledMap(width, height)) {
     await writeTiles(env.uploadDir, hash, webp, width, height);
   }

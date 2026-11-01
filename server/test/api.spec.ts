@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import { createDefaultSceneState, type MonsterStatblock, type TokenState } from '@dnd-vtt/shared';
 import { v7 as uuidv7 } from 'uuid';
 import sharp from 'sharp';
+import { eq } from 'drizzle-orm';
 import { buildApp } from '../src/app.js';
 import { createDatabase } from '../src/db/client.js';
+import { assets } from '../src/db/schema.js';
 import { closeTestApp, createTestApp } from './helpers.js';
 
 const monster = (): MonsterStatblock => ({
@@ -498,6 +502,54 @@ describe('upload asset', () => {
       url: `/uploads/originals/${asset.hash}.png`,
     });
     expect(original.statusCode).toBe(404);
+    // Default: l'originale con EXIF non viene scritto e il DB non lo referenzia.
+    expect(existsSync(join(testApp.env.uploadDir, 'originals'))).toBe(false);
+    const stored = testApp.database.db
+      .select({ originalPath: assets.originalPath })
+      .from(assets)
+      .where(eq(assets.hash, asset.hash))
+      .get();
+    expect(stored?.originalPath).toBe('');
+    await closeTestApp(testApp);
+  });
+
+  it('con KEEP_ORIGINALS=true conserva il file originale su disco', async () => {
+    const testApp = await createTestApp({ KEEP_ORIGINALS: 'true' });
+    const app = testApp.app;
+    const png = await sharp({
+      create: { width: 16, height: 12, channels: 3, background: '#ff5500' },
+    }).png().toBuffer();
+    const boundary = '----dnd-vtt-originals';
+    const body = Buffer.concat([
+      Buffer.from(
+        `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="mappa.png"\r\n`
+        + 'Content-Type: image/png\r\n\r\n',
+      ),
+      png,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const upload = await app.inject({
+      method: 'POST',
+      url: '/api/v1/assets',
+      headers: { 'content-type': `multipart/form-data; boundary=${boundary}` },
+      payload: body,
+    });
+    expect(upload.statusCode).toBe(201);
+    const asset = upload.json<{ hash: string }>();
+    const originalPath = join(testApp.env.uploadDir, 'originals', `${asset.hash}.png`);
+    expect(existsSync(originalPath)).toBe(true);
+    expect(readFileSync(originalPath).equals(png)).toBe(true);
+    const stored = testApp.database.db
+      .select({ originalPath: assets.originalPath })
+      .from(assets)
+      .where(eq(assets.hash, asset.hash))
+      .get();
+    expect(stored?.originalPath).toBe(`originals/${asset.hash}.png`);
+    const served = await app.inject({
+      method: 'GET',
+      url: `/uploads/originals/${asset.hash}.png`,
+    });
+    expect(served.statusCode).toBe(404);
     await closeTestApp(testApp);
   });
 
