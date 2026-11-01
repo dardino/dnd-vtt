@@ -16,7 +16,6 @@ import type { Subscription } from 'rxjs';
 import {
   abilityModifier,
   DEFAULT_ACTOR_PORTRAIT,
-  FOG_BRUSH_CELLS,
   SIZE_CELLS,
   computeVisionGrid,
   fogBrushRadius,
@@ -70,6 +69,7 @@ import { SceneStore } from '../../core/scene.store';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
+import { SceneToolsStore } from './scene-tools.store';
 import { ScreenPreviewComponent } from './screen-preview.component';
 import {
   SceneCanvasComponent,
@@ -100,46 +100,6 @@ interface ScreenSummary {
   display: Display;
   state: DisplayState | null;
 }
-
-const MAP_TOOL_SIZES_KEY = 'dnd-vtt.map-tool-sizes';
-const FOG_SNAP_KEY = 'dnd-vtt.fog-snap';
-const DEFAULT_BRUSH_CELLS = FOG_BRUSH_CELLS;
-const DEFAULT_PENCIL_TENTHS = 2.5;
-
-interface MapToolSizes {
-  brushCells: number;
-  pencilTenths: number;
-}
-
-const readMapToolSizes = (): MapToolSizes => {
-  try {
-    const raw = localStorage.getItem(MAP_TOOL_SIZES_KEY);
-    if (raw !== null) {
-      const parsed = JSON.parse(raw) as Partial<MapToolSizes>;
-      const brushCells = Number(parsed.brushCells);
-      const pencilTenths = Number(parsed.pencilTenths);
-      return {
-        brushCells: Number.isFinite(brushCells)
-          ? Math.max(0.5, Math.min(20, brushCells))
-          : DEFAULT_BRUSH_CELLS,
-        pencilTenths: Number.isFinite(pencilTenths)
-          ? Math.max(0.5, Math.min(10, pencilTenths))
-          : DEFAULT_PENCIL_TENTHS,
-      };
-    }
-  } catch {
-    // localStorage può essere disabilitato: si usano i default.
-  }
-  return { brushCells: DEFAULT_BRUSH_CELLS, pencilTenths: DEFAULT_PENCIL_TENTHS };
-};
-
-const readFogSnap = (): boolean => {
-  try {
-    return localStorage.getItem(FOG_SNAP_KEY) !== 'false';
-  } catch {
-    return true;
-  }
-};
 
 const toMapDocument = (map: {
   name: string;
@@ -190,6 +150,7 @@ export class DmShellPage implements OnInit {
   public readonly actions = inject(ActionStore);
   public readonly dice = inject(DiceStore);
   public readonly units = inject(MeasurementService);
+  public readonly sceneTools = inject(SceneToolsStore);
   private readonly sceneActions = inject(SceneActionService);
   private readonly programsApi = inject(ProgramService);
   private readonly mapsApi = inject(MapService);
@@ -215,13 +176,6 @@ export class DmShellPage implements OnInit {
   public readonly statusMessage = signal('Console pronta.');
   public readonly busy = signal(false);
 
-  public readonly tool = signal<CanvasTool>('select');
-  public readonly gridVisible = signal(true);
-  public readonly fogSoftness = signal(0);
-  private readonly storedToolSizes = readMapToolSizes();
-  public readonly fogBrushCells = signal(this.storedToolSizes.brushCells);
-  public readonly pencilTenths = signal(this.storedToolSizes.pencilTenths);
-  public readonly fogSnap = signal(readFogSnap());
   public readonly settingsOpen = signal(false);
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
   public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
@@ -270,7 +224,6 @@ export class DmShellPage implements OnInit {
   public readonly aiPreview = signal<MonsterStatblock | null>(null);
   public readonly aiName = signal('Mostro importato');
   public readonly zoom = signal(1);
-  public readonly measureResult = signal<MeasureResult | null>(null);
   public readonly selectedTokenId = signal<string | null>(null);
   public readonly leftOpen = signal(true);
   public readonly rightOpen = signal(true);
@@ -342,13 +295,13 @@ export class DmShellPage implements OnInit {
   });
 
   public readonly fogBrushRadiusPx = computed(() =>
-    fogBrushRadius(this.grid()?.cellSizePx ?? 100, this.fogBrushCells()));
+    fogBrushRadius(this.grid()?.cellSizePx ?? 100, this.sceneTools.fogBrushCells()));
 
   public readonly fogBrushDiameterPx = computed(() =>
     Math.round(this.fogBrushRadiusPx() * 2));
 
   public readonly pencilWidthPx = computed(() =>
-    gridDrawingWidth(this.grid()?.cellSizePx ?? 70, this.pencilTenths() / 10));
+    gridDrawingWidth(this.grid()?.cellSizePx ?? 70, this.sceneTools.pencilTenths() / 10));
 
   public readonly selectedToken = computed<TokenState | null>(() => {
     const id = this.selectedTokenId();
@@ -429,7 +382,7 @@ export class DmShellPage implements OnInit {
   });
 
   public readonly measureLabel = computed(() => {
-    const measure = this.measureResult();
+    const measure = this.sceneTools.measure();
     return measure === null ? '—' : this.units.formatDistance(measure.feet);
   });
 
@@ -466,6 +419,7 @@ export class DmShellPage implements OnInit {
   };
 
   public ngOnInit(): void {
+    this.sceneTools.resetVolatile();
     window.addEventListener('keydown', this.onKeydown);
     this.presenceSubscription = this.realtime.presence$.subscribe((presence) => {
       this.connectedDisplays.set(presence.displays);
@@ -523,6 +477,7 @@ export class DmShellPage implements OnInit {
     try {
       const campaign = await this.campaignsApi.get(id);
       this.activeCampaign.set(campaign);
+      this.sceneTools.resetVolatile();
       this.newSceneFog.set(campaign.fogDefault);
       this.lastCampaign.write(campaign.id);
       this.notice.set(null);
@@ -581,7 +536,7 @@ export class DmShellPage implements OnInit {
   private async loadScene(scene: Scene): Promise<void> {
     this.activeScene.set(scene);
     this.selectedTokenId.set(null);
-    this.measureResult.set(null);
+    this.sceneTools.setMeasure(null);
     this.sceneStore.clear();
     await this.sceneStore.load(scene.id);
     const campaign = this.activeCampaign();
@@ -833,14 +788,11 @@ export class DmShellPage implements OnInit {
   }
 
   public setTool(tool: CanvasTool): void {
-    this.tool.set(tool);
-    if (tool !== 'measure') {
-      this.measureResult.set(null);
-    }
+    this.sceneTools.setTool(tool);
   }
 
   public toggleGrid(): void {
-    this.gridVisible.update((value) => !value);
+    this.sceneTools.toggleGrid();
   }
 
   public zoomIn(): void {
@@ -860,7 +812,7 @@ export class DmShellPage implements OnInit {
   }
 
   public onMeasured(measure: MeasureResult | null): void {
-    this.measureResult.set(measure);
+    this.sceneTools.setMeasure(measure);
     if (measure !== null) {
       this.statusMessage.set(
         `Misura: ${this.units.formatDistance(measure.feet)} (${measure.cells} celle)`,
@@ -1189,45 +1141,19 @@ export class DmShellPage implements OnInit {
   }
 
   public setFogSoftness(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.fogSoftness.set(Number.isFinite(value) ? Math.max(0, Math.min(200, value)) : 0);
+    this.sceneTools.setFogSoftness(Number((event.target as HTMLInputElement).value));
   }
 
   public setFogSnap(event: Event): void {
-    const enabled = (event.target as HTMLInputElement).checked;
-    this.fogSnap.set(enabled);
-    try {
-      localStorage.setItem(FOG_SNAP_KEY, String(enabled));
-    } catch {
-      // localStorage può essere disabilitato: la scelta vale per la sessione.
-    }
+    this.sceneTools.setFogSnap((event.target as HTMLInputElement).checked);
   }
 
   public setBrushCells(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.fogBrushCells.set(
-      Number.isFinite(value) ? Math.max(0.5, Math.min(20, value)) : DEFAULT_BRUSH_CELLS,
-    );
-    this.persistToolSizes();
+    this.sceneTools.setBrushCells(Number((event.target as HTMLInputElement).value));
   }
 
   public setPencilTenths(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.pencilTenths.set(
-      Number.isFinite(value) ? Math.max(0.5, Math.min(10, value)) : DEFAULT_PENCIL_TENTHS,
-    );
-    this.persistToolSizes();
-  }
-
-  private persistToolSizes(): void {
-    try {
-      localStorage.setItem(MAP_TOOL_SIZES_KEY, JSON.stringify({
-        brushCells: this.fogBrushCells(),
-        pencilTenths: this.pencilTenths(),
-      }));
-    } catch {
-      // La preferenza resta valida per la sessione.
-    }
+    this.sceneTools.setPencilTenths(Number((event.target as HTMLInputElement).value));
   }
 
   public openSettings(): void {

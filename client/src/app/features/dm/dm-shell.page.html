@@ -244,16 +244,16 @@
                 <div class="field">
                   <span>Pennello</span>
                   <p class="muted">
-                    {{ fogBrushCells() }} celle di diametro · {{ fogBrushDiameterPx() }} px
+                    {{ sceneTools.fogBrushCells() }} celle di diametro · {{ fogBrushDiameterPx() }} px
                     (griglia {{ grid()?.cellSizePx ?? '—' }} px)
                   </p>
                 </div>
                 <label class="field">
                   <span>Morbidezza bordo (px)</span>
-                  <input type="number" min="0" max="200" [value]="fogSoftness()" (input)="setFogSoftness($event)" />
+                  <input type="number" min="0" max="200" [value]="sceneTools.fogSoftness()" (input)="setFogSoftness($event)" />
                 </label>
                 <label class="check">
-                  <input type="checkbox" [checked]="fogSnap()" (change)="setFogSnap($event)" />
+                  <input type="checkbox" [checked]="sceneTools.fogSnap()" (change)="setFogSnap($event)" />
                   <span>Fog a celle (disattiva per bordo libero)</span>
                 </label>
                 <div class="initiative__actions">
@@ -437,7 +437,7 @@
                 <button
                   type="button"
                   class="tool"
-                  [class.is-active]="tool() === 'select'"
+                  [class.is-active]="sceneTools.tool() === 'select'"
                   aria-label="Seleziona"
                   title="Seleziona"
                   (click)="setTool('select')"
@@ -445,7 +445,7 @@
                 <button
                   type="button"
                   class="tool"
-                  [class.is-active]="tool() === 'measure'"
+                  [class.is-active]="sceneTools.tool() === 'measure'"
                   aria-label="Misura distanza"
                   title="Misura distanza"
                   (click)="setTool('measure')"
@@ -454,7 +454,7 @@
                 <button
                   type="button"
                   class="tool"
-                  [class.is-active]="gridVisible()"
+                  [class.is-active]="sceneTools.gridVisible()"
                   aria-label="Mostra griglia"
                   title="Mostra griglia"
                   (click)="toggleGrid()"
@@ -467,7 +467,7 @@
                 <button
                   type="button"
                   class="tool"
-                  [class.is-active]="tool() === 'fog-reveal'"
+                  [class.is-active]="sceneTools.tool() === 'fog-reveal'"
                   aria-label="Fog: rivela"
                   title="Fog: rivela"
                   (click)="setTool('fog-reveal')"
@@ -475,7 +475,7 @@
                 <button
                   type="button"
                   class="tool"
-                  [class.is-active]="tool() === 'fog-hide'"
+                  [class.is-active]="sceneTools.tool() === 'fog-hide'"
                   aria-label="Fog: nascondi"
                   title="Fog: nascondi"
                   (click)="setTool('fog-hide')"
@@ -483,7 +483,7 @@
                 <button
                   type="button"
                   class="tool"
-                  [class.is-active]="tool() === 'fog-rect'"
+                  [class.is-active]="sceneTools.tool() === 'fog-rect'"
                   aria-label="Fog: rettangolo"
                   title="Fog: rettangolo"
                   (click)="setTool('fog-rect')"
@@ -491,7 +491,7 @@
                 <button
                   type="button"
                   class="tool"
-                  [class.is-active]="tool() === 'fog-lasso'"
+                  [class.is-active]="sceneTools.tool() === 'fog-lasso'"
                   aria-label="Fog: lasso"
                   title="Fog: lasso (doppio click per chiudere)"
                   (click)="setTool('fog-lasso')"
@@ -499,7 +499,7 @@
                 <button
                   type="button"
                   class="tool"
-                  [class.is-active]="tool() === 'draw'"
+                  [class.is-active]="sceneTools.tool() === 'draw'"
                   aria-label="Disegno"
                   title="Disegno"
                   (click)="setTool('draw')"
@@ -532,13 +532,13 @@
                     [map]="mapImage()"
                     [state]="sceneState"
                     [selectedTokenId]="selectedTokenId()"
-                    [tool]="tool()"
-                    [gridVisible]="gridVisible()"
+                    [tool]="sceneTools.tool()"
+                    [gridVisible]="sceneTools.gridVisible()"
                     [readOnly]="readOnly()"
-                    [fogSoftness]="fogSoftness()"
+                    [fogSoftness]="sceneTools.fogSoftness()"
                     [brushRadius]="fogBrushRadiusPx()"
                     [drawingWidthPx]="pencilWidthPx()"
-                    [fogSnap]="fogSnap()"
+                    [fogSnap]="sceneTools.fogSnap()"
                     [actorPortraits]="actorPortraits()"
                     [vision]="visionGrid()"
                     [doors]="dmDoors()"
@@ -1017,7 +1017,7 @@
         min="0.5"
         max="20"
         step="0.5"
-        [value]="fogBrushCells()"
+        [value]="sceneTools.fogBrushCells()"
         (change)="setBrushCells($event)"
       />
       <small class="muted">Diametro {{ fogBrushDiameterPx() }} px sulla griglia attuale.</small>
@@ -1029,7 +1029,7 @@
         min="0.5"
         max="10"
         step="0.5"
-        [value]="pencilTenths()"
+        [value]="sceneTools.pencilTenths()"
         (change)="setPencilTenths($event)"
       />
       <small class="muted">{{ pencilWidthPx() }} px sulla griglia attuale.</small>
