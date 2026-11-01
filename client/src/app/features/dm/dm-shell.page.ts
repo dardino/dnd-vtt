@@ -28,7 +28,6 @@ import {
   type Actor,
   type ActionLogEntry,
   type AppliedAction,
-  type Campaign,
   type CampaignExport,
   type DiceRoll,
   type Display,
@@ -46,7 +45,6 @@ import {
   type PublicDoor,
   type Scene,
   type SceneState,
-  type Session,
   type TokenState,
   type Viewport,
   type VisionGrid,
@@ -69,6 +67,7 @@ import { SceneStore } from '../../core/scene.store';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
+import { CampaignShellStore } from './campaign-shell.store';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenPreviewComponent } from './screen-preview.component';
 import {
@@ -151,6 +150,7 @@ export class DmShellPage implements OnInit {
   public readonly dice = inject(DiceStore);
   public readonly units = inject(MeasurementService);
   public readonly sceneTools = inject(SceneToolsStore);
+  public readonly shell = inject(CampaignShellStore);
   private readonly sceneActions = inject(SceneActionService);
   private readonly programsApi = inject(ProgramService);
   private readonly mapsApi = inject(MapService);
@@ -165,11 +165,6 @@ export class DmShellPage implements OnInit {
   public readonly campaignId = input<string>();
 
   public readonly mode = signal<ShellMode>('loading');
-  public readonly campaigns = signal<Campaign[]>([]);
-  public readonly activeCampaign = signal<Campaign | null>(null);
-  public readonly scenes = signal<Scene[]>([]);
-  public readonly party = signal<Actor[]>([]);
-  public readonly actorAssetUrls = signal<Record<string, string>>({});
   public readonly activeScene = signal<Scene | null>(null);
   public readonly mapImage = signal<SceneMapImage | null>(null);
   public readonly notice = signal<string | null>(null);
@@ -214,8 +209,6 @@ export class DmShellPage implements OnInit {
   private pendingViewport: Viewport | null = null;
   private viewportSaving = false;
   private viewportSave: Promise<void> | null = null;
-  public readonly sessions = signal<Session[]>([]);
-  public readonly activeSession = signal<Session | null>(null);
   public readonly sessionBusy = signal(false);
   public readonly aiEnabled = signal(false);
   public readonly aiMessage = signal('Chat IA non configurata.');
@@ -240,7 +233,7 @@ export class DmShellPage implements OnInit {
   public readonly newAdvancement = signal<'milestone' | 'xp'>('milestone');
 
   public readonly loginError = computed(() => this.auth.error());
-  public readonly hasCampaigns = computed(() => this.campaigns().length > 0);
+  public readonly hasCampaigns = computed(() => this.shell.campaigns().length > 0);
   public readonly snapshot = computed(() => this.sceneStore.snapshot());
   public readonly state = computed<SceneState | null>(() => this.sceneStore.snapshot()?.state ?? null);
   public readonly tokens = computed<TokenState[]>(() => this.state()?.tokens ?? []);
@@ -249,7 +242,7 @@ export class DmShellPage implements OnInit {
     (this.state()?.terrain.walls ?? []).filter((wall) => wall.kind === 'door'));
 
   public readonly sceneLights = computed(() => this.state()?.terrain.lights ?? []);
-  public readonly partyPcs = computed(() => this.party().filter((actor) => actor.kind === 'pc'));
+  public readonly partyPcs = computed(() => this.shell.party().filter((actor) => actor.kind === 'pc'));
   public readonly startOptions = computed(() => this.prepareDoc()?.playerStarts ?? []);
   public readonly dmDoors = computed<PublicDoor[]>(() =>
     (this.state()?.terrain.walls ?? [])
@@ -267,7 +260,7 @@ export class DmShellPage implements OnInit {
     if (state === null || scene === null || !state.terrain.visionEnabled || state.grid.type !== 'square') {
       return null;
     }
-    const actors = this.party();
+    const actors = this.shell.party();
     const sources: VisionSource[] = state.tokens.flatMap((token) => {
       const actor = token.actorId === undefined
         ? undefined
@@ -337,17 +330,17 @@ export class DmShellPage implements OnInit {
 
   public readonly readOnly = computed(() => this.actions.status() === 'read-only');
   public readonly slots = computed<(Actor | null)[]>(() => {
-    const actors = this.party().filter((actor) => actor.kind === 'pc').slice(0, 10);
+    const actors = this.shell.party().filter((actor) => actor.kind === 'pc').slice(0, 10);
     return Array.from({ length: 10 }, (_, index) => actors[index] ?? null);
   });
 
   public readonly availableActors = computed<Actor[]>(() =>
-    this.party().filter((actor) => actor.kind !== 'pc'));
+    this.shell.party().filter((actor) => actor.kind !== 'pc'));
 
   public readonly actorPortraits = computed<Record<string, ActorPortraitThumb>>(() => {
-    const urls = this.actorAssetUrls();
+    const urls = this.shell.actorAssetUrls();
     const portraits: Record<string, ActorPortraitThumb> = {};
-    for (const actor of this.party()) {
+    for (const actor of this.shell.party()) {
       if (actor.imageAssetId === null) {
         continue;
       }
@@ -365,7 +358,7 @@ export class DmShellPage implements OnInit {
     if (actor.imageAssetId === null) {
       return null;
     }
-    const url = this.actorAssetUrls()[actor.imageAssetId];
+    const url = this.shell.actorAssetUrls()[actor.imageAssetId];
     if (url === undefined) {
       return null;
     }
@@ -423,7 +416,7 @@ export class DmShellPage implements OnInit {
     window.addEventListener('keydown', this.onKeydown);
     this.presenceSubscription = this.realtime.presence$.subscribe((presence) => {
       this.connectedDisplays.set(presence.displays);
-      const campaign = this.activeCampaign();
+      const campaign = this.shell.activeCampaign();
       if (campaign !== null) {
         void this.loadScreens(campaign.id);
       }
@@ -453,8 +446,7 @@ export class DmShellPage implements OnInit {
   }
 
   private async openCampaign(): Promise<void> {
-    const campaigns = await this.campaignsApi.list();
-    this.campaigns.set(campaigns);
+    const campaigns = await this.shell.loadCampaigns();
     const requested = this.campaignId();
     const fromRoute = requested === undefined
       ? undefined
@@ -475,30 +467,24 @@ export class DmShellPage implements OnInit {
   public async enterCampaign(id: string): Promise<void> {
     this.busy.set(true);
     try {
-      const campaign = await this.campaignsApi.get(id);
-      this.activeCampaign.set(campaign);
+      const campaign = await this.shell.selectCampaign(id);
       this.sceneTools.resetVolatile();
       this.newSceneFog.set(campaign.fogDefault);
       this.lastCampaign.write(campaign.id);
       this.notice.set(null);
       this.restorePanels(campaign.id);
-      const scenes = await this.campaignsApi.listScenes(campaign.id);
-      this.scenes.set(scenes);
-      const party = await this.actorsApi.listByCampaign(campaign.id);
-      this.party.set(party);
-      await this.loadActorAssets(party);
+      const scenes = await this.shell.loadScenes(campaign.id);
+      await this.shell.loadActors(campaign.id);
       await this.loadScreens(campaign.id);
       await this.dice.load(campaign.id);
       const program = await this.programsApi.get(campaign.id);
       this.programState.set(program.state);
       this.realtime.connectDm(campaign.id);
-      const sessions = await this.campaignsApi.listSessions(campaign.id);
-      this.sessions.set(sessions);
+      await this.shell.loadSessions(campaign.id);
       const ai = await this.ai.status();
       this.aiEnabled.set(ai.enabled);
       this.aiMessage.set(ai.message);
-      const active = sessions.find((session) => session.endedAt === null) ?? null;
-      this.activeSession.set(active);
+      const active = this.shell.activeSession();
       if (active !== null) {
         this.sessionSeconds.set(Math.max(0, Math.floor(
           (Date.now() - Date.parse(active.startedAt)) / 1000,
@@ -512,7 +498,7 @@ export class DmShellPage implements OnInit {
       if (target !== undefined) {
         if (campaign.activeSceneId !== target.id) {
           const updated = await this.campaignsApi.patch(campaign.id, { activeSceneId: target.id });
-          this.activeCampaign.set(updated);
+          this.shell.setActiveCampaign(updated);
         }
         await this.loadScene(target);
       } else {
@@ -527,7 +513,7 @@ export class DmShellPage implements OnInit {
     } catch (error) {
       this.lastCampaign.clear();
       this.notice.set(messageFor(error));
-      this.mode.set(this.campaigns().length === 0 ? 'create' : 'choose');
+      this.mode.set(this.shell.campaigns().length === 0 ? 'create' : 'choose');
     } finally {
       this.busy.set(false);
     }
@@ -539,7 +525,7 @@ export class DmShellPage implements OnInit {
     this.sceneTools.setMeasure(null);
     this.sceneStore.clear();
     await this.sceneStore.load(scene.id);
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign !== null) {
       this.actions.start(campaign.id, scene.id);
       this.restorePanels(campaign.id);
@@ -596,7 +582,7 @@ export class DmShellPage implements OnInit {
         advancementMode: this.newAdvancement(),
         fogDefault: 'hidden',
       });
-      this.campaigns.update((items) => [...items, created]);
+      this.shell.addCampaign(created);
       this.newName.set('');
       this.newDescription.set('');
       await this.enterCampaign(created.id);
@@ -608,21 +594,21 @@ export class DmShellPage implements OnInit {
   }
 
   public async createScene(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
     }
     this.busy.set(true);
     try {
       const scene = await this.campaignsApi.createScene(campaign.id, {
-        name: `Scena ${this.scenes().length + 1}`,
+        name: `Scena ${this.shell.scenes().length + 1}`,
         widthPx: 1920,
         heightPx: 1080,
         fogBase: this.newSceneFog(),
       });
-      this.scenes.update((items) => [scene, ...items]);
+      this.shell.prependScene(scene);
       const refreshed = await this.campaignsApi.patch(campaign.id, { activeSceneId: scene.id });
-      this.activeCampaign.set(refreshed);
+      this.shell.setActiveCampaign(refreshed);
       this.statusMessage.set(`Scena creata: ${scene.name}`);
       await this.loadScene(scene);
     } catch (error) {
@@ -633,14 +619,14 @@ export class DmShellPage implements OnInit {
   }
 
   public async selectScene(scene: Scene): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null || scene.id === this.activeScene()?.id) {
       return;
     }
     this.statusMessage.set(`Scena: ${scene.name}`);
     try {
       const updated = await this.campaignsApi.patch(campaign.id, { activeSceneId: scene.id });
-      this.activeCampaign.set(updated);
+      this.shell.setActiveCampaign(updated);
       await this.loadScene(scene);
     } catch (error) {
       this.notice.set(messageFor(error));
@@ -648,7 +634,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async openMapPicker(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
     }
@@ -668,7 +654,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async chooseMap(map: MapSummary): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
     }
@@ -717,7 +703,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async startPreparedMap(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const map = this.prepareMap();
     if (campaign === null || map === null || this.prepareBusy()) {
       return;
@@ -734,9 +720,8 @@ export class DmShellPage implements OnInit {
         })),
       });
       const updated = await this.campaignsApi.get(campaign.id);
-      this.activeCampaign.set(updated);
-      const scenes = await this.campaignsApi.listScenes(campaign.id);
-      this.scenes.set(scenes);
+      this.shell.setActiveCampaign(updated);
+      const scenes = await this.shell.loadScenes(campaign.id);
       const scene = scenes.find((entry) => entry.id === result.sceneId);
       this.closePrepare();
       if (scene !== undefined) {
@@ -773,14 +758,14 @@ export class DmShellPage implements OnInit {
   }
 
   public async changeAdvancementMode(event: Event): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const mode = (event.target as HTMLSelectElement).value;
     if (campaign === null || (mode !== 'milestone' && mode !== 'xp')) {
       return;
     }
     try {
       const updated = await this.campaignsApi.patch(campaign.id, { advancementMode: mode });
-      this.activeCampaign.set(updated);
+      this.shell.setActiveCampaign(updated);
       this.statusMessage.set(`Avanzamento: ${mode === 'xp' ? 'XP' : 'milestone'}`);
     } catch (error) {
       this.notice.set(messageFor(error));
@@ -823,7 +808,7 @@ export class DmShellPage implements OnInit {
   public setDockTab(tab: 'initiative' | 'dice' | 'actions'): void {
     this.dockTab.set(tab);
     this.dockOpen.set(true);
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
     }
@@ -844,14 +829,14 @@ export class DmShellPage implements OnInit {
   }
 
   public async rollInitiative(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const scene = this.activeScene();
     if (campaign === null || scene === null) {
       return;
     }
     const entries: InitiativeEntry[] = [];
     for (const token of this.tokens()) {
-      const actor = this.party().find((entry) => entry.id === token.actorId);
+      const actor = this.shell.party().find((entry) => entry.id === token.actorId);
       const tiebreak = actor === undefined ? 0 : abilityModifier(actor.statblock.abilities.dex);
       const formula = tiebreak === 0 ? '1d20' : `1d20${tiebreak > 0 ? '+' : ''}${tiebreak}`;
       const roll = await this.dice.roll(campaign.id, {
@@ -884,7 +869,7 @@ export class DmShellPage implements OnInit {
     if (initiative === null || initiative.entries.some((entry) => entry.tokenId === token.id)) {
       return;
     }
-    const actor = this.party().find((entry) => entry.id === token.actorId);
+    const actor = this.shell.party().find((entry) => entry.id === token.actorId);
     const tiebreak = actor === undefined ? 0 : abilityModifier(actor.statblock.abilities.dex);
     const entries = sortInitiativeEntries([
       ...initiative.entries,
@@ -953,7 +938,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async undoLast(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
     }
@@ -966,7 +951,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async undoThrough(entryId: string): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const scene = this.activeScene();
     if (campaign === null || scene === null) {
       return;
@@ -982,7 +967,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async redoLastBatch(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const scene = this.activeScene();
     if (campaign === null || scene === null) {
       return;
@@ -1026,7 +1011,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async onActorDropped(event: ActorDropEvent): Promise<void> {
-    const actor = this.party().find((entry) => entry.id === event.actorId);
+    const actor = this.shell.party().find((entry) => entry.id === event.actorId);
     if (actor === undefined) {
       return;
     }
@@ -1170,7 +1155,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async clearHistory(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
     }
@@ -1185,7 +1170,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async resetFog(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const scene = this.activeScene();
     if (campaign === null || scene === null) {
       return;
@@ -1253,7 +1238,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async openScreen(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null || this.programBusy()) {
       return;
     }
@@ -1286,7 +1271,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async takeSceneTo(summary: ScreenSummary): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const scene = this.activeScene();
     if (campaign === null || scene === null || this.programBusy()) {
       return;
@@ -1338,7 +1323,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async toggleBlackout(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null || this.programBusy()) {
       return;
     }
@@ -1404,7 +1389,7 @@ export class DmShellPage implements OnInit {
     this.sections.update((current) => ({ ...current, [section]: !current[section] }));
     this.persistPanels();
     if (opening && section === 'screens') {
-      const campaign = this.activeCampaign();
+      const campaign = this.shell.activeCampaign();
       if (campaign !== null) {
         void this.loadScreens(campaign.id);
       }
@@ -1431,7 +1416,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async analyzeStatblock(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const text = this.aiText().trim();
     if (campaign === null || text === '' || this.aiBusy()) {
       return;
@@ -1449,7 +1434,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async createParsedMonster(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const statblock = this.aiPreview();
     if (campaign === null || statblock === null || this.aiBusy()) {
       return;
@@ -1462,7 +1447,7 @@ export class DmShellPage implements OnInit {
         name: this.aiName().trim() === '' ? 'Mostro importato' : this.aiName().trim(),
         statblock,
       });
-      this.party.update((items) => [...items, actor]);
+      this.shell.addActor(actor);
       this.aiPreview.set(null);
       this.aiText.set('');
       this.statusMessage.set(`Creato: ${actor.name}`);
@@ -1482,15 +1467,13 @@ export class DmShellPage implements OnInit {
   }
 
   public async startSession(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null || this.sessionBusy()) {
       return;
     }
     this.sessionBusy.set(true);
     try {
-      const session = await this.campaignsApi.startSession(campaign.id);
-      this.activeSession.set(session);
-      this.sessions.update((items) => [session, ...items.filter((entry) => entry.id !== session.id)]);
+      const session = await this.shell.startSession(campaign.id);
       this.sessionSeconds.set(0);
       this.startSessionTimer(false);
       this.statusMessage.set(`Sessione ${session.number} avviata`);
@@ -1502,15 +1485,13 @@ export class DmShellPage implements OnInit {
   }
 
   public async stopSession(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null || this.sessionBusy()) {
       return;
     }
     this.sessionBusy.set(true);
     try {
-      const session = await this.campaignsApi.stopSession(campaign.id);
-      this.activeSession.set(null);
-      this.sessions.update((items) => items.map((entry) => (entry.id === session.id ? session : entry)));
+      const session = await this.shell.stopSession(campaign.id);
       this.stopSessionTimer();
       this.statusMessage.set(`Sessione ${session.number} terminata`);
     } catch (error) {
@@ -1521,7 +1502,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async exportCampaign(): Promise<void> {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
     }
@@ -1554,7 +1535,7 @@ export class DmShellPage implements OnInit {
     try {
       const bundle = JSON.parse(await file.text()) as CampaignExport;
       const result = await this.campaignsApi.importCampaign(bundle);
-      this.campaigns.update((items) => [...items, result.campaign]);
+      this.shell.addCampaign(result.campaign);
       await this.enterCampaign(result.campaign.id);
       this.statusMessage.set(
         `Importata: ${result.imported.scenes} scene, ${result.imported.actors} attori`,
@@ -1578,7 +1559,7 @@ export class DmShellPage implements OnInit {
   }
 
   public closeChoose(): void {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign !== null) {
       this.mode.set('ready');
       this.realtime.connectDm(campaign.id);
@@ -1587,7 +1568,7 @@ export class DmShellPage implements OnInit {
 
   public closeCreate(): void {
     if (this.hasCampaigns()) {
-      this.mode.set(this.activeCampaign() === null ? 'choose' : 'ready');
+      this.mode.set(this.shell.activeCampaign() === null ? 'choose' : 'ready');
     }
   }
 
@@ -1657,7 +1638,7 @@ export class DmShellPage implements OnInit {
   }
 
   private persistPanels(): void {
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
     }
@@ -1889,7 +1870,7 @@ export class DmShellPage implements OnInit {
     }
     const viewport = this.pendingViewport;
     this.pendingViewport = null;
-    const campaign = this.activeCampaign();
+    const campaign = this.shell.activeCampaign();
     const summary = this.screenDialog();
     if (viewport === null || campaign === null || summary === null) {
       return;
@@ -2019,29 +2000,6 @@ export class DmShellPage implements OnInit {
     } catch {
       // Lo schermo può essere stato revocato mentre il dialog è aperto.
     }
-  }
-
-  private async loadActorAssets(actors: Actor[]): Promise<void> {
-    const ids = [...new Set(
-      actors
-        .map((actor) => actor.imageAssetId)
-        .filter((id): id is string => id !== null),
-    )];
-    const entries = await Promise.all(ids.map(async (id) => {
-      try {
-        const asset = await this.assetsApi.get(id);
-        return [id, asset.url] as const;
-      } catch {
-        return null;
-      }
-    }));
-    const urls: Record<string, string> = {};
-    for (const entry of entries) {
-      if (entry !== null) {
-        urls[entry[0]] = entry[1];
-      }
-    }
-    this.actorAssetUrls.set(urls);
   }
 
   private startSessionTimer(reset = true): void {

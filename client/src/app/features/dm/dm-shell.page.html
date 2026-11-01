@@ -2,7 +2,7 @@
   <header class="dm-topbar">
     <div class="dm-topbar__identity">
       <span class="eyebrow">Console DM</span>
-      <h1 class="dm-topbar__title">{{ activeCampaign()?.name ?? 'D&D VTT' }}</h1>
+      <h1 class="dm-topbar__title">{{ shell.activeCampaign()?.name ?? 'D&D VTT' }}</h1>
       <span class="dm-topbar__status" [class.is-ready]="mode() === 'ready'">
         {{ mode() === 'ready' ? 'pronta' : 'in avvio' }}
       </span>
@@ -17,10 +17,10 @@
     </div>
 
     <div class="dm-topbar__actions">
-      @if (activeCampaign() !== null) {
+      @if (shell.activeCampaign() !== null) {
         <a
           class="dm-link-button"
-          [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'pc']"
+          [routerLink]="['/dm/campaigns', shell.activeCampaign()?.id, 'actors', 'new', 'pc']"
         >Crea personaggio</a>
         <app-button variant="ghost" [disabled]="programBusy()" (pressed)="openScreen()">Apri schermo</app-button>
         <app-button [disabled]="programBusy() || activeScene() === null" (pressed)="takeScene()">Manda in onda</app-button>
@@ -68,12 +68,12 @@
           </button>
           @if (isSectionOpen('campaign')) {
             <div id="sidebar-campaign" class="accordion__body">
-              @if (activeCampaign(); as campaign) {
+              @if (shell.activeCampaign(); as campaign) {
                 <h2>{{ campaign.name }}</h2>
                 <p class="muted">{{ campaign.description || 'Nessuna descrizione.' }}</p>
                 <dl class="dm-meta">
                   <div><dt>Avanzamento</dt><dd>{{ campaign.advancementMode }}</dd></div>
-                  <div><dt>Scene</dt><dd>{{ scenes().length }}</dd></div>
+                  <div><dt>Scene</dt><dd>{{ shell.scenes().length }}</dd></div>
                   <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
                 </dl>
                 <label class="field">
@@ -84,7 +84,7 @@
                   </select>
                 </label>
                 <div class="session-card">
-                  @if (activeSession(); as session) {
+                  @if (shell.activeSession(); as session) {
                     <span class="eyebrow">Sessione {{ session.number }} in corso</span>
                     <strong class="session-card__timer">{{ sessionLabel() }}</strong>
                     <button type="button" class="dock-button" [disabled]="sessionBusy()" (click)="stopSession()">Termina</button>
@@ -140,11 +140,11 @@
                   </app-button>
                   <a class="btn" routerLink="/maps">Crea mappa</a>
                 </div>
-                @if (scenes().length === 0) {
+                @if (shell.scenes().length === 0) {
                   <p class="muted">Nessuna scena: crea una mappa nell’editor e avviala da qui.</p>
                 } @else {
                   <ul class="scene-list">
-                    @for (scene of scenes(); track scene.id) {
+                    @for (scene of shell.scenes(); track scene.id) {
                       <li class="scene-list__item" [class.is-active]="scene.id === activeScene()?.id">
                         <span class="scene-list__info">
                           <span>{{ scene.name }}</span>
@@ -332,7 +332,7 @@
             </button>
             @if (isSectionOpen('actors')) {
               <div id="sidebar-actors" class="accordion__body">
-                <a class="dm-link-button" [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'monster']">
+                <a class="dm-link-button" [routerLink]="['/dm/campaigns', shell.activeCampaign()?.id, 'actors', 'new', 'monster']">
                   Crea mostro o NPC
                 </a>
                 @if (availableActors().length === 0) {
@@ -430,7 +430,7 @@
     <main class="dm-main">
       @switch (mode()) {
         @case ('ready') {
-          @if (activeCampaign(); as campaign) {
+          @if (shell.activeCampaign(); as campaign) {
             <div class="dm-scene" aria-label="Vista principale">
               <div class="dm-scene__workspace">
                 <nav class="scene-toolbar" aria-label="Strumenti scena">
@@ -842,7 +842,7 @@
                 <span class="muted">{{ actor.hp?.current ?? 0 }}/{{ actor.hp?.max ?? 0 }} PF</span>
                 <a
                   class="slot__sheet"
-                  [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', actor.id, 'sheet']"
+                  [routerLink]="['/dm/campaigns', shell.activeCampaign()?.id, 'actors', actor.id, 'sheet']"
                   (click)="$event.stopPropagation()"
                 >Scheda</a>
               </div>
@@ -851,7 +851,7 @@
         } @else {
           <a
             class="slot slot--empty"
-            [routerLink]="['/dm/campaigns', activeCampaign()?.id, 'actors', 'new', 'pc']"
+            [routerLink]="['/dm/campaigns', shell.activeCampaign()?.id, 'actors', 'new', 'pc']"
             aria-label="Slot vuoto: aggiungi attore"
           >+</a>
         }
@@ -944,11 +944,11 @@
 <app-dialog
   [open]="mode() === 'choose'"
   title="Scegli campagna"
-  [dismissible]="activeCampaign() !== null"
+  [dismissible]="shell.activeCampaign() !== null"
   (closed)="closeChoose()"
 >
   <ul class="campaign-list">
-    @for (campaign of campaigns(); track campaign.id) {
+    @for (campaign of shell.campaigns(); track campaign.id) {
       <li>
         <button type="button" class="campaign-card" (click)="enterCampaign(campaign.id)">
           <span class="campaign-card__name">{{ campaign.name }}</span>
@@ -963,7 +963,7 @@
   </div>
 </app-dialog>
 
-@if (activeCampaign(); as campaign) {
+@if (shell.activeCampaign(); as campaign) {
   <app-dice-overlay
     [open]="diceOpen()"
     [campaignId]="campaign.id"
