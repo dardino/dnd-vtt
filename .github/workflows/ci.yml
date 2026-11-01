@@ -29,6 +29,9 @@ jobs:
           key: turbo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - run: npm run lint
+      - name: File size report (non-blocking)
+        run: npm run files:report
+        continue-on-error: true
       - run: npm run typecheck
       - run: npm run test -w @dnd-vtt/client
       - run: npm run test:coverage

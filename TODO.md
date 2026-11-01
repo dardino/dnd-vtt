@@ -222,32 +222,42 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 ## 5. Refactor god component (P2)
 
-- [ ] **R0 — Policy dimensione file: target 350, cap 400** · S
+- [x] **R0 — Policy dimensione file: target 350, cap 400** · S — ✅ 1 novembre 2026
   - **Problema:** 18 file superano le 400 righe e mescolano responsabilità diverse; senza una soglia il problema si riforma dopo ogni split.
   - **Proposta:** regola ESLint `max-lines` a 400 (`skipBlankLines`, `skipComments`) con override temporanei per i file attuali; ogni split rimuove un override. Aggiungere `npm run files:report` per elencare i file oltre soglia; **350 righe** è il target per i nuovi file.
+  - **Implementato:** `max-lines` (`error`, 400, `skipBlankLines`/`skipComments`) su `client/src/**/*.{ts,html}`, `server/src/**/*.ts`, `shared/src/**/*.ts`; override `max-lines: off` per i 13 file `.ts`/`.html` oltre il cap. Gli `.scss` non passano da ESLint e restano tracciati solo dal report. `npm run files:report` (`scripts/files-report.mjs`) elenca i file sopra il cap 400 e la fascia 350–400 in `client/src`, `server/src`, `shared/src` (`.ts`/`.html`/`.scss`, esclusi `*.spec.ts` e `dist`) con lo stesso conteggio della regola, ed è uno step CI non bloccante (`continue-on-error`).
   - **Fatto quando:** nessun nuovo file supera 400 righe; gli override esistenti scendono a zero.
-  - **Offender attuali (≥ 400 righe):**
+  - **File in override (oltre 400 righe effettive, come `max-lines`):**
+
+    | Righe | File | Override |
+    |---:|---|---|
+    | 1975 | `client/src/app/features/dm/dm-shell.page.ts` | `max-lines: off` |
+    | 1538 | `client/src/app/features/scene/scene-canvas.component.ts` | `max-lines: off` |
+    | 1168 | `client/src/app/features/dm/dm-shell.page.html` | `max-lines: off` |
+    | 965 | `client/src/app/features/dm/dm-shell.page.scss` | solo report |
+    | 887 | `client/src/app/features/maps/map-editor-canvas.component.ts` | `max-lines: off` |
+    | 824 | `client/src/app/features/actor/actor-sheet.page.ts` | `max-lines: off` |
+    | 745 | `shared/src/lib/sheet/validate.ts` | `max-lines: off` |
+    | 655 | `client/src/app/features/maps/map-editor.page.ts` | `max-lines: off` |
+    | 617 | `client/src/app/features/character/character-wizard.page.html` | `max-lines: off` |
+    | 602 | `client/src/app/features/character/character-wizard.store.ts` | `max-lines: off` |
+    | 553 | `client/src/app/features/actor/actor-sheet.page.html` | `max-lines: off` |
+    | 460 | `client/src/app/features/character/character-wizard.page.scss` | solo report |
+    | 453 | `shared/src/lib/sheet/__fixtures__/catalog.ts` | `max-lines: off` |
+    | 446 | `shared/src/schemas/sheet.ts` | `max-lines: off` |
+    | 408 | `client/src/app/features/maps/map-editor.page.html` | `max-lines: off` |
+
+  - **Fascia 350–400 (nessun override: candidati al prossimo split):**
 
     | Righe | File |
     |---:|---|
-    | 2198 | `client/src/app/features/dm/dm-shell.page.ts` |
-    | 1622 | `client/src/app/features/scene/scene-canvas.component.ts` |
-    | 1189 | `client/src/app/features/dm/dm-shell.page.html` |
-    | 1124 | `client/src/app/features/dm/dm-shell.page.scss` |
-    | 921 | `client/src/app/features/maps/map-editor-canvas.component.ts` |
-    | 898 | `client/src/app/features/actor/actor-sheet.page.ts` |
-    | 781 | `shared/src/lib/sheet/validate.ts` |
-    | 716 | `client/src/app/features/maps/map-editor.page.ts` |
-    | 655 | `client/src/app/features/character/character-wizard.page.html` |
-    | 646 | `client/src/app/features/character/character-wizard.store.ts` |
-    | 574 | `client/src/app/features/actor/actor-sheet.page.html` |
-    | 545 | `client/src/app/features/character/character-wizard.page.scss` |
-    | 480 | `shared/src/schemas/sheet.ts` |
-    | 466 | `shared/src/lib/sheet/__fixtures__/catalog.ts` |
-    | 448 | `shared/src/schemas/scene.ts` |
-    | 428 | `client/src/app/features/character/character-wizard.page.ts` |
-    | 420 | `client/src/app/features/maps/map-editor.page.html` |
-    | 418 | `client/src/app/features/actor/actor-sheet.page.scss` |
+    | 391 | `shared/src/schemas/scene.ts` |
+    | 364 | `client/src/app/features/character/character-wizard.page.ts` |
+    | 359 | `server/src/program/service.ts` |
+    | 355 | `server/src/actions/service.ts` |
+    | 354 | `client/src/app/features/actor/actor-sheet.page.scss` |
+
+    Righe effettive = non vuote e non di solo commento, come `max-lines`; per rigenerare le tabelle: `npm run files:report`.
 
 - [ ] **R1 — `DmShellPage`** · L · D8
   - **Proposta:** prima gli store (`CampaignShellStore`, `RegiaStore`, `SceneToolsStore`) senza cambiare il template; poi `SidebarSection`, `SceneList`, `ActorList`, `ScreenList`, `SessionCard`, `DmToolbar`, `DmStatusbar`; infine il template.

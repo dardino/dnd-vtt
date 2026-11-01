@@ -106,6 +106,32 @@ export default tseslint.config(
     },
   },
   {
+    files: ['client/src/**/*.{ts,html}', 'server/src/**/*.ts', 'shared/src/**/*.ts'],
+    rules: {
+      'max-lines': ['error', { max: 400, skipBlankLines: true, skipComments: true }],
+    },
+  },
+  {
+    // Debito R0: ogni split rimuove il proprio file da questo elenco (vedi TODO.md).
+    // Gli .scss non passano da ESLint: restano tracciati solo da `npm run files:report`.
+    files: [
+      'client/src/app/features/dm/dm-shell.page.ts',
+      'client/src/app/features/scene/scene-canvas.component.ts',
+      'client/src/app/features/dm/dm-shell.page.html',
+      'client/src/app/features/maps/map-editor-canvas.component.ts',
+      'client/src/app/features/actor/actor-sheet.page.ts',
+      'shared/src/lib/sheet/validate.ts',
+      'client/src/app/features/maps/map-editor.page.ts',
+      'client/src/app/features/character/character-wizard.page.html',
+      'client/src/app/features/character/character-wizard.store.ts',
+      'client/src/app/features/actor/actor-sheet.page.html',
+      'shared/src/schemas/sheet.ts',
+      'shared/src/lib/sheet/__fixtures__/catalog.ts',
+      'client/src/app/features/maps/map-editor.page.html',
+    ],
+    rules: { 'max-lines': 'off' },
+  },
+  {
     files: ['**/*.spec.ts', '**/*.test.ts', 'server/scripts/**/*.mjs'],
     rules: {
       '@typescript-eslint/no-unsafe-assignment': 'off',
@@ -162,5 +188,21 @@ export default tseslint.config(
     },
     rules: { 'no-undef': 'off' },
     ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    // Gli script di root usano solo API Node globali: il preset disableTypeChecked va prima
+    // delle languageOptions, altrimenti sovrascrive i globals e `no-undef` segnala process.
+    files: ['scripts/**/*.mjs'],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: {
+      parserOptions: { projectService: false },
+      globals: {
+        console: 'readonly',
+        fetch: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+      },
+    },
+    rules: { 'no-undef': 'off' },
   },
 );
