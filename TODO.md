@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** **S0 completato**, **D9 implementato** (immagine non ancora verificata con Docker), **A3 e A2 completati**. Prossimo passo: **A1 → A4**, con le attività D6 e **S1/S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
+**Blocco attivo:** **S0 e S1 completati**, **D9 implementato** (immagine non ancora verificata con Docker), **A3 e A2 completati**. Prossimo passo: **A1 → A4**, con le attività D6 e **S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -140,9 +140,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Implementato:** `Origin` validato su ogni upgrade in `app.ts`; il ruolo `dm` richiede l'header; `WsAttemptLimiter` per IP (default 60/min, `WS_RATE_LIMIT_MAX`); socket raw chiuso sui rifiuti; test CSWSH, DM senza Origin, rate limit e unit test del limiter.
   - **Fatto quando:** test CSWSH (Origin esterno → chiusura/403) e test brute-force (soglia → 429/chiusura).
 
-- [ ] **S1 — CSP per ambiente** · S
+- [x] **S1 — CSP per ambiente** · S — ✅ 1 novembre 2026
   - **Problema:** `connect-src 'self' ws: wss:` consente connessioni verso qualunque host.
   - **Proposta:** costruire la CSP da `env`: produzione `connect-src 'self'`; sviluppo aggiunge gli `allowedOrigins` (http/ws). Verificare che `'self'` copra il WS same-origin nei browser target, altrimenti elencare esplicitamente `ws(s)://host`.
+  - **Implementato:** `contentSecurityPolicy(nonce, env)` deriva da `PUBLIC_URL` l'origine WS esplicita (`ws://` per http, `wss://` per https, porta inclusa); restano `connect-src 'self'` e nessun `ws:`/`wss:` generico. Test unitari sulle direttive e test end-to-end dell'header su `GET /` con un `index.html` temporaneo.
   - **Fatto quando:** header verificato in test e build prod.
 
 - [ ] **S2 — Password DM con hash e policy** · M
@@ -185,7 +186,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 ### Checklist "internet-ready"
 
 - [x] S0 Origin WS + rate limit tentativi
-- [ ] S1 CSP `connect-src` ristretta
+- [x] S1 CSP `connect-src` ristretta
 - [ ] S2 `DM_PASSWORD_HASH` + minimo 12 caratteri
 - [ ] S3 TTL breve e revoca sessione
 - [ ] S4 AllowList GET e `bodyLimit` espliciti

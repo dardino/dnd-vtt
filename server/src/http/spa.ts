@@ -6,18 +6,36 @@ import type { AppEnv } from '../config/env.js';
 
 const NONCE_PLACEHOLDER = '__CSP_NONCE__';
 
-const contentSecurityPolicy = (nonce: string): string => [
-  "default-src 'self'",
-  `script-src 'self' 'nonce-${nonce}'`,
-  `style-src 'self' 'nonce-${nonce}'`,
-  "img-src 'self' data: blob:",
-  "font-src 'self'",
-  "connect-src 'self' ws: wss:",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join('; ');
+/**
+ * `'self'` in `connect-src` non copre il WebSocket in tutti i browser target,
+ * quindi l'origine WS va elencata esplicitamente. Niente `ws:`/`wss:` generici:
+ * il client può aprire socket solo verso la stessa origine di `PUBLIC_URL`.
+ */
+const webSocketOrigin = (publicUrl: URL): string | undefined => {
+  if (publicUrl.protocol === 'https:') {
+    return `wss://${publicUrl.host}`;
+  }
+  if (publicUrl.protocol === 'http:') {
+    return `ws://${publicUrl.host}`;
+  }
+  return undefined;
+};
+
+export const contentSecurityPolicy = (nonce: string, env: AppEnv): string => {
+  const wsOrigin = webSocketOrigin(env.publicUrl);
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    `style-src 'self' 'nonce-${nonce}'`,
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    wsOrigin === undefined ? "connect-src 'self'" : `connect-src 'self' ${wsOrigin}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+};
 
 export interface SpaHandler {
   enabled: boolean;
@@ -49,7 +67,7 @@ export const createSpaHandler = (env: AppEnv): SpaHandler => {
         .replaceAll('<script', `<script nonce="${nonce}"`);
       return reply
         .header('cache-control', 'no-store')
-        .header('content-security-policy', contentSecurityPolicy(nonce))
+        .header('content-security-policy', contentSecurityPolicy(nonce, env))
         .header('referrer-policy', 'same-origin')
         .type('text/html; charset=utf-8')
         .send(html);
