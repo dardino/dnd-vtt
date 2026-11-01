@@ -40,6 +40,7 @@ import { MeasurementService } from '../../core/measurement.service';
 import { FogRenderer } from './fog-renderer';
 import { GridRenderer } from './grid-renderer';
 import { MapLayerRenderer } from './map-layer-renderer';
+import { SceneCamera, type CameraState } from './scene-camera';
 import { TokenRenderer } from './token-renderer';
 
 export type SceneTool
@@ -80,27 +81,12 @@ export interface ActorDropEvent {
   pointY: number;
 }
 
-interface Camera {
-  scale: number;
-  x: number;
-  y: number;
-}
-
 interface Point {
   x: number;
   y: number;
 }
 
-// Lo zoom è sempre relativo al fit: un'immagine piccola su uno schermo grande
-// produce un fitScale alto e non deve esaurire il margine di ingrandimento.
-const MIN_ZOOM = 0.05;
-const MAX_ZOOM = 32;
-const MIN_SCALE = 0.01;
-const VIEW_PADDING = 48;
 const IDLE_MS = 160;
-
-const clamp = (value: number, min: number, max: number): number =>
-  Math.max(min, Math.min(max, value));
 
 @Component({
   selector: 'app-scene-canvas',
@@ -132,13 +118,13 @@ export class SceneCanvasComponent implements OnDestroy {
   public readonly measured = output<MeasureResult | null>();
   public readonly fogApplied = output<FogOp>();
   public readonly drawingAdded = output<Drawing>();
-  public readonly cameraChanged = output<Camera>();
+  public readonly cameraChanged = output<CameraState>();
 
   private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
   private readonly units = inject(MeasurementService);
 
-  public readonly camera = signal<Camera>({ scale: 1, x: 0, y: 0 });
+  public readonly camera = signal<CameraState>({ scale: 1, x: 0, y: 0 });
   public readonly tiled = signal(false);
   public readonly tilesReady = signal(false);
   public readonly interacting = signal(false);
@@ -153,6 +139,7 @@ export class SceneCanvasComponent implements OnDestroy {
   });
 
   private stage: Konva.Stage | null = null;
+  private readonly sceneCamera = new SceneCamera();
   private readonly gridRenderer = new GridRenderer();
   private readonly fogRenderer = new FogRenderer();
   private readonly mapLayerRenderer = new MapLayerRenderer();
@@ -181,7 +168,7 @@ export class SceneCanvasComponent implements OnDestroy {
   private drawingDraft: Point[] | null = null;
   private lassoPoints: Point[] | null = null;
   private draggingMeasure = false;
-  private rightPan: { stageX: number; stageY: number; pointerX: number; pointerY: number } | null = null;
+  private rightPan: { pointerX: number; pointerY: number } | null = null;
   private loadingImages = new Map<string, Promise<HTMLImageElement>>();
   private portraitImages = new Map<string, HTMLImageElement>();
 
@@ -233,21 +220,12 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   public zoomBy(factor: number): void {
-    const stage = this.stage;
-    if (stage === null) {
+    if (this.stage === null) {
       return;
     }
-    const oldScale = stage.scaleX();
-    const bounds = this.scaleBounds();
-    const newScale = clamp(oldScale * factor, bounds.min, bounds.max);
-    const center = { x: stage.width() / 2, y: stage.height() / 2 };
-    const world = {
-      x: (center.x - stage.x()) / oldScale,
-      y: (center.y - stage.y()) / oldScale,
-    };
-    stage.scale({ x: newScale, y: newScale });
-    stage.position({ x: center.x - world.x * newScale, y: center.y - world.y * newScale });
-    this.publishCamera();
+    this.syncCameraContext();
+    this.sceneCamera.zoomBy(factor);
+    this.applyCamera();
     this.beginInteraction();
   }
 
@@ -257,42 +235,11 @@ export class SceneCanvasComponent implements OnDestroy {
     if (stage === null || map === null) {
       return;
     }
-    const width = Math.max(1, stage.width() - VIEW_PADDING);
-    const height = Math.max(1, stage.height() - VIEW_PADDING);
-    const scale = Math.max(
-      Math.min(width / map.width, height / map.height),
-      MIN_SCALE,
-    );
-    stage.scale({ x: scale, y: scale });
-    stage.position({
-      x: (stage.width() - map.width * scale) / 2,
-      y: (stage.height() - map.height * scale) / 2,
-    });
-    this.publishCamera();
+    this.syncCameraContext();
+    this.sceneCamera.fit();
+    this.applyCamera();
     this.renderGrid();
     this.scheduleTiles();
-  }
-
-  /**
-   * Scala dello stage che mostra l'intera mappa nello spazio disponibile.
-   * È il riferimento di "100%": lo zoom salvato è sempre un multiplo di questo
-   * valore, così dialog e schermo reale restano coerenti a ogni risoluzione.
-   */
-  private fitScale(): number {
-    const stage = this.stage;
-    const map = this.map();
-    if (stage === null || map === null) {
-      return 1;
-    }
-    return Math.min(stage.width() / map.width, stage.height() / map.height);
-  }
-
-  private scaleBounds(): { min: number; max: number } {
-    if (this.stage === null || this.map() === null) {
-      return { min: MIN_SCALE, max: 1 };
-    }
-    const fit = Math.max(this.fitScale(), 0.0001);
-    return { min: fit * MIN_ZOOM, max: fit * MAX_ZOOM };
   }
 
   private applyViewportOrFit(): void {
@@ -303,14 +250,9 @@ export class SceneCanvasComponent implements OnDestroy {
       this.fit();
       return;
     }
-    const bounds = this.scaleBounds();
-    const scale = clamp(this.fitScale() * viewport.zoom, bounds.min, bounds.max);
-    stage.scale({ x: scale, y: scale });
-    stage.position({
-      x: stage.width() / 2 - viewport.x * scale,
-      y: stage.height() / 2 - viewport.y * scale,
-    });
-    this.publishCamera();
+    this.syncCameraContext();
+    this.sceneCamera.applyViewport(viewport);
+    this.applyCamera();
     this.renderGrid();
     this.scheduleTiles();
   }
@@ -321,12 +263,9 @@ export class SceneCanvasComponent implements OnDestroy {
     if (token === undefined || stage === null) {
       return;
     }
-    const center = tokenCenterPx(this.state().grid, token);
-    stage.position({
-      x: stage.width() / 2 - center.x * stage.scaleX(),
-      y: stage.height() / 2 - center.y * stage.scaleY(),
-    });
-    this.publishCamera();
+    this.syncCameraContext();
+    this.sceneCamera.centerOn(tokenCenterPx(this.state().grid, token));
+    this.applyCamera();
     this.beginInteraction();
   }
 
@@ -363,6 +302,7 @@ export class SceneCanvasComponent implements OnDestroy {
       height: Math.max(1, container.clientHeight),
     });
     this.stage = stage;
+    this.sceneCamera.setViewport({ width: stage.width(), height: stage.height() });
     this.mapLayer = new Konva.Layer({ listening: false });
     this.gridLayer = new Konva.Layer({ listening: false });
     this.doorLayer = new Konva.Layer({ listening: false });
@@ -383,7 +323,10 @@ export class SceneCanvasComponent implements OnDestroy {
     stage.on('wheel', (event) => this.onWheel(event));
     stage.on('contextmenu', (event) => event.evt.preventDefault());
     stage.on('dragstart', () => this.beginInteraction());
-    stage.on('dragmove', () => this.publishCamera());
+    stage.on('dragmove', () => {
+      this.syncCameraFromStage();
+      this.publishCamera();
+    });
     stage.on('dragend', () => this.scheduleTiles());
     stage.on('click tap', (event) => {
       if (event.target === stage) {
@@ -412,6 +355,7 @@ export class SceneCanvasComponent implements OnDestroy {
     const width = Math.max(1, container.clientWidth);
     const height = Math.max(1, container.clientHeight);
     stage.size({ width, height });
+    this.sceneCamera.setViewport({ width, height });
     this.canvasSize.set({ width, height });
     if (this.viewport() !== null) {
       this.applyViewportOrFit();
@@ -425,6 +369,7 @@ export class SceneCanvasComponent implements OnDestroy {
   private renderAll(): void {
     const map = this.map();
     const stage = this.stage;
+    this.syncCameraContext();
     if (stage !== null) {
       stage.draggable(this.tool() === 'select' && !this.readOnly());
     }
@@ -515,17 +460,11 @@ export class SceneCanvasComponent implements OnDestroy {
     if (pointer === null) {
       return;
     }
-    const oldScale = stage.scaleX();
     const factor = event.evt.deltaY < 0 ? 1.08 : 1 / 1.08;
-    const bounds = this.scaleBounds();
-    const newScale = clamp(oldScale * factor, bounds.min, bounds.max);
-    const world = {
-      x: (pointer.x - stage.x()) / oldScale,
-      y: (pointer.y - stage.y()) / oldScale,
-    };
-    stage.scale({ x: newScale, y: newScale });
-    stage.position({ x: pointer.x - world.x * newScale, y: pointer.y - world.y * newScale });
-    this.publishCamera();
+    this.syncCameraFromStage();
+    this.syncCameraContext();
+    this.sceneCamera.zoomAt(factor, pointer);
+    this.applyCamera();
     this.beginInteraction();
   }
 
@@ -570,7 +509,7 @@ export class SceneCanvasComponent implements OnDestroy {
     this.mapLayerRenderer.renderTiles({
       layer,
       map,
-      camera: { scale: stage.scaleX(), x: stage.x(), y: stage.y() },
+      camera: this.sceneCamera.state,
       viewport: { width: stage.width(), height: stage.height() },
       isCurrent: () => generation === this.mapGeneration,
       isInteracting: () => this.interacting(),
@@ -592,7 +531,7 @@ export class SceneCanvasComponent implements OnDestroy {
       grid: this.state().grid,
       visible,
       color: visible ? this.colors().grid : '',
-      camera: { scale: stage.scaleX(), x: stage.x(), y: stage.y() },
+      camera: this.sceneCamera.state,
       viewport: { width: stage.width(), height: stage.height() },
       map: map === null ? null : { width: map.width, height: map.height },
     });
@@ -798,9 +737,8 @@ export class SceneCanvasComponent implements OnDestroy {
     ) {
       const pointer = this.stage.getPointerPosition();
       if (pointer !== null) {
+        this.syncCameraFromStage();
         this.rightPan = {
-          stageX: this.stage.x(),
-          stageY: this.stage.y(),
           pointerX: pointer.x,
           pointerY: pointer.y,
         };
@@ -846,11 +784,14 @@ export class SceneCanvasComponent implements OnDestroy {
     if (this.rightPan !== null && stage !== null) {
       const pointer = stage.getPointerPosition();
       if (pointer !== null) {
-        stage.position({
-          x: this.rightPan.stageX + pointer.x - this.rightPan.pointerX,
-          y: this.rightPan.stageY + pointer.y - this.rightPan.pointerY,
-        });
-        this.publishCamera();
+        this.syncCameraFromStage();
+        this.syncCameraContext();
+        this.sceneCamera.panBy(
+          pointer.x - this.rightPan.pointerX,
+          pointer.y - this.rightPan.pointerY,
+        );
+        this.rightPan = { pointerX: pointer.x, pointerY: pointer.y };
+        this.applyCamera();
       }
       return;
     }
@@ -1115,12 +1056,43 @@ export class SceneCanvasComponent implements OnDestroy {
     return override ?? gridDrawingWidth(this.state().grid.cellSizePx);
   }
 
-  private publishCamera(): void {
+  private syncCameraContext(): void {
+    const stage = this.stage;
+    const map = this.map();
+    if (stage !== null) {
+      this.sceneCamera.setViewport({ width: stage.width(), height: stage.height() });
+    }
+    this.sceneCamera.setWorld(map === null ? null : { width: map.width, height: map.height });
+  }
+
+  private syncCameraFromStage(): void {
     const stage = this.stage;
     if (stage === null) {
       return;
     }
-    const camera = { scale: stage.scaleX(), x: stage.x(), y: stage.y() };
+    this.sceneCamera.setTransform({
+      scale: stage.scaleX(),
+      x: stage.x(),
+      y: stage.y(),
+    });
+  }
+
+  private applyCamera(): void {
+    const stage = this.stage;
+    if (stage === null) {
+      return;
+    }
+    const camera = this.sceneCamera.state;
+    stage.scale({ x: camera.scale, y: camera.scale });
+    stage.position({ x: camera.x, y: camera.y });
+    this.publishCamera();
+  }
+
+  private publishCamera(): void {
+    if (this.stage === null) {
+      return;
+    }
+    const camera = this.sceneCamera.state;
     this.camera.set(camera);
     this.cameraChanged.emit(camera);
   }
@@ -1131,10 +1103,7 @@ export class SceneCanvasComponent implements OnDestroy {
     if (stage === null || pointer === null || pointer === undefined) {
       return null;
     }
-    return {
-      x: (pointer.x - stage.x()) / stage.scaleX(),
-      y: (pointer.y - stage.y()) / stage.scaleY(),
-    };
+    return this.sceneCamera.screenToWorld(pointer);
   }
 
   private worldPointFromClient(clientX: number, clientY: number): Point | null {
@@ -1143,10 +1112,10 @@ export class SceneCanvasComponent implements OnDestroy {
       return null;
     }
     const rect = this.host().nativeElement.getBoundingClientRect();
-    return {
-      x: (clientX - rect.left - stage.x()) / stage.scaleX(),
-      y: (clientY - rect.top - stage.y()) / stage.scaleY(),
-    };
+    return this.sceneCamera.screenToWorld({
+      x: clientX - rect.left,
+      y: clientY - rect.top,
+    });
   }
 
   private loadImage(url: string): Promise<HTMLImageElement> {
