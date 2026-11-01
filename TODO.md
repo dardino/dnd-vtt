@@ -268,6 +268,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** `KonvaStageService`, `MapLayerRenderer`, `GridRenderer`, `FogRenderer`, `TokenRenderer`, `CanvasInputController`; la matematica resta in `shared`.
   - **Fatto quando:** ogni renderer è testabile in isolamento e nessun file supera 400 righe.
   - **Stato (R2a, 1 novembre 2026):** `GridRenderer` estratto in `grid-renderer.ts` con test dedicati (quadrata, esagonale, visibilità, clip); `scene-canvas.component.ts` scende a 1.458 righe effettive. Restano mappa, fog, token e input.
+  - **Stato (R2b, 1 novembre 2026):** `FogRenderer` estratto in `fog-renderer.ts` con test su base hidden/revealed, visione a celle, operazioni manuali, draft, lazo e pulizia layer; il componente conserva visione, input e orchestrazione e scende a 1.381 righe effettive. Restano mappa, token e input.
 
 - [ ] **R3 — `ActorSheetPage`** · M
   - **Proposta:** `SheetHeader`, `SheetTabs`, `CombatPanel`, `SpellPanel`, `InventoryPanel`, `NotesPanel`, `PortraitEditor`, `LevelUpDialog`, `PlayerLinkPanel`.

@@ -40,6 +40,7 @@ import {
   type VisionGrid,
 } from '@dnd-vtt/shared';
 import { MeasurementService } from '../../core/measurement.service';
+import { FogRenderer } from './fog-renderer';
 import { GridRenderer } from './grid-renderer';
 
 export type SceneTool
@@ -154,6 +155,7 @@ export class SceneCanvasComponent implements OnDestroy {
 
   private stage: Konva.Stage | null = null;
   private readonly gridRenderer = new GridRenderer();
+  private readonly fogRenderer = new FogRenderer();
   private mapLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
   private doorLayer: Konva.Layer | null = null;
@@ -739,139 +741,18 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private renderFog(): void {
-    const map = this.map();
     const layer = this.fogLayer;
     if (layer === null) {
       return;
     }
-    layer.destroyChildren();
-    if (map === null) {
-      layer.draw();
-      return;
-    }
-    const grid = this.state().grid;
-    const fog = this.state().fog;
-    const vision = this.vision();
-    const scale = Math.min(1, 4096 / Math.max(map.width, map.height));
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(map.width * scale));
-    canvas.height = Math.max(1, Math.round(map.height * scale));
-    const context = canvas.getContext('2d');
-    if (context === null) {
-      return;
-    }
-    const drawVision = vision !== null && fog.override === 'none';
-    if (fog.override === 'hide') {
-      context.fillStyle = '#000';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-    } else if (fog.override === 'none') {
-      // La base "rivelata" vince sulla visione automatica: la visione serve a
-      // nascondere il non visto solo quando la fog parte coperta. In questo
-      // modo le operazioni manuali di reveal/hide restano sempre applicabili.
-      if (fog.base === 'hidden') {
-        context.fillStyle = '#000';
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        if (vision !== null) {
-          context.globalCompositeOperation = 'destination-out';
-          const cell = grid.cellSizePx * scale;
-          for (let row = 0; row < vision.rows; row += 1) {
-            for (let column = 0; column < vision.cols; column += 1) {
-              const level = vision.levels[row * vision.cols + column] ?? 0;
-              if (level === 0) {
-                continue;
-              }
-              context.globalAlpha = level === 2 ? 1 : 0.5;
-              context.fillRect(
-                grid.offsetX * scale + column * cell,
-                grid.offsetY * scale + row * cell,
-                cell + 0.5,
-                cell + 0.5,
-              );
-            }
-          }
-          context.globalAlpha = 1;
-          context.globalCompositeOperation = 'source-over';
-        }
-      }
-    }
-    if (!drawVision || fog.override === 'none') {
-      for (const op of fog.ops) {
-        this.paintFogOp(context, op, scale);
-      }
-    }
-    layer.add(new Konva.Image({
-      image: canvas,
-      x: 0,
-      y: 0,
-      width: map.width,
-      height: map.height,
+    this.fogRenderer.render({
+      layer,
+      map: this.map(),
+      grid: this.state().grid,
+      fog: this.state().fog,
+      vision: this.vision(),
       opacity: this.fogOpacity(),
-      listening: false,
-    }));
-    layer.draw();
-  }
-
-  private paintFogOp(context: CanvasRenderingContext2D, op: FogOp, scale: number): void {
-    context.save();
-    context.globalCompositeOperation = op.op === 'reveal' ? 'destination-out' : 'source-over';
-    context.filter = op.softness > 0 ? `blur(${op.softness * scale}px)` : 'none';
-    context.fillStyle = '#000';
-    context.strokeStyle = '#000';
-    this.paintFogShape(context, op.shape, scale);
-    context.restore();
-  }
-
-  private paintFogShape(context: CanvasRenderingContext2D, shape: FogShape, scale: number): void {
-    switch (shape.type) {
-      case 'rect':
-        context.fillRect(shape.x * scale, shape.y * scale, shape.width * scale, shape.height * scale);
-        break;
-      case 'circle':
-        context.beginPath();
-        context.arc(shape.cx * scale, shape.cy * scale, shape.radius * scale, 0, Math.PI * 2);
-        context.fill();
-        break;
-      case 'polygon':
-        context.beginPath();
-        shape.points.forEach((point, index) => {
-          if (index === 0) {
-            context.moveTo(point.x * scale, point.y * scale);
-          } else {
-            context.lineTo(point.x * scale, point.y * scale);
-          }
-        });
-        context.closePath();
-        context.fill();
-        break;
-      case 'brush':
-        context.lineWidth = shape.radius * 2 * scale;
-        context.lineCap = 'round';
-        context.lineJoin = 'round';
-        context.beginPath();
-        shape.points.forEach((point, index) => {
-          if (index === 0) {
-            context.moveTo(point.x * scale, point.y * scale);
-          } else {
-            context.lineTo(point.x * scale, point.y * scale);
-          }
-        });
-        context.stroke();
-        break;
-      case 'cells': {
-        const grid = this.state().grid;
-        for (const cell of shape.cells) {
-          context.fillRect(
-            (grid.offsetX + cell.x * grid.cellSizePx) * scale,
-            (grid.offsetY + cell.y * grid.cellSizePx) * scale,
-            grid.cellSizePx * scale + 0.5,
-            grid.cellSizePx * scale + 0.5,
-          );
-        }
-        break;
-      }
-      default:
-        break;
-    }
+    });
   }
 
   private renderDrawings(): void {
@@ -904,55 +785,15 @@ export class SceneCanvasComponent implements OnDestroy {
     layer.destroyChildren();
     const colors = this.colors();
     const scale = this.stage?.scaleX() ?? 1;
-    const strokeWidth = Math.max(1, 2 / Math.max(scale, 0.1));
-    if (this.fogDraft !== null) {
-      const draft = this.fogDraft;
-      const mode = this.fogMode();
-      if (mode === 'rect') {
-        const x = Math.min(draft.start.x, draft.current.x);
-        const y = Math.min(draft.start.y, draft.current.y);
-        layer.add(new Konva.Rect({
-          x,
-          y,
-          width: Math.abs(draft.current.x - draft.start.x),
-          height: Math.abs(draft.current.y - draft.start.y),
-          stroke: colors.accent,
-          strokeWidth,
-          dash: [8 / Math.max(scale, 0.1), 6 / Math.max(scale, 0.1)],
-          fill: colors.accent,
-          opacity: 0.2,
-          listening: false,
-        }));
-      } else {
-        layer.add(new Konva.Line({
-          points: draft.points.flatMap((point) => [point.x, point.y]),
-          stroke: colors.accent,
-          strokeWidth: this.brushRadius() * 2,
-          lineCap: 'round',
-          lineJoin: 'round',
-          opacity: 0.25,
-          listening: false,
-        }));
-        layer.add(new Konva.Line({
-          points: draft.points.flatMap((point) => [point.x, point.y]),
-          stroke: colors.accent,
-          strokeWidth,
-          lineCap: 'round',
-          lineJoin: 'round',
-          listening: false,
-        }));
-      }
-    }
-    if (this.lassoPoints !== null && this.lassoPoints.length > 0) {
-      layer.add(new Konva.Line({
-        points: this.lassoPoints.flatMap((point) => [point.x, point.y]),
-        stroke: colors.accent,
-        strokeWidth,
-        closed: this.lassoPoints.length > 2,
-        dash: [8 / Math.max(scale, 0.1), 6 / Math.max(scale, 0.1)],
-        listening: false,
-      }));
-    }
+    this.fogRenderer.renderDraft({
+      layer,
+      draft: this.fogDraft,
+      mode: this.fogMode(),
+      lasso: this.lassoPoints,
+      accent: colors.accent,
+      brushRadius: this.brushRadius(),
+      stageScale: scale,
+    });
     if (this.drawingDraft !== null) {
       layer.add(new Konva.Line({
         points: this.drawingDraft.flatMap((point) => [point.x, point.y]),
