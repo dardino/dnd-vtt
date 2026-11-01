@@ -52,6 +52,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Problema:** `messageFor` è ancora duplicato in store/feature; gli errori non gestiti non hanno un punto unico.
   - **Proposta:** `ToastService` signal-based + container in `app.html`; `ErrorHandler` globale che usa `http-error.ts`; gli store smettono di mappare i messaggi.
   - **Fatto quando:** un errore non gestito mostra un toast; un solo punto di traduzione HTTP.
+  - **Stato:** `ToastService` + container e `GlobalErrorHandler` fatti (1 novembre 2026); restano le mappature locali in store/feature.
 
 - [ ] **A5 — Regole di dominio residue in `shared`** · M
   - **Problema:** `buildFeatures`/`classFeatures`, slot incantesimo, `startView`/`mapView`/`viewport`, envelope paginato, lista skill, `mime` immagini e viste `DmSheetView`/`PlayerSheetView` hanno ancora copie.

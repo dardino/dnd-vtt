@@ -1,0 +1,24 @@
+<section
+  class="toast-region"
+  aria-live="polite"
+  aria-atomic="false"
+  aria-label="Notifiche"
+>
+  @for (toast of toasts(); track toast.id) {
+    <div
+      class="toast"
+      [class.toast--success]="toast.kind === 'success'"
+      [class.toast--error]="toast.kind === 'error'"
+    >
+      <span class="toast__message">{{ toast.message }}</span>
+      <button
+        type="button"
+        class="toast__close"
+        aria-label="Chiudi notifica"
+        (click)="dismiss(toast.id)"
+      >
+        ×
+      </button>
+    </div>
+  }
+</section>
