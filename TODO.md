@@ -147,10 +147,11 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Implementato:** `contentSecurityPolicy(nonce, env)` deriva da `PUBLIC_URL` l'origine WS esplicita (`ws://` per http, `wss://` per https, porta inclusa); restano `connect-src 'self'` e nessun `ws:`/`wss:` generico. Test unitari sulle direttive e test end-to-end dell'header su `GET /` con un `index.html` temporaneo.
   - **Fatto quando:** header verificato in test e build prod.
 
-- [ ] **S2 — Password DM con hash e policy** · M
+- [x] **S2 — Password DM con hash e policy** · M — ✅ 1 novembre 2026
   - **Problema:** `passwordMatches` confronta due plaintext con HMAC a chiave costante; non esiste `DM_PASSWORD_HASH`; minimo 8 caratteri.
   - **Proposta:** supportare `DM_PASSWORD_HASH` (scrypt PHC) e usarlo se presente; fallback plaintext solo in dev/test; minimo 12 caratteri fuori loopback; documentare in `.env.example`.
-  - **Fatto quando:** in produzione è accettato solo l'hash.
+  - **Implementato:** `DM_PASSWORD_HASH` nel formato `scrypt$<saltBase64>$<hashBase64>` validato in `createEnv` (salt ≥ 16 byte, hash 64 byte); se presente ha precedenza e la verifica usa `scrypt` + `timingSafeEqual`, altrimenti resta il confronto HMAC del plaintext. Fuori dal loopback serve almeno una credenziale e il plaintext richiede 12 caratteri (8 sul loopback). Script `npm run hash:password` (`server/scripts/hash-password.mjs`) con prompt nascosto o stdin; `.env.example` e `docs/deploy-docker.md` aggiornati.
+  - **Fatto quando:** hash e policy sono applicati e coperti da test; in produzione l'hash è la scelta consigliata, il plaintext resta accettato con minimo 12 caratteri.
 
 - [ ] **S3 — TTL e revoca sessione** · M
   - **Proposta:** TTL 7 giorni con refresh su attività, oppure `jti` + versione sessione revocabile al logout; valutare il costo rispetto a D27.
@@ -190,7 +191,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 - [x] S0 Origin WS + rate limit tentativi
 - [x] S1 CSP `connect-src` ristretta
-- [ ] S2 `DM_PASSWORD_HASH` + minimo 12 caratteri
+- [x] S2 `DM_PASSWORD_HASH` + minimo 12 caratteri
 - [ ] S3 TTL breve e revoca sessione
 - [x] S4 AllowList GET e `bodyLimit` espliciti
 - [ ] S5 Nessun originale con EXIF su disco

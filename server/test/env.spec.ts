@@ -9,6 +9,9 @@ const base = {
   DATABASE_PATH: ':memory:',
 };
 
+const VALID_HASH = 'scrypt$BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=$'
+  + '7xz8PiBhjHMsfWzy+b1INs+QhZTfyCx6R+c0FmNafORuV04wf2/YuBlpbl4Jl0xPFkVSNpcFpiKJuIY8k3K6zA==';
+
 describe('configurazione env', () => {
   it('accetta il loopback senza password', () => {
     const env = createEnv(base);
@@ -22,6 +25,42 @@ describe('configurazione env', () => {
 
   it('rifiuta PUBLIC_URL non loopback senza DM_PASSWORD', () => {
     expect(() => createEnv({ ...base, PUBLIC_URL: 'http://192.168.1.10:3000' })).toThrow(/DM_PASSWORD/);
+  });
+
+  it('accetta un DM_PASSWORD_HASH valido fuori dal loopback', () => {
+    const env = createEnv({
+      ...base,
+      HOST: '0.0.0.0',
+      PUBLIC_URL: 'http://192.168.1.10:3000',
+      DM_PASSWORD_HASH: VALID_HASH,
+    });
+    expect(env.dmPassword).toBeUndefined();
+    expect(env.dmPasswordHash).toBe(VALID_HASH);
+  });
+
+  it('rifiuta un DM_PASSWORD_HASH malformato', () => {
+    expect(() => createEnv({ ...base, DM_PASSWORD_HASH: 'scrypt$solo-salt' })).toThrow(/DM_PASSWORD_HASH/);
+    expect(() => createEnv({ ...base, DM_PASSWORD_HASH: 'bcrypt$c2FsdA==$aGFzaA==' })).toThrow(/DM_PASSWORD_HASH/);
+    expect(() => createEnv({ ...base, DM_PASSWORD_HASH: 'scrypt$c2FsdA==$aGFzaA==' })).toThrow(/DM_PASSWORD_HASH/);
+  });
+
+  it('rifiuta una DM_PASSWORD corta fuori dal loopback', () => {
+    expect(() => createEnv({
+      ...base,
+      HOST: '0.0.0.0',
+      DM_PASSWORD: 'undici-car!',
+    })).toThrow(/12 caratteri/);
+  });
+
+  it('accetta una DM_PASSWORD di 12 caratteri fuori dal loopback', () => {
+    const env = createEnv({ ...base, HOST: '0.0.0.0', DM_PASSWORD: 'dodici-car!!' });
+    expect(env.dmPassword).toBe('dodici-car!!');
+  });
+
+  it('mantiene il minimo di 8 caratteri sul loopback', () => {
+    const env = createEnv({ ...base, DM_PASSWORD: 'otto-car' });
+    expect(env.dmPassword).toBe('otto-car');
+    expect(() => createEnv({ ...base, DM_PASSWORD: 'sette-c' })).toThrow(/8 caratteri/);
   });
 
   it('calcola Secure dal protocollo di PUBLIC_URL', () => {

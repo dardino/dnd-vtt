@@ -42,6 +42,9 @@ PUBLIC_URL=http://192.168.1.50:3000
 ALLOWED_ORIGINS=http://192.168.1.50:3000
 
 DM_PASSWORD=cambia-questa-password
+# Alternativa consigliata: hash scrypt al posto della password in chiaro.
+# Genera con `npm run hash:password` (la password non viene mostrata).
+# DM_PASSWORD_HASH='scrypt$...$...'
 # Opzionale ma consigliata: almeno 32 caratteri.
 SESSION_SECRET=
 
@@ -55,7 +58,13 @@ LOG_LEVEL=info
 Note:
 
 - `DM_PASSWORD` è **obbligatoria** quando `HOST` o `PUBLIC_URL` non sono
-  loopback: senza password il server non parte.
+  loopback: senza password (in chiaro o hash) il server non parte. Fuori dal
+  loopback la password in chiaro deve avere almeno **12 caratteri**.
+- Consigliato `DM_PASSWORD_HASH='scrypt$<saltBase64>$<hashBase64>'` generato con
+  `npm run hash:password`: quando presente ha precedenza su `DM_PASSWORD` e la
+  password in chiaro non viene mai salvata nel `.env`. Gli apici singoli sono
+  necessari perché Compose non interpreti i `$` dell'hash come variabili.
+  Per ruotare la password rigenera l'hash e riavvia il container.
 - `PUBLIC_URL` determina l'allowlist degli `Host` e il controllo `Origin`:
   se resta `localhost`, aprendo il VTT dall'IP LAN le richieste vengono
   rifiutate con `Host non consentito`.

@@ -28,7 +28,8 @@
     "db:migrate": "npm run db:migrate -w @dnd-vtt/server",
     "db:seed": "npm run db:seed -w @dnd-vtt/server",
     "db:reset": "npm run db:reset -w @dnd-vtt/server",
-    "db:check": "npm run db:check -w @dnd-vtt/server"
+    "db:check": "npm run db:check -w @dnd-vtt/server",
+    "hash:password": "npm run hash:password -w @dnd-vtt/server"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

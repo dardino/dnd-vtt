@@ -13,6 +13,7 @@ const rawEnvSchema = z.object({
   PUBLIC_URL: z.string().url().default('http://localhost:3000'),
   ALLOWED_ORIGINS: z.string().default('http://localhost:4200,http://localhost:3000'),
   DM_PASSWORD: z.string().default(''),
+  DM_PASSWORD_HASH: z.string().default(''),
   SESSION_SECRET: z.string().default(''),
   COOKIE_SECURE: z.enum(['auto', 'true', 'false']).default('auto'),
   DATABASE_PATH: z.string().min(1).default('data/dnd.db'),
@@ -34,6 +35,7 @@ export interface AppEnv {
   publicUrl: URL;
   allowedOrigins: readonly string[];
   dmPassword: string | undefined;
+  dmPasswordHash: string | undefined;
   sessionSecret: string;
   cookieSecure: boolean;
   databasePath: string;
@@ -48,6 +50,39 @@ export interface AppEnv {
 }
 
 const isLoopbackHost = (host: string): boolean => LOOPBACK_HOSTS.has(host.toLowerCase());
+
+const SCRYPT_HASH_PATTERN = /^scrypt\$([A-Za-z0-9+/]+={0,2})\$([A-Za-z0-9+/]+={0,2})$/;
+const SCRYPT_KEY_BYTES = 64;
+const SCRYPT_MIN_SALT_BYTES = 16;
+
+export interface ScryptPasswordHash {
+  salt: Buffer;
+  hash: Buffer;
+}
+
+/**
+ * Formato accettato: `scrypt$<saltBase64>$<hashBase64>`. Il salt deve avere
+ * almeno 16 byte e l'hash esattamente 64 (parametri scrypt di default Node).
+ */
+export const parseScryptPasswordHash = (value: string): ScryptPasswordHash | undefined => {
+  const match = SCRYPT_HASH_PATTERN.exec(value);
+  if (match === null) {
+    return undefined;
+  }
+  const saltBase64 = match[1] ?? '';
+  const hashBase64 = match[2] ?? '';
+  const salt = Buffer.from(saltBase64, 'base64');
+  const hash = Buffer.from(hashBase64, 'base64');
+  if (
+    salt.length < SCRYPT_MIN_SALT_BYTES
+    || hash.length !== SCRYPT_KEY_BYTES
+    || salt.toString('base64') !== saltBase64
+    || hash.toString('base64') !== hashBase64
+  ) {
+    return undefined;
+  }
+  return { salt, hash };
+};
 
 const findRepoRoot = (start: string): string => {
   let directory = start;
@@ -120,14 +155,27 @@ export const createEnv = (
   const values = parsed.data;
   const publicUrl = new URL(values.PUBLIC_URL);
   const dmPassword = values.DM_PASSWORD === '' ? undefined : values.DM_PASSWORD;
-  const requiresPassword = !isLoopbackHost(values.HOST) || !isLoopbackHost(publicUrl.hostname);
-  if (requiresPassword && dmPassword === undefined) {
+  const dmPasswordHash = values.DM_PASSWORD_HASH === '' ? undefined : values.DM_PASSWORD_HASH;
+  if (dmPasswordHash !== undefined && parseScryptPasswordHash(dmPasswordHash) === undefined) {
     throw new Error(
-      'DM_PASSWORD è obbligatoria quando HOST o PUBLIC_URL non sono loopback',
+      'DM_PASSWORD_HASH non valida: atteso scrypt$<saltBase64>$<hashBase64>',
     );
   }
-  if (dmPassword !== undefined && dmPassword.length < 8) {
-    throw new Error('DM_PASSWORD deve essere lunga almeno 8 caratteri');
+  const requiresPassword = !isLoopbackHost(values.HOST) || !isLoopbackHost(publicUrl.hostname);
+  if (requiresPassword && dmPassword === undefined && dmPasswordHash === undefined) {
+    throw new Error(
+      'DM_PASSWORD o DM_PASSWORD_HASH è obbligatoria quando HOST o PUBLIC_URL non sono loopback',
+    );
+  }
+  if (dmPassword !== undefined) {
+    const minimumLength = requiresPassword ? 12 : 8;
+    if (dmPassword.length < minimumLength) {
+      throw new Error(
+        requiresPassword
+          ? 'DM_PASSWORD deve essere lunga almeno 12 caratteri fuori dal loopback'
+          : 'DM_PASSWORD deve essere lunga almeno 8 caratteri',
+      );
+    }
   }
   const cookieSecure = values.COOKIE_SECURE === 'auto'
     ? publicUrl.protocol === 'https:'
@@ -142,6 +190,7 @@ export const createEnv = (
     publicUrl,
     allowedOrigins: [...new Set([...allowedOrigins, publicUrl.origin])],
     dmPassword,
+    dmPasswordHash,
     sessionSecret: loadSessionSecret(repoRoot, values.SESSION_SECRET, values.NODE_ENV),
     cookieSecure,
     databasePath: absolute(repoRoot, values.DATABASE_PATH),

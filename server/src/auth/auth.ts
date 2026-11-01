@@ -1,7 +1,12 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac, scrypt, timingSafeEqual } from 'node:crypto';
 import type { FastifyPluginCallback, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { allowedHosts, isLoopbackAddress, type AppEnv } from '../config/env.js';
+import {
+  allowedHosts,
+  isLoopbackAddress,
+  parseScryptPasswordHash,
+  type AppEnv,
+} from '../config/env.js';
 import { AppError } from '../errors.js';
 import { parse } from '../http/validation.js';
 
@@ -79,6 +84,45 @@ export const passwordMatches = (expected: string, provided: string): boolean => 
   return timingSafeEqual(expectedHash, providedHash);
 };
 
+const deriveScryptKey = (password: string, salt: Buffer, length: number): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
+    scrypt(password, salt, length, (error, derivedKey) => {
+      if (error !== null) {
+        reject(error);
+        return;
+      }
+      resolve(derivedKey);
+    });
+  });
+
+/**
+ * Verifica una password contro `scrypt$<saltBase64>$<hashBase64>`. Un hash
+ * malformato o un errore di scrypt valgono come non corrispondenza.
+ */
+export const passwordHashMatches = async (storedHash: string, provided: string): Promise<boolean> => {
+  const parsed = parseScryptPasswordHash(storedHash);
+  if (parsed === undefined) {
+    return false;
+  }
+  try {
+    const derived = await deriveScryptKey(provided, parsed.salt, parsed.hash.length);
+    return timingSafeEqual(derived, parsed.hash);
+  } catch {
+    return false;
+  }
+};
+
+/** L'hash, quando configurato, ha sempre precedenza sulla password plaintext. */
+export const verifyDmPassword = async (env: AppEnv, provided: string): Promise<boolean> => {
+  if (env.dmPasswordHash !== undefined) {
+    return passwordHashMatches(env.dmPasswordHash, provided);
+  }
+  if (env.dmPassword !== undefined) {
+    return passwordMatches(env.dmPassword, provided);
+  }
+  return false;
+};
+
 export const resolveDmRole = (request: FastifyRequest, env: AppEnv): DmRole => {
   if (isLoopbackTrusted(request, env)) {
     return 'dm';
@@ -122,7 +166,7 @@ export const authRoutes = (env: AppEnv): FastifyPluginCallback => (app, _options
     config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
   }, async (request, reply) => {
     const body = parse(loginBodySchema, request.body);
-    if (env.dmPassword === undefined || !passwordMatches(env.dmPassword, body.password)) {
+    if (!(await verifyDmPassword(env, body.password))) {
       throw new AppError('unauthorized', 401, 'Password non valida');
     }
     setSessionCookie(reply, env, createSessionToken(env));
