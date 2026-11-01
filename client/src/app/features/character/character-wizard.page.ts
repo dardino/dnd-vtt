@@ -237,6 +237,10 @@ export class CharacterWizardPage implements OnInit {
   }
 
   public ngOnInit(): void {
+    // Lo store è un singleton `providedIn: 'root'`: senza reset il wizard
+    // mostrerebbe i dati del PG compilato in precedenza. La bozza salvata,
+    // se presente, viene riapplicata da `restore()` dopo il reset.
+    this.store.reset();
     void this.initialize();
   }
 

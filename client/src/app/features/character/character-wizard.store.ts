@@ -87,6 +87,18 @@ export interface CharacterWizardState {
   checkError: string | null;
 }
 
+/** Stato di partenza, condiviso da `withState` e da `reset()`. */
+const initialState = (): CharacterWizardState => ({
+  step: 0,
+  name: '',
+  alignment: '',
+  notes: '',
+  build: emptyBuild(),
+  preview: null,
+  checking: false,
+  checkError: null,
+});
+
 const withoutSubclass = (build: PcBuild): PcBuild => {
   const copy = { ...build };
   delete copy.subclassId;
@@ -207,16 +219,7 @@ const spentOf = (build: PcBuild, catalog: SrdCatalog): number =>
 
 export const CharacterWizardStore = signalStore(
   { providedIn: 'root' },
-  withState<CharacterWizardState>({
-    step: 0,
-    name: '',
-    alignment: '',
-    notes: '',
-    build: emptyBuild(),
-    preview: null,
-    checking: false,
-    checkError: null,
-  }),
+  withState<CharacterWizardState>(initialState()),
   withMethods((store, catalogService = inject(SrdCatalogService), http = inject(HttpClient)) => {
     const catalog = (): SrdCatalog | null => catalogService.catalog();
     const updateBuild = (patch: Partial<PcBuild>): void => {
@@ -258,6 +261,11 @@ export const CharacterWizardStore = signalStore(
 
       setStep(step: number): void {
         patchState(store, { step: Math.max(0, Math.min(WIZARD_STEPS.length - 1, step)) });
+      },
+
+      /** Lo store è `providedIn: 'root'`: il wizard lo azzera a ogni ingresso. */
+      reset(): void {
+        patchState(store, initialState());
       },
 
       restoreDraft(draft: Pick<CharacterWizardState, 'step' | 'name' | 'alignment' | 'notes' | 'build'>): void {
