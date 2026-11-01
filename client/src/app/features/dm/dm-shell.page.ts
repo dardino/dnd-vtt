@@ -577,7 +577,7 @@ export class DmShellPage implements OnInit {
     await this.sceneStore.load(scene.id);
     const campaign = this.activeCampaign();
     if (campaign !== null) {
-      this.actions.watch(campaign.id, scene.id);
+      this.actions.start(campaign.id, scene.id);
       this.restorePanels(campaign.id);
     }
     await this.loadMapAsset(scene);

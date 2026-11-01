@@ -2,7 +2,8 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, inject } from '@angular/core';
 import { newId, type ActionLogEntry, type ActionRequest, type AppliedAction, type GameAction } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, type Subscription } from 'rxjs';
+import { RealtimeService, type RealtimeAction } from './realtime.service';
 import { SceneStore } from './scene.store';
 
 export type ActionSyncStatus = 'synced' | 'pending' | 'offline' | 'read-only';
@@ -29,8 +30,9 @@ const newClientId = (): string => newId();
 
 /**
  * Invia le azioni di scena, applica l'aggiornamento ottimistico e si
- * riallinea con il log del server. Il polling è il ponte fra console diverse
- * finché la Fase 7 non introduce il WebSocket.
+ * riallinea con il log del server. La fonte primaria è il WebSocket del
+ * `RealtimeService`; il polling HTTP resta solo come fallback quando la
+ * connessione non è aperta.
  */
 export const ActionStore = signalStore(
   { providedIn: 'root' },
@@ -38,9 +40,11 @@ export const ActionStore = signalStore(
   withMethods((store) => {
     const http = inject(HttpClient);
     const scene = inject(SceneStore);
+    const realtime = inject(RealtimeService);
     const destroyRef = inject(DestroyRef);
     const seen = new Map<string, number>();
     let timer: ReturnType<typeof setInterval> | null = null;
+    let subscription: Subscription | null = null;
     let syncing = false;
     let channel: BroadcastChannel | null = null;
     let activeCampaign: string | null = null;
@@ -66,7 +70,7 @@ export const ActionStore = signalStore(
             && 'campaignId' in data && 'sceneId' in data
             && data.campaignId === activeCampaign && data.sceneId === activeScene
           ) {
-            void syncNow();
+            fallbackSync();
           }
         });
       }
@@ -138,6 +142,7 @@ export const ActionStore = signalStore(
             scene.ackVersion(entry.stateVersion);
             continue;
           }
+          seen.set(entry.id, Date.now());
           try {
             scene.applyServerAction(toAppliedAction(entry));
           } catch {
@@ -163,7 +168,73 @@ export const ActionStore = signalStore(
       }
     };
 
+    /** Riallinea lo stato dopo una revisione senza payload (undo/redo/reset-fog). */
+    const resyncRevision = async (sceneId: string): Promise<void> => {
+      await scene.load(sceneId);
+      patchState(store, { lastSyncedAt: new Date().toISOString(), error: null });
+      if (activeCampaign !== null) {
+        await refreshHistory(activeCampaign);
+      }
+    };
+
+    /** Fonte primaria: applica solo la versione attesa, altrimenti riallinea la scena. */
+    const handleRealtime = (event: RealtimeAction): void => {
+      const sceneId = activeScene;
+      if (sceneId === null || event.sceneId !== sceneId) {
+        return;
+      }
+      const snapshot = scene.snapshot();
+      if (snapshot === null || snapshot.scene.id !== sceneId) {
+        return;
+      }
+      pruneSeen();
+      const current = scene.stateVersion();
+      if (!('id' in event)) {
+        // Undo, redo e reset-fog arrivano come sola revisione: lo stato va riletto.
+        if (event.stateVersion > current) {
+          void resyncRevision(sceneId);
+        }
+        return;
+      }
+      if (seen.has(event.id)) {
+        scene.ackVersion(event.stateVersion);
+        return;
+      }
+      seen.set(event.id, Date.now());
+      if (event.stateVersion <= current) {
+        return;
+      }
+      if (event.stateVersion > current + 1) {
+        void scene.load(sceneId);
+        return;
+      }
+      try {
+        scene.applyServerAction(event);
+      } catch {
+        void scene.load(sceneId);
+        return;
+      }
+      patchState(store, {
+        status: store.pending() > 0 ? 'pending' : 'synced',
+        error: null,
+        lastSyncedAt: new Date().toISOString(),
+      });
+      if (activeCampaign !== null) {
+        void refreshHistory(activeCampaign);
+      }
+    };
+
+    /** Il polling HTTP è solo un ponte finché il WebSocket non è aperto. */
+    const fallbackSync = (): void => {
+      if (realtime.status() === 'open') {
+        return;
+      }
+      void syncNow();
+    };
+
     const stop = (): void => {
+      subscription?.unsubscribe();
+      subscription = null;
       if (timer !== null) {
         clearInterval(timer);
         timer = null;
@@ -177,15 +248,14 @@ export const ActionStore = signalStore(
     destroyRef.onDestroy(stop);
 
     return {
-      /** Avvia il riallineamento periodico per la scena attiva. */
-      watch(campaignId: string, sceneId: string): void {
+      /** Avvia la sincronizzazione della scena attiva tramite WebSocket e fallback HTTP. */
+      start(campaignId: string, sceneId: string): void {
         stop();
         activeCampaign = campaignId;
         activeScene = sceneId;
         patchState(store, { status: 'synced', error: null });
-        timer = setInterval(() => {
-          void syncNow();
-        }, 2000);
+        subscription = realtime.actions$.subscribe(handleRealtime);
+        timer = setInterval(fallbackSync, 2000);
         void refreshHistory(campaignId);
       },
 
