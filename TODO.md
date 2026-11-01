@@ -181,8 +181,9 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** aggiungere `TRUST_PROXY` esplicito (default `false`) e configurare Fastify; documentare Caddy/nginx con `PUBLIC_URL=https://...`, `COOKIE_SECURE=true`, `ALLOWED_ORIGINS=https://...`; verificare che gli header di forwarding disattivino il bypass loopback; testare HSTS e IP reale nel rate limit.
   - **Fatto quando:** un test con header `X-Forwarded-Proto`/`X-Forwarded-For` dimostra IP e cookie corretti.
 
-- [ ] **S8 — Suite di regressione sicurezza** · M
+- [x] **S8 — Suite di regressione sicurezza** · M — ✅ 1 novembre 2026
   - **Proposta:** test dedicati per matrice autorizzazioni (route DM senza cookie → 401), CSWSH, rate limit login/display, header CSP/HSTS/nosniff, upload SVG/polyglot rifiutato, export senza note private di default, `originals/` 404.
+  - **Implementato:** `server/test/security.spec.ts` copre la matrice DM senza sessione da IP non loopback (`X-Forwarded-For` + Host ammesso → 401 su letture e scritture), rate limit login dietro proxy (`TRUST_PROXY=1`, sesto tentativo → 429 per IP reale senza bloccare altri client), header helmet (`nosniff`, `referrer-policy`, HSTS) su `/api/v1/health`, upload non immagine e polyglot GIF+HTML → 415, export senza `playerNotes` di default e con `includePrivateNotes=true`. CSWSH, 404 su `originals/`, SVG e 5 login falliti restano coperti dai test esistenti e non sono duplicati.
   - **Fatto quando:** la suite gira in CI e fallisce su regressioni.
 
 - [ ] **S9 — Dipendenze e dati a riposo** · S
@@ -199,7 +200,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [ ] S5 Nessun originale con EXIF su disco
 - [x] S6 Codici display documentati e allungati a 8 caratteri
 - [ ] S7 HTTPS, proxy e cookie `secure`
-- [ ] S8 Test di regressione sicurezza in CI
+- [x] S8 Test di regressione sicurezza in CI
 - [ ] S9 Audit dipendenze e backup cifrati
 
 ## 5. Refactor god component (P2)
