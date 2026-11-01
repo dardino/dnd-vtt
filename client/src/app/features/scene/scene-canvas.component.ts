@@ -14,7 +14,6 @@ import {
 } from '@angular/core';
 import Konva from 'konva';
 import {
-  TILE_SIZE_PX,
   cellCenterPx,
   newId,
   pointInPolygon,
@@ -23,8 +22,6 @@ import {
   lastReachableCell,
   pixelToCell,
   snapTokenCell,
-  tileLevelForScale,
-  tileUrl,
   tokenCenterPx,
   measureDistance,
   type CellPoint,
@@ -42,6 +39,7 @@ import {
 import { MeasurementService } from '../../core/measurement.service';
 import { FogRenderer } from './fog-renderer';
 import { GridRenderer } from './grid-renderer';
+import { MapLayerRenderer } from './map-layer-renderer';
 import { TokenRenderer } from './token-renderer';
 
 export type SceneTool
@@ -157,6 +155,7 @@ export class SceneCanvasComponent implements OnDestroy {
   private stage: Konva.Stage | null = null;
   private readonly gridRenderer = new GridRenderer();
   private readonly fogRenderer = new FogRenderer();
+  private readonly mapLayerRenderer = new MapLayerRenderer();
   private readonly tokenRenderer = new TokenRenderer();
   private mapLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
@@ -166,7 +165,6 @@ export class SceneCanvasComponent implements OnDestroy {
   private tokenLayer: Konva.Layer | null = null;
   private drawingLayer: Konva.Layer | null = null;
   private measureLayer: Konva.Layer | null = null;
-  private previewNode: Konva.Image | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private activeAssetId: string | null = null;
@@ -481,46 +479,27 @@ export class SceneCanvasComponent implements OnDestroy {
     this.activeAssetId = map?.hash ?? null;
     this.mapGeneration += 1;
     const generation = this.mapGeneration;
-    this.mapLayer?.destroyChildren();
-    this.previewNode = null;
+    const layer = this.mapLayer;
+    this.mapLayerRenderer.reset(layer);
     this.tiled.set(map?.tiled ?? false);
     this.tilesReady.set(false);
-    if (map === null) {
+    if (map === null || layer === null) {
       return;
     }
-    const url = map.tiled ? map.previewUrl : map.url;
-    const place = (image: HTMLImageElement): void => {
-      if (generation !== this.mapGeneration || this.mapLayer === null) {
+    void this.mapLayerRenderer.renderBase({
+      layer,
+      map,
+      isCurrent: () => generation === this.mapGeneration,
+      loadImage: (url) => this.loadImage(url),
+    }).then((placed) => {
+      if (!placed) {
         return;
       }
-      const node = new Konva.Image({
-        image,
-        x: 0,
-        y: 0,
-        width: map.width,
-        height: map.height,
-        listening: false,
-      });
-      this.mapLayer.add(node);
-      if (map.tiled) {
-        this.previewNode = node;
-      }
-      this.mapLayer.draw();
       this.applyViewportOrFit();
       this.renderFog();
       this.renderDrawings();
       this.scheduleTiles();
-    };
-    void this.loadImage(url)
-      .then(place)
-      .catch(() => {
-        // Mappa precedente alla pipeline di tile: si ripiega sull'immagine intera.
-        if (!map.tiled) {
-          this.tilesReady.set(false);
-          return;
-        }
-        void this.loadImage(map.url).then(place).catch(() => this.tilesReady.set(false));
-      });
+    });
   }
 
   private onWheel(event: Konva.KonvaEventObject<WheelEvent>): void {
@@ -553,13 +532,7 @@ export class SceneCanvasComponent implements OnDestroy {
   private beginInteraction(): void {
     const map = this.map();
     this.interacting.set(true);
-    if (map?.tiled === true && this.previewNode !== null) {
-      this.previewNode.visible(true);
-      this.mapLayer?.getChildren().forEach((child) => {
-        if (child !== this.previewNode) {
-          child.visible(false);
-        }
-      });
+    if (map?.tiled === true && this.mapLayerRenderer.showPreview()) {
       this.tilesReady.set(false);
     }
     if (this.idleTimer !== null) {
@@ -593,78 +566,17 @@ export class SceneCanvasComponent implements OnDestroy {
     if (stage === null || map === null || layer === null || map.tiled !== true) {
       return;
     }
-    if (this.interacting()) {
-      return;
-    }
-    const scale = stage.scaleX();
-    const level = tileLevelForScale(scale, map.width, map.height);
-    const worldLeft = Math.max(0, -stage.x() / scale);
-    const worldTop = Math.max(0, -stage.y() / scale);
-    const worldRight = Math.min(map.width, worldLeft + stage.width() / scale);
-    const worldBottom = Math.min(map.height, worldTop + stage.height() / scale);
-    const tileWorld = TILE_SIZE_PX * level.scale;
-    const firstColumn = Math.max(0, Math.floor(worldLeft / tileWorld) - 1);
-    const lastColumn = Math.min(level.columns - 1, Math.ceil(worldRight / tileWorld) + 1);
-    const firstRow = Math.max(0, Math.floor(worldTop / tileWorld) - 1);
-    const lastRow = Math.min(level.rows - 1, Math.ceil(worldBottom / tileWorld) + 1);
-
-    for (const child of [...layer.getChildren()]) {
-      if (child !== this.previewNode) {
-        child.destroy();
-      }
-    }
-    const group = new Konva.Group({ listening: false });
-    layer.add(group);
-    let pending = 0;
-    let failed = 0;
     const generation = this.mapGeneration;
-    for (let row = firstRow; row <= lastRow; row += 1) {
-      for (let column = firstColumn; column <= lastColumn; column += 1) {
-        pending += 1;
-        const url = tileUrl(map.hash, level.level, column, row);
-        void this.loadImage(url)
-          .then((image) => {
-            if (generation !== this.mapGeneration || this.interacting()) {
-              return;
-            }
-            const tileWidth = Math.min(level.width - column * TILE_SIZE_PX, TILE_SIZE_PX);
-            const tileHeight = Math.min(level.height - row * TILE_SIZE_PX, TILE_SIZE_PX);
-            group.add(new Konva.Image({
-              image,
-              x: column * tileWorld,
-              y: row * tileWorld,
-              // Un pixel di sovrapposizione evita cuciture visibili a scale frazionarie.
-              width: tileWidth * level.scale + 1,
-              height: tileHeight * level.scale + 1,
-              listening: false,
-            }));
-            layer.batchDraw();
-          })
-          .catch(() => {
-            failed += 1;
-          })
-          .finally(() => {
-            pending -= 1;
-            if (generation !== this.mapGeneration || this.interacting()) {
-              return;
-            }
-            if (pending === 0) {
-              if (failed > 0) {
-                this.tilesReady.set(false);
-                this.previewNode?.visible(true);
-              } else {
-                this.tilesReady.set(true);
-                this.previewNode?.visible(false);
-              }
-              layer.batchDraw();
-            }
-          });
-      }
-    }
-    if (pending === 0) {
-      this.tilesReady.set(true);
-      this.previewNode?.visible(false);
-    }
+    this.mapLayerRenderer.renderTiles({
+      layer,
+      map,
+      camera: { scale: stage.scaleX(), x: stage.x(), y: stage.y() },
+      viewport: { width: stage.width(), height: stage.height() },
+      isCurrent: () => generation === this.mapGeneration,
+      isInteracting: () => this.interacting(),
+      loadImage: (url) => this.loadImage(url),
+      onTilesReady: (ready) => this.tilesReady.set(ready),
+    });
   }
 
   private renderGrid(): void {
