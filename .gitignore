@@ -8,6 +8,7 @@ out-tsc/
 .env
 .env.*
 !.env.example
+.mcp.json
 /data/
 .e2e/
 playwright-report/
