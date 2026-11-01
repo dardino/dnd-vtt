@@ -4,17 +4,20 @@ import { z } from 'zod';
 import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import { exportCampaign, importCampaign } from './service.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
+const exportQuerySchema = z.strictObject({
+  includePrivateNotes: z.enum(['true', 'false']).optional(),
+});
 
 export const exportRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
     app.get('/campaigns/:id/export', async (request, reply) => {
       requireDm(request, env);
       const { id } = parse(idParamsSchema, request.params);
-      const bundle = await exportCampaign(env, db, id);
+      const query = parse(exportQuerySchema, request.query);
+      const bundle = await exportCampaign(env, db, id, query.includePrivateNotes === 'true');
       return reply
         .header('content-disposition', `attachment; filename="${bundle.campaign.name}.json"`)
         .send(bundle);

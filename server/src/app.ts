@@ -31,6 +31,8 @@ import { sessionRoutes } from './sessions/routes.js';
 import { srdRoutes } from './srd/routes.js';
 import { currentSrdVersion } from './srd/load.js';
 import { createSpaHandler, registerSpaRoute } from './http/spa.js';
+import { isAllowedOrigin } from './http/origin.js';
+import { WsAttemptLimiter } from './realtime/rate-limit.js';
 
 export interface BuildAppOptions {
   env: AppEnv;
@@ -39,6 +41,8 @@ export interface BuildAppOptions {
 }
 
 const APP_VERSION = '0.1.0';
+
+const isWebSocketPath = (url: string): boolean => url === '/ws' || url.startsWith('/ws?');
 
 const normalizeHost = (hostname: string): string => {
   const lower = hostname.toLowerCase();
@@ -67,7 +71,10 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   void app.register(rateLimit, {
     max: env.nodeEnv === 'test' ? 100_000 : 300,
     timeWindow: '1 minute',
-    allowList: (request) => request.method === 'GET' || request.url.startsWith('/uploads/'),
+    // Le GET di sola lettura restano fuori dal limite (D67), tranne il lookup
+    // dei codici display: è l'unico endpoint pubblico enumerabile.
+    allowList: (request) => request.url.startsWith('/uploads/')
+      || (request.method === 'GET' && !request.url.startsWith('/api/v1/displays/')),
     errorResponseBuilder: (request, context) => new AppError(
       'rate_limited',
       429,
@@ -80,18 +87,48 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   });
 
   const hosts = allowedHosts(env);
+  const wsLimiter = new WsAttemptLimiter(env.wsRateLimitMax, 60_000);
   // Fastify 5 su Node 26 non risolve la catena con un hook sincrono: serve async.
   // eslint-disable-next-line @typescript-eslint/require-await
   app.addHook('onRequest', async (request) => {
     if (!hosts.has(normalizeHost(request.hostname))) {
       throw new AppError('misdirected_request', 421, 'Host non consentito');
     }
+    if (isWebSocketPath(request.url)) {
+      const url = new URL(request.url, 'http://localhost');
+      // Il WebSocket è una GET: il controllo Origin qui sotto non lo copre.
+      // Senza questo blocco una pagina esterna potrebbe aprire un canale
+      // verso il server (CSWSH), soprattutto quando A1 porterà azioni sul WS.
+      const wsOrigin = request.headers.origin;
+      if (wsOrigin === undefined) {
+        if (url.searchParams.get('role') === 'dm') {
+          throw new AppError('forbidden', 403, 'Origin richiesto per il WebSocket DM');
+        }
+      } else if (!isAllowedOrigin(wsOrigin, env)) {
+        throw new AppError('forbidden', 403, 'Origin non consentito');
+      }
+      // Il rate limit globale esenta le GET: i tentativi di upgrade vanno
+      // limitati qui, altrimenti i codici display sono provabili senza freno.
+      if (!wsLimiter.allow(request.ip)) {
+        throw new AppError('rate_limited', 429, 'Troppi tentativi di connessione: riprova più tardi');
+      }
+    }
     const origin = request.headers.origin;
     if (origin !== undefined && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
-      if (!env.allowedOrigins.includes(origin)) {
+      if (!isAllowedOrigin(origin, env)) {
         throw new AppError('forbidden', 403, 'Origin non consentito');
       }
     }
+  });
+
+  // Se un upgrade viene rifiutato prima che il plugin websocket imposti
+  // `request.ws`, il suo hook `onResponse` non chiude il socket raw: lo
+  // facciamo qui per non lasciare connessioni appese.
+  app.addHook('onResponse', (request, reply, done) => {
+    if (isWebSocketPath(request.url) && reply.statusCode >= 400) {
+      request.raw.socket.destroy();
+    }
+    done();
   });
 
   app.setErrorHandler((error: FastifyError | AppError, request, reply) => {
@@ -169,6 +206,9 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   void app.register(fastifyStatic, {
     root: env.uploadDir,
     prefix: '/uploads/',
+    // Gli originali restano su disco per la deduplica, ma non sono un asset
+    // pubblico: EXIF e metadati non devono uscire dal server.
+    allowedPath: (pathName) => !pathName.replace(/^\/+/, '').startsWith('originals/'),
     setHeaders: (reply) => {
       reply.header('cache-control', 'public, max-age=31536000, immutable');
     },

@@ -18,6 +18,15 @@ describe('buildPcStatblock', () => {
     expect(statblock.currency).toEqual({ cp: 0, sp: 0, ep: 0, gp: 55, pp: 0 });
   });
 
+  it('persiste l’allineamento scelto nel wizard', () => {
+    const statblock = buildPcStatblock({
+      build: baseFighterBuild(),
+      catalog: testCatalog,
+      alignment: '  Legale buono ',
+    });
+    expect(statblock.alignment).toBe('Legale buono');
+  });
+
   it('costruisce un mago con slot, incantesimi e focus snapshot', () => {
     const statblock = buildPcStatblock({ build: baseWizardBuild(), catalog: testCatalog });
 

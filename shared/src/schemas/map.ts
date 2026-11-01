@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  defaultGridConfig,
   gridConfigSchema,
   terrainSchema,
   tokenLightSchema,
@@ -145,15 +146,7 @@ export const emptyMapDocument = (
     imageAssetId,
     widthPx,
     heightPx,
-    grid: {
-      type: 'square',
-      cellSizePx: 70,
-      offsetX: 0,
-      offsetY: 0,
-      feetPerCell: 5,
-      diagonalRule: '5-5-5',
-      hexOffset: 'odd-r',
-    },
+    grid: { ...defaultGridConfig },
     terrain: {
       ...mapTerrainDefaults,
       visionLimitFeet: Math.min(120, maxSightFeet),

@@ -175,12 +175,26 @@ const publicScene = (db: AppDatabase, sceneId: string, fogEnabled: boolean): Pub
   const state = sceneStateSchema.parse(stored.state);
   const grid = state.grid;
   const fog = fogEnabled ? state.fog : { base: 'revealed' as const, ops: [], override: 'none' as const };
+  const actorCache = new Map<string, ReturnType<typeof getActor>>();
+  const assetCache = new Map<string, ReturnType<typeof getAsset>>();
+  const actorOf = (id: string): ReturnType<typeof getActor> => {
+    if (!actorCache.has(id)) {
+      actorCache.set(id, getActor(db, id));
+    }
+    return actorCache.get(id) ?? null;
+  };
+  const assetOf = (id: string): ReturnType<typeof getAsset> => {
+    if (!assetCache.has(id)) {
+      assetCache.set(id, getAsset(db, id));
+    }
+    return assetCache.get(id) ?? null;
+  };
   const sources: VisionSource[] = fogEnabled
     ? state.tokens.flatMap((token) => {
       if (token.actorId === undefined) {
         return [];
       }
-      const actor = getActor(db, token.actorId);
+      const actor = actorOf(token.actorId);
       if (actor === null || (actor.kind !== 'pc' && token.owner !== 'players')) {
         return [];
       }
@@ -211,10 +225,10 @@ const publicScene = (db: AppDatabase, sceneId: string, fogEnabled: boolean): Pub
     if (fogEnabled && !isTokenVisible(fog, vision, grid, token)) {
       return [];
     }
-    const actor = token.actorId === undefined ? null : getActor(db, token.actorId);
+    const actor = token.actorId === undefined ? null : actorOf(token.actorId);
     const actorAsset = actor?.imageAssetId === null || actor?.imageAssetId === undefined
       ? null
-      : getAsset(db, actor.imageAssetId);
+      : assetOf(actor.imageAssetId);
     return [{
       id: token.id,
       label: token.label,
@@ -229,7 +243,7 @@ const publicScene = (db: AppDatabase, sceneId: string, fogEnabled: boolean): Pub
       portrait: actor?.portrait ?? null,
     }];
   });
-  const asset = scene.imageAssetId === null ? null : getAsset(db, scene.imageAssetId);
+  const asset = scene.imageAssetId === null ? null : assetOf(scene.imageAssetId);
   return {
     id: scene.id,
     name: scene.name,

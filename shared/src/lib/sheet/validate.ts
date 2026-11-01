@@ -11,9 +11,8 @@ import type {
 import type { SrdCatalog, SrdClass, SrdFeat, SrdItem, SrdSpell } from '../../schemas/srd.js';
 import { POINT_BUY_BUDGET, STANDARD_ARRAY, pointBuyCost } from './abilities.js';
 import { pcAbilityScores, pcHpMax } from './hp.js';
-import { maxSpellLevel } from './progression.js';
+import { isPreparedCaster, maxSpellLevel } from './progression.js';
 
-const PREPARED_CASTERS = new Set(['cleric', 'druid', 'paladin', 'wizard']);
 const WIZARD = 'wizard';
 
 interface Context {
@@ -555,8 +554,8 @@ const validateSpells = (context: Context): void => {
 
   const preparedTarget = spellcasting.preparedSpells[build.level - 1] ?? 0;
   const isWizard = build.classId === WIZARD;
-  const mainList = PREPARED_CASTERS.has(build.classId) ? prepared : known;
-  const otherList = PREPARED_CASTERS.has(build.classId) ? known : prepared;
+  const mainList = isPreparedCaster(build.classId) ? prepared : known;
+  const otherList = isPreparedCaster(build.classId) ? known : prepared;
   if (mainList.length !== preparedTarget) {
     addError(
       context,

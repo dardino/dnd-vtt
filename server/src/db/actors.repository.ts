@@ -95,6 +95,7 @@ export interface PcActorInsert {
   statblock: PcStatblock;
   playerNotes: string | null;
   dmNotes: string | null;
+  xp?: number | undefined;
 }
 
 export const insertPcActor = (db: DbExecutor, input: PcActorInsert): Actor => {
@@ -106,7 +107,7 @@ export const insertPcActor = (db: DbExecutor, input: PcActorInsert): Actor => {
     name: input.name,
     statblock: JSON.stringify(input.statblock),
     rulesVersion: input.statblock.rulesVersion,
-    xp: 0,
+    xp: input.xp ?? 0,
     sheetVersion: 1,
     playerNotes: input.playerNotes,
     dmNotes: input.dmNotes,

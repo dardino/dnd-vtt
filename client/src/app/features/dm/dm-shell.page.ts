@@ -16,10 +16,12 @@ import {
   abilityModifier,
   DEFAULT_ACTOR_PORTRAIT,
   FOG_BRUSH_CELLS,
+  SIZE_CELLS,
   computeVisionGrid,
   fogBrushRadius,
   gridDrawingWidth,
   isTiledMap,
+  newId,
   snapTokenCell,
   sortInitiativeEntries,
   tokenCenterCell,
@@ -45,7 +47,6 @@ import {
   type Scene,
   type SceneState,
   type Session,
-  type Size,
   type TokenState,
   type Viewport,
   type VisionGrid,
@@ -138,15 +139,6 @@ const readFogSnap = (): boolean => {
   }
 };
 
-const SIZE_CELLS: Record<Size, number> = {
-  tiny: 1,
-  small: 1,
-  medium: 1,
-  large: 2,
-  huge: 3,
-  gargantuan: 4,
-};
-
 const toMapDocument = (map: {
   name: string;
   imageAssetId: string | null;
@@ -237,8 +229,6 @@ export class DmShellPage implements OnInit {
     && this.state()?.grid.type === 'square');
 
   public readonly programState = signal<ProgramState | null>(null);
-  public readonly programVersion = signal(1);
-  public readonly displayCode = signal<string | null>(null);
   public readonly programBusy = signal(false);
   public readonly connectedDisplays = signal(0);
   public readonly screens = signal<ScreenSummary[]>([]);
@@ -291,6 +281,7 @@ export class DmShellPage implements OnInit {
   public readonly sessionSeconds = signal(0);
 
   public readonly password = signal('');
+  public readonly includePrivateNotes = signal(false);
   public readonly newName = signal('');
   public readonly newDescription = signal('');
   public readonly newAdvancement = signal<'milestone' | 'xp'>('milestone');
@@ -365,14 +356,6 @@ export class DmShellPage implements OnInit {
   });
 
   public readonly initiative = computed(() => this.state()?.initiative ?? null);
-  public readonly currentInitiative = computed<InitiativeEntry | null>(() => {
-    const initiative = this.initiative();
-    if (initiative === null || !initiative.active) {
-      return null;
-    }
-    return initiative.entries[initiative.turnIndex] ?? null;
-  });
-
   public readonly undoneActions = computed(() =>
     this.actions.history().filter((entry) => entry.status === 'undone').length);
 
@@ -443,11 +426,6 @@ export class DmShellPage implements OnInit {
       return 'OFF AIR';
     }
     return this.blackout() ? 'BLACKOUT' : 'ON AIR';
-  });
-
-  public readonly displayUrl = computed(() => {
-    const code = this.displayCode();
-    return code === null ? null : `${location.origin}/display/${code}`;
   });
 
   public readonly measureLabel = computed(() => {
@@ -549,7 +527,6 @@ export class DmShellPage implements OnInit {
       await this.dice.load(campaign.id);
       const program = await this.programsApi.get(campaign.id);
       this.programState.set(program.state);
-      this.programVersion.set(program.version);
       this.connectPresence(campaign.id);
       const sessions = await this.campaignsApi.listSessions(campaign.id);
       this.sessions.set(sessions);
@@ -924,7 +901,7 @@ export class DmShellPage implements OnInit {
         tokenId: token.id,
       });
       entries.push({
-        id: crypto.randomUUID(),
+        id: newId(),
         tokenId: token.id,
         label: token.label,
         value: roll?.total ?? 10 + tiebreak,
@@ -951,7 +928,7 @@ export class DmShellPage implements OnInit {
     const entries = sortInitiativeEntries([
       ...initiative.entries,
       {
-        id: crypto.randomUUID(),
+        id: newId(),
         tokenId: token.id,
         label: token.label,
         value: 10 + tiebreak,
@@ -1117,7 +1094,7 @@ export class DmShellPage implements OnInit {
     const cell = snapTokenCell(grid, { x: pointX, y: pointY }, size);
     const hp = actor.hp ?? { current: 1, max: 1, temp: 0 };
     const token: TokenState = {
-      id: crypto.randomUUID(),
+      id: newId(),
       actorId: actor.id,
       label: actor.name,
       x: cell.x,
@@ -1345,7 +1322,6 @@ export class DmShellPage implements OnInit {
       const display = await this.programsApi.createDisplay(campaign.id, {
         label: 'Schermo giocatori',
       });
-      this.displayCode.set(display.code);
       window.open(`/display/${display.code}`, '_blank');
       this.statusMessage.set(`Schermo aperto: ${display.code}`);
       void this.loadScreens(campaign.id);
@@ -1436,7 +1412,6 @@ export class DmShellPage implements OnInit {
       };
       const updated = await this.programsApi.put(campaign.id, current.version, state);
       this.programState.set(updated.state);
-      this.programVersion.set(updated.version);
       this.statusMessage.set(updated.state.blackout ? 'Schermo in blackout' : 'Schermo riacceso');
     } catch (error) {
       this.statusMessage.set(messageFor(error));
@@ -1611,7 +1586,7 @@ export class DmShellPage implements OnInit {
       return;
     }
     try {
-      const bundle = await this.campaignsApi.exportCampaign(campaign.id);
+      const bundle = await this.campaignsApi.exportCampaign(campaign.id, this.includePrivateNotes());
       const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
@@ -1679,6 +1654,10 @@ export class DmShellPage implements OnInit {
     this.password.set(readValue(event));
   }
 
+  public setIncludePrivateNotes(event: Event): void {
+    this.includePrivateNotes.set((event.target as HTMLInputElement).checked);
+  }
+
   public updateNewName(event: Event): void {
     this.newName.set(readValue(event));
   }
@@ -1704,7 +1683,12 @@ export class DmShellPage implements OnInit {
     this.rightOpen.set(true);
     this.dockOpen.set(true);
     this.sections.set({ ...DEFAULT_SECTIONS });
-    const stored = localStorage.getItem(`${PANEL_STORAGE_PREFIX}${campaignId}`);
+    let stored: string | null;
+    try {
+      stored = localStorage.getItem(`${PANEL_STORAGE_PREFIX}${campaignId}`);
+    } catch {
+      return;
+    }
     if (stored === null) {
       return;
     }
@@ -1736,15 +1720,19 @@ export class DmShellPage implements OnInit {
     if (campaign === null) {
       return;
     }
-    localStorage.setItem(
-      `${PANEL_STORAGE_PREFIX}${campaign.id}`,
-      JSON.stringify({
-        left: this.leftOpen(),
-        right: this.rightOpen(),
-        dock: this.dockOpen(),
-        sections: this.sections(),
-      }),
-    );
+    try {
+      localStorage.setItem(
+        `${PANEL_STORAGE_PREFIX}${campaign.id}`,
+        JSON.stringify({
+          left: this.leftOpen(),
+          right: this.rightOpen(),
+          dock: this.dockOpen(),
+          sections: this.sections(),
+        }),
+      );
+    } catch {
+      // localStorage può essere disabilitato: i pannelli restano validi per la sessione.
+    }
   }
 
   public screenProjectionLabel(summary: ScreenSummary): string {

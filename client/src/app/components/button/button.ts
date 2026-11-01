@@ -13,5 +13,8 @@ export class Button {
   public readonly type = input<'button' | 'submit' | 'reset'>('button');
   public readonly disabled = input(false);
   public readonly ariaLabel = input<string | null>(null);
+  public readonly ariaPressed = input<boolean | null>(null);
+  public readonly ariaExpanded = input<boolean | null>(null);
+  public readonly ariaControls = input<string | null>(null);
   public readonly pressed = output<MouseEvent>();
 }

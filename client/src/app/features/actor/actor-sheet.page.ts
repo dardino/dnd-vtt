@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
   type OnInit,
@@ -30,9 +29,17 @@ import {
   type ResolvedItem,
   type ResourcePool,
   type SrdClass,
-  type Skill,
 } from '@dnd-vtt/shared';
 import { ActorService } from '../../core/actor.service';
+import {
+  ABILITY_LABELS,
+  SKILL_LABELS,
+  formatSenses,
+  formatSpeeds,
+  type SensesLike,
+  type SpeedLike,
+} from '../../core/labels';
+import { httpMessage, serverMessage } from '../../core/http-error';
 import { AssetService } from '../../core/asset.service';
 import { CampaignService } from '../../core/campaign.service';
 import { MeasurementService } from '../../core/measurement.service';
@@ -42,36 +49,6 @@ import { SrdCatalogService } from '../../core/srd-catalog.service';
 import { Dialog } from '../../components/dialog/dialog';
 
 type SheetTab = 'combat' | 'abilities' | 'spells' | 'equipment' | 'features' | 'notes';
-
-const ABILITY_LABELS: Record<Ability, string> = {
-  str: 'Forza',
-  dex: 'Destrezza',
-  con: 'Costituzione',
-  int: 'Intelligenza',
-  wis: 'Saggezza',
-  cha: 'Carisma',
-};
-
-const SKILL_LABELS: Record<Skill, string> = {
-  acrobatics: 'Acrobazia',
-  animalHandling: 'Addestrare animali',
-  arcana: 'Arcano',
-  athletics: 'Atletica',
-  deception: 'Inganno',
-  history: 'Storia',
-  insight: 'Intuizione',
-  intimidation: 'Intimidazione',
-  investigation: 'Indagare',
-  medicine: 'Medicina',
-  nature: 'Natura',
-  perception: 'Percezione',
-  performance: 'Intrattenere',
-  persuasion: 'Persuasione',
-  religion: 'Religione',
-  sleightOfHand: 'Mano di prestigio',
-  stealth: 'Furtività',
-  survival: 'Sopravvivenza',
-};
 
 @Component({
   selector: 'app-actor-sheet',
@@ -806,32 +783,12 @@ export class ActorSheetPage implements OnInit {
     }
   }
 
-  public speedText(speed: { walk?: number; fly?: number; swim?: number; climb?: number; burrow?: number }): string {
-    const labels = { walk: 'camminata', fly: 'volo', swim: 'nuoto', climb: 'scalata', burrow: 'scavo' } as const;
-    return (['walk', 'fly', 'swim', 'climb', 'burrow'] as const)
-      .flatMap((mode) => (speed[mode] === undefined
-        ? []
-        : [`${labels[mode]} ${this.units.formatDistance(speed[mode])}`]))
-      .join(' · ');
+  public speedText(speed: SpeedLike): string {
+    return formatSpeeds(speed, (feet) => this.units.formatDistance(feet));
   }
 
-  public senseText(senses: {
-    darkvision?: number;
-    blindsight?: number;
-    tremorsense?: number;
-    truesight?: number;
-  }): string {
-    const labels = {
-      darkvision: 'Scurovisione',
-      blindsight: 'Vista cieca',
-      tremorsense: 'Percezione tellurica',
-      truesight: 'Vista vera',
-    } as const;
-    return (['darkvision', 'blindsight', 'tremorsense', 'truesight'] as const)
-      .flatMap((sense) => (senses[sense] === undefined
-        ? []
-        : [`${labels[sense]} ${this.units.formatDistance(senses[sense])}`]))
-      .join(' · ');
+  public senseText(senses: SensesLike): string {
+    return formatSenses(senses, (feet) => this.units.formatDistance(feet));
   }
 
   public spellRangeText(range: string): string {
@@ -929,24 +886,13 @@ export class ActorSheetPage implements OnInit {
   }
 
   private messageFor(error: unknown): string {
-    if (error instanceof HttpErrorResponse && error.status === 404) {
-      return 'Attore non trovato.';
-    }
-    if (error instanceof HttpErrorResponse && error.status === 409) {
-      return 'La scheda è stata modificata altrove: ricarica la pagina.';
-    }
-    if (error instanceof HttpErrorResponse && error.status === 422) {
-      return this.serverMessage(error) ?? 'Operazione non valida.';
-    }
-    return 'Impossibile caricare la scheda.';
-  }
-
-  private serverMessage(error: HttpErrorResponse): string | null {
-    const body: unknown = error.error;
-    if (typeof body !== 'object' || body === null || !('error' in body)) {
-      return null;
-    }
-    const inner = (body as { error?: { message?: unknown } }).error;
-    return typeof inner?.message === 'string' ? inner.message : null;
+    return httpMessage(error, {
+      fallback: 'Impossibile caricare la scheda.',
+      byStatus: {
+        404: 'Attore non trovato.',
+        409: 'La scheda è stata modificata altrove: ricarica la pagina.',
+        422: serverMessage(error) ?? 'Operazione non valida.',
+      },
+    });
   }
 }

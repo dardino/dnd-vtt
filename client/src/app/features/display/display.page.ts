@@ -1,22 +1,11 @@
 import { Component, type OnDestroy, type OnInit, computed, inject, input, signal } from '@angular/core';
-import {
-  defaultTerrain,
-  type Condition,
-  type DisplayLayer,
-  type DisplayState,
-  type SceneState,
-  type TokenState,
-} from '@dnd-vtt/shared';
+import type { DisplayLayer, DisplayState } from '@dnd-vtt/shared';
 import { ProgramService } from '../../core/program.service';
-import {
-  SceneCanvasComponent,
-  type ActorPortraitThumb,
-  type SceneMapImage,
-} from '../scene/scene-canvas.component';
+import { DisplayLayerComponent } from './display-layer.component';
 
 @Component({
   selector: 'app-display-page',
-  imports: [SceneCanvasComponent],
+  imports: [DisplayLayerComponent],
   templateUrl: './display.page.html',
   styleUrl: './display.page.scss',
 })
@@ -36,67 +25,15 @@ export class DisplayPage implements OnInit, OnDestroy {
   public readonly overlays = computed<DisplayLayer[]>(() =>
     this.state()?.composition.overlays ?? []);
 
-  public readonly mapState = computed<SceneState | null>(() => {
-    const scene = this.base()?.scene;
-    if (scene === undefined) {
-      return null;
-    }
-    return {
-      grid: scene.grid,
-      fog: scene.fog,
-      terrain: defaultTerrain,
-      showDoorIcons: true,
-      tokens: scene.tokens.map((token): TokenState => ({
-        id: token.id,
-        label: token.label,
-        x: token.x,
-        y: token.y,
-        size: token.size,
-        rotation: token.rotation,
-        elevation: token.elevation,
-        hp: token.hp === undefined
-          ? { current: 1, max: 1, temp: 0 }
-          : { ...token.hp, temp: 0 },
-        conditions: token.conditions.map((name) => ({ name } as Condition)),
-        visible: true,
-      })),
-      loot: [],
-      drawings: [],
-      initiative: { active: false, round: 0, turnIndex: 0, entries: [] },
-    };
-  });
-
-  public readonly mapImage = computed<SceneMapImage | null>(() => {
-    const scene = this.base()?.scene;
-    if (scene === undefined || scene.imageUrl === null) {
-      return null;
-    }
-    return {
-      url: scene.imageUrl,
-      previewUrl: scene.imageUrl,
-      hash: scene.id,
-      width: scene.widthPx,
-      height: scene.heightPx,
-      tiled: false,
-    };
-  });
-
   public readonly tokenSummary = computed(() =>
     (this.state()?.composition.base.scene?.tokens ?? [])
       .map((token) => `${token.id}:${token.x},${token.y}`)
       .join('|'));
 
-  public readonly tokenPortraits = computed<Record<string, ActorPortraitThumb>>(() => {
-    const portraits: Record<string, ActorPortraitThumb> = {};
-    for (const token of this.base()?.scene?.tokens ?? []) {
-      if (token.imageUrl !== null && token.portrait !== null) {
-        portraits[token.id] = { url: token.imageUrl, ...token.portrait };
-      }
-    }
-    return portraits;
-  });
-
-  public readonly tokenPortraitCount = computed(() => Object.keys(this.tokenPortraits()).length);
+  public readonly tokenPortraitCount = computed(() =>
+    (this.base()?.scene?.tokens ?? [])
+      .filter((token) => token.imageUrl !== null && token.portrait !== null)
+      .length);
 
   public ngOnInit(): void {
     void this.load();
@@ -119,16 +56,6 @@ export class DisplayPage implements OnInit, OnDestroy {
     for (const timer of this.timers) {
       clearTimeout(timer);
     }
-  }
-
-  public frameStyle(layer: DisplayLayer): Record<string, string> {
-    return {
-      '--frame-x': String(layer.frame.x),
-      '--frame-y': String(layer.frame.y),
-      '--frame-width': String(layer.frame.width),
-      '--frame-height': String(layer.frame.height),
-      '--layer-opacity': String(layer.opacity),
-    };
   }
 
   public async toggleFullscreen(): Promise<void> {

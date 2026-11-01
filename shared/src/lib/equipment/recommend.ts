@@ -220,3 +220,15 @@ export const recommendEquipment = (
 
   return result;
 };
+
+/** Costo in rame dell'equipaggiamento scelto, con lookup sul catalogo. */
+export const equipmentCostCopper = (
+  equipment: readonly { itemId: string; quantity: number }[],
+  items: readonly SrdItem[],
+): number => {
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return equipment.reduce((total, entry) => {
+    const item = byId.get(entry.itemId);
+    return total + gpToCopper(item?.valueGp ?? 0) * entry.quantity;
+  }, 0);
+};

@@ -1,10 +1,10 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { putSceneStateSchema, updateSceneSchema } from '@dnd-vtt/shared';
 import { z } from 'zod';
-import { requireDm } from '../auth/auth.js';
+import { dmPreHandler } from '../http/guards.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import {
   patchScene,
   removeScene,
@@ -12,15 +12,11 @@ import {
   snapshotScene,
 } from '../scenes/service.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const snapshotQuerySchema = z.strictObject({ force: z.enum(['true', 'false']).optional() });
 
 export const sceneRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    app.addHook('preHandler', async (request) => {
-      requireDm(request, env);
-    });
+    app.addHook('preHandler', dmPreHandler(env));
 
     app.get('/scenes/:id', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);

@@ -27,7 +27,7 @@ import {
 } from '../db/action-log.repository.js';
 import { getCampaign } from '../db/campaigns.repository.js';
 import { getScene, getSceneState } from '../db/scenes.repository.js';
-import { scenes } from '../db/schema.js';
+import { actionLog, scenes } from '../db/schema.js';
 import { AppError, notFound } from '../errors.js';
 import { syncPcActorsFromState } from '../actors/token-sync.js';
 
@@ -147,6 +147,16 @@ export const applySceneAction = (
   const row = tx.select().from(scenes).where(eq(scenes.id, input.request.sceneId)).get();
   if (row === undefined || row.campaignId !== input.campaignId) {
     throw notFound('Scena non trovata');
+  }
+  const existingRef = tx.select({
+    campaignId: actionLog.campaignId,
+    sceneId: actionLog.sceneId,
+  }).from(actionLog).where(eq(actionLog.id, input.request.id)).get();
+  if (
+    existingRef !== undefined
+    && (existingRef.campaignId !== input.campaignId || existingRef.sceneId !== input.request.sceneId)
+  ) {
+    throw new AppError('action_stale', 409, 'Id azione già usato per un’altra scena');
   }
   const existing = findActionLogEntry(tx, input.request.id);
   if (existing !== null) {

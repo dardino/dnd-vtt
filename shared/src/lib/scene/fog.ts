@@ -1,39 +1,7 @@
 import type { FogOp, FogShape, FogState } from '../../schemas/scene.js';
+import { distanceToSegment, pointInPolygon, type PointLike } from './geometry.js';
 
-export interface FogPoint {
-  x: number;
-  y: number;
-}
-
-const pointInPolygon = (point: FogPoint, points: readonly FogPoint[]): boolean => {
-  let inside = false;
-  for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
-    const current = points[index];
-    const before = points[previous];
-    if (current === undefined || before === undefined) {
-      continue;
-    }
-    const intersects = (current.y > point.y) !== (before.y > point.y)
-      && point.x < ((before.x - current.x) * (point.y - current.y))
-      / (before.y - current.y === 0 ? Number.EPSILON : before.y - current.y)
-      + current.x;
-    if (intersects) {
-      inside = !inside;
-    }
-  }
-  return inside;
-};
-
-const distanceToSegment = (point: FogPoint, from: FogPoint, to: FogPoint): number => {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-  if (dx === 0 && dy === 0) {
-    return Math.hypot(point.x - from.x, point.y - from.y);
-  }
-  const t = Math.max(0, Math.min(1,
-    ((point.x - from.x) * dx + (point.y - from.y) * dy) / (dx * dx + dy * dy)));
-  return Math.hypot(point.x - (from.x + t * dx), point.y - (from.y + t * dy));
-};
+export type FogPoint = PointLike;
 
 const shapeContains = (shape: FogShape, point: FogPoint): boolean => {
   switch (shape.type) {

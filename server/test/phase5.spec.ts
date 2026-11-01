@@ -325,4 +325,36 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
     expect(allowed.statusCode).toBe(200);
     expect(allowed.json().sheet.actor.xp).toBe(6500);
   });
+
+  it('esporta e reimporta gli XP del personaggio in una nuova campagna', async () => {
+    const campaignId = await createCampaign(app);
+    const actor = await createPc(app, campaignId);
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/actors/${actor.id}`,
+      payload: { xp: 1234 },
+    });
+
+    const exported = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${campaignId}/export?includePrivateNotes=true`,
+    });
+    expect(exported.statusCode).toBe(200);
+    const bundle = exported.json();
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/v1/campaigns/import',
+      payload: bundle,
+    });
+    expect(imported.statusCode).toBe(201);
+    const importedCampaignId = imported.json<{ campaign: { id: string } }>().campaign.id;
+
+    const actors = await app.inject({
+      method: 'GET',
+      url: `/api/v1/actors?campaignId=${importedCampaignId}&limit=200`,
+    });
+    expect(actors.statusCode).toBe(200);
+    expect(actors.json().items.some((entry: { xp: number }) => entry.xp === 1234)).toBe(true);
+  });
 });

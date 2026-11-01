@@ -8,13 +8,13 @@ import {
   updateActorSchema,
 } from '@dnd-vtt/shared';
 import { z } from 'zod';
-import { requireDm } from '../auth/auth.js';
+import { dmPreHandler } from '../http/guards.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import { getCampaign } from '../db/campaigns.repository.js';
 import { getActor } from '../db/actors.repository.js';
 import { notFound } from '../errors.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import { pageParams, pageQuerySchema } from '../http/pagination.js';
 import {
   createActor,
@@ -29,7 +29,6 @@ import { restActors } from '../actors/rest-service.js';
 import { rollAbilityScores } from '../actors/roll-stats.js';
 import { broadcastDisplays } from '../realtime/hub.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const actorQuerySchema = pageQuerySchema.extend({
   kind: z.enum(['monster', 'npc', 'pc']).optional(),
   campaignId: z.string().uuid().optional(),
@@ -38,10 +37,7 @@ const actorQuerySchema = pageQuerySchema.extend({
 
 export const actorRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    app.addHook('preHandler', async (request) => {
-      requireDm(request, env);
-    });
+    app.addHook('preHandler', dmPreHandler(env));
 
     const broadcastActor = (actorId: string): void => {
       const actor = getActor(db, actorId);

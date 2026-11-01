@@ -5,10 +5,9 @@ import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import { getCampaign } from '../db/campaigns.repository.js';
 import { notFound } from '../errors.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import { parseMonsterText } from './parse.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const parseSchema = z.strictObject({ text: z.string().trim().min(1).max(20000) });
 const chatSchema = z.strictObject({ message: z.string().trim().min(1).max(4000) });
 

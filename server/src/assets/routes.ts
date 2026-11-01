@@ -1,21 +1,15 @@
 import type { FastifyPluginCallback } from 'fastify';
-import { z } from 'zod';
-import { requireDm } from '../auth/auth.js';
+import { dmPreHandler } from '../http/guards.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import { deleteAsset, getAsset } from '../db/assets.repository.js';
 import { AppError, notFound } from '../errors.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import { assetInUse, storeAsset } from './service.js';
-
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 
 export const assetRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    app.addHook('preHandler', async (request) => {
-      requireDm(request, env);
-    });
+    app.addHook('preHandler', dmPreHandler(env));
 
     app.post('/assets', async (request, reply) => {
       if (!request.isMultipart()) {

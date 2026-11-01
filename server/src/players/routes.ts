@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import {
   activePlayerLink,
   createPlayerLink,
@@ -13,7 +13,6 @@ import {
   setPlayerEditing,
 } from './service.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const tokenParamsSchema = z.strictObject({ token: z.string().min(1).max(200) });
 const editingSchema = z.strictObject({ editingEnabled: z.boolean() });
 

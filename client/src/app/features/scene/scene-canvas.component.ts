@@ -17,6 +17,8 @@ import {
   HEX_ROW_RATIO,
   TILE_SIZE_PX,
   cellCenterPx,
+  newId,
+  pointInPolygon,
   latticePointPx,
   gridDrawingWidth,
   lastReachableCell,
@@ -464,7 +466,6 @@ export class SceneCanvasComponent implements OnDestroy {
     }
     this.renderTokens();
     this.renderMeasure();
-    this.renderDoors();
     this.scheduleTiles();
     if (this.viewport() !== null) {
       this.applyViewportOrFit();
@@ -846,31 +847,33 @@ export class SceneCanvasComponent implements OnDestroy {
       context.fillStyle = '#000';
       context.fillRect(0, 0, canvas.width, canvas.height);
     } else if (fog.override === 'none') {
-      if (vision !== null) {
+      // La base "rivelata" vince sulla visione automatica: la visione serve a
+      // nascondere il non visto solo quando la fog parte coperta. In questo
+      // modo le operazioni manuali di reveal/hide restano sempre applicabili.
+      if (fog.base === 'hidden') {
         context.fillStyle = '#000';
         context.fillRect(0, 0, canvas.width, canvas.height);
-        context.globalCompositeOperation = 'destination-out';
-        const cell = grid.cellSizePx * scale;
-        for (let row = 0; row < vision.rows; row += 1) {
-          for (let column = 0; column < vision.cols; column += 1) {
-            const level = vision.levels[row * vision.cols + column] ?? 0;
-            if (level === 0) {
-              continue;
+        if (vision !== null) {
+          context.globalCompositeOperation = 'destination-out';
+          const cell = grid.cellSizePx * scale;
+          for (let row = 0; row < vision.rows; row += 1) {
+            for (let column = 0; column < vision.cols; column += 1) {
+              const level = vision.levels[row * vision.cols + column] ?? 0;
+              if (level === 0) {
+                continue;
+              }
+              context.globalAlpha = level === 2 ? 1 : 0.5;
+              context.fillRect(
+                grid.offsetX * scale + column * cell,
+                grid.offsetY * scale + row * cell,
+                cell + 0.5,
+                cell + 0.5,
+              );
             }
-            context.globalAlpha = level === 2 ? 1 : 0.5;
-            context.fillRect(
-              grid.offsetX * scale + column * cell,
-              grid.offsetY * scale + row * cell,
-              cell + 0.5,
-              cell + 0.5,
-            );
           }
+          context.globalAlpha = 1;
+          context.globalCompositeOperation = 'source-over';
         }
-        context.globalAlpha = 1;
-        context.globalCompositeOperation = 'source-over';
-      } else if (fog.base === 'hidden') {
-        context.fillStyle = '#000';
-        context.fillRect(0, 0, canvas.width, canvas.height);
       }
     }
     if (!drawVision || fog.override === 'none') {
@@ -1335,7 +1338,7 @@ export class SceneCanvasComponent implements OnDestroy {
     if (this.drawingDraft !== null) {
       if (this.drawingDraft.length >= 2) {
         this.drawingAdded.emit({
-          id: crypto.randomUUID(),
+          id: newId(),
           points: this.drawingDraft,
           color: this.colors().accent,
           width: this.drawingWidth(),
@@ -1397,7 +1400,7 @@ export class SceneCanvasComponent implements OnDestroy {
     this.renderDraftPreview();
     if (shape !== null) {
       this.fogApplied.emit({
-        id: crypto.randomUUID(),
+        id: newId(),
         op: this.tool() === 'fog-hide' ? 'hide' : 'reveal',
         shape,
         softness: this.fogSnap() ? 0 : Math.max(0, this.fogSoftness()),
@@ -1488,7 +1491,7 @@ export class SceneCanvasComponent implements OnDestroy {
     this.renderDraftPreview();
     const cells = this.fogSnap() ? this.cellsInPolygon(points) : [];
     this.fogApplied.emit({
-      id: crypto.randomUUID(),
+      id: newId(),
       op: this.tool() === 'fog-hide' ? 'hide' : 'reveal',
       shape: cells.length > 0
         ? { type: 'cells', cells }
@@ -1617,23 +1620,3 @@ export class SceneCanvasComponent implements OnDestroy {
     };
   }
 }
-
-const pointInPolygon = (
-  point: { x: number; y: number },
-  polygon: Array<{ x: number; y: number }>,
-): boolean => {
-  let inside = false;
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
-    const a = polygon[index];
-    const b = polygon[previous];
-    if (a === undefined || b === undefined) {
-      continue;
-    }
-    const intersects = (a.y > point.y) !== (b.y > point.y)
-      && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
-    if (intersects) {
-      inside = !inside;
-    }
-  }
-  return inside;
-};

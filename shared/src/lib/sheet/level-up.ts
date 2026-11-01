@@ -6,6 +6,8 @@ import type {
 } from '../../schemas/sheet.js';
 import type { SrdCatalog, SrdClass, SrdFeat } from '../../schemas/srd.js';
 import { abilityModifier } from './abilities.js';
+import { hpMaxFor } from './hp.js';
+import { averageHpGain } from './progression.js';
 
 export interface PcLevelUpInput {
   hpMethod: 'average' | 'roll';
@@ -30,8 +32,6 @@ export interface PcLevelUpResult {
   preview: PcLevelUpPreview;
 }
 
-const hitDieAverage = (die: number): number => Math.floor(die / 2) + 1;
-
 const feature = (
   id: string,
   name: string,
@@ -51,17 +51,6 @@ const characterClassOf = (catalog: SrdCatalog, statblock: PcStatblock): SrdClass
 
 const speciesBonus = (catalog: SrdCatalog, statblock: PcStatblock): number =>
   catalog.species.find((entry) => entry.id === statblock.species.id)?.hpPerLevelBonus ?? 0;
-
-const hpMaxFrom = (
-  characterClass: SrdClass,
-  hpRolls: readonly number[],
-  abilities: PcStatblock['abilities'],
-  bonus: number,
-): number => {
-  const conMod = abilityModifier(abilities.con);
-  const first = Math.max(1, characterClass.hitDie + conMod + bonus);
-  return hpRolls.reduce((total, roll) => total + Math.max(1, roll + conMod + bonus), first);
-};
 
 const classFeatures = (
   characterClass: SrdClass,
@@ -191,13 +180,17 @@ export const levelUpPcStatblock = (
   const die = characterClass.hitDie;
   const hpRoll = input.hpMethod === 'roll'
     ? input.hpRoll
-    : hitDieAverage(die);
+    : averageHpGain(die);
   if (hpRoll === undefined || !Number.isInteger(hpRoll) || hpRoll < 1 || hpRoll > die) {
     throw new Error(`il tiro di punti ferita deve essere fra 1 e ${die}`);
   }
   const hpRolls = [...statblock.hpRolls, hpRoll];
-  const bonus = speciesBonus(catalog, statblock);
-  const hpMax = hpMaxFrom(characterClass, hpRolls, abilities, bonus);
+  const hpMax = hpMaxFor({
+    hitDie: die,
+    hpRolls,
+    conModifier: abilityModifier(abilities.con),
+    speciesBonus: speciesBonus(catalog, statblock),
+  });
   const hpGain = hpMax - statblock.hp.max;
   const hpCurrent = statblock.hp.current <= 0
     ? 0

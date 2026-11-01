@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { DestroyRef, inject } from '@angular/core';
-import type { ActionLogEntry, ActionRequest, AppliedAction, GameAction } from '@dnd-vtt/shared';
+import { newId, type ActionLogEntry, type ActionRequest, type AppliedAction, type GameAction } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
 import { SceneStore } from './scene.store';
@@ -25,8 +25,7 @@ const initialState: ActionStoreState = {
   history: [],
 };
 
-const newClientId = (): string =>
-  typeof crypto === 'undefined' ? `client-${Date.now()}` : crypto.randomUUID();
+const newClientId = (): string => newId();
 
 /**
  * Invia le azioni di scena, applica l'aggiornamento ottimistico e si
@@ -40,8 +39,9 @@ export const ActionStore = signalStore(
     const http = inject(HttpClient);
     const scene = inject(SceneStore);
     const destroyRef = inject(DestroyRef);
-    const seen = new Set<string>();
+    const seen = new Map<string, number>();
     let timer: ReturnType<typeof setInterval> | null = null;
+    let syncing = false;
     let channel: BroadcastChannel | null = null;
     let activeCampaign: string | null = null;
     let activeScene: string | null = null;
@@ -99,14 +99,25 @@ export const ActionStore = signalStore(
       }
     };
 
+    const pruneSeen = (): void => {
+      const cutoff = Date.now() - 60_000;
+      for (const [id, at] of seen) {
+        if (at < cutoff) {
+          seen.delete(id);
+        }
+      }
+    };
+
     const syncNow = async (): Promise<void> => {
-      if (activeCampaign === null || activeScene === null) {
+      if (syncing || activeCampaign === null || activeScene === null) {
         return;
       }
       const snapshot = scene.snapshot();
       if (snapshot === null || snapshot.scene.id !== activeScene) {
         return;
       }
+      syncing = true;
+      pruneSeen();
       const campaignId = activeCampaign;
       try {
         const response = await firstValueFrom(
@@ -147,6 +158,8 @@ export const ActionStore = signalStore(
           status: 'offline',
           error: messageFor(error),
         });
+      } finally {
+        syncing = false;
       }
     };
 
@@ -183,8 +196,8 @@ export const ActionStore = signalStore(
         if (campaignId === null) {
           return null;
         }
-        const id = crypto.randomUUID();
-        seen.add(id);
+        const id = newId();
+        seen.set(id, Date.now());
         try {
           scene.applyOptimistic(action);
         } catch (error) {

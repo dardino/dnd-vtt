@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -13,6 +12,8 @@ import {
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
+  newId,
+  sizeCells,
   type Actor,
   type AmbientLight,
   type GridConfig,
@@ -26,6 +27,7 @@ import {
   type WallKind,
   type WallSegment,
 } from '@dnd-vtt/shared';
+import { httpMessage } from '../../core/http-error';
 import { ActorService } from '../../core/actor.service';
 import { AssetService } from '../../core/asset.service';
 import { MapService } from '../../core/map.service';
@@ -39,15 +41,6 @@ import {
   type EditorTool,
   type WallsDrawnEvent,
 } from './map-editor-canvas.component';
-
-const SRD_SIZE_CELLS: Record<string, number> = {
-  tiny: 1,
-  small: 1,
-  medium: 1,
-  large: 2,
-  huge: 3,
-  gargantuan: 4,
-};
 
 const TOOL_LABELS: Array<{ tool: EditorTool; label: string; hint: string }> = [
   { tool: 'select', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
@@ -87,6 +80,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly doc = signal<MapDocument | null>(null);
   public readonly version = signal(1);
   public readonly dirty = signal(false);
+  public readonly leaveConfirm = signal(false);
   public readonly image = signal<EditorMapImage | null>(null);
   public readonly tool = signal<EditorTool>('select');
   public readonly selected = signal<EditorSelection | null>(null);
@@ -102,6 +96,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
   private unloadHandler = (event: BeforeUnloadEvent): void => {
     if (this.dirty()) {
       event.preventDefault();
+      event.returnValue = '';
     }
   };
 
@@ -249,7 +244,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
         }
         doc.terrain.walls.push({
           ...wall,
-          id: wall.id || crypto.randomUUID(),
+          id: wall.id || newId(),
           ...(wall.kind === 'door' ? { door: wall.door ?? 'closed' } : {}),
         });
       }
@@ -270,7 +265,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const light: Light = {
-      id: crypto.randomUUID(),
+      id: newId(),
       x: cell.x,
       y: cell.y,
       brightFeet: 20,
@@ -292,7 +287,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const start: PlayerStart = {
-      id: crypto.randomUUID(),
+      id: newId(),
       x: cell.x,
       y: cell.y,
       label: `PG ${(this.doc()?.playerStarts.length ?? 0) + 1}`,
@@ -319,13 +314,13 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const spawn: MapSpawn = {
-      id: crypto.randomUUID(),
+      id: newId(),
       kind: 'monster',
       x: cell.x,
       y: cell.y,
       source: { type: 'srd', monsterId: monster.id },
       label: monster.name,
-      size: SRD_SIZE_CELLS[monster.size] ?? 1,
+      size: sizeCells(monster.size),
       hidden: false,
       quantity: 1,
     };
@@ -343,13 +338,13 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const spawn: MapSpawn = {
-      id: crypto.randomUUID(),
+      id: newId(),
       kind: actor.kind === 'pc' ? 'npc' : actor.kind,
       x: cell.x,
       y: cell.y,
       source: { type: 'actor', actorId: actor.id },
       label: actor.name,
-      size: SRD_SIZE_CELLS[actor.statblock.size] ?? 1,
+      size: sizeCells(actor.statblock.size),
       hidden: false,
       quantity: 1,
     };
@@ -433,11 +428,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const target = event.target as HTMLInputElement | HTMLSelectElement;
-    const value = target.type === 'checkbox'
-      ? target.checked
-      : target.type === 'number'
-        ? Number(target.value)
-        : target.value;
+    const value = this.fieldValue(target);
     this.updateDoc((doc) => {
       const entry = doc.terrain.lights.find((item) => item.id === light.id);
       if (entry !== undefined) {
@@ -452,11 +443,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const target = event.target as HTMLInputElement | HTMLSelectElement;
-    const value = target.type === 'checkbox'
-      ? target.checked
-      : target.type === 'number'
-        ? Number(target.value)
-        : target.value;
+    const value = this.fieldValue(target);
     this.updateDoc((doc) => {
       const entry = doc.spawns.find((item) => item.id === spawn.id);
       if (entry !== undefined) {
@@ -488,7 +475,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   public updateGridField(field: keyof GridConfig, event: Event): void {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
-    const value = target.type === 'number' ? Number(target.value) : target.value;
+    const value = this.fieldValue(target);
     this.updateDoc((doc) => {
       Object.assign(doc.grid, { [field]: value });
       const maxSight = Math.max(
@@ -501,11 +488,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   public updateTerrainField(field: keyof Terrain | 'showDoorIcons', event: Event): void {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
-    const value = target.type === 'checkbox'
-      ? target.checked
-      : target.type === 'number'
-        ? Number(target.value)
-        : target.value;
+    const value = this.fieldValue(target);
     this.updateDoc((doc) => {
       if (field === 'showDoorIcons') {
         doc.showDoorIcons = Boolean(value);
@@ -625,9 +608,19 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public async back(): Promise<void> {
-    if (this.dirty() && !window.confirm('Ci sono modifiche non salvate. Uscire comunque?')) {
+    if (this.dirty()) {
+      this.leaveConfirm.set(true);
       return;
     }
+    await this.router.navigate(['/maps']);
+  }
+
+  public cancelLeave(): void {
+    this.leaveConfirm.set(false);
+  }
+
+  public async confirmLeave(): Promise<void> {
+    this.leaveConfirm.set(false);
     await this.router.navigate(['/maps']);
   }
 
@@ -655,6 +648,20 @@ export class MapEditorPage implements OnInit, OnDestroy {
     this.history.push(doc);
     this.doc.set(next);
     this.dirty.set(true);
+  }
+
+  private fieldValue(
+    target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
+    fallback = 0,
+  ): string | number | boolean {
+    if (target.type === 'checkbox' && target instanceof HTMLInputElement) {
+      return target.checked;
+    }
+    if (target.type === 'number') {
+      const value = Number(target.value);
+      return Number.isFinite(value) ? value : fallback;
+    }
+    return target.value;
   }
 
   private inBounds(cell: { x: number; y: number }): boolean {
@@ -699,13 +706,11 @@ const toDocument = (map: Map): MapDocument => ({
   notes: map.notes,
 });
 
-const messageFor = (error: unknown): string => {
-  if (error instanceof HttpErrorResponse) {
-    if (error.status === 401 || error.status === 403) {
-      return 'Serve la password DM: accedi dalla console.';
-    }
-    return (error.error as { error?: { message?: string } } | null)?.error?.message
-      ?? 'Operazione non riuscita.';
-  }
-  return 'Operazione non riuscita.';
-};
+const messageFor = (error: unknown): string => httpMessage(error, {
+  fallback: 'Operazione non riuscita.',
+  useServerMessage: true,
+  byStatus: {
+    401: 'Serve la password DM: accedi dalla console.',
+    403: 'Serve la password DM: accedi dalla console.',
+  },
+});

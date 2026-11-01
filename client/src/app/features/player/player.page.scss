@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: block;
   min-height: 100dvh;
@@ -70,12 +72,9 @@
 }
 
 .player__panel {
-  display: grid;
-  gap: var(--space-2);
+  @include mx.surface(var(--radius-lg));
+  @include mx.stack(var(--space-2));
   padding: var(--space-3);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-bg-raised);
 
   h2 {
     font-size: var(--text-lg);
@@ -84,20 +83,13 @@
   textarea,
   input,
   select {
-    width: 100%;
-    padding: var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-md);
+    @include mx.control(var(--radius-md));
     background: var(--color-bg);
   }
 
   button {
-    min-height: var(--control-height);
-    padding: 0 var(--space-3);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-md);
+    @include mx.button-base(var(--radius-md));
     background: var(--color-bg);
-    color: var(--color-text);
   }
 }
 
@@ -116,11 +108,10 @@
   gap: var(--space-2);
 
   article {
+    @include mx.bordered(var(--radius-md), transparent);
     display: grid;
     justify-items: center;
     padding: var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-md);
   }
 
   strong {

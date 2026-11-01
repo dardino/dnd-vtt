@@ -11,6 +11,7 @@ import {
   type SrdMonster,
 } from '@dnd-vtt/shared';
 import { ActorService } from '../../core/actor.service';
+import { ABILITY_LABELS, SIZE_LABELS } from '../../core/labels';
 import { MeasurementService } from '../../core/measurement.service';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
 
@@ -24,15 +25,6 @@ interface FeatureDraft {
 }
 
 const STEPS = ['Tipo', 'SRD', 'Caratteristiche', 'Sensi', 'Tratti', 'Riepilogo'] as const;
-
-const SIZE_LABELS: Record<Size, string> = {
-  tiny: 'Minuscola',
-  small: 'Piccola',
-  medium: 'Media',
-  large: 'Grande',
-  huge: 'Enorme',
-  gargantuan: 'Mastodontica',
-};
 
 @Component({
   selector: 'app-actor-wizard',
@@ -53,14 +45,7 @@ export class ActorWizardPage implements OnInit {
   public readonly sizes = Object.keys(SIZE_LABELS) as Size[];
   public readonly sizeLabels = SIZE_LABELS;
   public readonly abilityKeys: readonly Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
-  public readonly abilityLabels: Record<Ability, string> = {
-    str: 'Forza',
-    dex: 'Destrezza',
-    con: 'Costituzione',
-    int: 'Intelligenza',
-    wis: 'Saggezza',
-    cha: 'Carisma',
-  };
+  public readonly abilityLabels = ABILITY_LABELS;
 
   public readonly featureGroups = [
     { key: 'traits' as const, label: 'Tratti' },
@@ -81,7 +66,7 @@ export class ActorWizardPage implements OnInit {
   public readonly ac = signal(10);
   public readonly speed = signal(30);
   public readonly senses = signal({ darkvision: 0, blindsight: 0, tremorsense: 0, truesight: 0 });
-  public readonly languages = signal('Common');
+  public readonly languages = signal('Comune');
   public readonly traits = signal<FeatureDraft[]>([]);
   public readonly actions = signal<FeatureDraft[]>([]);
   public readonly reactions = signal<FeatureDraft[]>([]);

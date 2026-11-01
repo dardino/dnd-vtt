@@ -13,13 +13,22 @@ export const exportAssetSchema = z.strictObject({
 });
 export type ExportAsset = z.infer<typeof exportAssetSchema>;
 
+/**
+ * `playerNotes` entra nel bundle solo quando il DM lo richiede esplicitamente
+ * (D31); il campo resta opzionale per i backup creati senza note private.
+ */
+export const exportActorSchema = actorSchema.extend({
+  playerNotes: z.string().nullable().optional(),
+});
+export type ExportActor = z.infer<typeof exportActorSchema>;
+
 export const campaignExportSchema = z.strictObject({
   schemaVersion: z.literal(1),
   exportedAt: z.string().datetime(),
   campaign: campaignSchema,
   maps: z.array(mapSchema),
   scenes: z.array(z.strictObject({ scene: sceneSchema, state: sceneStateSchema })),
-  actors: z.array(actorSchema),
+  actors: z.array(exportActorSchema),
   program: programStateSchema.nullable(),
   assets: z.array(exportAssetSchema),
   sessions: z.array(sessionSchema),

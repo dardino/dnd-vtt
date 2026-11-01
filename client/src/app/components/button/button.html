@@ -6,6 +6,9 @@
   [type]="type()"
   [disabled]="disabled()"
   [attr.aria-label]="ariaLabel()"
+  [attr.aria-pressed]="ariaPressed()"
+  [attr.aria-expanded]="ariaExpanded()"
+  [attr.aria-controls]="ariaControls()"
   (click)="pressed.emit($event)"
 >
   <ng-content />

@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   campaignExportSchema,
-  type Actor,
   type CampaignExport,
   type CreateCampaign,
   type ImportResult,
@@ -21,10 +20,12 @@ import { getProgramRow, insertProgram } from '../db/programs.repository.js';
 import { insertScene } from '../db/scenes.repository.js';
 import { getAsset } from '../db/assets.repository.js';
 import { insertMap } from '../db/maps.repository.js';
-import { toMap } from '../db/mappers.js';
+import { toActor, toMap } from '../db/mappers.js';
 import { listSessions } from '../db/sessions.repository.js';
 import { actors, maps, scenes, sessions } from '../db/schema.js';
 import { notFound } from '../errors.js';
+
+const REFERENCE_KEYS = new Set(['actorId', 'sceneId', 'assetId', 'imageAssetId', 'mapId']);
 
 const refs = (value: unknown): Set<string> => {
   const ids = new Set<string>();
@@ -40,10 +41,7 @@ const refs = (value: unknown): Set<string> => {
     return ids;
   }
   for (const [key, entry] of Object.entries(value)) {
-    if (
-      (key === 'actorId' || key === 'sceneId' || key === 'assetId' || key === 'imageAssetId')
-      && typeof entry === 'string'
-    ) {
+    if (REFERENCE_KEYS.has(key) && typeof entry === 'string') {
       ids.add(entry);
     } else {
       for (const id of refs(entry)) {
@@ -54,16 +52,21 @@ const refs = (value: unknown): Set<string> => {
   return ids;
 };
 
-const remapUnknown = (value: unknown, map: Map<string, string>): unknown => {
+/**
+ * Rimappa solo i campi che sono riferimenti per nome (`actorId`, `sceneId`,
+ * …). Le stringhe libere (label, note) non vengono toccate anche se per caso
+ * coincidono con un vecchio UUID.
+ */
+const remapUnknown = (value: unknown, map: Map<string, string>, key?: string): unknown => {
   if (typeof value === 'string') {
-    return map.get(value) ?? value;
+    return key !== undefined && REFERENCE_KEYS.has(key) ? map.get(value) ?? value : value;
   }
   if (Array.isArray(value)) {
     return value.map((entry) => remapUnknown(entry, map));
   }
   if (typeof value === 'object' && value !== null) {
     return Object.fromEntries(
-      Object.entries(value).map(([key, entry]) => [key, remapUnknown(entry, map)]),
+      Object.entries(value).map(([childKey, entry]) => [childKey, remapUnknown(entry, map, childKey)]),
     );
   }
   return value;
@@ -76,6 +79,7 @@ export const exportCampaign = async (
   env: AppEnv,
   db: AppDatabase,
   campaignId: string,
+  includePrivateNotes = false,
 ): Promise<CampaignExport> => {
   const campaign = getCampaign(db, campaignId);
   if (campaign === null) {
@@ -101,25 +105,9 @@ export const exportCampaign = async (
     },
     state: JSON.parse(row.state) as SceneState,
   }));
-  const bundleActors: Actor[] = actorRows.map((row) => ({
-    id: row.id,
-    campaignId: row.campaignId,
-    kind: row.kind,
-    name: row.name,
-    statblock: JSON.parse(row.statblock) as Actor['statblock'],
-    rulesVersion: row.rulesVersion,
-    xp: row.xp,
-    sheetVersion: row.sheetVersion,
-    dmNotes: row.dmNotes,
-    imageAssetId: row.imageAssetId,
-    portrait: row.portrait === null
-      ? null
-      : JSON.parse(row.portrait) as Actor['portrait'],
-    hp: row.hpCurrent === null || row.hpMax === null
-      ? null
-      : { current: row.hpCurrent, max: row.hpMax, temp: row.hpTemp ?? 0 },
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
+  const bundleActors: CampaignExport['actors'] = actorRows.map((row) => ({
+    ...toActor(row),
+    ...(includePrivateNotes ? { playerNotes: row.playerNotes } : {}),
   }));
   const ids = new Set<string>();
   for (const map of bundleMaps) {
@@ -193,113 +181,120 @@ export const importCampaign = async (
     fogDefault: bundle.campaign.fogDefault,
     advancementMode: bundle.campaign.advancementMode,
   };
-  const created = insertCampaign(db, campaignInput);
-  const sceneMap = new Map<string, string>();
-  const actorMap = new Map<string, string>();
-  const mapMap = new Map<string, string>();
 
-  for (const actor of bundle.actors) {
-    const imageAssetId = actor.imageAssetId === null ? undefined : assetMap.get(actor.imageAssetId);
-    if (actor.statblock.kind === 'pc') {
-      const createdActor = insertPcActor(db, {
-        name: actor.name,
-        campaignId: created.id,
-        statblock: actor.statblock,
-        playerNotes: null,
-        dmNotes: actor.dmNotes,
-      });
-      actorMap.set(actor.id, createdActor.id);
-      if (imageAssetId !== undefined || actor.portrait !== null) {
-        db.update(actors)
-          .set({
-            ...(imageAssetId === undefined ? {} : { imageAssetId }),
-            ...(actor.portrait === null ? {} : { portrait: JSON.stringify(actor.portrait) }),
-          })
-          .where(eq(actors.id, createdActor.id))
-          .run();
+  // Tutte le scritture del bundle avvengono in un'unica transazione: un errore
+  // a metà import non lascia una campagna parziale. Gli asset sono già stati
+  // scritti su disco prima, perché `storeAsset` usa sharp in modo asincrono.
+  return db.transaction((tx) => {
+    const created = insertCampaign(tx, campaignInput);
+    const sceneMap = new Map<string, string>();
+    const actorMap = new Map<string, string>();
+    const mapMap = new Map<string, string>();
+
+    for (const actor of bundle.actors) {
+      const imageAssetId = actor.imageAssetId === null ? undefined : assetMap.get(actor.imageAssetId);
+      if (actor.statblock.kind === 'pc') {
+        const createdActor = insertPcActor(tx, {
+          name: actor.name,
+          campaignId: created.id,
+          statblock: actor.statblock,
+          playerNotes: actor.playerNotes ?? null,
+          dmNotes: actor.dmNotes,
+          xp: actor.xp,
+        });
+        actorMap.set(actor.id, createdActor.id);
+        if (imageAssetId !== undefined || actor.portrait !== null) {
+          tx.update(actors)
+            .set({
+              ...(imageAssetId === undefined ? {} : { imageAssetId }),
+              ...(actor.portrait === null ? {} : { portrait: JSON.stringify(actor.portrait) }),
+            })
+            .where(eq(actors.id, createdActor.id))
+            .run();
+        }
+      } else {
+        const createdActor = insertActor(tx, {
+          campaignId: created.id,
+          kind: actor.kind === 'pc' ? 'npc' : actor.kind,
+          name: actor.name,
+          statblock: actor.statblock,
+          ...(actor.rulesVersion === null ? {} : { rulesVersion: actor.rulesVersion }),
+          xp: actor.xp,
+          ...(actor.dmNotes === null ? {} : { dmNotes: actor.dmNotes }),
+          ...(imageAssetId === undefined ? {} : { imageAssetId }),
+          ...(actor.portrait === null ? {} : { portrait: actor.portrait }),
+        });
+        actorMap.set(actor.id, createdActor.id);
       }
-    } else {
-      const createdActor = insertActor(db, {
-        campaignId: created.id,
-        kind: actor.kind === 'pc' ? 'npc' : actor.kind,
-        name: actor.name,
-        statblock: actor.statblock,
-        ...(actor.rulesVersion === null ? {} : { rulesVersion: actor.rulesVersion }),
-        xp: actor.xp,
-        ...(actor.dmNotes === null ? {} : { dmNotes: actor.dmNotes }),
-        ...(imageAssetId === undefined ? {} : { imageAssetId }),
-        ...(actor.portrait === null ? {} : { portrait: actor.portrait }),
-      });
-      actorMap.set(actor.id, createdActor.id);
     }
-  }
 
-  for (const map of bundle.maps) {
-    const document: MapDocument = {
-      name: map.name,
-      imageAssetId: map.imageAssetId === null
-        ? null
-        : assetMap.get(map.imageAssetId) ?? null,
-      widthPx: map.widthPx,
-      heightPx: map.heightPx,
-      grid: map.grid,
-      terrain: map.terrain,
-      spawns: remap(map.spawns, new Map([...actorMap, ...assetMap])),
-      playerStarts: map.playerStarts,
-      ...(map.startView === undefined ? {} : { startView: map.startView }),
-      fogBase: map.fogBase,
-      showDoorIcons: map.showDoorIcons,
-      notes: map.notes,
+    for (const map of bundle.maps) {
+      const document: MapDocument = {
+        name: map.name,
+        imageAssetId: map.imageAssetId === null
+          ? null
+          : assetMap.get(map.imageAssetId) ?? null,
+        widthPx: map.widthPx,
+        heightPx: map.heightPx,
+        grid: map.grid,
+        terrain: map.terrain,
+        spawns: remap(map.spawns, new Map([...actorMap, ...assetMap])),
+        playerStarts: map.playerStarts,
+        ...(map.startView === undefined ? {} : { startView: map.startView }),
+        fogBase: map.fogBase,
+        showDoorIcons: map.showDoorIcons,
+        notes: map.notes,
+      };
+      const createdMap = insertMap(tx, created.id, document);
+      mapMap.set(map.id, createdMap.id);
+    }
+
+    for (const entry of bundle.scenes) {
+      const scene = insertScene(tx, created.id, {
+        name: entry.scene.name,
+        widthPx: entry.scene.widthPx,
+        heightPx: entry.scene.heightPx,
+        ...(entry.scene.imageAssetId === null || assetMap.get(entry.scene.imageAssetId) === undefined
+          ? {}
+          : { imageAssetId: assetMap.get(entry.scene.imageAssetId) }),
+        ...(entry.scene.mapId === null || entry.scene.mapId === undefined
+          ? {}
+          : { mapId: mapMap.get(entry.scene.mapId) }),
+      }, remap(entry.state, new Map([...actorMap, ...assetMap, ...mapMap])));
+      sceneMap.set(entry.scene.id, scene.id);
+    }
+
+    if (bundle.program !== null) {
+      const remapped = remap(bundle.program, new Map([...sceneMap, ...actorMap, ...assetMap]));
+      insertProgram(tx, created.id, remapped);
+    }
+
+    for (const session of bundle.sessions) {
+      tx.insert(sessions).values({
+        id: uuidv7(),
+        campaignId: created.id,
+        number: session.number,
+        startedAt: session.startedAt,
+        endedAt: session.endedAt,
+        durationSeconds: session.durationSeconds,
+        notes: session.notes,
+      }).run();
+    }
+
+    const activeSceneId = bundle.campaign.activeSceneId === null
+      ? null
+      : sceneMap.get(bundle.campaign.activeSceneId) ?? null;
+    const campaign = updateCampaign(tx, created.id, {
+      activeSceneId,
+      autoApprove: bundle.campaign.autoApprove,
+    });
+    return {
+      campaign: campaign ?? created,
+      imported: {
+        scenes: sceneMap.size,
+        actors: actorMap.size,
+        assets: importedAssets,
+      },
     };
-    const createdMap = insertMap(db, created.id, document);
-    mapMap.set(map.id, createdMap.id);
-  }
-
-  for (const entry of bundle.scenes) {
-    const scene = insertScene(db, created.id, {
-      name: entry.scene.name,
-      widthPx: entry.scene.widthPx,
-      heightPx: entry.scene.heightPx,
-      ...(entry.scene.imageAssetId === null || assetMap.get(entry.scene.imageAssetId) === undefined
-        ? {}
-        : { imageAssetId: assetMap.get(entry.scene.imageAssetId) }),
-      ...(entry.scene.mapId === null || entry.scene.mapId === undefined
-        ? {}
-        : { mapId: mapMap.get(entry.scene.mapId) }),
-    }, remap(entry.state, new Map([...actorMap, ...assetMap, ...mapMap])));
-    sceneMap.set(entry.scene.id, scene.id);
-  }
-
-  if (bundle.program !== null) {
-    const remapped = remap(bundle.program, new Map([...sceneMap, ...actorMap, ...assetMap]));
-    insertProgram(db, created.id, remapped);
-  }
-
-  for (const session of bundle.sessions) {
-    db.insert(sessions).values({
-      id: uuidv7(),
-      campaignId: created.id,
-      number: session.number,
-      startedAt: session.startedAt,
-      endedAt: session.endedAt,
-      durationSeconds: session.durationSeconds,
-      notes: session.notes,
-    }).run();
-  }
-
-  const activeSceneId = bundle.campaign.activeSceneId === null
-    ? null
-    : sceneMap.get(bundle.campaign.activeSceneId) ?? null;
-  const campaign = updateCampaign(db, created.id, {
-    activeSceneId,
-    autoApprove: bundle.campaign.autoApprove,
   });
-  return {
-    campaign: campaign ?? created,
-    imported: {
-      scenes: sceneMap.size,
-      actors: actorMap.size,
-      assets: importedAssets,
-    },
-  };
 };

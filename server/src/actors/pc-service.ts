@@ -50,7 +50,11 @@ export const createPc = (db: AppDatabase, campaignId: string, input: CreatePc): 
       throw new AppError('invalid_build', 422, 'I punteggi non corrispondono al tiro del server');
     }
   }
-  const statblock = buildPcStatblock({ build: input.build, catalog });
+  const statblock = buildPcStatblock({
+    build: input.build,
+    catalog,
+    alignment: input.alignment,
+  });
   return db.transaction((tx) => insertPcActor(tx, {
     name: input.name,
     campaignId,

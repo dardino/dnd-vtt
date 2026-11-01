@@ -4,11 +4,10 @@ import {
   createSceneSchema,
   updateCampaignSchema,
 } from '@dnd-vtt/shared';
-import { z } from 'zod';
 import type { AppEnv } from '../config/env.js';
-import { requireDm } from '../auth/auth.js';
+import { dmPreHandler } from '../http/guards.js';
 import type { AppDatabase } from '../db/client.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import { pageParams, pageQuerySchema } from '../http/pagination.js';
 import {
   createCampaign,
@@ -19,14 +18,9 @@ import {
 } from '../campaigns/service.js';
 import { createScene, listCampaignScenes } from '../scenes/service.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
-
 export const campaignRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    app.addHook('preHandler', async (request) => {
-      requireDm(request, env);
-    });
+    app.addHook('preHandler', dmPreHandler(env));
 
     app.get('/campaigns', async (request, reply) => {
       const page = pageParams(parse(pageQuerySchema, request.query));

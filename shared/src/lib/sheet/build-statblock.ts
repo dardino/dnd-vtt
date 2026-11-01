@@ -12,6 +12,7 @@ import { pcAbilityScores, pcHpMax } from './hp.js';
 export interface BuildPcStatblockInput {
   build: PcBuild;
   catalog: SrdCatalog;
+  alignment?: string | undefined;
 }
 
 const unique = <T>(values: readonly T[]): T[] => [...new Set(values)];
@@ -163,7 +164,7 @@ const pactSlots = (
  * congela snapshot di privilegi, incantesimi e oggetti, e riporta tutte le
  * scelte meccaniche nel formato `PcStatblock` (D56/D57).
  */
-export const buildPcStatblock = ({ build, catalog }: BuildPcStatblockInput): PcStatblock => {
+export const buildPcStatblock = ({ build, catalog, alignment }: BuildPcStatblockInput): PcStatblock => {
   const characterClass = requireClass(catalog, build.classId);
   const species = catalog.species.find((entry) => entry.id === build.speciesId);
   const background = catalog.backgrounds.find((entry) => entry.id === build.backgroundId);
@@ -198,6 +199,7 @@ export const buildPcStatblock = ({ build, catalog }: BuildPcStatblockInput): PcS
     },
     species: { id: build.speciesId },
     background: { id: build.backgroundId },
+    ...(alignment === undefined || alignment.trim() === '' ? {} : { alignment: alignment.trim() }),
     abilityGeneration: build.abilityGeneration,
     abilityIncreases,
     proficiencies: {

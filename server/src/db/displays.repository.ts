@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import type { Display, ProgramComposition } from '@dnd-vtt/shared';
 import { and, eq, isNull } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
@@ -7,7 +8,7 @@ import { displays } from './schema.js';
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 const makeCode = (): string =>
-  Array.from({ length: 6 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)] ?? 'A').join('');
+  Array.from({ length: 6 }, () => ALPHABET[randomInt(0, ALPHABET.length)] ?? 'A').join('');
 
 const toDisplay = (row: typeof displays.$inferSelect): Display => ({
   id: row.id,

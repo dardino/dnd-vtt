@@ -1,10 +1,10 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { actionRequestSchema, resetFogRequestSchema, undoActionRequestSchema } from '@dnd-vtt/shared';
 import { z } from 'zod';
-import { requireDm } from '../auth/auth.js';
+import { dmPreHandler } from '../http/guards.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import {
   applySceneAction,
   clearCampaignHistory,
@@ -16,7 +16,6 @@ import {
 } from '../actions/service.js';
 import { broadcastDisplays } from '../realtime/hub.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const syncQuerySchema = z.strictObject({
   sinceVersion: z.coerce.number().int().min(0),
   sceneId: z.string().uuid().optional(),
@@ -24,10 +23,7 @@ const syncQuerySchema = z.strictObject({
 
 export const actionRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    app.addHook('preHandler', async (request) => {
-      requireDm(request, env);
-    });
+    app.addHook('preHandler', dmPreHandler(env));
 
     app.post('/campaigns/:id/actions', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);

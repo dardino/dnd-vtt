@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, type OnInit, computed, inject, input, signal } from '@angular/core';
 import {
   abilityModifier,
@@ -11,42 +10,13 @@ import {
   type Condition,
   type ConditionName,
   type PlayerSheetView,
-  type Skill,
 } from '@dnd-vtt/shared';
 import { MeasurementService } from '../../core/measurement.service';
+import { ABILITY_LABELS, SKILL_LABELS, formatSenses, type SensesLike } from '../../core/labels';
+import { httpMessage } from '../../core/http-error';
 import { PlayerService } from '../../core/player.service';
 
 type PlayerTab = 'combat' | 'abilities' | 'spells' | 'equipment' | 'notes' | 'rolls';
-
-const ABILITY_LABELS: Record<Ability, string> = {
-  str: 'Forza',
-  dex: 'Destrezza',
-  con: 'Costituzione',
-  int: 'Intelligenza',
-  wis: 'Saggezza',
-  cha: 'Carisma',
-};
-
-const SKILL_LABELS: Record<Skill, string> = {
-  acrobatics: 'Acrobazia',
-  animalHandling: 'Addestrare animali',
-  arcana: 'Arcano',
-  athletics: 'Atletica',
-  deception: 'Inganno',
-  history: 'Storia',
-  insight: 'Intuizione',
-  intimidation: 'Intimidazione',
-  investigation: 'Indagare',
-  medicine: 'Medicina',
-  nature: 'Natura',
-  perception: 'Percezione',
-  performance: 'Intrattenere',
-  persuasion: 'Persuasione',
-  religion: 'Religione',
-  sleightOfHand: 'Mano di prestigio',
-  stealth: 'Furtività',
-  survival: 'Sopravvivenza',
-};
 
 @Component({
   selector: 'app-player-page',
@@ -116,23 +86,8 @@ export class PlayerPage implements OnInit {
     void this.load();
   }
 
-  public senseText(senses: {
-    darkvision?: number;
-    blindsight?: number;
-    tremorsense?: number;
-    truesight?: number;
-  }): string {
-    const labels = {
-      darkvision: 'Scurovisione',
-      blindsight: 'Vista cieca',
-      tremorsense: 'Percezione tellurica',
-      truesight: 'Vista vera',
-    } as const;
-    return (['darkvision', 'blindsight', 'tremorsense', 'truesight'] as const)
-      .flatMap((sense) => (senses[sense] === undefined
-        ? []
-        : [`${labels[sense]} ${this.units.formatDistance(senses[sense])}`]))
-      .join(' · ');
+  public senseText(senses: SensesLike): string {
+    return formatSenses(senses, (feet) => this.units.formatDistance(feet));
   }
 
   public setTab(tab: PlayerTab): void {
@@ -240,15 +195,13 @@ export class PlayerPage implements OnInit {
   }
 
   private messageFor(error: unknown): string {
-    if (error instanceof HttpErrorResponse && error.status === 403) {
-      return 'La matita è spenta: il master ha bloccato le modifiche.';
-    }
-    if (error instanceof HttpErrorResponse && error.status === 409) {
-      return 'La scheda è stata aggiornata dal master: ricarica la pagina.';
-    }
-    if (error instanceof HttpErrorResponse && error.status === 404) {
-      return 'Questo link non è più valido.';
-    }
-    return 'Scheda non disponibile.';
+    return httpMessage(error, {
+      fallback: 'Scheda non disponibile.',
+      byStatus: {
+        403: 'La matita è spenta: il master ha bloccato le modifiche.',
+        409: 'La scheda è stata aggiornata dal master: ricarica la pagina.',
+        404: 'Questo link non è più valido.',
+      },
+    });
   }
 }

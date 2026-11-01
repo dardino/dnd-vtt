@@ -15,6 +15,7 @@ import Konva from 'konva';
 import {
   HEX_ROW_RATIO,
   cellCenterPx,
+  distanceToSegment,
   latticePointPx,
   pixelToCell,
   wallSegmentPx,
@@ -64,13 +65,6 @@ interface Camera {
   x: number;
   y: number;
 }
-
-const WALL_COLORS: Record<WallKind, string> = {
-  wall: '#e8dcc4',
-  door: '#d2a94a',
-  window: '#78c6e0',
-  lowWall: '#a89f91',
-};
 
 @Component({
   selector: 'app-map-editor-canvas',
@@ -621,16 +615,17 @@ export class MapEditorCanvasComponent implements OnDestroy {
     layer.destroyChildren();
     const grid = this.grid();
     const selected = this.selected();
+    const colors = this.colors();
     for (const wall of this.terrain().walls) {
       const segment = wallSegmentPx(grid, wall);
-      const color = WALL_COLORS[wall.kind];
+      const color = colors[wall.kind];
       const isSelected = selected?.type === 'wall' && selected.id === wall.id;
       layer.add(new Konva.Line({
         points: [segment.a.x, segment.a.y, segment.b.x, segment.b.y],
-        stroke: isSelected ? '#4ea1ff' : color,
+        stroke: isSelected ? colors.select : color,
         strokeWidth: isSelected ? 7 : 5,
         lineCap: 'round',
-        dash: wall.kind === 'window' || wall.kind === 'lowWall' ? [8, 6] : undefined,
+        ...(wall.kind === 'window' || wall.kind === 'lowWall' ? { dash: [8, 6] } : {}),
         opacity: wall.kind === 'door' && wall.door === 'open' ? 0.35 : 1,
         listening: false,
       }));
@@ -639,8 +634,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
           x: (segment.a.x + segment.b.x) / 2,
           y: (segment.a.y + segment.b.y) / 2,
           radius: 5,
-          fill: wall.door === 'secret' ? '#9b59b6' : color,
-          stroke: '#1b1b1b',
+          fill: wall.door === 'secret' ? colors.secret : color,
+          stroke: colors.stroke,
           strokeWidth: 1,
           listening: false,
         }));
@@ -657,6 +652,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
     layer.destroyChildren();
     const grid = this.grid();
     const selected = this.selected();
+    const colors = this.colors();
     for (const light of this.terrain().lights) {
       const center = cellCenterPx(grid, light);
       const brightRadius = (light.brightFeet / grid.feetPerCell) * grid.cellSizePx;
@@ -704,8 +700,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
         x: center.x,
         y: center.y,
         radius: 7,
-        fill: selected?.type === 'light' && selected.id === light.id ? '#4ea1ff' : light.color,
-        stroke: '#1b1b1b',
+        fill: selected?.type === 'light' && selected.id === light.id ? colors.select : light.color,
+        stroke: colors.stroke,
         strokeWidth: 2,
         listening: false,
       }));
@@ -721,6 +717,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
     layer.destroyChildren();
     const grid = this.grid();
     const selected = this.selected();
+    const colors = this.colors();
     for (const spawn of this.spawns()) {
       const center = cellCenterPx(grid, { x: spawn.x, y: spawn.y });
       const size = spawn.size * grid.cellSizePx;
@@ -733,8 +730,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
         x: 0,
         y: 0,
         radius: size / 2,
-        fill: spawn.hidden ? 'rgba(160,60,60,0.65)' : 'rgba(80,140,220,0.65)',
-        stroke: selected?.type === 'spawn' && selected.id === spawn.id ? '#4ea1ff' : '#f0f0f0',
+        fill: spawn.hidden ? colors.spawnHidden : colors.spawn,
+        stroke: selected?.type === 'spawn' && selected.id === spawn.id ? colors.select : colors.text,
         strokeWidth: selected?.type === 'spawn' && selected.id === spawn.id ? 4 : 2,
       }));
       group.add(new Konva.Text({
@@ -744,7 +741,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
         width: size,
         align: 'center',
         fontSize: 12,
-        fill: '#fff',
+        fill: colors.text,
         listening: false,
       }));
       group.on('dragend', () => {
@@ -764,8 +761,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
         x: 0,
         y: 0,
         radius: grid.cellSizePx * 0.3,
-        fill: 'rgba(80,200,120,0.7)',
-        stroke: selected?.type === 'start' && selected.id === start.id ? '#4ea1ff' : '#fff',
+        fill: colors.start,
+        stroke: selected?.type === 'start' && selected.id === start.id ? colors.select : colors.text,
         strokeWidth: 2,
       }));
       group.add(new Konva.Text({
@@ -775,7 +772,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
         width: grid.cellSizePx * 0.6,
         align: 'center',
         fontSize: 11,
-        fill: '#fff',
+        fill: colors.text,
         listening: false,
       }));
       group.on('dragend', () => {
@@ -793,26 +790,27 @@ export class MapEditorCanvasComponent implements OnDestroy {
       return;
     }
     layer.destroyChildren();
+    const colors = this.colors();
     const view = this.startView();
     if (view !== null) {
       layer.add(new Konva.Circle({
         x: view.x,
         y: view.y,
         radius: 12,
-        stroke: '#ff9f43',
+        stroke: colors.warning,
         strokeWidth: 2,
         dash: [4, 4],
         listening: false,
       }));
       layer.add(new Konva.Line({
         points: [view.x - 20, view.y, view.x + 20, view.y],
-        stroke: '#ff9f43',
+        stroke: colors.warning,
         strokeWidth: 2,
         listening: false,
       }));
       layer.add(new Konva.Line({
         points: [view.x, view.y - 20, view.x, view.y + 20],
-        stroke: '#ff9f43',
+        stroke: colors.warning,
         strokeWidth: 2,
         listening: false,
       }));
@@ -821,7 +819,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       const scale = this.stage?.scaleX() ?? 1;
       layer.add(new Konva.Line({
         points: this.freehand.flatMap((point) => [point.x, point.y]),
-        stroke: '#4ea1ff',
+        stroke: colors.select,
         strokeWidth: Math.max(2, 3 / Math.max(scale, 0.05)),
         lineCap: 'round',
         lineJoin: 'round',
@@ -842,7 +840,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       const strokeWidth = Math.max(2, 3 / Math.max(scale, 0.05));
       layer.add(new Konva.Line({
         points: [a.x, a.y, b.x, b.y],
-        stroke: '#4ea1ff',
+        stroke: colors.select,
         strokeWidth,
         lineCap: 'round',
         dash: [10 / Math.max(scale, 0.05), 6 / Math.max(scale, 0.05)],
@@ -853,8 +851,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
           x: point.x,
           y: point.y,
           radius: 6 / Math.max(scale, 0.05),
-          fill: '#4ea1ff',
-          stroke: '#0f1c2e',
+          fill: colors.select,
+          stroke: colors.stroke,
           strokeWidth: 2 / Math.max(scale, 0.05),
           listening: false,
         }));
@@ -869,14 +867,47 @@ export class MapEditorCanvasComponent implements OnDestroy {
         y: (a.y + b.y) / 2 - 18 / Math.max(scale, 0.05),
         text: `${this.units.formatDistance(feet)} · ${cells.toFixed(1)} celle`,
         fontSize: 14 / Math.max(scale, 0.05),
-        fill: '#eaf4ff',
-        stroke: '#0f1c2e',
+        fill: colors.text,
+        stroke: colors.stroke,
         strokeWidth: 3 / Math.max(scale, 0.05),
         fillAfterStrokeEnabled: true,
         listening: false,
       }));
     }
     layer.draw();
+  }
+
+  private colors(): Record<
+    | WallKind
+    | 'select'
+    | 'text'
+    | 'stroke'
+    | 'warning'
+    | 'spawn'
+    | 'spawnHidden'
+    | 'start'
+    | 'background'
+    | 'secret',
+    string
+  > {
+    const style = getComputedStyle(this.container().nativeElement);
+    const token = (name: string, fallback: string): string =>
+      style.getPropertyValue(name).trim() || fallback;
+    return {
+      wall: token('--editor-wall', '#e8dcc4'),
+      door: token('--editor-door', '#d2a94a'),
+      window: token('--editor-window', '#78c6e0'),
+      lowWall: token('--editor-low-wall', '#a89f91'),
+      select: token('--editor-draft', '#4ea1ff'),
+      warning: token('--editor-warning', '#ff9f43'),
+      text: token('--editor-text', '#eaf4ff'),
+      stroke: token('--editor-stroke', '#0f1c2e'),
+      spawn: 'rgba(80, 140, 220, 0.65)',
+      spawnHidden: 'rgba(160, 60, 60, 0.65)',
+      start: 'rgba(80, 200, 120, 0.7)',
+      background: token('--editor-bg', '#111'),
+      secret: '#9b59b6',
+    };
   }
 
   private publishCamera(): void {
@@ -888,18 +919,3 @@ export class MapEditorCanvasComponent implements OnDestroy {
     this.cameraChanged.emit(this.camera());
   }
 }
-
-const distanceToSegment = (
-  point: { x: number; y: number },
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-): number => {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const length = dx * dx + dy * dy;
-  if (length === 0) {
-    return Math.hypot(point.x - a.x, point.y - a.y);
-  }
-  const ratio = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length));
-  return Math.hypot(point.x - (a.x + ratio * dx), point.y - (a.y + ratio * dy));
-};

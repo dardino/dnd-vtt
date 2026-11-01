@@ -91,9 +91,13 @@ export class CampaignService {
     );
   }
 
-  public async exportCampaign(campaignId: string): Promise<CampaignExport> {
+  public async exportCampaign(
+    campaignId: string,
+    includePrivateNotes = false,
+  ): Promise<CampaignExport> {
+    const query = includePrivateNotes ? '?includePrivateNotes=true' : '';
     return firstValueFrom(
-      this.http.get<CampaignExport>(`/api/v1/campaigns/${campaignId}/export`),
+      this.http.get<CampaignExport>(`/api/v1/campaigns/${campaignId}/export${query}`),
     );
   }
 

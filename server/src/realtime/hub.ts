@@ -2,6 +2,7 @@ import type { WebSocket } from 'ws';
 import type { AppDatabase } from '../db/client.js';
 import { getDisplayByCode } from '../db/displays.repository.js';
 import { projectDisplay } from '../program/service.js';
+import { envelope } from './protocol.js';
 
 interface RealtimeClient {
   socket: WebSocket;
@@ -12,14 +13,6 @@ interface RealtimeClient {
 
 const clients = new Set<RealtimeClient>();
 let database: AppDatabase | null = null;
-
-const envelope = (type: string, payload: unknown): string => JSON.stringify({
-  v: 1,
-  type,
-  seq: Date.now(),
-  at: new Date().toISOString(),
-  payload,
-});
 
 const displayCount = (campaignId: string): number => {
   let count = 0;

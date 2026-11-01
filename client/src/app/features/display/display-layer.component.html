@@ -1,0 +1,68 @@
+<div class="display-layer" [style]="frameStyle()">
+  @switch (layer().type) {
+    @case ('map') {
+      @if (mapImage(); as map) {
+        @if (sceneState(); as scene) {
+          <app-scene-canvas
+            class="display-layer__canvas"
+            [map]="map"
+            [state]="scene"
+            [tool]="'select'"
+            [gridVisible]="true"
+            [readOnly]="true"
+            [fogOpacity]="1"
+            [viewport]="layer().viewport ?? null"
+            [vision]="layer().scene?.vision ?? null"
+            [doors]="layer().scene?.doors ?? []"
+            [tokenPortraits]="tokenPortraits()"
+          />
+        }
+      }
+    }
+    @case ('image') {
+      @if (layer().imageUrl) {
+        <img
+          class="display-layer__image"
+          [src]="layer().imageUrl"
+          [style.object-fit]="layer().fit ?? 'contain'"
+          alt=""
+        />
+      }
+    }
+    @case ('text') {
+      <article class="display-layer__card">
+        <h1>{{ layer().title }}</h1>
+        <p>{{ layer().body }}</p>
+      </article>
+    }
+    @case ('actor') {
+      @if (layer().actor; as actor) {
+        <article class="display-layer__card">
+          @if (actor.imageUrl) {
+            <img [src]="actor.imageUrl" alt="" />
+          }
+          <h1>{{ actor.name }}</h1>
+          @if (actor.hp) {
+            <p>PF {{ actor.hp.current }}/{{ actor.hp.max }}</p>
+          }
+        </article>
+      }
+    }
+    @case ('initiative') {
+      <article class="display-layer__card display-layer__card--initiative">
+        <h1>Iniziativa</h1>
+        @if (initiative(); as current) {
+          <p>Round {{ current.round }}</p>
+          <ol>
+            @for (entry of current.entries; track entry.id; let index = $index) {
+              <li [class.is-current]="index === current.turnIndex">
+                <span>{{ entry.label }}</span>
+                <strong>{{ entry.value }}</strong>
+              </li>
+            }
+          </ol>
+        }
+      </article>
+    }
+  }
+</div>

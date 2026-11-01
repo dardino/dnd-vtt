@@ -1,13 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import type {
-  ActionRequest,
-  AppliedAction,
-  ClearHistoryResult,
-  GameAction,
-  RedoResult,
-  ResetFogResult,
-  UndoResult,
+import {
+  newId,
+  type ActionRequest,
+  type AppliedAction,
+  type ClearHistoryResult,
+  type GameAction,
+  type RedoResult,
+  type ResetFogResult,
+  type UndoResult,
 } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
 
@@ -17,8 +18,8 @@ export class SceneActionService {
 
   public async send(campaignId: string, sceneId: string, action: GameAction): Promise<AppliedAction> {
     const request: ActionRequest = {
-      id: crypto.randomUUID(),
-      clientId: `sheet-${crypto.randomUUID()}`,
+      id: newId(),
+      clientId: `sheet-${newId()}`,
       sceneId,
       action,
     };

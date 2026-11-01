@@ -1,4 +1,5 @@
 @use '../../../styles/layout' as layout;
+@use '../../../styles/mixins' as mx;
 
 :host {
   display: flex;
@@ -249,14 +250,9 @@
 }
 
 .accordion__label {
+  @include mx.mono-label;
+  @include mx.truncate;
   flex: 1;
-  overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-overflow: ellipsis;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .accordion__count {
@@ -340,30 +336,12 @@
 }
 
 .tool {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0;
-  border: var(--border-width) solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
+  @include mx.icon-button(2rem);
   font-size: var(--text-sm);
-
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover);
-    color: var(--color-text);
-  }
 
   &.is-active {
     border-color: var(--color-accent);
     color: var(--color-accent);
-  }
-
-  &:disabled {
-    opacity: 0.4;
   }
 }
 
@@ -496,25 +474,8 @@
 }
 
 .icon-button {
-  display: grid;
-  place-items: center;
-  width: 1.8rem;
-  height: 1.8rem;
-  padding: 0;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-
-  &:hover:not(:disabled) {
-    color: var(--color-text);
-    background: var(--color-bg-hover);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-  }
+  @include mx.icon-button;
+  border-color: var(--color-border);
 }
 
 .available-actors {
@@ -565,11 +526,8 @@
 }
 
 .badge {
-  padding: 0 var(--space-2);
-  border-radius: 999px;
-  background: var(--color-accent);
+  @include mx.pill(var(--color-accent), var(--color-accent));
   color: var(--color-accent-contrast);
-  font-size: var(--text-xs);
 }
 
 .session-card {
@@ -1041,18 +999,7 @@
 }
 
 .field {
-  display: grid;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-
-  input,
-  textarea,
-  select {
-    padding: var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-  }
+  @include mx.field(var(--radius-md));
 }
 
 .field-error {
@@ -1155,14 +1102,14 @@
   }
 }
 
-@media (max-width: 1200px) {
+@include mx.respond('xxl') {
   .dm-layout {
     --dm-left-base: 14rem;
     --dm-right-base: 18rem;
   }
 }
 
-@media (max-width: 980px) {
+@include mx.respond('lg') {
   .dm-layout {
     grid-template-columns: minmax(0, 1fr);
   }

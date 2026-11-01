@@ -13,6 +13,17 @@ export const gridConfigSchema = z.strictObject({
 });
 export type GridConfig = z.infer<typeof gridConfigSchema>;
 
+/** Griglia di default condivisa da scene, mappe e seed demo. */
+export const defaultGridConfig: GridConfig = {
+  type: 'square',
+  cellSizePx: 70,
+  offsetX: 0,
+  offsetY: 0,
+  feetPerCell: 5,
+  diagonalRule: '5-5-5',
+  hexOffset: 'odd-r',
+};
+
 const pointSchema = z.strictObject({ x: z.number(), y: z.number() });
 export const cellPointSchema = z.strictObject({
   x: z.number().int(),
@@ -102,7 +113,7 @@ export type AmbientLight = z.infer<typeof ambientLightSchema>;
 export const defaultTerrain = {
   ambientLight: 'dark' as const,
   visionLimitFeet: 120,
-  visionEnabled: false,
+  visionEnabled: true,
   walls: [] as WallSegment[],
   lights: [] as Light[],
 };
@@ -151,7 +162,9 @@ export const tokenStateSchema = z.strictObject({
 export type TokenState = z.infer<typeof tokenStateSchema>;
 
 export const tokenPatchSchema = z.strictObject({
-  actorId: z.string().min(1).optional(),
+  // `null` significa “rimuovi il campo opzionale”: serve all'inverso di
+  // `token.update`, che deve poter tornare a un campo assente.
+  actorId: z.string().min(1).nullable().optional(),
   label: z.string().optional(),
   x: z.number().optional(),
   y: z.number().optional(),
@@ -159,11 +172,11 @@ export const tokenPatchSchema = z.strictObject({
   rotation: z.number().optional(),
   elevation: z.number().optional(),
   hp: hpSchema.optional(),
-  ac: z.number().int().optional(),
+  ac: z.number().int().nullable().optional(),
   conditions: z.array(conditionSchema).optional(),
-  deathSaves: deathSavesSchema.optional(),
+  deathSaves: deathSavesSchema.nullable().optional(),
   visible: z.boolean().optional(),
-  owner: z.enum(['dm', 'players']).optional(),
+  owner: z.enum(['dm', 'players']).nullable().optional(),
   light: tokenLightSchema.nullable().optional(),
 });
 export type TokenPatch = z.infer<typeof tokenPatchSchema>;
@@ -198,6 +211,14 @@ export const initiativeEntrySchema = z.strictObject({
 });
 export type InitiativeEntry = z.infer<typeof initiativeEntrySchema>;
 
+export const initiativeStateSchema = z.strictObject({
+  active: z.boolean(),
+  round: z.number().int().min(0),
+  turnIndex: z.number().int().min(0),
+  entries: z.array(initiativeEntrySchema),
+});
+export type InitiativeState = z.infer<typeof initiativeStateSchema>;
+
 export const sceneStateSchema = z.strictObject({
   grid: gridConfigSchema,
   fog: fogStateSchema,
@@ -211,36 +232,15 @@ export const sceneStateSchema = z.strictObject({
   tokens: z.array(tokenStateSchema),
   loot: z.array(lootEntrySchema),
   drawings: z.array(drawingSchema),
-  initiative: z.strictObject({
-    active: z.boolean(),
-    round: z.number().int().min(0),
-    turnIndex: z.number().int().min(0),
-    entries: z.array(initiativeEntrySchema),
-  }),
+  initiative: initiativeStateSchema,
 });
 export type SceneState = z.infer<typeof sceneStateSchema>;
-
-export const initiativeStateSchema = z.strictObject({
-  active: z.boolean(),
-  round: z.number().int().min(0),
-  turnIndex: z.number().int().min(0),
-  entries: z.array(initiativeEntrySchema),
-});
-export type InitiativeState = z.infer<typeof initiativeStateSchema>;
 
 export const createDefaultSceneState = (
   fogBase: 'hidden' | 'revealed' = 'hidden',
   terrain: Terrain = defaultTerrain,
 ): SceneState => ({
-  grid: {
-    type: 'square',
-    cellSizePx: 70,
-    offsetX: 0,
-    offsetY: 0,
-    feetPerCell: 5,
-    diagonalRule: '5-5-5',
-    hexOffset: 'odd-r',
-  },
+  grid: { ...defaultGridConfig },
   fog: { base: fogBase, ops: [], override: 'none' },
   terrain: {
     ...terrain,

@@ -15,69 +15,11 @@
   } @else if (state(); as current) {
     <div class="display__stage">
       @if (base(); as layer) {
-        @if (layer.type === 'map' && mapState(); as sceneState) {
-          <app-scene-canvas
-            class="display__map"
-            [map]="mapImage()"
-            [state]="sceneState"
-            [tool]="'select'"
-            [gridVisible]="true"
-            [readOnly]="true"
-            [fogOpacity]="1"
-            [viewport]="layer.viewport ?? null"
-            [vision]="layer.scene?.vision ?? null"
-            [doors]="layer.scene?.doors ?? []"
-            [tokenPortraits]="tokenPortraits()"
-          />
-        } @else {
-          <div class="display-layer display-layer--base" [style]="frameStyle(layer)">
-            @if (layer.type === 'image' && layer.imageUrl) {
-              <img
-                class="display-image"
-                [src]="layer.imageUrl"
-                [style.object-fit]="layer.fit ?? 'contain'"
-                alt=""
-              />
-            } @else if (layer.type === 'text') {
-              <article class="display-text">
-                <h1>{{ layer.title }}</h1>
-                <p>{{ layer.body }}</p>
-              </article>
-            } @else if (layer.type === 'actor' && layer.actor; as actor) {
-              <article class="display-actor">
-                @if (actor.imageUrl) { <img [src]="actor.imageUrl" alt="" /> }
-                <h1>{{ actor.name }}</h1>
-                @if (actor.hp) { <p>PF {{ actor.hp.current }}/{{ actor.hp.max }}</p> }
-              </article>
-            } @else {
-              <div class="display-blank"></div>
-            }
-          </div>
-        }
+        <app-display-layer [layer]="layer" [initiative]="current.initiative" />
       }
 
       @for (layer of overlays(); track layer.id) {
-        <div class="display-layer" [style]="frameStyle(layer)">
-          @if (layer.type === 'image' && layer.imageUrl) {
-            <img
-              class="display-image"
-              [src]="layer.imageUrl"
-              [style.object-fit]="layer.fit ?? 'contain'"
-              alt=""
-            />
-          } @else if (layer.type === 'text') {
-            <article class="display-text">
-              <h1>{{ layer.title }}</h1>
-              <p>{{ layer.body }}</p>
-            </article>
-          } @else if (layer.type === 'actor' && layer.actor; as actor) {
-            <article class="display-actor">
-              @if (actor.imageUrl) { <img [src]="actor.imageUrl" alt="" /> }
-              <h1>{{ actor.name }}</h1>
-              @if (actor.hp) { <p>PF {{ actor.hp.current }}/{{ actor.hp.max }}</p> }
-            </article>
-          }
-        </div>
+        <app-display-layer [layer]="layer" [initiative]="current.initiative" />
       }
 
       @if (current.initiative !== undefined && current.program.hud.initiative) {

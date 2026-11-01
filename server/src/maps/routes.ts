@@ -5,10 +5,10 @@ import {
   putMapSchema,
 } from '@dnd-vtt/shared';
 import { z } from 'zod';
-import { requireDm } from '../auth/auth.js';
+import { dmPreHandler } from '../http/guards.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import {
   createMap,
   createSceneFromMap,
@@ -19,15 +19,11 @@ import {
   requireMapFull,
 } from './service.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const mapParamsSchema = z.strictObject({ mapId: z.string().uuid() });
 
 export const mapRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    app.addHook('preHandler', async (request) => {
-      requireDm(request, env);
-    });
+    app.addHook('preHandler', dmPreHandler(env));
 
     app.get('/campaigns/:id/maps', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);

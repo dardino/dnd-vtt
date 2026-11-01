@@ -1,3 +1,5 @@
+@use '../styles/mixins' as mx;
+
 :host {
   display: flex;
   flex-direction: column;
@@ -74,9 +76,8 @@
 }
 
 .shell-main {
-  flex: 1;
+  @include mx.fill-height;
   display: flex;
-  min-height: 0;
   overflow: auto;
 }
 
@@ -91,7 +92,7 @@
   font-size: var(--text-xs);
 }
 
-@media (max-width: 720px) {
+@include mx.respond('md') {
   .shell-header {
     padding: var(--space-3);
   }

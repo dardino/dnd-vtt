@@ -161,18 +161,19 @@ export const dmSheetViewSchema = z.strictObject({
 });
 export type DmSheetView = z.infer<typeof dmSheetViewSchema>;
 
+/**
+ * Campi realmente modificabili dal link giocatore: devono corrispondere a
+ * chiavi presenti in `playerSheetPatchSchema.patch`.
+ */
 export const playerEditableFieldSchema = z.enum([
   'hp',
-  'tempHp',
   'conditions',
   'deathSaves',
   'hitDice',
   'playerNotes',
-  'inventory',
   'spells',
   'resources',
   'currency',
-  'equipment',
 ]);
 export type PlayerEditableField = z.infer<typeof playerEditableFieldSchema>;
 

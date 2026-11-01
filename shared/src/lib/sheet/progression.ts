@@ -1,3 +1,5 @@
+import type { SrdClass } from '../../schemas/srd.js';
+
 export const XP_THRESHOLDS: readonly number[] = [
   0,
   300,
@@ -54,3 +56,26 @@ export const averageHpGain = (hitDie: number): number => Math.floor(hitDie / 2) 
 
 export const maxSpellLevel = (slots: readonly { level: number; max: number }[]): number =>
   slots.reduce((highest, slot) => (slot.max > 0 ? Math.max(highest, slot.level) : highest), 0);
+
+/** Classi che preparano gli incantesimi invece di conoscerli. */
+export const PREPARED_CASTERS: ReadonlySet<string> = new Set([
+  'cleric',
+  'druid',
+  'paladin',
+  'wizard',
+]);
+
+export const isPreparedCaster = (classId: string): boolean => PREPARED_CASTERS.has(classId);
+
+/** Livello massimo di incantesimo disponibile per una classe a un dato livello. */
+export const maxSpellLevelForClass = (characterClass: SrdClass, level: number): number => {
+  const casting = characterClass.spellcasting;
+  if (casting === undefined) {
+    return 0;
+  }
+  if (casting.progression === 'pact') {
+    return casting.pactSlots?.[level - 1]?.level ?? 0;
+  }
+  return maxSpellLevel((casting.slots[level - 1] ?? [])
+    .map((max, index) => ({ level: index + 1, max })));
+};

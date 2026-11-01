@@ -7,6 +7,7 @@ import {
   output,
   viewChild,
 } from '@angular/core';
+import { newId } from '@dnd-vtt/shared';
 
 @Component({
   selector: 'app-dialog',
@@ -21,6 +22,8 @@ export class Dialog {
   public readonly closed = output<void>();
 
   private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
+  protected readonly titleId = `dialog-title-${newId()}`;
+  private programmaticClose = false;
 
   public constructor() {
     effect(() => {
@@ -29,22 +32,34 @@ export class Dialog {
         element.showModal();
       }
       if (!this.open() && element.open) {
+        this.programmaticClose = true;
         element.close();
       }
     });
   }
 
   protected cancel(event: Event): void {
-    if (!this.dismissible()) {
-      event.preventDefault();
-      return;
+    // Esc non deve chiudere due volte: il dialog viene chiuso una sola volta
+    // dal nostro handler, che emette `closed` in modo controllato.
+    event.preventDefault();
+    if (this.dismissible()) {
+      this.requestClose();
     }
-    this.closed.emit();
   }
 
   protected close(): void {
-    if (this.dismissible()) {
-      this.closed.emit();
+    if (this.programmaticClose) {
+      this.programmaticClose = false;
+      return;
     }
+    if (this.dismissible()) {
+      this.requestClose();
+    }
+  }
+
+  private requestClose(): void {
+    this.programmaticClose = true;
+    this.closed.emit();
+    this.dialog().nativeElement.close();
   }
 }

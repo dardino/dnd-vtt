@@ -6,14 +6,7 @@ import type { AppDatabase } from '../db/client.js';
 import { getCampaign } from '../db/campaigns.repository.js';
 import { getDisplayByCode, updateDisplayViewportSize } from '../db/displays.repository.js';
 import { broadcastPresence, registerRealtimeClient, sendDisplayHello, sendDmHello } from './hub.js';
-
-const envelope = (type: string, payload: unknown): string => JSON.stringify({
-  v: 1,
-  type,
-  seq: Date.now(),
-  at: new Date().toISOString(),
-  payload,
-});
+import { envelope } from './protocol.js';
 
 const rawText = (raw: unknown): string => {
   if (typeof raw === 'string') {

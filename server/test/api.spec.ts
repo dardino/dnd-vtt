@@ -531,7 +531,13 @@ describe('upload asset', () => {
       payload: body,
     });
     expect(upload.statusCode).toBe(201);
-    const asset = upload.json<{ id: string; url: string; thumbUrl: string; width: number }>();
+    const asset = upload.json<{
+      id: string;
+      hash: string;
+      url: string;
+      thumbUrl: string;
+      width: number;
+    }>();
     expect(asset.width).toBe(16);
     expect(asset.url).toMatch(/^\/uploads\/webp\/[a-f0-9]{64}\.webp$/);
 
@@ -542,6 +548,12 @@ describe('upload asset', () => {
 
     const thumb = await app.inject({ method: 'GET', url: asset.thumbUrl });
     expect(thumb.statusCode).toBe(200);
+
+    const original = await app.inject({
+      method: 'GET',
+      url: `/uploads/originals/${asset.hash}.png`,
+    });
+    expect(original.statusCode).toBe(404);
     await closeTestApp(testApp);
   });
 

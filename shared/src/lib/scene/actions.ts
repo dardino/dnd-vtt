@@ -4,25 +4,72 @@ import { nextInitiativeTurn } from './initiative.js';
 import { applyHpDelta } from './hp.js';
 import { lastReachableCell } from './edges.js';
 
-const withPatch = (token: TokenState, patch: TokenPatch): TokenState => ({
-  ...token,
-  ...(patch.actorId === undefined ? {} : { actorId: patch.actorId }),
-  ...(patch.label === undefined ? {} : { label: patch.label }),
-  ...(patch.x === undefined ? {} : { x: patch.x }),
-  ...(patch.y === undefined ? {} : { y: patch.y }),
-  ...(patch.size === undefined ? {} : { size: patch.size }),
-  ...(patch.rotation === undefined ? {} : { rotation: patch.rotation }),
-  ...(patch.elevation === undefined ? {} : { elevation: patch.elevation }),
-  ...(patch.hp === undefined ? {} : { hp: patch.hp }),
-  ...(patch.ac === undefined ? {} : { ac: patch.ac }),
-  ...(patch.conditions === undefined ? {} : { conditions: patch.conditions }),
-  ...(patch.deathSaves === undefined ? {} : { deathSaves: patch.deathSaves }),
-  ...(patch.visible === undefined ? {} : { visible: patch.visible }),
-  ...(patch.owner === undefined ? {} : { owner: patch.owner }),
-  ...(patch.light === undefined
-    ? {}
-    : { light: patch.light === null ? undefined : patch.light }),
-});
+const withPatch = (token: TokenState, patch: TokenPatch): TokenState => {
+  const next: TokenState = { ...token };
+  if (patch.actorId !== undefined) {
+    if (patch.actorId === null) {
+      delete next.actorId;
+    } else {
+      next.actorId = patch.actorId;
+    }
+  }
+  if (patch.label !== undefined) {
+    next.label = patch.label;
+  }
+  if (patch.x !== undefined) {
+    next.x = patch.x;
+  }
+  if (patch.y !== undefined) {
+    next.y = patch.y;
+  }
+  if (patch.size !== undefined) {
+    next.size = patch.size;
+  }
+  if (patch.rotation !== undefined) {
+    next.rotation = patch.rotation;
+  }
+  if (patch.elevation !== undefined) {
+    next.elevation = patch.elevation;
+  }
+  if (patch.hp !== undefined) {
+    next.hp = patch.hp;
+  }
+  if (patch.ac !== undefined) {
+    if (patch.ac === null) {
+      delete next.ac;
+    } else {
+      next.ac = patch.ac;
+    }
+  }
+  if (patch.conditions !== undefined) {
+    next.conditions = patch.conditions;
+  }
+  if (patch.deathSaves !== undefined) {
+    if (patch.deathSaves === null) {
+      delete next.deathSaves;
+    } else {
+      next.deathSaves = patch.deathSaves;
+    }
+  }
+  if (patch.visible !== undefined) {
+    next.visible = patch.visible;
+  }
+  if (patch.owner !== undefined) {
+    if (patch.owner === null) {
+      delete next.owner;
+    } else {
+      next.owner = patch.owner;
+    }
+  }
+  if (patch.light !== undefined) {
+    if (patch.light === null) {
+      delete next.light;
+    } else {
+      next.light = patch.light;
+    }
+  }
+  return next;
+};
 
 const findToken = (state: SceneState, tokenId: string): TokenState => {
   const token = state.tokens.find((entry) => entry.id === tokenId);
@@ -61,7 +108,7 @@ export const applyAction = (state: SceneState, action: GameAction): SceneState =
           state.terrain,
         );
         if (reachable.x !== target.x || reachable.y !== target.y) {
-          throw new Error('Il token non pu� attraversare un muro o una porta chiusa');
+          throw new Error('Il token non può attraversare un muro o una porta chiusa');
         }
       }
       return replaceToken(state, action.tokenId, (entry) => ({ ...entry, x: action.x, y: action.y }));
@@ -197,8 +244,12 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
     case 'token.update': {
       const token = findToken(stateBefore, action.tokenId);
       const patch = Object.fromEntries(
-        Object.keys(action.patch).map((key) => [key, token[key as keyof TokenState]]),
-      );
+        Object.keys(action.patch).map((key) => {
+          const value = token[key as keyof TokenState];
+          // `null` riporta un campo opzionale allo stato “assente”.
+          return [key, value === undefined ? null : value];
+        }),
+      ) as TokenPatch;
       return { type: 'token.update', tokenId: action.tokenId, patch };
     }
     case 'token.remove': {

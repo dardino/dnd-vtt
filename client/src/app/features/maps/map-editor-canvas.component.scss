@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: block;
   width: 100%;
@@ -6,14 +8,9 @@
 }
 
 .map-editor-canvas {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  @include mx.konva-surface;
   min-height: 24rem;
-  overflow: hidden;
-  background: #111;
-  cursor: grab;
-  touch-action: none;
+  background: var(--editor-bg);
 
   &[data-tool='wall'],
   &[data-tool='freehand'],

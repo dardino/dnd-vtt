@@ -20,6 +20,7 @@ const rawEnvSchema = z.object({
   CLIENT_DIST: z.string().min(1).default('client/dist/browser'),
   MAX_UPLOAD_MB: z.coerce.number().positive().default(20),
   MAX_JSON_MB: z.coerce.number().positive().default(2),
+  WS_RATE_LIMIT_MAX: z.coerce.number().int().min(1).max(10_000).default(60),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 
@@ -41,6 +42,7 @@ export interface AppEnv {
   migrationsDir: string;
   maxUploadBytes: number;
   maxJsonBytes: number;
+  wsRateLimitMax: number;
   logLevel: string;
   repoRoot: string;
 }
@@ -148,6 +150,7 @@ export const createEnv = (
     migrationsDir: join(repoRoot, 'server', 'drizzle'),
     maxUploadBytes: Math.floor(values.MAX_UPLOAD_MB * 1024 * 1024),
     maxJsonBytes: Math.floor(values.MAX_JSON_MB * 1024 * 1024),
+    wsRateLimitMax: values.WS_RATE_LIMIT_MAX,
     logLevel: values.LOG_LEVEL,
     repoRoot,
   };

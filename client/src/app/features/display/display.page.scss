@@ -3,7 +3,7 @@
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
-  background: #000;
+  background: var(--display-bg);
 }
 
 .display {
@@ -11,19 +11,13 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--display-bg, #000);
-  color: #fff;
+  background: var(--display-bg);
+  color: var(--display-text);
 
   &__stage {
     position: relative;
     width: 100%;
     height: 100%;
-  }
-
-  &__map {
-    position: absolute;
-    inset: 0;
-    display: block;
   }
 
   &__loading,
@@ -32,7 +26,7 @@
     place-items: center;
     width: 100%;
     height: 100%;
-    color: #bbb;
+    color: var(--color-text-muted);
     font-family: var(--font-sans);
     font-size: 1.2rem;
   }
@@ -42,68 +36,15 @@
   }
 }
 
-.display-layer {
-  position: absolute;
-  left: calc(var(--frame-x, 0) * 100%);
-  top: calc(var(--frame-y, 0) * 100%);
-  width: calc(var(--frame-width, 1) * 100%);
-  height: calc(var(--frame-height, 1) * 100%);
-  opacity: var(--layer-opacity, 1);
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-
-  &--base {
-    position: absolute;
-  }
-}
-
-.display-image {
-  width: 100%;
-  height: 100%;
-}
-
-.display-text,
-.display-actor {
-  max-width: 80%;
-  padding: 2rem;
-  border: 1px solid rgb(255 255 255 / 25%);
-  border-radius: 8px;
-  background: rgb(0 0 0 / 65%);
-  text-align: center;
-
-  h1 {
-    margin: 0 0 0.75rem;
-    font-size: clamp(2rem, 4vw, 4rem);
-  }
-
-  p {
-    margin: 0;
-    font-size: clamp(1rem, 1.8vw, 1.6rem);
-    white-space: pre-wrap;
-  }
-
-  img {
-    max-width: 100%;
-    max-height: 60vh;
-    margin-bottom: 1rem;
-  }
-}
-
-.display-blank {
-  width: 100%;
-  height: 100%;
-  background: #000;
-}
-
 .display-initiative {
   position: absolute;
   top: 2rem;
   right: 2rem;
   min-width: 16rem;
   padding: 1rem;
-  border: 1px solid rgb(255 255 255 / 25%);
-  background: rgb(0 0 0 / 65%);
+  border: 1px solid var(--overlay-border);
+  background: var(--overlay-bg);
+  color: var(--overlay-text);
 
   ol {
     display: grid;
@@ -120,7 +61,7 @@
     padding: 0.25rem 0.4rem;
 
     &.is-current {
-      background: rgb(255 255 255 / 18%);
+      background: var(--overlay-highlight);
     }
   }
 }
@@ -133,14 +74,14 @@
   padding: 0.15rem 0.4rem;
   border: 0;
   background: transparent;
-  color: #d8d8d8;
+  color: var(--overlay-text);
   font-family: var(--font-mono);
   font-size: 0.9rem;
   letter-spacing: 0.12em;
   opacity: 0.75;
   cursor: pointer;
-  -webkit-text-stroke: 0.5px #000;
-  text-shadow: 0 0 3px #000;
+  -webkit-text-stroke: 0.5px var(--display-bg);
+  text-shadow: 0 0 3px var(--display-bg);
 
   &:hover,
   &:focus-visible {

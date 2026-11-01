@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: flex;
   flex: 1;
@@ -130,9 +132,7 @@
 }
 
 .surface {
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-raised);
+  @include mx.surface(var(--radius-md));
 
   &.mini {
     padding: var(--space-3);
@@ -174,14 +174,9 @@
 }
 
 .badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0 var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: 999px;
+  @include mx.pill;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
-  font-size: var(--text-xs);
 }
 
 .attack-row,
@@ -225,10 +220,7 @@
 }
 
 .notes {
-  width: 100%;
-  padding: var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  @include mx.control(var(--radius-md));
   background: var(--color-bg);
   font-family: var(--font-sans);
   resize: vertical;
@@ -260,17 +252,7 @@
 }
 
 .field {
-  display: grid;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-
-  input,
-  select {
-    padding: var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-  }
+  @include mx.field(var(--radius-md));
 }
 
 .field--small {

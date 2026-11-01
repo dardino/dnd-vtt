@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { actorPortraitSchema } from './actor.js';
+import { conditionNameSchema } from './common.js';
 import { diceRollSchema } from './dice.js';
 import {
   fogStateSchema,
@@ -118,7 +119,7 @@ export const publicTokenSchema = z.strictObject({
   rotation: z.number(),
   elevation: z.number(),
   hp: z.strictObject({ current: z.number().int(), max: z.number().int() }).optional(),
-  conditions: z.array(z.string()),
+  conditions: z.array(conditionNameSchema),
   imageUrl: z.string().nullable(),
   portrait: actorPortraitSchema.nullable(),
 });

@@ -10,6 +10,7 @@ import type {
 import type { CellPoint } from './grid.js';
 import { cellCenterPx } from './grid.js';
 import { blockingEdges, deriveSegmentEdges, edgeKey, hasLineOfSight, type GridEdge } from './edges.js';
+import { distanceToSegment, pointInPolygon } from './geometry.js';
 
 export interface VisionSource {
   cell: CellPoint;
@@ -203,41 +204,6 @@ const shapeContainsPoint = (
     default:
       return false;
   }
-};
-
-const pointInPolygon = (
-  point: { x: number; y: number },
-  polygon: Array<{ x: number; y: number }>,
-): boolean => {
-  let inside = false;
-  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
-    const a = polygon[index];
-    const b = polygon[previous];
-    if (a === undefined || b === undefined) {
-      continue;
-    }
-    const crosses = (a.y > point.y) !== (b.y > point.y)
-      && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
-    if (crosses) {
-      inside = !inside;
-    }
-  }
-  return inside;
-};
-
-const distanceToSegment = (
-  point: { x: number; y: number },
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-): number => {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const length = dx * dx + dy * dy;
-  if (length === 0) {
-    return Math.hypot(point.x - a.x, point.y - a.y);
-  }
-  const ratio = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / length));
-  return Math.hypot(point.x - (a.x + ratio * dx), point.y - (a.y + ratio * dy));
 };
 
 /** Ultima operazione manuale che copre il punto; `undefined` se nessuna. */

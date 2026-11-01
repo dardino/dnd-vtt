@@ -1,0 +1,34 @@
+@use 'sass:map';
+
+/// Breakpoint condivisi da tutte le feature. Ogni nome corrisponde a un
+/// vincolo `max-width`; i valori sono in px per restare leggibili nei media.
+$breakpoints: (
+  'xs': 640px,
+  'sm': 520px,
+  'md': 720px,
+  'lg': 980px,
+  'xl': 1050px,
+  'xxl': 1200px,
+);
+
+$z-layers: (
+  'base': 0,
+  'stage': 10,
+  'topbar': 20,
+  'dialog': 100,
+  'toast': 200,
+);
+
+@function bp($name) {
+  @if not map.has-key($breakpoints, $name) {
+    @error 'Breakpoint sconosciuto: #{$name}';
+  }
+  @return map.get($breakpoints, $name);
+}
+
+@function z($name) {
+  @if not map.has-key($z-layers, $name) {
+    @error 'Livello z sconosciuto: #{$name}';
+  }
+  @return map.get($z-layers, $name);
+}

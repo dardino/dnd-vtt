@@ -5,7 +5,10 @@ import { firstValueFrom } from 'rxjs';
 import {
   averageHpGain,
   emptyCurrency,
-  gpToCopper,
+  equipmentCostCopper,
+  isPreparedCaster,
+  maxSpellLevelForClass,
+  pcAbilityScores,
   recommendEquipment,
   remainingCurrency,
   validatePcBuild,
@@ -90,13 +93,9 @@ const withoutSubclass = (build: PcBuild): PcBuild => {
   return copy;
 };
 
-const scoresOf = (build: PcBuild): Record<Ability, number> => {
-  const scores = { ...build.abilityGeneration.base };
-  for (const increase of build.backgroundIncreases) {
-    scores[increase.ability] += increase.amount;
-  }
-  return scores;
-};
+/** Punteggi base + background, senza gli ASI già scelti. */
+const scoresOf = (build: PcBuild): Record<Ability, number> =>
+  pcAbilityScores({ ...build, asiChoices: [] });
 
 const defaultAsiIncreases = (
   characterClass: SrdClass,
@@ -134,18 +133,6 @@ const withAsiDefaults = (characterClass: SrdClass, level: number, build: PcBuild
   });
 };
 
-const maxSpellLevelOf = (characterClass: SrdClass, level: number): number => {
-  const casting = characterClass.spellcasting;
-  if (casting === undefined) {
-    return 0;
-  }
-  if (casting.progression === 'pact') {
-    return casting.pactSlots?.[level - 1]?.level ?? 0;
-  }
-  return (casting.slots[level - 1] ?? [])
-    .reduce((highest, count, index) => (count > 0 ? index + 1 : highest), 0);
-};
-
 const defaultSpells = (
   characterClass: SrdClass,
   level: number,
@@ -158,7 +145,7 @@ const defaultSpells = (
   const available = catalog.spells.filter((spell) => spell.classes.includes(characterClass.id));
   const cantripTarget = casting.cantripsKnown[level - 1] ?? 0;
   const preparedTarget = casting.preparedSpells[level - 1] ?? 0;
-  const maxLevel = maxSpellLevelOf(characterClass, level);
+  const maxLevel = maxSpellLevelForClass(characterClass, level);
   const cantrips = available
     .filter((spell) => spell.level === 0)
     .slice(0, cantripTarget)
@@ -167,7 +154,7 @@ const defaultSpells = (
     .filter((spell) => spell.level >= 1 && spell.level <= maxLevel)
     .slice(0, preparedTarget)
     .map((spell) => spell.id);
-  const preparedCaster = ['cleric', 'druid', 'paladin', 'wizard'].includes(characterClass.id);
+  const preparedCaster = isPreparedCaster(characterClass.id);
   return {
     cantrips,
     known: preparedCaster ? [] : main,
@@ -216,10 +203,7 @@ const withClassDefaults = (
 };
 
 const spentOf = (build: PcBuild, catalog: SrdCatalog): number =>
-  build.equipment.reduce((total, entry) => {
-    const item = catalog.items.find((candidate) => candidate.id === entry.itemId);
-    return total + gpToCopper(item?.valueGp ?? 0) * entry.quantity;
-  }, 0);
+  equipmentCostCopper(build.equipment, catalog.items);
 
 export const CharacterWizardStore = signalStore(
   { providedIn: 'root' },
@@ -620,7 +604,7 @@ export const CharacterWizardStore = signalStore(
         if (info?.spellcasting === undefined || data === null) {
           return;
         }
-        const preparedCaster = ['cleric', 'druid', 'paladin', 'wizard'].includes(info.id);
+        const preparedCaster = isPreparedCaster(info.id);
         const expected = info.spellcasting.preparedSpells[store.build().level - 1] ?? 0;
         const current = preparedCaster ? store.build().spells.prepared : store.build().spells.known;
         const next = current.includes(spellId)

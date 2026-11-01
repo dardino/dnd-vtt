@@ -1,6 +1,7 @@
 import {
   createDefaultSceneState,
   emptyMapDocument,
+  newId,
   srdMonsterToStatblock,
   type Actor,
   type CreateMap,
@@ -17,16 +18,11 @@ import type { AppDatabase } from '../db/client.js';
 import { getActor, insertActor } from '../db/actors.repository.js';
 import { getAsset } from '../db/assets.repository.js';
 import { getCampaign, updateCampaign } from '../db/campaigns.repository.js';
+import { requireCampaign } from '../campaigns/service.js';
 import { deleteMap, getMap, insertMap, listMaps, updateMapDocument } from '../db/maps.repository.js';
 import { insertScene } from '../db/scenes.repository.js';
 import { AppError, notFound } from '../errors.js';
 import { currentSrdVersion, loadSrdCatalog } from '../srd/load.js';
-
-const requireCampaign = (db: AppDatabase, campaignId: string): void => {
-  if (getCampaign(db, campaignId) === null) {
-    throw notFound('Campagna non trovata');
-  }
-};
 
 const requireMap = (db: AppDatabase, id: string): Map => {
   const map = getMap(db, id);
@@ -114,8 +110,8 @@ export const duplicateMap = (db: AppDatabase, id: string): Map => {
       walls: source.terrain.walls.map((wall) => ({ ...wall })),
       lights: source.terrain.lights.map((light) => ({ ...light })),
     },
-    spawns: source.spawns.map((spawn) => ({ ...spawn, id: crypto.randomUUID() })),
-    playerStarts: source.playerStarts.map((start) => ({ ...start, id: crypto.randomUUID() })),
+    spawns: source.spawns.map((spawn) => ({ ...spawn, id: newId() })),
+    playerStarts: source.playerStarts.map((start) => ({ ...start, id: newId() })),
     ...(source.startView === undefined ? {} : { startView: source.startView }),
     fogBase: source.fogBase,
     showDoorIcons: source.showDoorIcons,
@@ -161,7 +157,7 @@ const createTokens = (
       const offset = index % 3;
       const row = Math.floor(index / 3);
       tokens.push({
-        id: crypto.randomUUID(),
+        id: newId(),
         actorId: actor.id,
         label: spawn.label ?? actor.name,
         x: spawn.x + offset,
@@ -188,7 +184,7 @@ const createTokens = (
     }
     assignedStarts.add(start.id);
     tokens.push({
-      id: crypto.randomUUID(),
+      id: newId(),
       actorId: actor.id,
       label: actor.name,
       x: start.x,

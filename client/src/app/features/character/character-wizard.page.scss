@@ -1,4 +1,5 @@
 @use '../../../styles/layout' as layout;
+@use '../../../styles/mixins' as mx;
 
 :host {
   display: flex;
@@ -493,7 +494,13 @@ code {
   }
 }
 
-@media (max-width: 1050px) {
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
+@include mx.respond('xl') {
   .wizard__steps,
   .wizard__main {
     grid-column: span 12;
@@ -513,7 +520,7 @@ code {
   }
 }
 
-@media (max-width: 640px) {
+@include mx.respond('xs') {
   :host {
     padding: var(--space-3);
   }

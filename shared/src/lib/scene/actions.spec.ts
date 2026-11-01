@@ -41,6 +41,16 @@ describe('applyAction', () => {
     expect(updated.tokens[0]).toMatchObject({ label: 'Hobgoblin', hp: { current: 5 } });
   });
 
+  it('l’inverso di token.update rimuove i campi opzionali aggiunti', () => {
+    const state = applyAction(createDefaultSceneState(), { type: 'token.add', token: token() });
+    const action = { type: 'token.update' as const, tokenId: 'token-1', patch: { ac: 15 } };
+    const updated = applyAction(state, action);
+    expect(updated.tokens[0]?.ac).toBe(15);
+
+    const undone = applyAction(updated, invertAction(state, action));
+    expect(undone.tokens[0]?.ac).toBeUndefined();
+  });
+
   it('rifiuta un token inesistente', () => {
     expect(() => applyAction(createDefaultSceneState(), {
       type: 'token.move',

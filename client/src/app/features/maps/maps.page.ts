@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -14,6 +13,7 @@ import { AssetService } from '../../core/asset.service';
 import { CampaignService } from '../../core/campaign.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
 import { MapService } from '../../core/map.service';
+import { httpMessage } from '../../core/http-error';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 
@@ -153,13 +153,11 @@ export class MapsPage implements OnInit {
   }
 }
 
-const messageFor = (error: unknown): string => {
-  if (error instanceof HttpErrorResponse) {
-    if (error.status === 401 || error.status === 403) {
-      return 'Serve la password DM: accedi dalla console.';
-    }
-    return (error.error as { error?: { message?: string } } | null)?.error?.message
-      ?? 'Operazione non riuscita.';
-  }
-  return 'Operazione non riuscita.';
-};
+const messageFor = (error: unknown): string => httpMessage(error, {
+  fallback: 'Operazione non riuscita.',
+  useServerMessage: true,
+  byStatus: {
+    401: 'Serve la password DM: accedi dalla console.',
+    403: 'Serve la password DM: accedi dalla console.',
+  },
+});

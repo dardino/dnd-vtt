@@ -7,7 +7,7 @@ import { insertCampaign } from './campaigns.repository.js';
 import { insertMap } from './maps.repository.js';
 import { createSceneFromMap } from '../maps/service.js';
 import { campaigns } from './schema.js';
-import { defaultTerrain, wallSegmentSchema, type WallSegment } from '@dnd-vtt/shared';
+import { defaultGridConfig, defaultTerrain, wallSegmentSchema, type WallSegment } from '@dnd-vtt/shared';
 
 const wall = (
   ax: number,
@@ -78,15 +78,7 @@ export const seedDemo = async (env: AppEnv, handle: DatabaseHandle): Promise<See
     imageAssetId: asset.id,
     widthPx: 1260,
     heightPx: 840,
-    grid: {
-      type: 'square',
-      cellSizePx: 70,
-      offsetX: 0,
-      offsetY: 0,
-      feetPerCell: 5,
-      diagonalRule: '5-5-5',
-      hexOffset: 'odd-r',
-    },
+    grid: { ...defaultGridConfig },
     terrain: {
       ...defaultTerrain,
       ambientLight: 'dark',

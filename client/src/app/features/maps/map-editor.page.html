@@ -406,3 +406,15 @@
     <app-button (pressed)="spawnCell.set(null)">Annulla</app-button>
   </div>
 </app-dialog>
+
+<app-dialog
+  [open]="leaveConfirm()"
+  title="Modifiche non salvate"
+  (closed)="cancelLeave()"
+>
+  <p class="muted">Le modifiche alla mappa andranno perse. Vuoi uscire comunque?</p>
+  <div dialog-actions>
+    <app-button (pressed)="cancelLeave()">Resta</app-button>
+    <app-button variant="danger" (pressed)="confirmLeave()">Esci senza salvare</app-button>
+  </div>
+</app-dialog>

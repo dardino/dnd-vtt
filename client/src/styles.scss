@@ -1,5 +1,6 @@
 @use './styles/tokens';
 @use './styles/themes';
+@use './styles/mixins' as mx;
 
 *,
 *::before,
@@ -59,10 +60,7 @@ a {
 }
 
 .surface {
-  background: var(--color-bg-raised);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-1);
+  @include mx.surface(var(--radius-lg));
 }
 
 .muted {
@@ -70,18 +68,13 @@ a {
 }
 
 .eyebrow {
-  color: var(--color-text-faint);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  @include mx.eyebrow;
 }
 
 .field {
-  display: grid;
-  gap: var(--space-1);
+  @include mx.field;
 }
 
-.field > label,
 .field-label {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
@@ -92,25 +85,7 @@ a {
 .input,
 .select,
 .textarea {
-  width: 100%;
-  min-height: var(--control-height);
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-bg-raised);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  transition: border-color var(--transition), background var(--transition);
-}
-
-.input:hover,
-.select:hover,
-.textarea:hover {
-  border-color: var(--color-border-strong);
-}
-
-.input:focus,
-.select:focus,
-.textarea:focus {
-  border-color: var(--color-focus);
+  @include mx.control;
 }
 
 .textarea {
@@ -119,21 +94,11 @@ a {
 }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @include mx.button-base(var(--radius-sm));
   gap: var(--space-2);
-  min-height: var(--control-height);
-  padding: 0 var(--space-3);
-  background: var(--color-bg-raised);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--text-sm);
-  transition: background var(--transition), border-color var(--transition);
 }
 
 .btn:hover {
-  background: var(--color-bg-hover);
   border-color: var(--color-border-strong);
 }
 
@@ -154,14 +119,8 @@ a {
 }
 
 .badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: 0.05rem var(--space-2);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: 999px;
+  @include mx.pill;
   color: var(--color-text-muted);
-  font-size: var(--text-xs);
 }
 
 .badge--ok {
@@ -204,13 +163,5 @@ a {
 }
 
 .sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+  @include mx.visually-hidden;
 }

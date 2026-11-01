@@ -1,12 +1,15 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, input, signal, type OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   POINT_BUY_BUDGET,
   abilityModifier,
+  equipmentCostCopper,
   formatGp,
   formatModifier,
   gpToCopper,
+  isPreparedCaster,
+  maxSpellLevelForClass,
+  pcAbilityScores,
   pointBuyCost,
   skills as ALL_SKILLS,
   validatePcBuild,
@@ -19,7 +22,9 @@ import {
   type SrdSpell,
 } from '@dnd-vtt/shared';
 import { ActorService } from '../../core/actor.service';
+import { ABILITY_LABELS } from '../../core/labels';
 import { MeasurementService } from '../../core/measurement.service';
+import { httpMessage, serverMessage } from '../../core/http-error';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
 import {
   CharacterWizardStore,
@@ -63,14 +68,7 @@ export class CharacterWizardPage implements OnInit {
   public readonly stepOrder = STEP_ORDER;
   public readonly allSkills = ALL_SKILLS;
   public readonly abilities: readonly Ability[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
-  public readonly abilityLabels: Record<Ability, string> = {
-    str: 'Forza',
-    dex: 'Destrezza',
-    con: 'Costituzione',
-    int: 'Intelligenza',
-    wis: 'Saggezza',
-    cha: 'Carisma',
-  };
+  public readonly abilityLabels = ABILITY_LABELS;
 
   public readonly search = signal('');
   public readonly savedAt = signal<string | null>(null);
@@ -104,19 +102,8 @@ export class CharacterWizardPage implements OnInit {
     return catalog === null ? null : validatePcBuild(this.store.build(), catalog);
   });
 
-  public readonly finalScores = computed<Record<Ability, number>>(() => {
-    const build = this.store.build();
-    const increases = [
-      ...build.backgroundIncreases,
-      ...build.asiChoices.flatMap((choice) => choice.increases ?? []),
-    ];
-    return Object.fromEntries(this.abilities.map((ability) => {
-      const bonus = increases
-        .filter((increase) => increase.ability === ability)
-        .reduce((sum, increase) => sum + increase.amount, 0);
-      return [ability, build.abilityGeneration.base[ability] + bonus];
-    })) as Record<Ability, number>;
-  });
+  public readonly finalScores = computed<Record<Ability, number>>(() =>
+    pcAbilityScores(this.store.build()));
 
   /** Helper tipizzato: il template non deve indicizzare direttamente i Record. */
   public score(ability: Ability): number {
@@ -184,22 +171,11 @@ export class CharacterWizardPage implements OnInit {
 
   public readonly maxSpellLevel = computed(() => {
     const info = this.characterClass();
-    const level = this.store.build().level;
-    const casting = info?.spellcasting;
-    if (casting === undefined) {
-      return 0;
-    }
-    if (casting.progression === 'pact') {
-      return casting.pactSlots?.[level - 1]?.level ?? 0;
-    }
-    return (casting.slots[level - 1] ?? []).reduce(
-      (highest, count, index) => (count > 0 ? index + 1 : highest),
-      0,
-    );
+    return info === undefined ? 0 : maxSpellLevelForClass(info, this.store.build().level);
   });
 
   public readonly preparedCaster = computed(() =>
-    ['cleric', 'druid', 'paladin', 'wizard'].includes(this.store.build().classId));
+    isPreparedCaster(this.store.build().classId));
 
   public readonly cantripOptions = computed<readonly SrdSpell[]>(() =>
     this.classSpells().filter((spell) => spell.level === 0));
@@ -211,13 +187,9 @@ export class CharacterWizardPage implements OnInit {
 
   public readonly spentCopper = computed(() => {
     const catalog = this.catalog();
-    if (catalog === null) {
-      return 0;
-    }
-    return this.store.build().equipment.reduce((total, entry) => {
-      const item = catalog.items.find((candidate) => candidate.id === entry.itemId);
-      return total + gpToCopper(item?.valueGp ?? 0) * entry.quantity;
-    }, 0);
+    return catalog === null
+      ? 0
+      : equipmentCostCopper(this.store.build().equipment, catalog.items);
   });
 
   public readonly spent = computed(() => formatGp(this.spentCopper()));
@@ -396,22 +368,13 @@ export class CharacterWizardPage implements OnInit {
   }
 
   private saveErrorMessage(error: unknown): string {
-    if (error instanceof HttpErrorResponse && error.status === 422) {
-      return 'La build non è valida: controlla gli errori indicati nel riepilogo.';
-    }
-    if (error instanceof HttpErrorResponse && error.status === 404) {
-      return this.serverMessage(error) ?? 'La campagna non esiste più.';
-    }
-    return 'Salvataggio non riuscito. Controlla il server e riprova.';
-  }
-
-  private serverMessage(error: HttpErrorResponse): string | null {
-    const body: unknown = error.error;
-    if (typeof body !== 'object' || body === null || !('error' in body)) {
-      return null;
-    }
-    const inner = (body as { error?: { message?: unknown } }).error;
-    return typeof inner?.message === 'string' ? inner.message : null;
+    return httpMessage(error, {
+      fallback: 'Salvataggio non riuscito. Controlla il server e riprova.',
+      byStatus: {
+        422: 'La build non è valida: controlla gli errori indicati nel riepilogo.',
+        404: serverMessage(error) ?? 'La campagna non esiste più.',
+      },
+    });
   }
 
   public autoEquip(): void {

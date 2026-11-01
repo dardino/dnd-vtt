@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: contents;
 }
@@ -90,17 +92,7 @@
 }
 
 .field {
-  display: grid;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-
-  input,
-  select {
-    padding: var(--space-2);
-    border: var(--border-width) solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-bg);
-  }
+  @include mx.field(var(--radius-md));
 }
 
 @media (max-width: 520px) {

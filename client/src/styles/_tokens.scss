@@ -17,6 +17,7 @@
   --text-xs: 0.72rem;
   --text-sm: 0.82rem;
   --text-md: 0.92rem;
+  --text-base: 0.98rem;
   --text-lg: 1.1rem;
   --text-xl: 1.4rem;
   --text-2xl: 2rem;
@@ -24,4 +25,23 @@
   --border-width: 1px;
   --control-height: 2.15rem;
   --transition: 120ms ease;
+
+  // Superfici speciali che non seguono il tema (display e canvas).
+  --display-bg: #000;
+  --display-text: #fff;
+  --overlay-bg: rgb(0 0 0 / 65%);
+  --overlay-border: rgb(255 255 255 / 25%);
+  --overlay-highlight: rgb(255 255 255 / 18%);
+  --overlay-text: #fff;
+  --editor-bg: #111;
+  --editor-stage-bg: #0b0b0b;
+  --editor-draft: #4ea1ff;
+  --editor-warning: #ff9f43;
+  --editor-text: #eaf4ff;
+  --editor-stroke: #0f1c2e;
+  --editor-wall: #e8dcc4;
+  --editor-door: #d2a94a;
+  --editor-window: #78c6e0;
+  --editor-low-wall: #a89f91;
+  --fog-color: #000;
 }

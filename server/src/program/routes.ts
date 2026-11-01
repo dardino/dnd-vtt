@@ -1,7 +1,7 @@
 import type { FastifyPluginCallback } from 'fastify';
 import {
-  compositionSchema,
   createDisplaySchema,
+  displayCompositionSchema,
   displayViewportRequestSchema,
   putProgramSchema,
 } from '@dnd-vtt/shared';
@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
-import { getCampaign } from '../db/campaigns.repository.js';
+import { requireCampaign } from '../campaigns/service.js';
 import {
   getDisplay,
   insertDisplay,
@@ -17,7 +17,7 @@ import {
   revokeDisplay,
 } from '../db/displays.repository.js';
 import { AppError, notFound } from '../errors.js';
-import { parse } from '../http/validation.js';
+import { idParamsSchema, parse } from '../http/validation.js';
 import {
   displayStateByCode,
   getProgram,
@@ -27,29 +27,18 @@ import {
 } from './service.js';
 import { broadcastDisplays, onlineDisplayCodes } from '../realtime/hub.js';
 
-const idParamsSchema = z.strictObject({ id: z.string().uuid() });
 const displayParamsSchema = z.strictObject({
   id: z.string().uuid(),
   displayId: z.string().uuid(),
-});
-const displayCompositionSchema = z.strictObject({
-  version: z.number().int().min(1),
-  composition: compositionSchema,
 });
 const codeParamsSchema = z.strictObject({ code: z.string().min(1).max(12) });
 
 export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
-    const requireCampaign = (id: string): void => {
-      if (getCampaign(db, id) === null) {
-        throw notFound('Campagna non trovata');
-      }
-    };
-
     app.get('/campaigns/:id/program', async (request, reply) => {
       requireDm(request, env);
       const { id } = parse(idParamsSchema, request.params);
-      requireCampaign(id);
+      requireCampaign(db, id);
       return reply.send(getProgram(db, id));
     });
 
@@ -83,7 +72,7 @@ export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallba
     app.post('/campaigns/:id/displays', async (request, reply) => {
       requireDm(request, env);
       const { id } = parse(idParamsSchema, request.params);
-      requireCampaign(id);
+      requireCampaign(db, id);
       const body = parse(createDisplaySchema, request.body);
       const display = insertDisplay(db, id, body.label ?? 'Schermo giocatori');
       const program = getProgram(db, id);
@@ -97,14 +86,14 @@ export const programRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallba
     app.get('/campaigns/:id/displays', async (request, reply) => {
       requireDm(request, env);
       const { id } = parse(idParamsSchema, request.params);
-      requireCampaign(id);
+      requireCampaign(db, id);
       return reply.send({ items: listDisplays(db, id) });
     });
 
     app.get('/campaigns/:id/displays/online', async (request, reply) => {
       requireDm(request, env);
       const { id } = parse(idParamsSchema, request.params);
-      requireCampaign(id);
+      requireCampaign(db, id);
       const online = onlineDisplayCodes(id);
       return reply.send({ items: listDisplays(db, id).filter((display) => online.has(display.code)) });
     });

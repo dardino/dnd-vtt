@@ -1,5 +1,5 @@
 import type { Session } from '@dnd-vtt/shared';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, max } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { DbExecutor } from './client.js';
 import { sessions } from './schema.js';
@@ -29,11 +29,14 @@ export const getActiveSession = (db: DbExecutor, campaignId: string): Session | 
 };
 
 export const insertSession = (db: DbExecutor, campaignId: string): Session => {
-  const existing = listSessions(db, campaignId);
+  const highest = db.select({ value: max(sessions.number) })
+    .from(sessions)
+    .where(eq(sessions.campaignId, campaignId))
+    .get();
   const row = {
     id: uuidv7(),
     campaignId,
-    number: (existing[0]?.number ?? 0) + 1,
+    number: (highest?.value ?? 0) + 1,
     startedAt: new Date().toISOString(),
     endedAt: null,
     durationSeconds: null,

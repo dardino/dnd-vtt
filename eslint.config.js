@@ -57,6 +57,52 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+    },
+  },
+  {
+    files: ['shared/src/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: [
+            '@angular/*',
+            'fastify',
+            'fastify/*',
+            'node:*',
+            'ws',
+            'drizzle-orm',
+            'drizzle-orm/*',
+            'sharp',
+            'better-sqlite3',
+          ],
+          message: 'shared deve restare isomorfo: niente Angular, Node o database.',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['client/src/**/*.ts', 'client/e2e/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['@dnd-vtt/shared/src/*', '../../server/*', '../../../server/*'],
+          message: 'Il client può importare solo il barrel @dnd-vtt/shared.',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['server/src/**/*.ts', 'server/test/**/*.ts'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['../../client/*', '../../../client/*', '@angular/*'],
+          message: 'Il server non può dipendere dal client o da Angular.',
+        }],
+      }],
     },
   },
   {

@@ -1,4 +1,4 @@
-<section class="dm-shell" aria-busy="false">
+<section class="dm-shell" [attr.aria-busy]="busy()">
   <header class="dm-topbar">
     <div class="dm-topbar__identity">
       <span class="eyebrow">Console DM</span>
@@ -94,6 +94,14 @@
                   }
                 </div>
                 <input #importInput id="import-campaign-file" class="file-input" type="file" accept="application/json,.json" (change)="importCampaign($event)" />
+                <label class="check">
+                  <input
+                    type="checkbox"
+                    [checked]="includePrivateNotes()"
+                    (change)="setIncludePrivateNotes($event)"
+                  />
+                  <span>Includi note private dei giocatori nell’export</span>
+                </label>
                 <div class="initiative__actions">
                   <button type="button" class="dock-button" (click)="exportCampaign()">Esporta campagna</button>
                   <button type="button" class="dock-button" (click)="openImportPicker()">Importa campagna</button>
@@ -851,7 +859,7 @@
     </section>
 
     <footer class="statusbar">
-      <span class="statusbar__message">{{ statusMessage() }}</span>
+      <span class="statusbar__message" role="status" aria-live="polite">{{ statusMessage() }}</span>
       <span class="statusbar__item statusbar__item--{{ actions.status() }}">{{ syncLabel() }}</span>
       <span class="statusbar__item">v{{ snapshot()?.stateVersion ?? 0 }}</span>
       <span class="statusbar__item">{{ tokens().length }} token</span>
