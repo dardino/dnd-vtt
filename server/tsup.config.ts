@@ -1,7 +1,11 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: {
+    index: 'src/index.ts',
+    'db/migrate-cli': 'src/db/migrate-cli.ts',
+    'db/seed-cli': 'src/db/seed-cli.ts',
+  },
   format: ['esm'],
   clean: true,
   sourcemap: true,

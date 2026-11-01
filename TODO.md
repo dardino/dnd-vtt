@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** **S0 completato**. Prossimo passo: **Docker/Compose (D9)**, poi **A3 → A2 → A1 → A4**, con le attività D6 e **S1/S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
+**Blocco attivo:** **S0 completato**, **D9 implementato** (immagine non ancora verificata con Docker). Prossimo passo: **A3 → A2 → A1 → A4**, con le attività D6 e **S1/S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -370,16 +370,18 @@ Se esce `armv6l`, il target `arm64` non è utilizzabile su quella macchina. Se e
 
 ### Da fare dopo D9
 
-- [ ] Compilare anche `migrate-cli`/`seed-cli` in `tsup` (oggi solo `index.ts`).
-- [ ] Dockerfile + `.dockerignore` + entrypoint.
-- [ ] Compose base e profilo TLS Caddy.
-- [ ] Workflow CI per GHCR multi-arch + scan, con tag `latest`/`vX.Y.Z`/`edge`.
-- [ ] Decidere visibilità del package (pubblico consigliato) e retention delle versioni.
-- [ ] Documentare requisiti hardware (arm64, RAM minima) e verifica `uname -m`.
+- [x] Compilare anche `migrate-cli`/`seed-cli` in `tsup` (`dist/db/migrate-cli.js`, `dist/db/seed-cli.js`).
+- [x] Dockerfile + `.dockerignore` + entrypoint.
+- [x] Compose base e profilo TLS Caddy.
+- [x] Workflow CI per GHCR multi-arch + scan, con tag `latest`/`vX.Y.Z`/`edge`/`sha-<short>`.
+- [x] Visibilità del package: pubblico (coerente con D9); retention lasciata al default GitHub, da rivedere quando crescono le release.
+- [x] Documentare requisiti hardware (arm64, RAM minima) e verifica `uname -m`.
 - [ ] Validare `/display/:code` su Pi 1: versione Chromium, avvio Angular, kiosk a 720p. Se browser troppo vecchio o fps inaccettabili, valutare un renderer display leggero o hardware diverso.
-- [ ] Preferire un **named volume** per `/app/data` su Windows (SQLite su bind mount può avere locking lento); documentare il backup.
-- [ ] Documentare host server, IP LAN, firewall e `PUBLIC_URL`/`ALLOWED_ORIGINS`.
-- [ ] Documentare backup, restore e upgrade delle migrazioni.
+- [x] Preferire un **named volume** per `/app/data` su Windows (SQLite su bind mount può avere locking lento); documentare il backup.
+- [x] Documentare host server, IP LAN, firewall e `PUBLIC_URL`/`ALLOWED_ORIGINS`.
+- [x] Documentare backup, restore e upgrade delle migrazioni.
+
+> **Nota D9 (1 novembre 2026):** l'immagine **non è stata verificata con `docker build` in questo ambiente** (Docker assente). Sono stati eseguiti `npm run check` (lint, typecheck, test, build, `db:check`, `check:bundles`) e l'ispezione statica di `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `deploy/Caddyfile`, `.github/workflows/release.yml` e degli script. La prima build multi-arch va validata su Docker Desktop (o in CI) prima di considerare la release affidabile. Restano aperti: validazione display su Pi 1 e resa bloccante della scansione Trivy (S9).
 
 ---
 

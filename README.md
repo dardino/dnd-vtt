@@ -41,6 +41,34 @@ esterne.
 Il repository installa un hook `pre-commit` che esegue `npm run check`:
 nessun commit se lint, typecheck, test, build o `db:check` falliscono.
 
+## Docker (uso)
+
+Per giocare senza installare Node, usa l'immagine pubblicata su GHCR
+(`ghcr.io/dardino/dnd-vtt`, `linux/amd64` e `linux/arm64`). Serve Docker
+Desktop; il server può stare su un PC/NAS, il Pi 1 al massimo come display.
+
+```powershell
+Copy-Item .env.example .env   # imposta PUBLIC_URL/ALLOWED_ORIGINS con l'IP LAN e DM_PASSWORD
+docker compose pull
+docker compose up -d
+docker compose ps             # app healthy
+```
+
+Il client compilato è servito dallo stesso container su `http://IP-LAN:3000`.
+DB, upload e segreto di sessione vivono nel volume `dnd-vtt_dnd-data`
+(`/app/data`), quindi restano tra un `up` e l'altro. Le migrazioni vengono
+applicate automaticamente dall'entrypoint a ogni avvio.
+
+- Guida completa (`.env`, firewall, Pi 1, profilo TLS Caddy):
+  [`docs/deploy-docker.md`](./docs/deploy-docker.md)
+- Backup e restore: [`docs/backup.md`](./docs/backup.md)
+- Upgrade e rollback: [`docs/upgrade.md`](./docs/upgrade.md)
+
+L'immagine è prodotta dalla workflow `.github/workflows/release.yml` (tag
+`latest`, `edge`, `vX.Y.Z`, `sha-<short>`). La build Docker **non è stata
+verificata in questo ambiente** (Docker assente): la prima validazione va fatta
+su Docker Desktop.
+
 ## Struttura
 
 - `client/` - Angular 22 zoneless, Signals e `@ngrx/signals`; console DM con

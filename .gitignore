@@ -10,6 +10,7 @@ out-tsc/
 !.env.example
 .mcp.json
 /data/
+backup/
 .e2e/
 playwright-report/
 test-results/

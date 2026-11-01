@@ -22,7 +22,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
-    "check": "turbo run lint typecheck test build && npm run db:check",
+    "check": "turbo run lint typecheck test build && npm run db:check && npm run check:bundles -w @dnd-vtt/server",
     "srd:import": "node server/scripts/import-srd.mjs",
     "db:generate": "npm run db:generate -w @dnd-vtt/server",
     "db:migrate": "npm run db:migrate -w @dnd-vtt/server",

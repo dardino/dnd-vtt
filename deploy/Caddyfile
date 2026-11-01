@@ -1,0 +1,16 @@
+# Profilo TLS opzionale (S7): Caddy termina HTTPS e inoltra al container app.
+#
+# Imposta DND_PUBLIC_HOST nel `.env` (es. `DND_PUBLIC_HOST=dnd.lan`) e allinea
+# PUBLIC_URL/ALLOWED_ORIGINS allo stesso host. `tls internal` usa la CA locale
+# di Caddy: i client devono fidarsi del certificato (docs/deploy-docker.md).
+#
+# Nota: il server usa ancora `trustProxy: false`, quindi dietro Caddy l'IP
+# visto dal rate limit è quello del proxy. La configurazione di TRUST_PROXY è
+# oggetto del passo S7.
+
+https://{$DND_PUBLIC_HOST:localhost} {
+	tls internal
+	encode zstd gzip
+
+	reverse_proxy app:3000
+}

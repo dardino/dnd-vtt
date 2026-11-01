@@ -1,0 +1,75 @@
+name: dnd-vtt
+
+services:
+  app:
+    image: ghcr.io/dardino/dnd-vtt:latest
+    build: .
+    # Le variabili pubbliche (PUBLIC_URL, ALLOWED_ORIGINS, DM_PASSWORD,
+    # SESSION_SECRET, ...) arrivano da .env; quelle sotto sono fissate dal
+    # container e non vanno cambiate su un host LAN.
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      CLIENT_DIST: client/dist/browser
+      DATABASE_PATH: data/dnd.db
+      UPLOAD_DIR: data/uploads
+    ports:
+      - "3000:3000"
+    volumes:
+      - dnd-data:/app/data
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/api/v1/health')
+          .then((r) => { if (!r.ok) process.exit(1); })
+          .catch(() => process.exit(1));
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Profilo TLS opzionale, pensato per S7 (HTTPS e reverse proxy).
+  # `docker compose --profile tls up -d` espone 80/443 e inoltra ad `app:3000`.
+  # In LAN HTTP sulla porta 3000 va bene solo su una rete fidata.
+  caddy:
+    image: caddy:2
+    profiles:
+      - tls
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      DND_PUBLIC_HOST: ${DND_PUBLIC_HOST:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+
+volumes:
+  dnd-data:
+  caddy-data:
+  caddy-config:
