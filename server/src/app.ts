@@ -34,6 +34,7 @@ import { srdRoutes } from './srd/routes.js';
 import { currentSrdVersion } from './srd/load.js';
 import { createSpaHandler, registerSpaRoute } from './http/spa.js';
 import { isAllowedOrigin } from './http/origin.js';
+import { isRateLimitExempt } from './http/rate-limit.js';
 import { WsAttemptLimiter } from './realtime/rate-limit.js';
 
 export interface BuildAppOptions {
@@ -58,6 +59,9 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
       ? { level: env.logLevel }
       : false,
     trustProxy: false,
+    // Limite unico per i body JSON (import compreso): prima era applicato
+    // solo al PUT rimosso e Fastify usava il default di 1 MB.
+    bodyLimit: env.maxJsonBytes,
   });
 
   const hub = new RealtimeHub(database.db);
@@ -84,10 +88,9 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   void app.register(rateLimit, {
     max: env.nodeEnv === 'test' ? 100_000 : 300,
     timeWindow: '1 minute',
-    // Le GET di sola lettura restano fuori dal limite (D67), tranne il lookup
-    // dei codici display: è l'unico endpoint pubblico enumerabile.
-    allowList: (request) => request.url.startsWith('/uploads/')
-      || (request.method === 'GET' && !request.url.startsWith('/api/v1/displays/')),
+    // Esenti solo upload, health, SRD e polling azioni (ogni 2 s): tutte le
+    // altre GET, export e player sheet compresi, passano dal limite globale.
+    allowList: (request) => isRateLimitExempt(request),
     errorResponseBuilder: (request, context) => new AppError(
       'rate_limited',
       429,

@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** **S0 e S1 completati**, **D9 implementato** (immagine non ancora verificata con Docker), **A3 e A2 completati**. Prossimo passo: **A1 → A4**, con le attività D6 e **S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
+**Blocco attivo:** **S0, S1 e S4 completati**, **D9 implementato** (immagine non ancora verificata con Docker), **A3 e A2 completati**. Prossimo passo: **A1 → A4**, con le attività D6 e **S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -155,9 +155,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** TTL 7 giorni con refresh su attività, oppure `jti` + versione sessione revocabile al logout; valutare il costo rispetto a D27.
   - **Fatto quando:** esiste un percorso di revoca per-device.
 
-- [ ] **S4 — Rate limit e limiti corpo** · S
+- [x] **S4 — Rate limit e limiti corpo** · S — ✅ 1 novembre 2026
   - **Problema:** l'allowList esenta tutte le GET tranne i display (export e actions incluse); `MAX_JSON_MB` è usato solo dal PUT state, mentre Fastify applica il default di 1 MB al resto.
   - **Proposta:** allowList ristretta a uploads/health/azioni in polling/SRD; rate limit su export; `bodyLimit` esplicito per import/export e rimozione di `maxJsonBytes` quando D3 elimina il PUT.
+  - **Implementato:** `bodyLimit: env.maxJsonBytes` a livello di istanza Fastify, così `MAX_JSON_MB` (default 2 MB) vale per tutti i body JSON, import compreso; l'`allowList` vive in `server/src/http/rate-limit.ts` (`isRateLimitExempt`) ed esenta solo `/uploads/`, `GET /api/v1/health`, `GET /api/v1/srd*` e `GET /api/v1/campaigns/:id/actions` (polling ogni 2 s). Export, player sheet, snapshot e display lookup passano dal limite globale, che resta 300/min (100.000 in test); rate limit display e login invariati. Test: 413 `payload_too_large` oltre `MAX_JSON_MB` e unit test della allowList.
   - **Fatto quando:** export limitato e limiti documentati.
 
 - [ ] **S5 — Originali su disco** · S
@@ -189,7 +190,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] S1 CSP `connect-src` ristretta
 - [ ] S2 `DM_PASSWORD_HASH` + minimo 12 caratteri
 - [ ] S3 TTL breve e revoca sessione
-- [ ] S4 AllowList GET e `bodyLimit` espliciti
+- [x] S4 AllowList GET e `bodyLimit` espliciti
 - [ ] S5 Nessun originale con EXIF su disco
 - [ ] S6 Codici display documentati/ruotati
 - [ ] S7 HTTPS, proxy e cookie `secure`
@@ -389,7 +390,7 @@ Se esce `armv6l`, il target `arm64` non è utilizzabile su quella macchina. Se e
 ## Sequenza consigliata
 
 1. **Sicurezza WS** (S0): Origin check + rate limit, **prerequisito di A1**. ✅ completato
-2. **Docker/Compose** (D9): immagine GHCR, volume, healthcheck; poi **A3 → A2 → A1 → A4**. In parallelo: **S1, S4, S5, S6** (basso rischio).
+2. **Docker/Compose** (D9): immagine GHCR, volume, healthcheck; poi **A3 → A2 → A1 → A4**. In parallelo: **S1, S5, S6** (basso rischio).
 3. **Tooling in parallelo** (D6): coverage, fixtures, `max-len` 110, contract test; policy **R0**.
 4. **Migrazione dati** (D5/B): **B1 spike** durante l'architettura, poi **B2 `resource()`** e **B3 `@defer`**.
 5. **Refactor** (D8): `DmShellPage` → `SceneCanvas` → `ActorSheet`, rispettando R0.
