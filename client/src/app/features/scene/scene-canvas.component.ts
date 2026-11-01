@@ -42,6 +42,7 @@ import {
 import { MeasurementService } from '../../core/measurement.service';
 import { FogRenderer } from './fog-renderer';
 import { GridRenderer } from './grid-renderer';
+import { TokenRenderer } from './token-renderer';
 
 export type SceneTool
   = | 'select'
@@ -156,6 +157,7 @@ export class SceneCanvasComponent implements OnDestroy {
   private stage: Konva.Stage | null = null;
   private readonly gridRenderer = new GridRenderer();
   private readonly fogRenderer = new FogRenderer();
+  private readonly tokenRenderer = new TokenRenderer();
   private mapLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
   private doorLayer: Konva.Layer | null = null;
@@ -825,136 +827,25 @@ export class SceneCanvasComponent implements OnDestroy {
     if (layer === null || stage === null) {
       return;
     }
-    layer.destroyChildren();
-    const grid = this.state().grid;
-    const scale = stage.scaleX();
-    const colors = this.colors();
-    const selectedId = this.selectedTokenId();
-    for (const token of this.state().tokens) {
-      if (!token.visible && selectedId !== token.id) {
-        continue;
-      }
-      const group = this.buildToken(token, grid, scale, colors, selectedId === token.id);
-      layer.add(group);
+    const nodes = this.tokenRenderer.render({
+      layer,
+      tokens: this.state().tokens,
+      grid: this.state().grid,
+      colors: this.colors(),
+      selectedTokenId: this.selectedTokenId(),
+      stageScale: stage.scaleX(),
+      draggable: this.tool() === 'select' && !this.readOnly(),
+      images: this.portraitImages,
+      actorPortraits: this.actorPortraits(),
+      tokenPortraits: this.tokenPortraits(),
+    });
+    for (const { token, group } of nodes) {
+      this.bindTokenInteraction(token, group);
     }
-    layer.draw();
   }
 
-  private buildToken(
-    token: TokenState,
-    grid: GridConfig,
-    scale: number,
-    colors: Record<'text' | 'surface' | 'accent' | 'danger' | 'ok', string>,
-    selected: boolean,
-  ): Konva.Group {
-    const center = tokenCenterPx(grid, token);
-    const footprint = grid.cellSizePx * token.size;
-    const group = new Konva.Group({
-      x: center.x,
-      y: center.y,
-      draggable: this.tool() === 'select' && !this.readOnly(),
-    });
-    const surface = new Konva.Rect({
-      x: -footprint / 2,
-      y: -footprint / 2,
-      width: footprint,
-      height: footprint,
-      cornerRadius: grid.type === 'hex' ? footprint / 2 : 6,
-      fill: token.owner === 'players' ? colors.ok : colors.surface,
-      stroke: selected ? colors.accent : colors.text,
-      strokeWidth: (selected ? 2.5 : 1.25) / Math.max(scale, 0.2),
-      opacity: token.visible ? 1 : 0.45,
-      shadowColor: '#000',
-      shadowOpacity: 0.25,
-      shadowBlur: 6,
-    });
-    const portrait = token.actorId === undefined
-      ? this.tokenPortraits()[token.id]
-      : this.actorPortraits()[token.actorId];
-    const portraitImage = portrait === undefined ? undefined : this.portraitImages.get(portrait.url);
-    if (portrait !== undefined && portraitImage !== undefined) {
-      const naturalWidth = portraitImage.naturalWidth;
-      const naturalHeight = portraitImage.naturalHeight;
-      const baseScale = Math.max(footprint / naturalWidth, footprint / naturalHeight);
-      const imageScale = baseScale * portrait.zoom;
-      const imageWidth = naturalWidth * imageScale;
-      const imageHeight = naturalHeight * imageScale;
-      const clip = new Konva.Group({
-        opacity: token.visible ? 1 : 0.45,
-        clipFunc: (context) => {
-          context.beginPath();
-          if (grid.type === 'hex') {
-            context.arc(0, 0, footprint / 2, 0, Math.PI * 2, false);
-          } else {
-            context.roundRect(-footprint / 2, -footprint / 2, footprint, footprint, 6);
-          }
-          context.closePath();
-        },
-      });
-      clip.add(new Konva.Image({
-        image: portraitImage,
-        x: -portrait.focusX * imageWidth,
-        y: -portrait.focusY * imageHeight,
-        width: imageWidth,
-        height: imageHeight,
-        listening: false,
-      }));
-      group.add(clip);
-      group.add(new Konva.Rect({
-        x: -footprint / 2,
-        y: -footprint / 2,
-        width: footprint,
-        height: footprint,
-        cornerRadius: grid.type === 'hex' ? footprint / 2 : 6,
-        fillEnabled: false,
-        stroke: selected ? colors.accent : colors.text,
-        strokeWidth: (selected ? 2.5 : 1.25) / Math.max(scale, 0.2),
-        opacity: token.visible ? 1 : 0.45,
-        shadowColor: '#000',
-        shadowOpacity: 0.25,
-        shadowBlur: 6,
-      }));
-    } else {
-      group.add(surface);
-    }
-
-    const barWidth = footprint * 0.8;
-    const barHeight = Math.max(3, 5 / Math.max(scale, 0.2));
-    const ratio = token.hp.max > 0 ? clamp(token.hp.current / token.hp.max, 0, 1) : 0;
-    group.add(new Konva.Rect({
-      x: -barWidth / 2,
-      y: -footprint / 2 - barHeight - 2,
-      width: barWidth,
-      height: barHeight,
-      fill: colors.danger,
-      cornerRadius: barHeight / 2,
-    }));
-    group.add(new Konva.Rect({
-      x: -barWidth / 2,
-      y: -footprint / 2 - barHeight - 2,
-      width: barWidth * ratio,
-      height: barHeight,
-      fill: colors.ok,
-      cornerRadius: barHeight / 2,
-    }));
-
-    const fontSize = Math.max(10, 12 / Math.max(scale, 0.15));
-    const labelWidth = footprint * 4;
-    const longestWord = Math.max(1, ...token.label.split(/\s+/).map((word) => word.length));
-    const labelFontSize = Math.min(fontSize, labelWidth / (longestWord * 0.62));
-    group.add(new Konva.Text({
-      x: -footprint * 2,
-      y: footprint / 2 + 2,
-      width: labelWidth,
-      align: 'center',
-      text: token.label,
-      fontSize: labelFontSize,
-      fontFamily: 'system-ui, sans-serif',
-      fill: colors.text,
-      wrap: 'word',
-      listening: false,
-    }));
-
+  private bindTokenInteraction(token: TokenState, group: Konva.Group): void {
+    const grid = this.state().grid;
     group.on('click tap', (event) => {
       event.cancelBubble = true;
       this.tokenSelected.emit(token.id);
@@ -984,7 +875,6 @@ export class SceneCanvasComponent implements OnDestroy {
         });
       }
     });
-    return group;
   }
 
   private onPointerDown(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void {
