@@ -113,9 +113,12 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** TestBed + vitest per `Dialog` (Esc singolo, `aria-labelledby`), `Button` (ARIA), `ActionStore` (TTL/guard), `SceneCanvas` (smoke render/fog), `ActorSheet` (patch HP).
   - **Fatto quando:** i cinque componenti hanno test di regressione.
 
-- [ ] **Q3 — Contract test client/server** · M
+- [x] **Q3 — Contract test client/server** · M
   - **Proposta:** test server che validano le risposte con gli schemi `shared`; in alternativa generazione tipi da OpenAPI (c'è già `fastify-type-provider-zod`).
   - **Fatto quando:** una divergenza di DTO fallisce nei test, non a runtime.
+  - **Esito:** `server/test/contracts.spec.ts` valida con `safeParse` le risposte reali di campagne, scene,
+    attori, display (`displayStateEnvelopeSchema`: la route restituisce l'envelope) ed export.
+    Fixture create via API; gli errori riportano `error.issues`.
 
 - [ ] **Q4 — Fixtures condivise** · S · D6
   - **Proposta:** `client/e2e/fixtures.ts` (`openCampaign`, `campaignId`, `ensureScene`, `createGoblin`) e `server/test/factories.ts` (`createCampaign`, `createScene`, `sendAction`, `createPc`).
