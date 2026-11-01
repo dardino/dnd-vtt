@@ -34,6 +34,7 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase, hub: RealtimeHub): Fa
         origin: 'dm',
       });
       hub.broadcastDisplays(id);
+      hub.broadcastAction(id, applied);
       return reply.send(applied);
     });
 
@@ -51,6 +52,10 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase, hub: RealtimeHub): Fa
       const body = parse(undoActionRequestSchema, request.body);
       const result = undoThrough(db, id, body.entryId);
       hub.broadcastDisplays(id);
+      hub.broadcastAction(id, {
+        sceneId: result.snapshot.scene.id,
+        stateVersion: result.snapshot.stateVersion,
+      });
       return reply.send(result);
     });
 
@@ -58,6 +63,10 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase, hub: RealtimeHub): Fa
       const { id } = parse(idParamsSchema, request.params);
       const result = redoLastBatch(db, id);
       hub.broadcastDisplays(id);
+      hub.broadcastAction(id, {
+        sceneId: result.snapshot.scene.id,
+        stateVersion: result.snapshot.stateVersion,
+      });
       return reply.send(result);
     });
 
@@ -71,6 +80,10 @@ export const actionRoutes = (env: AppEnv, db: AppDatabase, hub: RealtimeHub): Fa
       const body = parse(resetFogRequestSchema, request.body);
       const result = resetSceneFog(db, id, body.sceneId);
       hub.broadcastDisplays(id);
+      hub.broadcastAction(id, {
+        sceneId: result.snapshot.scene.id,
+        stateVersion: result.snapshot.stateVersion,
+      });
       return reply.send(result);
     });
 

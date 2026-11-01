@@ -42,6 +42,20 @@ export class RealtimeHub {
     }
   }
 
+  /** Notifica le azioni applicate alle sole console DM della campagna (A1). */
+  broadcastAction(campaignId: string, payload: unknown): void {
+    const message = envelope('action.applied', payload);
+    for (const client of this.clients) {
+      if (client.role !== 'dm' || client.campaignId !== campaignId) {
+        continue;
+      }
+      if (client.socket.readyState !== 1) {
+        continue;
+      }
+      client.socket.send(message);
+    }
+  }
+
   private removeClient(client: RealtimeClient): void {
     if (this.clients.delete(client) && client.role === 'display') {
       this.broadcastPresence(client.campaignId);
