@@ -52,13 +52,31 @@ const normalizeHost = (hostname: string): string => {
   return lower.startsWith('[') && lower.endsWith(']') ? lower.slice(1, -1) : lower;
 };
 
+/**
+ * Fastify 5.12 rifiuta il `trustProxy` numerico (tipi e runtime fail-closed),
+ * quindi N hop si traducono in una funzione `(address, hop)`: si fidano solo i
+ * primi N peer. Come `true`, è sicuro solo se il server non è raggiungibile
+ * direttamente: un client diretto può fingersi il proxy e falsificare
+ * `X-Forwarded-For`/`X-Forwarded-Host`.
+ */
+const resolveTrustProxy = (
+  value: boolean | number,
+): boolean | ((address: string, hop: number) => boolean) => {
+  if (typeof value !== 'number') {
+    return value;
+  }
+  return (_address, hop) => hop < value;
+};
+
 export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   const { env, database } = options;
   const app = Fastify({
     logger: options.logger === true
       ? { level: env.logLevel }
       : false,
-    trustProxy: false,
+    // Default `false`; con un proxy TLS davanti `TRUST_PROXY` abilita
+    // X-Forwarded-For (IP reale) e X-Forwarded-Proto (protocollo).
+    trustProxy: resolveTrustProxy(env.trustProxy),
     // Limite unico per i body JSON (import compreso): prima era applicato
     // solo al PUT rimosso e Fastify usava il default di 1 MB.
     bodyLimit: env.maxJsonBytes,
@@ -107,6 +125,8 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   // Fastify 5 su Node 26 non risolve la catena con un hook sincrono: serve async.
   // eslint-disable-next-line @typescript-eslint/require-await
   app.addHook('onRequest', async (request) => {
+    // Con TRUST_PROXY attivo `request.hostname` può venire da
+    // X-Forwarded-Host: il proxy deve preservare `Host` e allineare XFH.
     if (!hosts.has(normalizeHost(request.hostname))) {
       throw new AppError('misdirected_request', 421, 'Host non consentito');
     }

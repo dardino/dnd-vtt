@@ -16,6 +16,21 @@ const rawEnvSchema = z.object({
   DM_PASSWORD_HASH: z.string().default(''),
   SESSION_SECRET: z.string().default(''),
   COOKIE_SECURE: z.enum(['auto', 'true', 'false']).default('auto'),
+  TRUST_PROXY: z
+    .preprocess((value) => {
+      if (typeof value !== 'string') {
+        return value;
+      }
+      const normalized = value.trim();
+      if (normalized === '' || normalized === 'false') {
+        return false;
+      }
+      if (normalized === 'true') {
+        return true;
+      }
+      return /^\d+$/.test(normalized) ? Number(normalized) : value;
+    }, z.union([z.boolean(), z.number().int().min(1).max(10)]))
+    .default(false),
   DATABASE_PATH: z.string().min(1).default('data/dnd.db'),
   UPLOAD_DIR: z.string().min(1).default('data/uploads'),
   CLIENT_DIST: z.string().min(1).default('client/dist/browser'),
@@ -38,6 +53,8 @@ export interface AppEnv {
   dmPasswordHash: string | undefined;
   sessionSecret: string;
   cookieSecure: boolean;
+  /** `false`, `true` (fidati di ogni proxy) o numero di hop fidati. */
+  trustProxy: boolean | number;
   databasePath: string;
   uploadDir: string;
   clientDist: string;
@@ -193,6 +210,7 @@ export const createEnv = (
     dmPasswordHash,
     sessionSecret: loadSessionSecret(repoRoot, values.SESSION_SECRET, values.NODE_ENV),
     cookieSecure,
+    trustProxy: values.TRUST_PROXY,
     databasePath: absolute(repoRoot, values.DATABASE_PATH),
     uploadDir: absolute(repoRoot, values.UPLOAD_DIR),
     clientDist: absolute(repoRoot, values.CLIENT_DIST),

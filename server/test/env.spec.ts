@@ -78,4 +78,26 @@ describe('configurazione env', () => {
   it('rifiuta un SESSION_SECRET troppo corto', () => {
     expect(() => createEnv({ ...base, SESSION_SECRET: 'corto' })).toThrow(/SESSION_SECRET/);
   });
+
+  it('disattiva trustProxy per default', () => {
+    expect(createEnv(base).trustProxy).toBe(false);
+    expect(createEnv({ ...base, TRUST_PROXY: '' }).trustProxy).toBe(false);
+    expect(createEnv({ ...base, TRUST_PROXY: 'false' }).trustProxy).toBe(false);
+  });
+
+  it('accetta TRUST_PROXY=true', () => {
+    expect(createEnv({ ...base, TRUST_PROXY: 'true' }).trustProxy).toBe(true);
+  });
+
+  it('accetta un numero di hop tra 1 e 10', () => {
+    expect(createEnv({ ...base, TRUST_PROXY: '1' }).trustProxy).toBe(1);
+    expect(createEnv({ ...base, TRUST_PROXY: '10' }).trustProxy).toBe(10);
+  });
+
+  it('rifiuta un numero di hop fuori intervallo o un valore non valido', () => {
+    expect(() => createEnv({ ...base, TRUST_PROXY: '0' })).toThrow(/TRUST_PROXY/);
+    expect(() => createEnv({ ...base, TRUST_PROXY: '11' })).toThrow(/TRUST_PROXY/);
+    expect(() => createEnv({ ...base, TRUST_PROXY: '2.5' })).toThrow(/TRUST_PROXY/);
+    expect(() => createEnv({ ...base, TRUST_PROXY: 'yes' })).toThrow(/TRUST_PROXY/);
+  });
 });

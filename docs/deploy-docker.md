@@ -172,12 +172,36 @@ in teoria a 720p; Angular + Konva su 700 MHz e 512 MB sono al limite.
   aggiornamento via WebSocket; se gli fps sono inaccettabili, cambia hardware.
 - La validazione sul dispositivo reale è ancora aperta in `TODO.md` (D9).
 
-## 7. Profilo TLS con Caddy (opzionale, per S7)
+## 7. HTTPS con reverse proxy (profilo TLS con Caddy)
 
-Serve per provare HTTPS in LAN senza modificare l'app. Non è la configurazione
-predefinita e **non** completa il passo S7: il server usa ancora
-`trustProxy: false`, quindi dietro Caddy il rate limit vede l'IP del proxy e
-mancano HSTS e la verifica dell'IP reale.
+Il server non termina TLS: Caddy (o nginx) espone HTTPS e inoltra HTTP a
+`app:3000`. Perché rate limit, cookie e controllo `Host` funzionino servono:
+
+- `PUBLIC_URL=https://<host>` e `ALLOWED_ORIGINS=https://<host>` (lo stesso
+  host che i client aprono davvero);
+- `COOKIE_SECURE=true` (oppure `auto`, che con `PUBLIC_URL` HTTPS calcola
+  `secure` automaticamente);
+- `TRUST_PROXY` allineato al proxy: `1` con un solo hop davanti, `true` solo se
+  il server **non** è raggiungibile direttamente (altrimenti un client può
+  falsificare `X-Forwarded-For`).
+
+Il proxy deve **preservare l'header `Host`** e aggiungere
+`X-Forwarded-For`/`X-Forwarded-Proto`: il controllo `Host` usa `PUBLIC_URL` e,
+con header di forwarding presenti, il bypass password loopback viene disattivato
+(serve comunque `DM_PASSWORD`/`DM_PASSWORD_HASH`). Caddy lo fa di default con
+`reverse_proxy`; su nginx imposta `proxy_set_header Host $host;`.
+
+Attenzione a `X-Forwarded-Host`: con `TRUST_PROXY` attivo Fastify può usarlo al
+posto di `Host` per `request.hostname`, quindi deve corrispondere all'host
+pubblico. Caddy lo imposta automaticamente; su nginx aggiungi
+`proxy_set_header X-Forwarded-Host $host;` e assicurati che il proxy **sovrascriva**
+(non inoltri) gli header di forwarding inviati dal client. Se la porta 3000 resta
+esposta direttamente, un client può inviare `X-Forwarded-Host` arbitrario:
+pubblica solo il proxy (es. commenta la mappatura `3000:3000`).
+
+HSTS è già inviato da `@fastify/helmet` (`Strict-Transport-Security:
+max-age=31536000; includeSubDomains`); i browser lo applicano solo sulle
+risposte HTTPS, quindi non ha effetto finché non passi dal proxy TLS.
 
 1. Aggiungi al `.env`:
 
@@ -185,7 +209,8 @@ mancano HSTS e la verifica dell'IP reale.
    DND_PUBLIC_HOST=dnd.lan
    PUBLIC_URL=https://dnd.lan
    ALLOWED_ORIGINS=https://dnd.lan
-   COOKIE_SECURE=auto
+   COOKIE_SECURE=true
+   TRUST_PROXY=1
    ```
 
 2. Avvia con il profilo:

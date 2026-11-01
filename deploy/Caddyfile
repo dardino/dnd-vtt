@@ -4,9 +4,9 @@
 # PUBLIC_URL/ALLOWED_ORIGINS allo stesso host. `tls internal` usa la CA locale
 # di Caddy: i client devono fidarsi del certificato (docs/deploy-docker.md).
 #
-# Nota: il server usa ancora `trustProxy: false`, quindi dietro Caddy l'IP
-# visto dal rate limit è quello del proxy. La configurazione di TRUST_PROXY è
-# oggetto del passo S7.
+# Con un solo proxy davanti imposta `TRUST_PROXY=1`: il server legge l'IP reale
+# da `X-Forwarded-For` e mantiene il controllo su `Host` (Caddy preserva Host).
+# Vedi docs/deploy-docker.md, sezione 7.
 
 https://{$DND_PUBLIC_HOST:localhost} {
 	tls internal
