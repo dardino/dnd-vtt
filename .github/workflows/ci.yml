@@ -30,7 +30,8 @@ jobs:
           restore-keys: turbo-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run test
+      - run: npm run test -w @dnd-vtt/client
+      - run: npm run test:coverage
       - run: npm run audit
       - run: npm run db:check
       - run: npm run build

@@ -21,6 +21,7 @@
     "format": "turbo run lint:fix",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
     "test:e2e": "turbo run test:e2e",
     "check": "turbo run lint typecheck test build && npm run db:check && npm run check:bundles -w @dnd-vtt/server",
     "audit": "npm audit --omit=dev --audit-level=high",

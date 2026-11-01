@@ -98,9 +98,16 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 ## 3. Qualità e test (P1)
 
-- [ ] **Q1 — Coverage configurata** · S · D6
+- [x] **Q1 — Coverage configurata** · S · D6
   - **Proposta:** `@vitest/coverage-v8` su `shared`/`server`; soglia progressiva (60% ora, ratchet a 80/75) e report in CI.
-  - **Fatto quando:** `npm run test` produce coverage e fallisce sotto soglia.
+  - **Fatto quando:** `npm run test:coverage` produce coverage e fallisce sotto soglia; step dedicato in CI.
+  - **Esito:** coverage v8 (`text` + `json-summary`) su `shared`/`server`, script `test:coverage` e step CI.
+    Soglie attuali (globali): `shared` 70 statements / 60 branches / 70 functions / 70 lines,
+    `server` 60 / 50 / 60 / 60. Misurato: `shared` 76,4 stmts · 64,9 branch · 81,6 fn · 76,1 lines;
+    `server` 69,7 stmts · 52,7 branch · 68,4 fn · 69,6 lines (entrypoint/CLI a 0% esclusi).
+    Il target 80/75 non passa su `shared` (branch 64,9) né su `server` (branch 52,7), quindi si parte
+    dal primo gradino previsto (70/60 e 60/50) con un margine minimo sul misurato; debito: alzare a
+    80/75 quando `shared/src/schemas` e `server/src/sessions` saranno coperti.
 
 - [ ] **Q2 — Test componenti client critici** · M
   - **Proposta:** TestBed + vitest per `Dialog` (Esc singolo, `aria-labelledby`), `Button` (ARIA), `ActionStore` (TTL/guard), `SceneCanvas` (smoke render/fog), `ActorSheet` (patch HP).
