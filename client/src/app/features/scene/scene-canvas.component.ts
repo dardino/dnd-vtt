@@ -14,7 +14,6 @@ import {
 } from '@angular/core';
 import Konva from 'konva';
 import {
-  HEX_ROW_RATIO,
   TILE_SIZE_PX,
   cellCenterPx,
   newId,
@@ -41,6 +40,7 @@ import {
   type VisionGrid,
 } from '@dnd-vtt/shared';
 import { MeasurementService } from '../../core/measurement.service';
+import { GridRenderer } from './grid-renderer';
 
 export type SceneTool
   = | 'select'
@@ -153,6 +153,7 @@ export class SceneCanvasComponent implements OnDestroy {
   });
 
   private stage: Konva.Stage | null = null;
+  private readonly gridRenderer = new GridRenderer();
   private mapLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
   private doorLayer: Konva.Layer | null = null;
@@ -668,100 +669,17 @@ export class SceneCanvasComponent implements OnDestroy {
     if (stage === null || layer === null) {
       return;
     }
-    layer.destroyChildren();
-    if (!this.gridVisible()) {
-      layer.draw();
-      return;
-    }
-    const grid = this.state().grid;
-    const colors = this.colors();
     const map = this.map();
-    const scale = stage.scaleX();
-    const worldLeft = Math.max(0, -stage.x() / scale);
-    const worldTop = Math.max(0, -stage.y() / scale);
-    const worldRight = Math.min(map?.width ?? Number.POSITIVE_INFINITY, worldLeft + stage.width() / scale);
-    const worldBottom = Math.min(map?.height ?? Number.POSITIVE_INFINITY, worldTop + stage.height() / scale);
-    const shape = new Konva.Shape({
-      listening: false,
-      sceneFunc: (context) => {
-        context.beginPath();
-        if (grid.type === 'square') {
-          this.drawSquareGrid(context, grid, worldLeft, worldTop, worldRight, worldBottom);
-        } else {
-          this.drawHexGrid(context, grid, worldLeft, worldTop, worldRight, worldBottom);
-        }
-        context.strokeShape(shape);
-      },
-      stroke: colors.grid,
-      strokeWidth: Math.max(0.5, 1 / scale),
-      opacity: 0.65,
+    const visible = this.gridVisible();
+    this.gridRenderer.render({
+      layer,
+      grid: this.state().grid,
+      visible,
+      color: visible ? this.colors().grid : '',
+      camera: { scale: stage.scaleX(), x: stage.x(), y: stage.y() },
+      viewport: { width: stage.width(), height: stage.height() },
+      map: map === null ? null : { width: map.width, height: map.height },
     });
-    if (map === null) {
-      layer.clip({ x: 0, y: 0, width: 0, height: 0 });
-    } else {
-      layer.clip({ x: 0, y: 0, width: map.width, height: map.height });
-    }
-    layer.add(shape);
-    layer.draw();
-  }
-
-  private drawSquareGrid(
-    context: Konva.Context,
-    grid: GridConfig,
-    left: number,
-    top: number,
-    right: number,
-    bottom: number,
-  ): void {
-    const startColumn = Math.floor((left - grid.offsetX) / grid.cellSizePx);
-    const endColumn = Math.ceil((right - grid.offsetX) / grid.cellSizePx);
-    const startRow = Math.floor((top - grid.offsetY) / grid.cellSizePx);
-    const endRow = Math.ceil((bottom - grid.offsetY) / grid.cellSizePx);
-    for (let column = startColumn; column <= endColumn; column += 1) {
-      const x = grid.offsetX + column * grid.cellSizePx;
-      context.moveTo(x, top);
-      context.lineTo(x, bottom);
-    }
-    for (let row = startRow; row <= endRow; row += 1) {
-      const y = grid.offsetY + row * grid.cellSizePx;
-      context.moveTo(left, y);
-      context.lineTo(right, y);
-    }
-  }
-
-  private drawHexGrid(
-    context: Konva.Context,
-    grid: GridConfig,
-    left: number,
-    top: number,
-    right: number,
-    bottom: number,
-  ): void {
-    const rowStep = grid.cellSizePx * HEX_ROW_RATIO;
-    const startRow = Math.floor((top - grid.offsetY) / rowStep) - 1;
-    const endRow = Math.ceil((bottom - grid.offsetY) / rowStep) + 1;
-    const startColumn = Math.floor((left - grid.offsetX) / grid.cellSizePx) - 1;
-    const endColumn = Math.ceil((right - grid.offsetX) / grid.cellSizePx) + 1;
-    if ((endColumn - startColumn) * (endRow - startRow) > 30_000) {
-      return;
-    }
-    const radius = grid.cellSizePx / Math.sqrt(3);
-    for (let row = startRow; row <= endRow; row += 1) {
-      for (let column = startColumn; column <= endColumn; column += 1) {
-        const center = cellCenterPx(grid, { x: column, y: row });
-        for (let corner = 0; corner < 6; corner += 1) {
-          const angle = Math.PI / 180 * (60 * corner - 30);
-          const x = center.x + radius * Math.cos(angle);
-          const y = center.y + radius * Math.sin(angle);
-          if (corner === 0) {
-            context.moveTo(x, y);
-          } else {
-            context.lineTo(x, y);
-          }
-        }
-        context.closePath();
-      }
-    }
   }
 
   private renderDoors(): void {
