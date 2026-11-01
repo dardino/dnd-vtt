@@ -120,9 +120,14 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
     attori, display (`displayStateEnvelopeSchema`: la route restituisce l'envelope) ed export.
     Fixture create via API; gli errori riportano `error.issues`.
 
-- [ ] **Q4 — Fixtures condivise** · S · D6
+- [x] **Q4 — Fixtures condivise** · S · D6
   - **Proposta:** `client/e2e/fixtures.ts` (`openCampaign`, `campaignId`, `ensureScene`, `createGoblin`) e `server/test/factories.ts` (`createCampaign`, `createScene`, `sendAction`, `createPc`).
   - **Fatto quando:** ~200 righe duplicate rimosse.
+  - **Esito:** `server/test/factories.ts` esporta `createCampaign`, `createScene`, `createDisplay`, `createMonster`,
+    `sendAction`, `createPc`, `fighterBuild`; `client/e2e/fixtures.ts` esporta `campaignId`, `openCampaign`,
+    `ensureScene`, `createScene`, `createGoblin`, `createStageFixture` e `sceneSnapshot`. Migrati i test residui
+    (contracts, realtime, realtime-actions, services, build, phase-7) e mantenute le dimensioni 800×600 in
+    `phase6.spec.ts`. ~960 righe duplicate rimosse dalle spec, ~450 al netto delle fixture condivise.
 
 - [ ] **Q5 — Accessibilità automatica** · S
   - **Proposta:** `@axe-core/playwright` sulle route principali; controlli su dialog, toolbar e fallback canvas.

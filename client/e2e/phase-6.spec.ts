@@ -1,50 +1,11 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { cellCenterPx, type GridConfig, type SceneSnapshot } from '@dnd-vtt/shared';
-
-const CAMPAIGN_NAME = 'E2E Campagna';
-
-const openCampaign = async (page: Page): Promise<void> => {
-  await page.goto('/dm');
-  const dialog = page.getByRole('dialog');
-  const heading = page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME });
-  await expect(dialog.or(heading)).toBeVisible();
-  if (await dialog.isVisible()) {
-    if (await dialog.getByRole('heading', { name: 'Crea campagna' }).isVisible()) {
-      await dialog.getByLabel('Nome').fill(CAMPAIGN_NAME);
-      await dialog.getByRole('button', { name: 'Crea campagna' }).click();
-    } else {
-      await dialog.getByRole('button', { name: new RegExp(CAMPAIGN_NAME) }).first().click();
-    }
-  }
-  await expect(heading).toBeVisible();
-};
-
-const campaignId = async (request: APIRequestContext): Promise<string> => {
-  const list = await request.get('/api/v1/campaigns?limit=200');
-  const items = (await list.json() as { items: { id: string; name: string }[] }).items;
-  const existing = items.find((item) => item.name === CAMPAIGN_NAME);
-  if (existing !== undefined) {
-    return existing.id;
-  }
-  const created = await request.post('/api/v1/campaigns', {
-    data: { name: CAMPAIGN_NAME, description: 'Fog', advancementMode: 'milestone' },
-  });
-  return (await created.json() as { id: string }).id;
-};
-
-const ensureScene = async (request: APIRequestContext, id: string): Promise<string> => {
-  const campaign = await request.get(`/api/v1/campaigns/${id}`);
-  const activeSceneId = (await campaign.json() as { activeSceneId: string | null }).activeSceneId;
-  if (activeSceneId !== null) {
-    return activeSceneId;
-  }
-  const created = await request.post(`/api/v1/campaigns/${id}/scenes`, {
-    data: { name: 'Arena Fog', widthPx: 1024, heightPx: 768 },
-  });
-  const sceneId = (await created.json() as { id: string }).id;
-  await request.patch(`/api/v1/campaigns/${id}`, { data: { activeSceneId: sceneId } });
-  return sceneId;
-};
+import {
+  CAMPAIGN_NAME,
+  campaignId,
+  ensureScene,
+  openCampaign,
+} from './fixtures.js';
 
 const sceneState = async (request: APIRequestContext, sceneId: string): Promise<SceneSnapshot> => {
   const response = await request.get(`/api/v1/scenes/${sceneId}`);
@@ -74,8 +35,8 @@ const canvasPoint = async (
 };
 
 test('disegna fog e annotazioni, annulla il disegno e persiste la fog', async ({ page, request }) => {
-  const id = await campaignId(request);
-  const sceneId = await ensureScene(request, id);
+  const id = await campaignId(request, { description: 'Fog' });
+  const sceneId = await ensureScene(request, id, { name: 'Arena Fog' });
   await openCampaign(page);
 
   const canvas = page.locator('.scene-canvas');
@@ -140,8 +101,8 @@ test('esporta la scena in PNG', async ({ page }) => {
 });
 
 test('annulla e ripete matita e fog dall editor', async ({ page, request }) => {
-  const id = await campaignId(request);
-  const sceneId = await ensureScene(request, id);
+  const id = await campaignId(request, { description: 'Fog' });
+  const sceneId = await ensureScene(request, id, { name: 'Arena Fog' });
   await openCampaign(page);
 
   const canvas = page.locator('.scene-canvas');
@@ -192,8 +153,8 @@ test('annulla e ripete matita e fog dall editor', async ({ page, request }) => {
 });
 
 test('il pennello fog ha un diametro di 3 celle', async ({ page, request }) => {
-  const id = await campaignId(request);
-  const sceneId = await ensureScene(request, id);
+  const id = await campaignId(request, { description: 'Fog' });
+  const sceneId = await ensureScene(request, id, { name: 'Arena Fog' });
   const before = await sceneState(request, sceneId);
   await request.post(`/api/v1/campaigns/${id}/actions`, {
     data: {
@@ -235,8 +196,8 @@ test('il pennello fog ha un diametro di 3 celle', async ({ page, request }) => {
 });
 
 test('le impostazioni mappa regolano matita e pennello e ripuliscono history e fog', async ({ page, request }) => {
-  const id = await campaignId(request);
-  const sceneId = await ensureScene(request, id);
+  const id = await campaignId(request, { description: 'Fog' });
+  const sceneId = await ensureScene(request, id, { name: 'Arena Fog' });
   await openCampaign(page);
   await page.getByRole('checkbox', { name: /Fog a celle/ }).uncheck();
 
@@ -317,8 +278,8 @@ test('le impostazioni mappa regolano matita e pennello e ripuliscono history e f
 });
 
 test('la unità metrica converte griglia, righello e strumenti', async ({ page, request }) => {
-  const id = await campaignId(request);
-  const sceneId = await ensureScene(request, id);
+  const id = await campaignId(request, { description: 'Fog' });
+  const sceneId = await ensureScene(request, id, { name: 'Arena Fog' });
   await openCampaign(page);
 
   const canvas = page.locator('.scene-canvas');
@@ -353,8 +314,8 @@ test('la unità metrica converte griglia, righello e strumenti', async ({ page, 
 });
 
 test('il tasto destro fa pan con qualsiasi strumento', async ({ page, request }) => {
-  const id = await campaignId(request);
-  const sceneId = await ensureScene(request, id);
+  const id = await campaignId(request, { description: 'Fog' });
+  const sceneId = await ensureScene(request, id, { name: 'Arena Fog' });
   await openCampaign(page);
 
   const canvas = page.locator('.scene-canvas');

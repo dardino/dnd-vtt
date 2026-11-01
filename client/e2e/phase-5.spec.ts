@@ -1,80 +1,10 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-
-const CAMPAIGN_NAME = 'E2E Campagna';
-
-const openCampaign = async (page: Page): Promise<void> => {
-  await page.goto('/dm');
-  const dialog = page.getByRole('dialog');
-  const heading = page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME });
-  await expect(dialog.or(heading)).toBeVisible();
-  if (await dialog.isVisible()) {
-    if (await dialog.getByRole('heading', { name: 'Crea campagna' }).isVisible()) {
-      await dialog.getByLabel('Nome').fill(CAMPAIGN_NAME);
-      await dialog.getByRole('button', { name: 'Crea campagna' }).click();
-    } else {
-      await dialog.getByRole('button', { name: new RegExp(CAMPAIGN_NAME) }).first().click();
-    }
-  }
-  await expect(heading).toBeVisible();
-};
-
-const campaignId = async (request: APIRequestContext): Promise<string> => {
-  const list = await request.get('/api/v1/campaigns?limit=200');
-  const items = (await list.json() as { items: { id: string; name: string }[] }).items;
-  const existing = items.find((item) => item.name === CAMPAIGN_NAME);
-  if (existing !== undefined) {
-    return existing.id;
-  }
-  const created = await request.post('/api/v1/campaigns', {
-    data: { name: CAMPAIGN_NAME, description: 'Fase 5', advancementMode: 'milestone' },
-  });
-  return (await created.json() as { id: string }).id;
-};
-
-const ensureScene = async (request: APIRequestContext, id: string): Promise<string> => {
-  const campaign = await request.get(`/api/v1/campaigns/${id}`);
-  const activeSceneId = (await campaign.json() as { activeSceneId: string | null }).activeSceneId;
-  if (activeSceneId !== null) {
-    return activeSceneId;
-  }
-  const created = await request.post(`/api/v1/campaigns/${id}/scenes`, {
-    data: { name: 'Arena Fase 5', widthPx: 1024, heightPx: 768 },
-  });
-  const sceneId = (await created.json() as { id: string }).id;
-  await request.patch(`/api/v1/campaigns/${id}`, { data: { activeSceneId: sceneId } });
-  return sceneId;
-};
-
-const createGoblin = async (request: APIRequestContext, id: string): Promise<void> => {
-  await request.post('/api/v1/actors', {
-    data: {
-      campaignId: id,
-      kind: 'monster',
-      name: 'Goblin Fase 5',
-      statblock: {
-        kind: 'monster',
-        size: 'medium',
-        abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
-        hp: { current: 7, max: 7, temp: 0 },
-        speed: { walk: 30 },
-        senses: { darkvision: 60 },
-        languages: ['common', 'goblin'],
-        conditions: [],
-        creatureType: 'goblinoid',
-        cr: '1/4',
-        tags: [],
-        ac: 15,
-        damageResistances: [],
-        damageImmunities: [],
-        damageVulnerabilities: [],
-        conditionImmunities: [],
-        traits: [],
-        actions: [],
-        reactions: [],
-      },
-    },
-  });
-};
+import { expect, test } from '@playwright/test';
+import {
+  campaignId,
+  createGoblin,
+  ensureScene,
+  openCampaign,
+} from './fixtures.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -123,9 +53,9 @@ test('porta un PG dal livello 4 al 5 e applica un riposo lungo', async ({ page }
 });
 
 test('tira dadi, gestisce iniziativa e annulla un danno', async ({ page, request }) => {
-  const id = await campaignId(request);
-  await ensureScene(request, id);
-  await createGoblin(request, id);
+  const id = await campaignId(request, { description: 'Fase 5' });
+  await ensureScene(request, id, { name: 'Arena Fase 5' });
+  await createGoblin(request, id, { name: 'Goblin Fase 5' });
   await openCampaign(page);
 
   await page.getByRole('button', { name: 'Tira dadi' }).click();

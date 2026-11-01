@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import type { FastifyInstance } from 'fastify';
 import { createDefaultSceneState, type MonsterStatblock, type TokenState } from '@dnd-vtt/shared';
 import { v7 as uuidv7 } from 'uuid';
 import sharp from 'sharp';
@@ -10,6 +9,7 @@ import { buildApp } from '../src/app.js';
 import { createDatabase } from '../src/db/client.js';
 import { assets } from '../src/db/schema.js';
 import { closeTestApp, createTestApp } from './helpers.js';
+import { createCampaign, createScene, sendAction } from './factories.js';
 
 const monster = (): MonsterStatblock => ({
   kind: 'monster',
@@ -45,26 +45,6 @@ const token = (id: string, label = 'Goblin'): TokenState => ({
   conditions: [],
   visible: true,
 });
-
-const createCampaign = async (app: FastifyInstance, name = 'La miniera perduta'): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: '/api/v1/campaigns',
-    payload: { name },
-  });
-  expect(response.statusCode).toBe(201);
-  return response.json<{ id: string }>().id;
-};
-
-const createScene = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/scenes`,
-    payload: { name: 'Ingresso', widthPx: 1920, heightPx: 1080 },
-  });
-  expect(response.statusCode).toBe(201);
-  return response.json<{ id: string }>().id;
-};
 
 describe('avvio e health', () => {
   it('segnala migration_pending quando il database non è migrato', async () => {
@@ -223,7 +203,7 @@ describe('CRUD campagne, scene e attori', () => {
     const testApp = await createTestApp();
     const app = testApp.app;
     for (const name of ['Alfa', 'Beta', 'Gamma']) {
-      await createCampaign(app, name);
+      await createCampaign(app, { name });
     }
     const first = await app.inject({ method: 'GET', url: '/api/v1/campaigns?limit=2' });
     const firstBody = first.json<{ items: { id: string }[]; nextCursor: string | null }>();
@@ -304,16 +284,10 @@ describe('azioni e concorrenza', () => {
     const campaignId = await createCampaign(app);
     const sceneId = await createScene(app, campaignId);
 
-    const send = (id: string, label: string) => app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload: {
-        id: uuidv7(),
-        clientId: id,
-        sceneId,
-        action: { type: 'token.add', token: token(id, label) },
-      },
-    });
+    const send = (id: string, label: string) => sendAction(app, campaignId, sceneId, {
+      type: 'token.add',
+      token: token(id, label),
+    }, { clientId: id });
     const [first, second] = await Promise.all([
       send('dm-a', 'Goblin A'),
       send('dm-b', 'Goblin B'),
@@ -334,25 +308,12 @@ describe('azioni e concorrenza', () => {
     const campaignId = await createCampaign(app);
     const sceneId = await createScene(app, campaignId);
     const id = uuidv7();
-    const payload = {
-      id,
-      clientId: 'console-1',
-      sceneId,
-      action: { type: 'token.add' as const, token: token('goblin-1') },
-    };
-    const first = await app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload,
-    });
-    const retry = await app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload,
-    });
+    const action = { type: 'token.add' as const, token: token('goblin-1') };
+    const first = await sendAction(app, campaignId, sceneId, action, { id, clientId: 'console-1' });
+    const retry = await sendAction(app, campaignId, sceneId, action, { id, clientId: 'console-1' });
     expect(first.statusCode).toBe(200);
-    expect(retry.json()).toEqual(first.json());
-    expect(first.json()).toMatchObject({
+    expect(retry.body).toEqual(first.body);
+    expect(first.body).toMatchObject({
       stateVersion: 2,
       inverse: { type: 'token.remove', tokenId: 'goblin-1' },
       label: 'Token aggiunto: Goblin',
@@ -369,40 +330,26 @@ describe('azioni e concorrenza', () => {
     const campaignId = await createCampaign(app);
     const sceneId = await createScene(app, campaignId);
     for (let index = 0; index < 55; index += 1) {
-      const response = await app.inject({
-        method: 'POST',
-        url: `/api/v1/campaigns/${campaignId}/actions`,
-        payload: {
-          id: uuidv7(),
-          clientId: 'console-1',
-          sceneId,
-          action: { type: 'token.move', tokenId: 'missing', x: index, y: index },
-        },
-      });
+      const response = await sendAction(app, campaignId, sceneId, {
+        type: 'token.move',
+        tokenId: 'missing',
+        x: index,
+        y: index,
+      }, { clientId: 'console-1' });
       expect(response.statusCode).toBe(409);
     }
-    const withToken = await app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload: {
-        id: uuidv7(),
-        clientId: 'console-1',
-        sceneId,
-        action: { type: 'token.add', token: token('goblin-1') },
-      },
-    });
+    const withToken = await sendAction(app, campaignId, sceneId, {
+      type: 'token.add',
+      token: token('goblin-1'),
+    }, { clientId: 'console-1' });
     expect(withToken.statusCode).toBe(200);
     for (let index = 0; index < 55; index += 1) {
-      await app.inject({
-        method: 'POST',
-        url: `/api/v1/campaigns/${campaignId}/actions`,
-        payload: {
-          id: uuidv7(),
-          clientId: 'console-1',
-          sceneId,
-          action: { type: 'token.move', tokenId: 'goblin-1', x: index, y: index },
-        },
-      });
+      await sendAction(app, campaignId, sceneId, {
+        type: 'token.move',
+        tokenId: 'goblin-1',
+        x: index,
+        y: index,
+      }, { clientId: 'console-1' });
     }
     const log = await app.inject({ method: 'GET', url: `/api/v1/campaigns/${campaignId}/actions` });
     expect(log.json().items).toHaveLength(50);
@@ -414,10 +361,8 @@ describe('azioni e concorrenza', () => {
     const app = testApp.app;
     const campaignId = await createCampaign(app);
     const sceneId = await createScene(app, campaignId);
-    const send = (action: object) => app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload: { id: uuidv7(), clientId: 'console-1', sceneId, action },
+    const send = (action: object) => sendAction(app, campaignId, sceneId, action, {
+      clientId: 'console-1',
     });
 
     expect((await send({ type: 'token.add', token: token('goblin-1') })).statusCode).toBe(200);

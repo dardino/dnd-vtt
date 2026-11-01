@@ -5,38 +5,7 @@ import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { scenes } from '../src/db/schema.js';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
-
-const createCampaign = async (app: FastifyInstance, fogDefault: 'hidden' | 'revealed'): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: '/api/v1/campaigns',
-    payload: { name: 'Fog', fogDefault },
-  });
-  return response.json<{ id: string }>().id;
-};
-
-const createScene = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/scenes`,
-    payload: { name: 'Fog scene', widthPx: 800, heightPx: 600 },
-  });
-  return response.json<{ id: string }>().id;
-};
-
-const send = async (
-  app: FastifyInstance,
-  campaignId: string,
-  sceneId: string,
-  action: object,
-): Promise<{ id: string; statusCode: number }> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/actions`,
-    payload: { id: uuidv7(), clientId: 'fog', sceneId, action },
-  });
-  return { id: response.json().id as string, statusCode: response.statusCode };
-};
+import { createCampaign, createScene, sendAction } from './factories.js';
 
 const rectOp = (id: string): FogOp => ({
   id,
@@ -59,10 +28,18 @@ describe('fase 6: fog e disegni', () => {
   });
 
   it('crea scene con il fog default della campagna', async () => {
-    const hiddenCampaign = await createCampaign(app, 'hidden');
-    const revealedCampaign = await createCampaign(app, 'revealed');
-    const hiddenScene = await createScene(app, hiddenCampaign);
-    const revealedScene = await createScene(app, revealedCampaign);
+    const hiddenCampaign = await createCampaign(app, { name: 'Fog', fogDefault: 'hidden' });
+    const revealedCampaign = await createCampaign(app, { name: 'Fog', fogDefault: 'revealed' });
+    const hiddenScene = await createScene(app, hiddenCampaign, {
+      name: 'Fog scene',
+      widthPx: 800,
+      heightPx: 600,
+    });
+    const revealedScene = await createScene(app, revealedCampaign, {
+      name: 'Fog scene',
+      widthPx: 800,
+      heightPx: 600,
+    });
     expect((await app.inject({ method: 'GET', url: `/api/v1/scenes/${hiddenScene}` }))
       .json().state.fog).toEqual({ base: 'hidden', ops: [], override: 'none' });
     expect((await app.inject({ method: 'GET', url: `/api/v1/scenes/${revealedScene}` }))
@@ -70,14 +47,14 @@ describe('fase 6: fog e disegni', () => {
   });
 
   it('applica fog e disegni e li annulla dal log', async () => {
-    const campaignId = await createCampaign(app, 'hidden');
-    const sceneId = await createScene(app, campaignId);
-    const fog = await send(app, campaignId, sceneId, {
+    const campaignId = await createCampaign(app, { name: 'Fog', fogDefault: 'hidden' });
+    const sceneId = await createScene(app, campaignId, { name: 'Fog scene', widthPx: 800, heightPx: 600 });
+    const fog = await sendAction(app, campaignId, sceneId, {
       type: 'fog.apply',
       op: rectOp('op-1'),
     });
     expect(fog.statusCode).toBe(200);
-    const drawing = await send(app, campaignId, sceneId, {
+    const drawing = await sendAction(app, campaignId, sceneId, {
       type: 'drawing.add',
       drawing: {
         id: 'drawing-1',
@@ -95,14 +72,14 @@ describe('fase 6: fog e disegni', () => {
     const undone = await app.inject({
       method: 'POST',
       url: `/api/v1/campaigns/${campaignId}/actions/undo`,
-      payload: { entryId: drawing.id },
+      payload: { entryId: drawing.body.id },
     });
     expect(undone.statusCode).toBe(200);
     snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
     expect(snapshot.json().state.drawings).toHaveLength(0);
     expect(snapshot.json().state.fog.ops).toHaveLength(1);
 
-    const replaced = await send(app, campaignId, sceneId, {
+    const replaced = await sendAction(app, campaignId, sceneId, {
       type: 'fog.replace',
       base: 'revealed',
       ops: [],
@@ -113,8 +90,8 @@ describe('fase 6: fog e disegni', () => {
   });
 
   it('rifiuta la 2001esima operazione di fog con 413', async () => {
-    const campaignId = await createCampaign(app, 'hidden');
-    const sceneId = await createScene(app, campaignId);
+    const campaignId = await createCampaign(app, { name: 'Fog', fogDefault: 'hidden' });
+    const sceneId = await createScene(app, campaignId, { name: 'Fog scene', widthPx: 800, heightPx: 600 });
     const state: SceneState = createDefaultSceneState();
     state.fog.ops = Array.from({ length: 2000 }, (_, index) => rectOp(`op-${index}`));
     // Setup diretto: gli stati di scena non si scrivono più fuori da `action_log`.
@@ -138,9 +115,9 @@ describe('fase 6: fog e disegni', () => {
   });
 
   it('svuota la history mantenendo lo stato corrente', async () => {
-    const campaignId = await createCampaign(app, 'hidden');
-    const sceneId = await createScene(app, campaignId);
-    await send(app, campaignId, sceneId, { type: 'fog.apply', op: rectOp('keep-state') });
+    const campaignId = await createCampaign(app, { name: 'Fog', fogDefault: 'hidden' });
+    const sceneId = await createScene(app, campaignId, { name: 'Fog scene', widthPx: 800, heightPx: 600 });
+    await sendAction(app, campaignId, sceneId, { type: 'fog.apply', op: rectOp('keep-state') });
     const cleared = await app.inject({
       method: 'DELETE',
       url: `/api/v1/campaigns/${campaignId}/actions`,
@@ -157,10 +134,10 @@ describe('fase 6: fog e disegni', () => {
   });
 
   it('riporta la fog a tutta coperta e rimuove solo le azioni fog', async () => {
-    const campaignId = await createCampaign(app, 'hidden');
-    const sceneId = await createScene(app, campaignId);
-    await send(app, campaignId, sceneId, { type: 'fog.apply', op: rectOp('reset-1') });
-    await send(app, campaignId, sceneId, {
+    const campaignId = await createCampaign(app, { name: 'Fog', fogDefault: 'hidden' });
+    const sceneId = await createScene(app, campaignId, { name: 'Fog scene', widthPx: 800, heightPx: 600 });
+    await sendAction(app, campaignId, sceneId, { type: 'fog.apply', op: rectOp('reset-1') });
+    await sendAction(app, campaignId, sceneId, {
       type: 'drawing.add',
       drawing: {
         id: 'drawing-reset',

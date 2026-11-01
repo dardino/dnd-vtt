@@ -5,22 +5,12 @@ import {
   type MapDocument,
   type PcBuild,
 } from '@dnd-vtt/shared';
+import { campaignId } from './fixtures.js';
 
 const CAMPAIGN_NAME = 'E2E Mappe e visione';
 const CELL = 70;
 
-const campaignId = async (request: APIRequestContext): Promise<string> => {
-  const list = await request.get('/api/v1/campaigns?limit=200');
-  const items = (await list.json() as { items: { id: string; name: string }[] }).items;
-  const existing = items.find((item) => item.name === CAMPAIGN_NAME);
-  if (existing !== undefined) {
-    return existing.id;
-  }
-  const created = await request.post('/api/v1/campaigns', {
-    data: { name: CAMPAIGN_NAME, description: 'Mappe e visione', advancementMode: 'milestone' },
-  });
-  return (await created.json() as { id: string }).id;
-};
+const campaignFixture = { name: CAMPAIGN_NAME, description: 'Mappe e visione' } as const;
 
 const ensurePc = async (request: APIRequestContext, id: string): Promise<string> => {
   const actorsResponse = await request.get(`/api/v1/actors?campaignId=${id}&limit=200`);
@@ -167,7 +157,7 @@ test.describe.configure({ mode: 'serial' });
 
 test('la mappa si apre nell’editor con muri, luci e spawn', async ({ page, request }) => {
   test.setTimeout(60_000);
-  const campaign = await campaignId(request);
+  const campaign = await campaignId(request, campaignFixture);
   const pc = await ensurePc(request, campaign);
   const { mapId } = await createMap(request, campaign, pc);
 
@@ -243,7 +233,7 @@ test('la mappa si apre nell’editor con muri, luci e spawn', async ({ page, req
 
 test('la visione filtra i token, la porta li rivela e la fog manuale li nasconde', async ({ page, request }) => {
   test.setTimeout(60_000);
-  const campaign = await campaignId(request);
+  const campaign = await campaignId(request, campaignFixture);
   const pc = await ensurePc(request, campaign);
   const { mapId } = await createMap(request, campaign, pc);
   const campaignResponse = await request.get(`/api/v1/campaigns/${campaign}`);
@@ -311,7 +301,7 @@ test('la visione filtra i token, la porta li rivela e la fog manuale li nasconde
 
 test('la console avvia una scena da una mappa e assegna i PG', async ({ page, request }) => {
   test.setTimeout(60_000);
-  const campaign = await campaignId(request);
+  const campaign = await campaignId(request, campaignFixture);
   const pc = await ensurePc(request, campaign);
   await createMap(request, campaign, pc);
 
@@ -339,7 +329,7 @@ test('la console avvia una scena da una mappa e assegna i PG', async ({ page, re
 });
 
 test('un token non attraversa un muro se non forzato', async ({ request }) => {
-  const campaign = await campaignId(request);
+  const campaign = await campaignId(request, campaignFixture);
   const pc = await ensurePc(request, campaign);
   const { sceneId } = await createMap(request, campaign, pc);
   const snapshot = await request.get(`/api/v1/scenes/${sceneId}`);

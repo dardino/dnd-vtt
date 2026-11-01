@@ -8,69 +8,12 @@ import {
   type SceneSnapshot,
   type TokenState,
 } from '@dnd-vtt/shared';
-
-const CAMPAIGN_NAME = 'E2E Campagna';
-
-interface ActorResponse {
-  id: string;
-}
-
-const campaignId = async (request: APIRequestContext): Promise<string> => {
-  const list = await request.get('/api/v1/campaigns?limit=200');
-  const items = (await list.json() as { items: { id: string; name: string }[] }).items;
-  const existing = items.find((item) => item.name === CAMPAIGN_NAME);
-  if (existing !== undefined) {
-    return existing.id;
-  }
-  const created = await request.post('/api/v1/campaigns', {
-    data: { name: CAMPAIGN_NAME, description: 'Mappa di prova', advancementMode: 'milestone' },
-  });
-  return (await created.json() as { id: string }).id;
-};
-
-const createGoblin = async (request: APIRequestContext, id: string): Promise<ActorResponse> => {
-  const response = await request.post('/api/v1/actors', {
-    data: {
-      campaignId: id,
-      kind: 'monster',
-      name: 'Goblin E2E',
-      statblock: {
-        kind: 'monster',
-        size: 'medium',
-        abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
-        hp: { current: 7, max: 7, temp: 0 },
-        speed: { walk: 30 },
-        senses: { darkvision: 60 },
-        languages: ['common', 'goblin'],
-        conditions: [],
-        creatureType: 'goblinoid',
-        cr: '1/4',
-        tags: [],
-        ac: 15,
-        damageResistances: [],
-        damageImmunities: [],
-        damageVulnerabilities: [],
-        conditionImmunities: [],
-        traits: [],
-        actions: [],
-        reactions: [],
-      },
-    },
-  });
-  expect(response.status()).toBe(201);
-  return response.json() as Promise<ActorResponse>;
-};
-
-const openCampaign = async (page: Page): Promise<void> => {
-  await page.goto('/dm');
-  const dialog = page.getByRole('dialog');
-  const heading = page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME });
-  await expect(dialog.or(heading)).toBeVisible();
-  if (await dialog.isVisible()) {
-    await dialog.getByRole('button', { name: new RegExp(CAMPAIGN_NAME) }).first().click();
-  }
-  await expect(heading).toBeVisible();
-};
+import {
+  CAMPAIGN_NAME,
+  campaignId,
+  createGoblin,
+  openCampaign,
+} from './fixtures.js';
 
 const mapFile = async (): Promise<{ name: string; mimeType: string; buffer: Buffer }> => {
   const buffer = await sharp({
@@ -106,7 +49,7 @@ const uploadMap = async (
   });
   expect(sceneResponse.status()).toBe(201);
   await page.reload();
-  await openCampaign(page);
+  await openCampaign(page, { createIfMissing: false });
   const canvas = page.locator('.scene-canvas');
   await expect(canvas).toBeVisible({ timeout: 60_000 });
   await expect(canvas).toHaveAttribute('data-tiled', 'true', { timeout: 60_000 });
@@ -156,9 +99,9 @@ test.describe.configure({ mode: 'serial' });
 
 test('carica una mappa 8k, trascina un token e calcola la misura condivisa', async ({ page, request }) => {
   test.setTimeout(120_000);
-  const id = await campaignId(request);
+  const id = await campaignId(request, { description: 'Mappa di prova' });
   await createGoblin(request, id);
-  await openCampaign(page);
+  await openCampaign(page, { createIfMissing: false });
 
   await uploadMap(page, request, id);
 
@@ -281,7 +224,7 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
 
 test('l’editor sostituisce lo sfondo della mappa', async ({ page, request }) => {
   test.setTimeout(60_000);
-  const id = await campaignId(request);
+  const id = await campaignId(request, { description: 'Mappa di prova' });
   await page.goto('/maps');
   const card = page.locator('.map-card', { hasText: 'mappa-8k' });
   await expect(card).toBeVisible({ timeout: 15_000 });
@@ -305,8 +248,8 @@ test('l’editor sostituisce lo sfondo della mappa', async ({ page, request }) =
 
 test('due console convergono senza conflitti', async ({ page, context, request }) => {
   test.setTimeout(60_000);
-  const id = await campaignId(request);
-  await openCampaign(page);
+  const id = await campaignId(request, { description: 'Mappa di prova' });
+  await openCampaign(page, { createIfMissing: false });
   await expect(page.locator('.scene-canvas')).toBeVisible();
 
   const second = await context.newPage();
@@ -343,11 +286,11 @@ test('due console convergono senza conflitti', async ({ page, context, request }
 });
 
 test('le sezioni sono accordion e la scena si attiva solo dal pulsante', async ({ page, request }) => {
-  const id = await campaignId(request);
+  const id = await campaignId(request, { description: 'Mappa di prova' });
   await request.post(`/api/v1/campaigns/${id}/scenes`, {
     data: { name: 'Scena di riserva', widthPx: 1024, heightPx: 768 },
   });
-  await openCampaign(page);
+  await openCampaign(page, { createIfMissing: false });
   const trigger = page.getByRole('button', { name: 'Griglia', exact: true });
   const form = page.getByLabel('Forma');
   await expect(form).toBeVisible();

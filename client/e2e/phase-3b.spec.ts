@@ -1,20 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
-
-const openCampaign = async (page: Page): Promise<void> => {
-  await page.goto('/dm');
-  const dialog = page.getByRole('dialog');
-  const heading = page.getByRole('heading', { level: 1, name: 'E2E Campagna' });
-  await expect(dialog.or(heading)).toBeVisible();
-  if (await dialog.isVisible()) {
-    if (await dialog.getByRole('heading', { name: 'Crea campagna' }).isVisible()) {
-      await dialog.getByLabel('Nome').fill('E2E Campagna');
-      await dialog.getByRole('button', { name: 'Crea campagna' }).click();
-    } else {
-      await dialog.getByRole('button', { name: /E2E Campagna/ }).first().click();
-    }
-  }
-  await expect(heading).toBeVisible();
-};
+import { expect, test } from '@playwright/test';
+import { openCampaign } from './fixtures.js';
 
 test.describe.configure({ mode: 'serial' });
 

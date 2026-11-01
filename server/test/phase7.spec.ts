@@ -5,40 +5,13 @@ import { v7 as uuidv7 } from 'uuid';
 import WebSocket from 'ws';
 import type { RawData } from 'ws';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
+import { createCampaign, createScene, sendAction } from './factories.js';
 
 const rawText = (raw: RawData): string => {
   if (Array.isArray(raw)) {
     return Buffer.concat(raw).toString('utf8');
   }
   return Buffer.isBuffer(raw) ? raw.toString('utf8') : Buffer.from(raw).toString('utf8');
-};
-
-const createCampaign = async (app: FastifyInstance): Promise<string> => {
-  const response = await app.inject({ method: 'POST', url: '/api/v1/campaigns', payload: { name: 'Regia' } });
-  return response.json<{ id: string }>().id;
-};
-
-const createScene = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/scenes`,
-    payload: { name: 'Palco', widthPx: 1000, heightPx: 800, fogBase: 'revealed' },
-  });
-  return response.json<{ id: string }>().id;
-};
-
-const sendAction = async (
-  app: FastifyInstance,
-  campaignId: string,
-  sceneId: string,
-  action: object,
-): Promise<void> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/actions`,
-    payload: { id: uuidv7(), clientId: 'test', sceneId, action },
-  });
-  expect(response.statusCode).toBe(200);
 };
 
 describe('fase 7: program e schermo', () => {
@@ -55,8 +28,13 @@ describe('fase 7: program e schermo', () => {
   });
 
   it('proietta solo i token visibili e scoperti', async () => {
-    const campaignId = await createCampaign(app);
-    const sceneId = await createScene(app, campaignId);
+    const campaignId = await createCampaign(app, { name: 'Regia' });
+    const sceneId = await createScene(app, campaignId, {
+      name: 'Palco',
+      widthPx: 1000,
+      heightPx: 800,
+      fogBase: 'revealed',
+    });
     const visibleToken = {
       id: uuidv7(), label: 'Visibile', x: 1, y: 1, size: 1, rotation: 0, elevation: 0,
       hp: { current: 5, max: 5, temp: 0 }, conditions: [], visible: true,
@@ -67,9 +45,15 @@ describe('fase 7: program e schermo', () => {
     const coveredToken = {
       ...visibleToken, id: uuidv7(), label: 'Coperto', x: 10, y: 10,
     };
-    await sendAction(app, campaignId, sceneId, { type: 'token.add', token: visibleToken });
-    await sendAction(app, campaignId, sceneId, { type: 'token.add', token: hiddenToken });
-    await sendAction(app, campaignId, sceneId, { type: 'token.add', token: coveredToken });
+    await sendAction(app, campaignId, sceneId, { type: 'token.add', token: visibleToken }, {
+      expectStatus: 200,
+    });
+    await sendAction(app, campaignId, sceneId, { type: 'token.add', token: hiddenToken }, {
+      expectStatus: 200,
+    });
+    await sendAction(app, campaignId, sceneId, { type: 'token.add', token: coveredToken }, {
+      expectStatus: 200,
+    });
     await sendAction(app, campaignId, sceneId, {
       type: 'fog.apply',
       op: {
@@ -78,7 +62,7 @@ describe('fase 7: program e schermo', () => {
         shape: { type: 'rect', x: 500, y: 500, width: 400, height: 300 },
         softness: 0,
       },
-    });
+    }, { expectStatus: 200 });
 
     const created = await app.inject({
       method: 'POST',
@@ -101,8 +85,13 @@ describe('fase 7: program e schermo', () => {
   });
 
   it('pubblica il program e invia lo snapshot al WebSocket display', async () => {
-    const campaignId = await createCampaign(app);
-    const sceneId = await createScene(app, campaignId);
+    const campaignId = await createCampaign(app, { name: 'Regia' });
+    const sceneId = await createScene(app, campaignId, {
+      name: 'Palco',
+      widthPx: 1000,
+      heightPx: 800,
+      fogBase: 'revealed',
+    });
     const created = await app.inject({
       method: 'POST',
       url: `/api/v1/campaigns/${campaignId}/displays`,

@@ -1,100 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import type { PcBuild } from '@dnd-vtt/shared';
 import { v7 as uuidv7 } from 'uuid';
-import { loadSrdCatalog } from '../src/srd/load.js';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
-
-const catalog = loadSrdCatalog('srd-5.2.0');
-
-const fighterBuild = (level = 4): PcBuild => {
-  const fighter = catalog.classes.find((entry) => entry.id === 'fighter');
-  if (fighter === undefined) {
-    throw new Error('fighter mancante');
-  }
-  const masteries = catalog.items
-    .filter((item) => item.category === 'weapon')
-    .slice(0, fighter.weaponMasteryCount[level - 1] ?? 0)
-    .map((item) => item.id);
-  return {
-    rulesVersion: catalog.meta.version,
-    level,
-    classId: 'fighter',
-    subclassId: level >= 3 ? 'champion' : undefined,
-    speciesId: 'dwarf',
-    backgroundId: 'soldier',
-    abilityGeneration: {
-      method: 'pointBuy',
-      base: { str: 15, dex: 14, con: 14, int: 8, wis: 12, cha: 8 },
-    },
-    backgroundIncreases: [
-      { source: 'background', ability: 'str', amount: 2 },
-      { source: 'background', ability: 'con', amount: 1 },
-    ],
-    feats: [{ id: 'savage-attacker' }],
-    proficiencies: {
-      classSkills: ['athletics', 'perception'],
-      speciesSkills: [],
-      expertise: [],
-      tools: [],
-      languages: ['elvish', 'dwarvish'],
-    },
-    asiChoices: level >= 4
-      ? [{ level: 4, type: 'asi', increases: [{ source: 'asi', ability: 'str', amount: 2 }] }]
-      : [],
-    weaponMasteries: masteries,
-    equipment: [
-      { itemId: 'longsword', quantity: 1 },
-      { itemId: 'chain-mail', quantity: 1 },
-      { itemId: 'shield', quantity: 1 },
-    ],
-    currency: { cp: 0, sp: 0, ep: 0, gp: 55, pp: 0 },
-    budgetGp: 155,
-    spells: { cantrips: [], known: [], prepared: [], spellbook: [] },
-    hpRolls: Array.from({ length: level - 1 }, (_, index) => 7 + (index % 2)),
-  };
-};
-
-const createCampaign = async (app: FastifyInstance): Promise<string> => {
-  const response = await app.inject({ method: 'POST', url: '/api/v1/campaigns', payload: { name: 'Fase 5' } });
-  return response.json<{ id: string }>().id;
-};
-
-const createPc = async (app: FastifyInstance, campaignId: string, level = 4): Promise<{
-  id: string;
-  hp: { current: number; max: number };
-}> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/actors`,
-    payload: { name: 'Sir Fase 5', build: fighterBuild(level) },
-  });
-  expect(response.statusCode).toBe(201);
-  return response.json();
-};
-
-const createScene = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/scenes`,
-    payload: { name: 'Arena', widthPx: 1000, heightPx: 1000 },
-  });
-  return response.json<{ id: string }>().id;
-};
-
-const sendAction = async (
-  app: FastifyInstance,
-  campaignId: string,
-  sceneId: string,
-  action: object,
-): Promise<{ statusCode: number; body: { id: string; stateVersion: number } }> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/actions`,
-    payload: { id: uuidv7(), clientId: 'test', sceneId, action },
-  });
-  return { statusCode: response.statusCode, body: response.json() };
-};
+import { createCampaign, createPc, createScene, sendAction } from './factories.js';
 
 describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
   let app: FastifyInstance;
@@ -110,7 +18,7 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
   });
 
   it('esegue tiri server-side, li elenca e deduplica requestId', async () => {
-    const campaignId = await createCampaign(app);
+    const campaignId = await createCampaign(app, { name: 'Fase 5' });
     const requestId = uuidv7();
     const first = await app.inject({
       method: 'POST',
@@ -147,9 +55,9 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
   });
 
   it('gestisce iniziativa, danni specchiati sull attore e undo/redo', async () => {
-    const campaignId = await createCampaign(app);
-    const actor = await createPc(app, campaignId);
-    const sceneId = await createScene(app, campaignId);
+    const campaignId = await createCampaign(app, { name: 'Fase 5' });
+    const actor = await createPc(app, campaignId, { name: 'Sir Fase 5' });
+    const sceneId = await createScene(app, campaignId, { name: 'Arena', widthPx: 1000, heightPx: 1000 });
     const added = await sendAction(app, campaignId, sceneId, {
       type: 'token.add',
       token: {
@@ -206,9 +114,9 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
   });
 
   it('applica riposi brevi e lunghi agli attori e ai token', async () => {
-    const campaignId = await createCampaign(app);
-    const actor = await createPc(app, campaignId);
-    const sceneId = await createScene(app, campaignId);
+    const campaignId = await createCampaign(app, { name: 'Fase 5' });
+    const actor = await createPc(app, campaignId, { name: 'Sir Fase 5' });
+    const sceneId = await createScene(app, campaignId, { name: 'Arena', widthPx: 1000, heightPx: 1000 });
     const token = {
       id: uuidv7(),
       actorId: actor.id,
@@ -266,9 +174,9 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
   });
 
   it('registra la sync dei token come azione annullabile', async () => {
-    const campaignId = await createCampaign(app);
-    const actor = await createPc(app, campaignId);
-    const sceneId = await createScene(app, campaignId);
+    const campaignId = await createCampaign(app, { name: 'Fase 5' });
+    const actor = await createPc(app, campaignId, { name: 'Sir Fase 5' });
+    const sceneId = await createScene(app, campaignId, { name: 'Arena', widthPx: 1000, heightPx: 1000 });
     const tokenId = uuidv7();
     const added = await sendAction(app, campaignId, sceneId, {
       type: 'token.add',
@@ -336,8 +244,8 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
   });
 
   it('sale di livello con anteprima e aggiorna la scheda', async () => {
-    const campaignId = await createCampaign(app);
-    const actor = await createPc(app, campaignId);
+    const campaignId = await createCampaign(app, { name: 'Fase 5' });
+    const actor = await createPc(app, campaignId, { name: 'Sir Fase 5' });
     const preview = await app.inject({
       method: 'POST',
       url: `/api/v1/actors/${actor.id}/level-up/preview`,
@@ -358,8 +266,8 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
   });
 
   it('in milestone allinea gli XP e in modalità xp richiede la soglia', async () => {
-    const milestone = await createCampaign(app);
-    const milestoneActor = await createPc(app, milestone);
+    const milestone = await createCampaign(app, { name: 'Fase 5' });
+    const milestoneActor = await createPc(app, milestone, { name: 'Sir Fase 5' });
     const milestoneUp = await app.inject({
       method: 'POST',
       url: `/api/v1/actors/${milestoneActor.id}/level-up`,
@@ -368,13 +276,8 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
     expect(milestoneUp.statusCode).toBe(200);
     expect(milestoneUp.json().sheet.actor.xp).toBe(6500);
 
-    const xpCampaign = await app.inject({
-      method: 'POST',
-      url: '/api/v1/campaigns',
-      payload: { name: 'Fase 5 XP', advancementMode: 'xp' },
-    });
-    const xpCampaignId = xpCampaign.json<{ id: string }>().id;
-    const xpActor = await createPc(app, xpCampaignId);
+    const xpCampaignId = await createCampaign(app, { name: 'Fase 5 XP', advancementMode: 'xp' });
+    const xpActor = await createPc(app, xpCampaignId, { name: 'Sir Fase 5' });
     const blocked = await app.inject({
       method: 'POST',
       url: `/api/v1/actors/${xpActor.id}/level-up`,
@@ -397,8 +300,8 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
   });
 
   it('esporta e reimporta gli XP del personaggio in una nuova campagna', async () => {
-    const campaignId = await createCampaign(app);
-    const actor = await createPc(app, campaignId);
+    const campaignId = await createCampaign(app, { name: 'Fase 5' });
+    const actor = await createPc(app, campaignId, { name: 'Sir Fase 5' });
     await app.inject({
       method: 'PATCH',
       url: `/api/v1/actors/${actor.id}`,

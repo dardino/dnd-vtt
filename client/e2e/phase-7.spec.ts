@@ -1,129 +1,11 @@
-import { expect, test, type APIRequestContext } from '@playwright/test';
-import type { SceneSnapshot } from '@dnd-vtt/shared';
-
-const CAMPAIGN_NAME = 'E2E Regia';
-
-const MAP_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64',
-);
-
-const PORTRAIT_PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
-  'base64',
-);
-
-const createSceneFixture = async (
-  request: APIRequestContext,
-  size: { width: number; height: number } = { width: 1000, height: 800 },
-): Promise<{
-  campaignId: string;
-  sceneId: string;
-  tokenId: string;
-  actorId: string;
-}> => {
-  const campaignResponse = await request.post('/api/v1/campaigns', {
-    data: { name: CAMPAIGN_NAME, description: 'Doppio schermo' },
-  });
-  const campaignId = (await campaignResponse.json() as { id: string }).id;
-  const mapResponse = await request.post('/api/v1/assets', {
-    multipart: {
-      file: { name: 'mappa.png', mimeType: 'image/png', buffer: MAP_PNG },
-    },
-  });
-  const mapAssetId = (await mapResponse.json() as { id: string }).id;
-  const sceneResponse = await request.post(`/api/v1/campaigns/${campaignId}/scenes`, {
-    data: {
-      name: 'Palco',
-      widthPx: size.width,
-      heightPx: size.height,
-      fogBase: 'revealed',
-      imageAssetId: mapAssetId,
-    },
-  });
-  const sceneId = (await sceneResponse.json() as { id: string }).id;
-  const actorResponse = await request.post('/api/v1/actors', {
-    data: {
-      campaignId,
-      kind: 'monster',
-      name: 'Goblin Palco',
-      statblock: {
-        kind: 'monster',
-        size: 'medium',
-        abilities: { str: 8, dex: 14, con: 10, int: 10, wis: 8, cha: 8 },
-        hp: { current: 7, max: 7, temp: 0 },
-        speed: { walk: 30 },
-        senses: { darkvision: 60 },
-        languages: ['common'],
-        conditions: [],
-        creatureType: 'goblinoid',
-        cr: '1/4',
-        tags: [],
-        ac: 15,
-        damageResistances: [],
-        damageImmunities: [],
-        damageVulnerabilities: [],
-        conditionImmunities: [],
-        traits: [],
-        actions: [{
-          name: 'Scimitarra',
-          description: 'Melee Weapon Attack: +4 to hit, reach 5 ft., one target. Hit: 5 (1d6 + 2) slashing damage.',
-          recharge: 'none',
-        }],
-        reactions: [],
-      },
-    },
-  });
-  const actorId = (await actorResponse.json() as { id: string }).id;
-  const portraitResponse = await request.post('/api/v1/assets', {
-    multipart: {
-      file: { name: 'ritratto.png', mimeType: 'image/png', buffer: PORTRAIT_PNG },
-    },
-  });
-  const portraitAssetId = (await portraitResponse.json() as { id: string }).id;
-  await request.patch(`/api/v1/actors/${actorId}`, {
-    data: {
-      imageAssetId: portraitAssetId,
-      portrait: { focusX: 0.5, focusY: 0.4, zoom: 1.2 },
-    },
-  });
-  const tokenId = crypto.randomUUID();
-  await request.post(`/api/v1/campaigns/${campaignId}/actions`, {
-    data: {
-      id: crypto.randomUUID(),
-      clientId: 'phase7',
-      sceneId,
-      action: {
-        type: 'token.add',
-        token: {
-          id: tokenId,
-          actorId,
-          label: 'Goblin Palco',
-          x: 2,
-          y: 2,
-          size: 1,
-          rotation: 0,
-          elevation: 0,
-          hp: { current: 7, max: 7, temp: 0 },
-          conditions: [],
-          visible: true,
-        },
-      },
-    },
-  });
-  return { campaignId, sceneId, tokenId, actorId };
-};
-
-const snapshot = async (request: APIRequestContext, sceneId: string): Promise<SceneSnapshot> => {
-  const response = await request.get(`/api/v1/scenes/${sceneId}`);
-  return response.json() as Promise<SceneSnapshot>;
-};
+import { expect, test } from '@playwright/test';
+import { STAGE_CAMPAIGN_NAME, createStageFixture, sceneSnapshot } from './fixtures.js';
 
 test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page, context, request }) => {
   test.setTimeout(60_000);
-  const fixture = await createSceneFixture(request);
+  const fixture = await createStageFixture(request);
   await page.goto(`/dm/campaigns/${fixture.campaignId}`);
-  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { level: 1, name: STAGE_CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
   const onAir = page.locator('.dm-topbar__onair');
   await expect(onAir).toHaveText('OFF AIR');
 
@@ -236,7 +118,7 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
   });
   await expect.poll(async () => screen.getAttribute('data-token-summary'))
     .not.toBe(beforeToken);
-  const scene = await snapshot(request, fixture.sceneId);
+  const scene = await sceneSnapshot(request, fixture.sceneId);
   expect(scene.state.tokens[0]?.x).toBe(5);
   await display.close();
   await expect(onAir).toHaveText('OFF AIR');
@@ -244,9 +126,9 @@ test('TAKE, blackout e token aggiornano lo schermo via WebSocket', async ({ page
 
 test('con più schermi Manda in onda chiede il target', async ({ page, context, request }) => {
   test.setTimeout(60_000);
-  const fixture = await createSceneFixture(request);
+  const fixture = await createStageFixture(request);
   await page.goto(`/dm/campaigns/${fixture.campaignId}`);
-  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { level: 1, name: STAGE_CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
 
   const [first] = await Promise.all([
     context.waitForEvent('page'),
@@ -285,9 +167,9 @@ test('con più schermi Manda in onda chiede il target', async ({ page, context, 
 
 test('lo zoom resta relativo al fit anche con mappe a bassa risoluzione', async ({ page, context, request }) => {
   test.setTimeout(60_000);
-  const fixture = await createSceneFixture(request, { width: 474, height: 276 });
+  const fixture = await createStageFixture(request, { width: 474, height: 276 });
   await page.goto(`/dm/campaigns/${fixture.campaignId}`);
-  await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole('heading', { level: 1, name: STAGE_CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
 
   const [display] = await Promise.all([
     context.waitForEvent('page'),
@@ -325,7 +207,7 @@ test('lo zoom resta relativo al fit anche con mappe a bassa risoluzione', async 
 });
 
 test('la scheda converte velocità, sensi e portata nella unità metrica', async ({ page, request }) => {
-  const fixture = await createSceneFixture(request);
+  const fixture = await createStageFixture(request);
   await page.addInitScript(() => {
     localStorage.setItem('dnd-vtt.measurement-unit', 'metric');
   });

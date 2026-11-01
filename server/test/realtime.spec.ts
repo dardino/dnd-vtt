@@ -4,6 +4,7 @@ import { v7 as uuidv7 } from 'uuid';
 import WebSocket from 'ws';
 import type { RawData } from 'ws';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
+import { createCampaign, createDisplay } from './factories.js';
 
 const ALLOWED_ORIGIN = 'http://localhost:4200';
 
@@ -21,24 +22,6 @@ const listen = async (app: FastifyInstance): Promise<number> => {
     throw new Error('indirizzo server non disponibile');
   }
   return address.port;
-};
-
-const createCampaign = async (app: FastifyInstance): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: '/api/v1/campaigns',
-    payload: { name: 'Realtime' },
-  });
-  return response.json<{ id: string }>().id;
-};
-
-const createDisplay = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/displays`,
-    payload: {},
-  });
-  return response.json<{ code: string }>().code;
 };
 
 const wsUrl = (port: number, query: string): string =>
@@ -107,7 +90,7 @@ describe('realtime: origine e rate limit', () => {
   beforeAll(async () => {
     testApp = await createTestApp({ LOG_LEVEL: 'error' });
     app = testApp.app;
-    campaignId = await createCampaign(app);
+    campaignId = await createCampaign(app, { name: 'Realtime' });
     displayCode = await createDisplay(app, campaignId);
     port = await listen(app);
   });
@@ -162,7 +145,7 @@ describe('realtime: limite tentativi', () => {
   beforeAll(async () => {
     testApp = await createTestApp({ LOG_LEVEL: 'error', WS_RATE_LIMIT_MAX: '1' });
     app = testApp.app;
-    const campaignId = await createCampaign(app);
+    const campaignId = await createCampaign(app, { name: 'Realtime' });
     displayCode = await createDisplay(app, campaignId);
     port = await listen(app);
   });

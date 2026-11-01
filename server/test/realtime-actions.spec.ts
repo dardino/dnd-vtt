@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { v7 as uuidv7 } from 'uuid';
 import WebSocket from 'ws';
 import type { RawData } from 'ws';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
+import { createCampaign, createDisplay, createScene, sendAction } from './factories.js';
 
 const ALLOWED_ORIGIN = 'http://localhost:4200';
 
@@ -26,33 +26,6 @@ const listen = async (app: FastifyInstance): Promise<number> => {
     throw new Error('indirizzo server non disponibile');
   }
   return address.port;
-};
-
-const createCampaign = async (app: FastifyInstance): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: '/api/v1/campaigns',
-    payload: { name: 'Realtime azioni' },
-  });
-  return response.json<{ id: string }>().id;
-};
-
-const createDisplay = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/displays`,
-    payload: {},
-  });
-  return response.json<{ code: string }>().code;
-};
-
-const createScene = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/scenes`,
-    payload: { name: 'Realtime scena', widthPx: 800, heightPx: 600 },
-  });
-  return response.json<{ id: string }>().id;
 };
 
 const dmSocketUrl = (port: number, campaignId: string): string =>
@@ -119,8 +92,12 @@ describe('realtime: broadcast azioni ai DM', () => {
   beforeAll(async () => {
     testApp = await createTestApp({ LOG_LEVEL: 'error' });
     app = testApp.app;
-    campaignId = await createCampaign(app);
-    sceneId = await createScene(app, campaignId);
+    campaignId = await createCampaign(app, { name: 'Realtime azioni' });
+    sceneId = await createScene(app, campaignId, {
+      name: 'Realtime scena',
+      widthPx: 800,
+      heightPx: 600,
+    });
     port = await listen(app);
   });
 
@@ -138,31 +115,20 @@ describe('realtime: broadcast azioni ai DM', () => {
     await hello;
 
     const applied = waitForActionApplied(socket);
-    const response = await app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload: {
-        id: uuidv7(),
-        clientId: 'realtime-test',
-        sceneId,
-        action: {
-          type: 'fog.apply',
-          op: {
-            id: 'op-realtime',
-            op: 'reveal',
-            shape: { type: 'rect', x: 10, y: 10, width: 100, height: 100 },
-            softness: 10,
-          },
-        },
+    const sent = await sendAction(app, campaignId, sceneId, {
+      type: 'fog.apply',
+      op: {
+        id: 'op-realtime',
+        op: 'reveal',
+        shape: { type: 'rect', x: 10, y: 10, width: 100, height: 100 },
+        softness: 10,
       },
-    });
-    expect(response.statusCode).toBe(200);
-    const body = response.json<{ id: string; stateVersion: number }>();
+    }, { clientId: 'realtime-test', expectStatus: 200 });
 
     await expect(applied).resolves.toMatchObject({
-      id: body.id,
+      id: sent.body.id,
       sceneId,
-      stateVersion: body.stateVersion,
+      stateVersion: sent.body.stateVersion,
     });
 
     const closed = new Promise<number>((resolve) => socket.once('close', resolve));
@@ -180,26 +146,16 @@ describe('realtime: broadcast azioni ai DM', () => {
     // Consuma subito il broadcast della POST: il listener successivo deve
     // vedere solo il messaggio di undo, senza gare con l'ordine di arrivo.
     const postedBroadcast = waitForActionApplied(socket);
-    const sent = await app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload: {
-        id: uuidv7(),
-        clientId: 'realtime-test',
-        sceneId,
-        action: {
-          type: 'fog.apply',
-          op: {
-            id: 'op-undo',
-            op: 'reveal',
-            shape: { type: 'rect', x: 20, y: 20, width: 50, height: 50 },
-            softness: 0,
-          },
-        },
+    const sent = await sendAction(app, campaignId, sceneId, {
+      type: 'fog.apply',
+      op: {
+        id: 'op-undo',
+        op: 'reveal',
+        shape: { type: 'rect', x: 20, y: 20, width: 50, height: 50 },
+        softness: 0,
       },
-    });
-    expect(sent.statusCode).toBe(200);
-    const entryId = sent.json<{ id: string }>().id;
+    }, { clientId: 'realtime-test', expectStatus: 200 });
+    const entryId = sent.body.id;
     await postedBroadcast;
 
     const undone = waitForActionApplied(socket);
@@ -232,7 +188,7 @@ describe('realtime: broadcast azioni ai DM', () => {
   });
 
   it('non invia action.applied a un display né a un DM di un’altra campagna', async () => {
-    const otherCampaignId = await createCampaign(app);
+    const otherCampaignId = await createCampaign(app, { name: 'Altra campagna' });
     const displayCode = await createDisplay(app, campaignId);
     const target = new WebSocket(
       dmSocketUrl(port, campaignId),
@@ -250,25 +206,15 @@ describe('realtime: broadcast azioni ai DM', () => {
 
     const received = [collectActionTypes(target), collectActionTypes(otherDm), collectActionTypes(display)];
     const targetApplied = waitForActionApplied(target);
-    const response = await app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload: {
-        id: uuidv7(),
-        clientId: 'realtime-test',
-        sceneId,
-        action: {
-          type: 'fog.apply',
-          op: {
-            id: 'op-isolation',
-            op: 'reveal',
-            shape: { type: 'rect', x: 30, y: 30, width: 40, height: 40 },
-            softness: 0,
-          },
-        },
+    await sendAction(app, campaignId, sceneId, {
+      type: 'fog.apply',
+      op: {
+        id: 'op-isolation',
+        op: 'reveal',
+        shape: { type: 'rect', x: 30, y: 30, width: 40, height: 40 },
+        softness: 0,
       },
-    });
-    expect(response.statusCode).toBe(200);
+    }, { clientId: 'realtime-test', expectStatus: 200 });
     await targetApplied;
     // Margine per un eventuale invio errato verso gli altri socket.
     await new Promise((resolve) => setTimeout(resolve, 50));

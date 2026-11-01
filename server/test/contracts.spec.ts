@@ -7,9 +7,14 @@ import {
   campaignListSchema,
   displayStateEnvelopeSchema,
   sceneSnapshotSchema,
-  type MonsterStatblock,
 } from '@dnd-vtt/shared';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
+import {
+  createCampaign,
+  createDisplay,
+  createMonster,
+  createScene,
+} from './factories.js';
 
 /**
  * Contract test: le risposte HTTP reali devono superare gli stessi schemi Zod
@@ -25,67 +30,6 @@ const expectContract = (schema: ZodType, body: unknown, endpoint: string): void 
   }
 };
 
-const createCampaign = async (app: FastifyInstance, name: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: '/api/v1/campaigns',
-    payload: { name },
-  });
-  expect(response.statusCode).toBe(201);
-  return response.json<{ id: string }>().id;
-};
-
-const createScene = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/scenes`,
-    payload: { name: 'Sala del contratto', widthPx: 1920, heightPx: 1080 },
-  });
-  expect(response.statusCode).toBe(201);
-  return response.json<{ id: string }>().id;
-};
-
-const createMonster = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const statblock: MonsterStatblock = {
-    kind: 'monster',
-    size: 'medium',
-    abilities: { str: 10, dex: 14, con: 12, int: 8, wis: 10, cha: 8 },
-    hp: { current: 7, max: 7, temp: 0 },
-    speed: { walk: 30 },
-    senses: {},
-    languages: ['common'],
-    conditions: [],
-    creatureType: 'goblinoid',
-    cr: '1/4',
-    tags: [],
-    ac: 13,
-    damageResistances: [],
-    damageImmunities: [],
-    damageVulnerabilities: [],
-    conditionImmunities: [],
-    traits: [],
-    actions: [],
-    reactions: [],
-  };
-  const response = await app.inject({
-    method: 'POST',
-    url: '/api/v1/actors',
-    payload: { campaignId, kind: 'monster', name: 'Goblin di contratto', statblock },
-  });
-  expect(response.statusCode).toBe(201);
-  return response.json<{ id: string }>().id;
-};
-
-const createDisplay = async (app: FastifyInstance, campaignId: string): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: `/api/v1/campaigns/${campaignId}/displays`,
-    payload: { label: 'TV contratto' },
-  });
-  expect(response.statusCode).toBe(201);
-  return response.json<{ code: string }>().code;
-};
-
 describe('contratti HTTP client/server', () => {
   let testApp: TestApp;
   let app: FastifyInstance;
@@ -96,10 +40,10 @@ describe('contratti HTTP client/server', () => {
   beforeAll(async () => {
     testApp = await createTestApp();
     app = testApp.app;
-    campaignId = await createCampaign(app, 'Campagna di contratto');
-    sceneId = await createScene(app, campaignId);
-    await createMonster(app, campaignId);
-    displayCode = await createDisplay(app, campaignId);
+    campaignId = await createCampaign(app, { name: 'Campagna di contratto' });
+    sceneId = await createScene(app, campaignId, { name: 'Sala del contratto' });
+    await createMonster(app, campaignId, { name: 'Goblin di contratto' });
+    displayCode = await createDisplay(app, campaignId, { label: 'TV contratto' });
   });
 
   afterAll(async () => {

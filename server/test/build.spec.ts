@@ -3,61 +3,9 @@ import type { FastifyInstance } from 'fastify';
 import { validatePcBuild, type PcBuild } from '@dnd-vtt/shared';
 import { loadSrdCatalog } from '../src/srd/load.js';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
+import { createCampaign, fighterBuild } from './factories.js';
 
 const catalog = loadSrdCatalog('srd-5.2.0');
-
-const level5Fighter = (): PcBuild => {
-  const fighter = catalog.classes.find((entry) => entry.id === 'fighter');
-  if (fighter === undefined) {
-    throw new Error('fighter mancante');
-  }
-  const masteries = catalog.items
-    .filter((item) => item.category === 'weapon')
-    .slice(0, fighter.weaponMasteryCount[4] ?? 0)
-    .map((item) => item.id);
-
-  return {
-    rulesVersion: catalog.meta.version,
-    level: 5,
-    classId: 'fighter',
-    subclassId: 'champion',
-    speciesId: 'dwarf',
-    backgroundId: 'soldier',
-    abilityGeneration: {
-      method: 'pointBuy',
-      base: { str: 15, dex: 14, con: 14, int: 8, wis: 12, cha: 8 },
-    },
-    backgroundIncreases: [
-      { source: 'background', ability: 'str', amount: 2 },
-      { source: 'background', ability: 'con', amount: 1 },
-    ],
-    feats: [{ id: 'savage-attacker' }],
-    proficiencies: {
-      classSkills: ['athletics', 'perception'],
-      speciesSkills: [],
-      expertise: [],
-      tools: [],
-      languages: ['elvish', 'dwarvish'],
-    },
-    asiChoices: [
-      {
-        level: 4,
-        type: 'asi',
-        increases: [{ source: 'asi', ability: 'str', amount: 2 }],
-      },
-    ],
-    weaponMasteries: masteries,
-    equipment: [
-      { itemId: 'longsword', quantity: 1 },
-      { itemId: 'chain-mail', quantity: 1 },
-      { itemId: 'shield', quantity: 1 },
-    ],
-    currency: { cp: 0, sp: 0, ep: 0, gp: 55, pp: 0 },
-    budgetGp: 155,
-    spells: { cantrips: [], known: [], prepared: [], spellbook: [] },
-    hpRolls: [7, 8, 6, 9],
-  };
-};
 
 const level5Wizard = (): PcBuild => {
   const wizard = catalog.classes.find((entry) => entry.id === 'wizard');
@@ -111,7 +59,7 @@ const level5Wizard = (): PcBuild => {
 
 describe('build contro il catalogo SRD reale', () => {
   it('accetta un combattente nano di livello 5', () => {
-    const result = validatePcBuild(level5Fighter(), catalog);
+    const result = validatePcBuild(fighterBuild(5), catalog);
 
     expect(result.errors).toEqual([]);
     expect(result.ok).toBe(true);
@@ -130,13 +78,13 @@ describe('build contro il catalogo SRD reale', () => {
     const fighter = catalog.classes.find((entry) => entry.id === 'fighter');
     expect(fighter?.weaponMasteryCount[4]).toBeGreaterThan(0);
 
-    const build = level5Fighter();
+    const build = fighterBuild(5);
     const result = validatePcBuild({ ...build, weaponMasteries: [] }, catalog);
     expect(result.errors.some((error) => error.code === 'weapon_mastery_count')).toBe(true);
   });
 
   it('accetta il talento Ability Score Improvement al posto dell ASI', () => {
-    const build = level5Fighter();
+    const build = fighterBuild(5);
     const result = validatePcBuild({
       ...build,
       asiChoices: [
@@ -153,7 +101,7 @@ describe('build contro il catalogo SRD reale', () => {
   });
 
   it('rifiuta un talento ripetuto quando non è ripetibile', () => {
-    const build = level5Fighter();
+    const build = fighterBuild(5);
     const result = validatePcBuild({ ...build, feats: [{ id: 'savage-attacker' }, { id: 'savage-attacker' }] }, catalog);
     expect(result.errors.some((error) => error.code === 'feat_duplicate')).toBe(true);
   });
@@ -172,21 +120,12 @@ describe('POST /api/v1/campaigns/:id/actors', () => {
     await closeTestApp(testApp);
   });
 
-  const createCampaign = async (): Promise<string> => {
-    const response = await app.inject({
-      method: 'POST',
-      url: '/api/v1/campaigns',
-      payload: { name: 'Builder' },
-    });
-    return response.json<{ id: string }>().id;
-  };
-
   it('persiste un pc di livello 5 e restituisce la scheda derivata', async () => {
-    const campaignId = await createCampaign();
+    const campaignId = await createCampaign(app, { name: 'Builder' });
     const created = await app.inject({
       method: 'POST',
       url: `/api/v1/campaigns/${campaignId}/actors`,
-      payload: { name: 'Sir Test', build: level5Fighter() },
+      payload: { name: 'Sir Test', build: fighterBuild(5) },
     });
     expect(created.statusCode).toBe(201);
     const actor = created.json<{ id: string; kind: string; hp: { max: number } }>();
@@ -230,8 +169,8 @@ describe('POST /api/v1/campaigns/:id/actors', () => {
   });
 
   it('rifiuta una build invalida', async () => {
-    const campaignId = await createCampaign();
-    const build = level5Fighter();
+    const campaignId = await createCampaign(app, { name: 'Builder' });
+    const build = fighterBuild(5);
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/campaigns/${campaignId}/actors`,
@@ -248,7 +187,7 @@ describe('POST /api/v1/campaigns/:id/actors', () => {
   });
 
   it('esegue i tiri 4d6kh3 dal server e li usa per la creazione', async () => {
-    const campaignId = await createCampaign();
+    const campaignId = await createCampaign(app, { name: 'Builder' });
     const rolled = await app.inject({
       method: 'POST',
       url: `/api/v1/campaigns/${campaignId}/actors/roll-stats`,
@@ -259,7 +198,7 @@ describe('POST /api/v1/campaigns/:id/actors', () => {
     expect(result.values).toHaveLength(6);
     expect(result.values.every((value) => value >= 3 && value <= 18)).toBe(true);
 
-    const build = level5Fighter();
+    const build = fighterBuild(5);
     const values = result.values;
     const created = await app.inject({
       method: 'POST',
@@ -336,7 +275,7 @@ describe('POST /api/v1/actors/preview', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/actors/preview',
-      payload: level5Fighter(),
+      payload: fighterBuild(5),
     });
 
     expect(response.statusCode).toBe(200);
@@ -358,7 +297,7 @@ describe('POST /api/v1/actors/preview', () => {
   });
 
   it('rifiuta una versione SRD sconosciuta', async () => {
-    const build = level5Fighter();
+    const build = fighterBuild(5);
     const response = await app.inject({
       method: 'POST',
       url: '/api/v1/actors/preview',

@@ -1,36 +1,6 @@
-import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext } from '@playwright/test';
 import type { PcBuild } from '@dnd-vtt/shared';
-
-const CAMPAIGN_NAME = 'E2E Campagna';
-
-const openCampaign = async (page: Page): Promise<void> => {
-  await page.goto('/dm');
-  const dialog = page.getByRole('dialog');
-  const heading = page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME });
-  await expect(dialog.or(heading)).toBeVisible();
-  if (await dialog.isVisible()) {
-    if (await dialog.getByRole('heading', { name: 'Crea campagna' }).isVisible()) {
-      await dialog.getByLabel('Nome').fill(CAMPAIGN_NAME);
-      await dialog.getByRole('button', { name: 'Crea campagna' }).click();
-    } else {
-      await dialog.getByRole('button', { name: new RegExp(CAMPAIGN_NAME) }).first().click();
-    }
-  }
-  await expect(heading).toBeVisible();
-};
-
-const campaignId = async (request: APIRequestContext): Promise<string> => {
-  const list = await request.get('/api/v1/campaigns?limit=200');
-  const items = (await list.json() as { items: { id: string; name: string }[] }).items;
-  const existing = items.find((item) => item.name === CAMPAIGN_NAME);
-  if (existing !== undefined) {
-    return existing.id;
-  }
-  const created = await request.post('/api/v1/campaigns', {
-    data: { name: CAMPAIGN_NAME, description: 'Fase 8', advancementMode: 'milestone' },
-  });
-  return (await created.json() as { id: string }).id;
-};
+import { campaignId, openCampaign } from './fixtures.js';
 
 const ensurePc = async (request: APIRequestContext, id: string): Promise<string> => {
   const actorsResponse = await request.get(`/api/v1/actors?campaignId=${id}&limit=200`);
@@ -94,7 +64,7 @@ const ensurePc = async (request: APIRequestContext, id: string): Promise<string>
 test.describe.configure({ mode: 'serial' });
 
 test('condivide la scheda, modifica note e HP e rispetta la matita', async ({ page, request }) => {
-  const id = await campaignId(request);
+  const id = await campaignId(request, { description: 'Fase 8' });
   const actorId = await ensurePc(request, id);
   await page.goto(`/dm/campaigns/${id}/actors/${actorId}/sheet`);
   await expect(page.getByRole('heading', { level: 1, name: 'E2E Giocatore' })).toBeVisible();
@@ -130,7 +100,7 @@ test('condivide la scheda, modifica note e HP e rispetta la matita', async ({ pa
 });
 
 test('avvia e chiude una sessione e fa export/import della campagna', async ({ page, request }) => {
-  await campaignId(request);
+  await campaignId(request, { description: 'Fase 8' });
   await openCampaign(page);
   await page.locator('.session-card').getByRole('button', { name: 'Avvia sessione' }).click();
   await expect(page.locator('.session-card')).toContainText('in corso');

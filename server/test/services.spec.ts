@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
 import {
   createCampaignSchema,
@@ -13,6 +12,7 @@ import { runMigrations } from '../src/db/migrations.js';
 import { DiceService } from '../src/dice/service.js';
 import { RealtimeHub } from '../src/realtime/hub.js';
 import { closeTestApp, createTestApp, createTestEnv } from './helpers.js';
+import { createCampaign } from './factories.js';
 
 interface FakeSocket {
   socket: WebSocket;
@@ -36,16 +36,6 @@ const createFakeSocket = (): FakeSocket => {
     },
   };
   return { socket: fake as unknown as WebSocket, sent, closed };
-};
-
-const createCampaign = async (app: FastifyInstance): Promise<string> => {
-  const response = await app.inject({
-    method: 'POST',
-    url: '/api/v1/campaigns',
-    payload: { name: 'Isolamento' },
-  });
-  expect(response.statusCode).toBe(201);
-  return response.json<{ id: string }>().id;
 };
 
 describe('RollStats', () => {
@@ -127,7 +117,7 @@ describe('due buildApp nello stesso processo', () => {
     await secondary.ready();
     let secondaryClosed = false;
     try {
-      const campaignId = await createCampaign(primary.app);
+      const campaignId = await createCampaign(primary.app, { name: 'Isolamento' });
       const payload = { formula: '1d20', requestId: 'shared-request' };
       const first = await primary.app.inject({
         method: 'POST',
