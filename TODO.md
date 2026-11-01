@@ -124,7 +124,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 ### Già in ordine (verificato)
 
-- Sessione DM firmata HMAC, cookie `httpOnly` + `sameSite=strict` + `secure` auto; segreto ≥ 32 caratteri persistito con permessi `0600`.
+- Sessione DM firmata HMAC con TTL 7 giorni e refresh su attività, cookie `httpOnly` + `sameSite=strict` + `secure` auto; segreto ≥ 32 caratteri persistito con permessi `0600`.
 - Login con rate limit 5/min e password obbligatoria fuori dal loopback.
 - Host allowlist e controllo `Origin` su tutte le richieste non-GET.
 - CSP con nonce per `index.html` e `CSP_NONCE` in Angular; `frame-ancestors 'none'`.
@@ -153,8 +153,9 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Implementato:** `DM_PASSWORD_HASH` nel formato `scrypt$<saltBase64>$<hashBase64>` validato in `createEnv` (salt ≥ 16 byte, hash 64 byte); se presente ha precedenza e la verifica usa `scrypt` + `timingSafeEqual`, altrimenti resta il confronto HMAC del plaintext. Fuori dal loopback serve almeno una credenziale e il plaintext richiede 12 caratteri (8 sul loopback). Script `npm run hash:password` (`server/scripts/hash-password.mjs`) con prompt nascosto o stdin; `.env.example` e `docs/deploy-docker.md` aggiornati.
   - **Fatto quando:** hash e policy sono applicati e coperti da test; in produzione l'hash è la scelta consigliata, il plaintext resta accettato con minimo 12 caratteri.
 
-- [ ] **S3 — TTL e revoca sessione** · M
+- [ ] **S3 — TTL breve e revoca sessione** · M
   - **Proposta:** TTL 7 giorni con refresh su attività, oppure `jti` + versione sessione revocabile al logout; valutare il costo rispetto a D27.
+  - **Implementato (parziale, 1 novembre 2026):** TTL ridotto da 30 a 7 giorni; `refreshSessionIfNeeded` nell'hook `onRequest` su `/api/v1` riemette il cookie con nuova scadenza quando il token è valido e `iat` è più vecchio di 1 giorno. Gli accessi loopback senza cookie non creano sessioni. Resta aperta la revoca per-device (`jti`/versione sessione).
   - **Fatto quando:** esiste un percorso di revoca per-device.
 
 - [x] **S4 — Rate limit e limiti corpo** · S — ✅ 1 novembre 2026
@@ -193,7 +194,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] S0 Origin WS + rate limit tentativi
 - [x] S1 CSP `connect-src` ristretta
 - [x] S2 `DM_PASSWORD_HASH` + minimo 12 caratteri
-- [ ] S3 TTL breve e revoca sessione
+- [ ] S3 TTL breve e revoca sessione (TTL 7 giorni + refresh fatti; revoca per-device aperta)
 - [x] S4 AllowList GET e `bodyLimit` espliciti
 - [ ] S5 Nessun originale con EXIF su disco
 - [x] S6 Codici display documentati e allungati a 8 caratteri

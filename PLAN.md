@@ -123,7 +123,7 @@ Tooling monorepo
 | D24 | HP modificati con **delta** applicato dal server in transazione, non con PATCH dell'intero attore | due danni concorrenti non si sovrascrivono; il clamp è dell'unico writer |
 | D25 | Il telefono **chiede** un tiro, il server lo esegue e lo trasmette a console e schermo A | il client non sceglie mai il risultato; un solo punto di emissione per DM e giocatori |
 | D26 | Note **private per ruolo**: `player_notes` visibile solo al giocatore, `dm_notes` solo al DM; nessuna delle due attraversa il confine del ruolo e non esiste condivisione esplicita di `playerNotes` | ognuno scrive senza sentirsi osservato; nessun rischio di leak tra le due viste |
-| D27 | Console DM: **loopback fidato solo dalla connessione diretta**; dietro proxy o su LAN serve password con cookie firmato; TTL 30 giorni, più dispositivi ammessi, revoca globale | zero attrito sul PC del DM, senza fidarsi di header proxy non verificabili; niente gestione sessioni per-device nell'MVP |
+| D27 | Console DM: **loopback fidato solo dalla connessione diretta**; dietro proxy o su LAN serve password con cookie firmato; TTL 7 giorni con refresh su attività, più dispositivi ammessi, revoca globale | zero attrito sul PC del DM, senza fidarsi di header proxy non verificabili; niente gestione sessioni per-device nell'MVP |
 | D28 | **ESM ovunque** (`"type": "module"`), nessun dual package | Node 26, Fastify, Angular e Vitest sono già ESM; un solo formato evita il classico "due copie della stessa classe" |
 | D29 | TypeScript **strict massimo** da subito, non solo `strict: true` | aggiungere `noUncheckedIndexedAccess` dopo significa una valanga di errori; i bug che intercetta sono esattamente quelli di token e fog |
 | D30 | CI completa con **E2E a ogni PR** | il doppio schermo è il requisito più fragile: se non è verificato a ogni modifica, si rompe in silenzio |
@@ -2135,7 +2135,7 @@ Quattro superfici, quattro credenziali. Nessun account utente, nessun provider e
 
 - `DM_PASSWORD` è obbligatoria se `HOST` o `PUBLIC_URL` non sono loopback; ogni deployment dietro proxy la imposta esplicitamente, perché il bypass è disabilitato
 - il cookie è firmato HMAC con `SESSION_SECRET` (generato al primo avvio in `data/.session-secret` se assente) e contiene `{ v, iat, exp }`: nessuna tabella sessioni
-- TTL 30 giorni; logout = cookie cancellato; cambio di `SESSION_SECRET` invalida tutte le sessioni
+- TTL 7 giorni con refresh scorrevole su attività; logout = cookie cancellato; cambio di `SESSION_SECRET` invalida tutte le sessioni
 - più console DM sono ammesse contemporaneamente; non si identificano né revocano singoli dispositivi nell'MVP. Logout cancella il cookie del browser corrente; la rotazione di `SESSION_SECRET` revoca globalmente tutti i cookie
 - `GET /auth/me` restituisce il ruolo risolto: serve al client per distinguere "loopback" da "cookie valido" e per gestire la modale di accesso
 - il loopback bypass richiede **anche** `Host` `localhost`, `127.0.0.1` o `[::1]` e assenza di `Forwarded`/`X-Forwarded-*`; se ci sono header proxy, il client deve autenticarsi con password. Nessun `TRUST_PROXY` nell'MVP
@@ -2502,7 +2502,7 @@ Assunzioni: il DM è fidato, la macchina è sua, la rete è una LAN domestica. N
 
 - **loopback fidato**: solo connessione diretta con peer socket `127.0.0.1`/`::1`, `Host` localhost/loopback e nessun header `Forwarded`/`X-Forwarded-*`; è il caso normale del DM su `http://localhost:3000`
 - **LAN o reverse proxy con password**: `HOST=0.0.0.0` o deployment dietro proxy richiedono `DM_PASSWORD`; `POST /auth/dm` imposta un cookie firmato HMAC, `HttpOnly`, `SameSite=Strict`, `Secure` quando `PUBLIC_URL` è HTTPS
-- sessione stateless con TTL 30 giorni; logout cancella il cookie; cambiare `SESSION_SECRET` revoca tutto
+- sessione stateless con TTL 7 giorni e refresh su attività; logout cancella il cookie; cambiare `SESSION_SECRET` revoca tutto
 - `GET /auth/me` serve al client per mostrare la modale di accesso solo quando serve, invece di un 401 silenzioso
 - il ruolo è **derivato dalla credenziale**, mai da un header o da un campo del body
 - display e player non possono escalare: il loro massimo è leggere la propria proiezione

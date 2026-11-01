@@ -13,7 +13,9 @@ import { parse } from '../http/validation.js';
 export type DmRole = 'dm' | 'none';
 
 const SESSION_COOKIE = 'dm_session';
-const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
+/** Oltre un giorno di attività il cookie viene riemesso con scadenza scorrevole. */
+const SESSION_REFRESH_AFTER_SECONDS = 24 * 60 * 60;
 
 interface SessionPayload {
   v: 1;
@@ -57,10 +59,10 @@ export const createSessionToken = (env: AppEnv, now = Date.now()): string => {
   return `${value}.${sign(value, env.sessionSecret)}`;
 };
 
-export const verifySessionToken = (env: AppEnv, token: string, now = Date.now()): boolean => {
+const decodeSessionPayload = (env: AppEnv, token: string): SessionPayload | undefined => {
   const parts = token.split('.');
   if (parts.length !== 3 || parts[0] !== 'v1') {
-    return false;
+    return undefined;
   }
   const payload = parts[1] ?? '';
   const signature = parts[2] ?? '';
@@ -68,14 +70,22 @@ export const verifySessionToken = (env: AppEnv, token: string, now = Date.now())
   const actualBuffer = Buffer.from(signature);
   const expectedBuffer = Buffer.from(expected);
   if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) {
-    return false;
+    return undefined;
   }
   try {
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as SessionPayload;
-    return decoded.v === 1 && decoded.exp > Math.floor(now / 1000);
+    if (decoded.v !== 1 || !Number.isFinite(decoded.iat) || !Number.isFinite(decoded.exp)) {
+      return undefined;
+    }
+    return decoded;
   } catch {
-    return false;
+    return undefined;
   }
+};
+
+export const verifySessionToken = (env: AppEnv, token: string, now = Date.now()): boolean => {
+  const decoded = decodeSessionPayload(env, token);
+  return decoded !== undefined && decoded.exp > Math.floor(now / 1000);
 };
 
 export const passwordMatches = (expected: string, provided: string): boolean => {
@@ -157,6 +167,53 @@ const clearSessionCookie = (reply: FastifyReply, env: AppEnv): void => {
     sameSite: 'strict',
     secure: env.cookieSecure,
   });
+};
+
+/**
+ * L'hook `onRequest` gira prima del parsing cookie di `@fastify/cookie`
+ * (registrato come plugin, quindi dopo gli hook root): leggiamo il token
+ * dall'header grezzo quando `request.cookies` non è ancora popolato.
+ */
+const sessionTokenFromHeader = (header: string | undefined): string | undefined => {
+  if (header === undefined) {
+    return undefined;
+  }
+  for (const part of header.split(';')) {
+    const separator = part.indexOf('=');
+    if (separator === -1) {
+      continue;
+    }
+    if (part.slice(0, separator).trim() !== SESSION_COOKIE) {
+      continue;
+    }
+    return part.slice(separator + 1).trim();
+  }
+  return undefined;
+};
+
+/**
+ * Refresh scorrevole: se il cookie è valido ma `iat` è più vecchio di un
+ * giorno, viene riemesso con una nuova scadenza di 7 giorni. Un accesso
+ * loopback senza cookie non crea sessione (il bypass non è una credenziale).
+ */
+export const refreshSessionIfNeeded = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+  env: AppEnv,
+  now = Date.now(),
+): void => {
+  const token = request.cookies?.[SESSION_COOKIE] ?? sessionTokenFromHeader(request.headers.cookie);
+  if (token === undefined) {
+    return;
+  }
+  const payload = decodeSessionPayload(env, token);
+  if (payload === undefined || payload.exp <= Math.floor(now / 1000)) {
+    return;
+  }
+  if (Math.floor(now / 1000) - payload.iat < SESSION_REFRESH_AFTER_SECONDS) {
+    return;
+  }
+  setSessionCookie(reply, env, createSessionToken(env, now));
 };
 
 const loginBodySchema = z.strictObject({ password: z.string().min(1) });

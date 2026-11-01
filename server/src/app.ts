@@ -15,7 +15,7 @@ import { AppError } from './errors.js';
 import { RealtimeHub } from './realtime/hub.js';
 import { DiceService } from './dice/service.js';
 import { RollStats } from './actors/roll-stats.js';
-import { authRoutes } from './auth/auth.js';
+import { authRoutes, refreshSessionIfNeeded } from './auth/auth.js';
 import { actionRoutes } from './actions/routes.js';
 import { actorRoutes } from './actors/routes.js';
 import { aiRoutes } from './ai/routes.js';
@@ -123,8 +123,7 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
   const hosts = allowedHosts(env);
   const wsLimiter = new WsAttemptLimiter(env.wsRateLimitMax, 60_000);
   // Fastify 5 su Node 26 non risolve la catena con un hook sincrono: serve async.
-  // eslint-disable-next-line @typescript-eslint/require-await
-  app.addHook('onRequest', async (request) => {
+  app.addHook('onRequest', async (request, reply) => {
     // Con TRUST_PROXY attivo `request.hostname` può venire da
     // X-Forwarded-Host: il proxy deve preservare `Host` e allineare XFH.
     if (!hosts.has(normalizeHost(request.hostname))) {
@@ -154,6 +153,12 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
       if (!isAllowedOrigin(origin, env)) {
         throw new AppError('forbidden', 403, 'Origin non consentito');
       }
+    }
+    // Dopo host/Origin e prima delle route: rinnova il cookie di sessione
+    // quando l'attività supera un giorno, così il TTL resta scorrevole.
+    // Login/logout gestiscono il proprio Set-Cookie e non vanno rinnovati qui.
+    if (request.url.startsWith('/api/v1') && !/^\/api\/v1\/auth\/dm(?:[?#]|$)/.test(request.url)) {
+      refreshSessionIfNeeded(request, reply, env);
     }
   });
 
