@@ -1,4 +1,4 @@
-import type { CreateScene, Scene, SceneSnapshot, SceneState, UpdateScene } from '@dnd-vtt/shared';
+import type { CreateScene, Scene, SceneSnapshot, UpdateScene } from '@dnd-vtt/shared';
 import { createDefaultSceneState, sceneStateSchema } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
 import type { Cursor } from '../db/cursor.js';
@@ -9,10 +9,9 @@ import {
   getSceneState,
   insertScene,
   listScenes,
-  replaceSceneState,
   updateScene,
 } from '../db/scenes.repository.js';
-import { AppError, notFound } from '../errors.js';
+import { notFound } from '../errors.js';
 
 export interface ScenePageParams {
   limit: number;
@@ -67,22 +66,6 @@ export const patchScene = (db: AppDatabase, id: string, patch: UpdateScene): Sce
     throw notFound('Scena non trovata');
   }
   return updated;
-};
-
-export const saveSceneState = (
-  db: AppDatabase,
-  id: string,
-  state: SceneState,
-  expectedVersion: number,
-): { scene: Scene; stateVersion: number } => {
-  requireScene(db, id);
-  const result = replaceSceneState(db, id, state, expectedVersion);
-  if (!result.applied) {
-    throw new AppError('state_conflict', 409, 'La scena è stata modificata altrove', {
-      currentVersion: result.stateVersion,
-    });
-  }
-  return { scene: requireScene(db, id), stateVersion: result.stateVersion };
 };
 
 export const removeScene = (db: AppDatabase, id: string): void => {

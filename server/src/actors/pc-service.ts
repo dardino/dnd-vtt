@@ -132,7 +132,7 @@ export const patchPcSheet = (
       });
     }
     if (actor.campaignId !== null) {
-      updateTokensForActor(tx, actor.campaignId, actorId, statblock);
+      updateTokensForActor(tx, actor.campaignId, actorId, statblock, 'dm');
     }
   });
   return getDmSheet(db, actorId);

@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** **S0 completato**, **D9 implementato** (immagine non ancora verificata con Docker), **A3 completato**. Prossimo passo: **A2 → A1 → A4**, con le attività D6 e **S1/S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
+**Blocco attivo:** **S0 completato**, **D9 implementato** (immagine non ancora verificata con Docker), **A3 e A2 completati**. Prossimo passo: **A1 → A4**, con le attività D6 e **S1/S4/S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -38,7 +38,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** `client/src/app/core/realtime.service.ts` con `connect(role, campaignId)`, parsing envelope, backoff, `seq` e dispatch a `ActionStore`/program/presence. Il polling resta solo come fallback dietro flag per una release.
   - **Fatto quando:** una sola connessione per tab; azioni convergenti senza `setInterval`; test su reconnect e gap di `seq`.
 
-- [ ] **A2 — `token-sync` dentro `action_log`; `PUT /scenes/:id/state`** · L · D3
+- [x] **A2 — `token-sync` dentro `action_log`; `PUT /scenes/:id/state`** · L · D3 — ✅ 1 novembre 2026
   - **Problema:** `updateTokensForActor` scrive `scenes.state` e `stateVersion` fuori dal log; l'undo non copre quelle modifiche. `PUT /scenes/:id/state` è usato solo dai test.
   - **Proposta:** emettere `token.update` (uno per token cambiato) nella stessa transazione; migrare i test all'endpoint azioni e **rimuovere** `PUT /scenes/:id/state`.
   - **Fatto quando:** nessuna scrittura di stato fuori dal log; undo/redo copre la sync; test aggiornati.

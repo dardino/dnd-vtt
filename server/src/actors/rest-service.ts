@@ -30,7 +30,7 @@ export const restActors = (
       if (!updated) {
         throw new AppError('sheet_conflict', 409, 'La scheda è stata modificata altrove');
       }
-      updateTokensForActor(tx, campaignId, actor.id, next);
+      updateTokensForActor(tx, campaignId, actor.id, next, 'dm');
       const result = getActor(tx, actor.id);
       if (result === null) {
         throw notFound('Attore non trovato');

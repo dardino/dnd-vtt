@@ -1,7 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { createDefaultSceneState, type FogOp, type SceneState } from '@dnd-vtt/shared';
+import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
+import { scenes } from '../src/db/schema.js';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
 
 const createCampaign = async (app: FastifyInstance, fogDefault: 'hidden' | 'revealed'): Promise<string> => {
@@ -115,12 +117,12 @@ describe('fase 6: fog e disegni', () => {
     const sceneId = await createScene(app, campaignId);
     const state: SceneState = createDefaultSceneState();
     state.fog.ops = Array.from({ length: 2000 }, (_, index) => rectOp(`op-${index}`));
-    const recovery = await app.inject({
-      method: 'PUT',
-      url: `/api/v1/scenes/${sceneId}/state`,
-      payload: { stateVersion: 1, state },
-    });
-    expect(recovery.statusCode).toBe(200);
+    // Setup diretto: gli stati di scena non si scrivono più fuori da `action_log`.
+    testApp.database.db
+      .update(scenes)
+      .set({ state: JSON.stringify(state) })
+      .where(eq(scenes.id, sceneId))
+      .run();
     const response = await app.inject({
       method: 'POST',
       url: `/api/v1/campaigns/${campaignId}/actions`,

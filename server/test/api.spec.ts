@@ -452,62 +452,6 @@ describe('azioni e concorrenza', () => {
   });
 });
 
-describe('recovery dello stato', () => {
-  it('rifiuta uno stateVersion stale con 409 e accetta quello corrente', async () => {
-    const testApp = await createTestApp();
-    const app = testApp.app;
-    const campaignId = await createCampaign(app);
-    const sceneId = await createScene(app, campaignId);
-    const first = await app.inject({
-      method: 'POST',
-      url: `/api/v1/campaigns/${campaignId}/actions`,
-      payload: {
-        id: uuidv7(),
-        clientId: 'console-1',
-        sceneId,
-        action: { type: 'token.add', token: token('goblin-1') },
-      },
-    });
-    expect(first.statusCode).toBe(200);
-    const snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
-    const body = snapshot.json<{ state: unknown; stateVersion: number }>();
-
-    const stale = await app.inject({
-      method: 'PUT',
-      url: `/api/v1/scenes/${sceneId}/state`,
-      payload: { stateVersion: 1, state: body.state },
-    });
-    expect(stale.statusCode).toBe(409);
-    expect(stale.json().error.code).toBe('state_conflict');
-
-    const current = await app.inject({
-      method: 'PUT',
-      url: `/api/v1/scenes/${sceneId}/state`,
-      payload: { stateVersion: body.stateVersion, state: body.state },
-    });
-    expect(current.statusCode).toBe(200);
-    expect(current.json().stateVersion).toBe(body.stateVersion + 1);
-    await closeTestApp(testApp);
-  });
-
-  it('rifiuta uno stato oltre il limite come payload_too_large', async () => {
-    const testApp = await createTestApp({ MAX_JSON_MB: '0.001' });
-    const app = testApp.app;
-    const campaignId = await createCampaign(app);
-    const sceneId = await createScene(app, campaignId);
-    const state = createDefaultSceneState();
-    state.tokens.push(token('goblin-1', 'x'.repeat(3000)));
-    const response = await app.inject({
-      method: 'PUT',
-      url: `/api/v1/scenes/${sceneId}/state`,
-      payload: { stateVersion: 1, state },
-    });
-    expect(response.statusCode).toBe(413);
-    expect(response.json().error.code).toBe('payload_too_large');
-    await closeTestApp(testApp);
-  });
-});
-
 describe('upload asset', () => {
   it('salva originale, WebP e thumb e serve il file con cache immutabile', async () => {
     const testApp = await createTestApp();

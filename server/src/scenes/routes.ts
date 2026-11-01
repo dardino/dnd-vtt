@@ -1,5 +1,5 @@
 import type { FastifyPluginCallback } from 'fastify';
-import { putSceneStateSchema, updateSceneSchema } from '@dnd-vtt/shared';
+import { updateSceneSchema } from '@dnd-vtt/shared';
 import { z } from 'zod';
 import { dmPreHandler } from '../http/guards.js';
 import type { AppEnv } from '../config/env.js';
@@ -8,7 +8,6 @@ import { idParamsSchema, parse } from '../http/validation.js';
 import {
   patchScene,
   removeScene,
-  saveSceneState,
   snapshotScene,
 } from '../scenes/service.js';
 
@@ -38,23 +37,6 @@ export const sceneRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(updateSceneSchema, request.body);
       return reply.send(patchScene(db, id, body));
-    });
-
-    app.put('/scenes/:id/state', async (request, reply) => {
-      const { id } = parse(idParamsSchema, request.params);
-      const body = parse(putSceneStateSchema, request.body);
-      const serialized = JSON.stringify(body.state);
-      if (Buffer.byteLength(serialized, 'utf8') > env.maxJsonBytes) {
-        return reply.status(413).send({
-          error: {
-            code: 'payload_too_large',
-            message: 'Lo stato della scena supera il limite consentito',
-            requestId: request.id,
-          },
-        });
-      }
-      const result = saveSceneState(db, id, body.state, body.stateVersion);
-      return reply.header('etag', `"scene-${result.stateVersion}"`).send(result);
     });
 
     app.delete('/scenes/:id', async (request, reply) => {

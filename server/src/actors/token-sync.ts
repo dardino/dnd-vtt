@@ -1,83 +1,56 @@
-import {
-  actorStatblockSchema,
-  sceneStateSchema,
-  type PcStatblock,
-  type SceneState,
-  type TokenState,
-} from '@dnd-vtt/shared';
+import { newId, sceneStateSchema, type PcStatblock } from '@dnd-vtt/shared';
 import { eq } from 'drizzle-orm';
-import type { DbExecutor } from '../db/client.js';
-import { actors, scenes } from '../db/schema.js';
+import { applySceneActionTx } from '../actions/service.js';
+import type { Transaction } from '../db/client.js';
+import { scenes } from '../db/schema.js';
+import { sameHp } from './actor-sync.js';
 
-const sameHp = (a: TokenState['hp'], b: TokenState['hp']): boolean =>
-  a.current === b.current && a.max === b.max && a.temp === b.temp;
-
-/**
- * Per i `pc` lo stato canonico è sull'attore: dopo un'azione di scena che
- * tocca un token collegato, l'attore viene riallineato nella stessa transazione.
- */
-export const syncPcActorsFromState = (db: DbExecutor, state: SceneState): void => {
-  for (const token of state.tokens) {
-    if (token.actorId === undefined) {
-      continue;
-    }
-    const row = db.select().from(actors).where(eq(actors.id, token.actorId)).get();
-    if (row === undefined || row.kind !== 'pc') {
-      continue;
-    }
-    const statblock = actorStatblockSchema.parse(JSON.parse(row.statblock) as unknown);
-    if (statblock.kind !== 'pc') {
-      continue;
-    }
-    const conditionsEqual = JSON.stringify(statblock.conditions) === JSON.stringify(token.conditions);
-    if (sameHp(statblock.hp, token.hp) && conditionsEqual) {
-      continue;
-    }
-    const next: PcStatblock = {
-      ...statblock,
-      hp: token.hp,
-      conditions: token.conditions,
-    };
-    db.update(actors)
-      .set({
-        statblock: JSON.stringify(next),
-        hpCurrent: next.hp.current,
-        hpMax: next.hp.max,
-        hpTemp: next.hp.temp,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(actors.id, token.actorId))
-      .run();
-  }
-};
+const conditionsEqual = (
+  left: PcStatblock['conditions'],
+  right: PcStatblock['conditions'],
+): boolean => JSON.stringify(left) === JSON.stringify(right);
 
 /**
  * Dopo una modifica alla scheda (riposo, level-up, patch DM) rispecchia HP e
- * condizioni sui token dell'attore in tutte le scene della campagna.
+ * condizioni sui token dell'attore in tutte le scene della campagna. Ogni token
+ * da aggiornare produce un'azione `token.update` nella stessa transazione, così
+ * l'undo copre anche la sincronizzazione.
  */
 export const updateTokensForActor = (
-  db: DbExecutor,
+  tx: Transaction,
   campaignId: string,
   actorId: string,
   statblock: PcStatblock,
+  origin: 'dm' | 'player',
 ): void => {
-  const rows = db.select().from(scenes).where(eq(scenes.campaignId, campaignId)).all();
+  if (campaignId === '') {
+    return;
+  }
+  const rows = tx.select().from(scenes).where(eq(scenes.campaignId, campaignId)).all();
   for (const row of rows) {
     const state = sceneStateSchema.parse(JSON.parse(row.state) as unknown);
-    const tokens = state.tokens.map((token) =>
-      token.actorId === actorId
-        ? { ...token, hp: statblock.hp, conditions: statblock.conditions }
-        : token);
-    if (tokens.every((token, index) => token === state.tokens[index])) {
-      continue;
+    for (const token of state.tokens) {
+      if (token.actorId !== actorId) {
+        continue;
+      }
+      if (sameHp(token.hp, statblock.hp) && conditionsEqual(token.conditions, statblock.conditions)) {
+        continue;
+      }
+      applySceneActionTx(tx, {
+        campaignId,
+        request: {
+          id: newId(),
+          clientId: 'token-sync',
+          sceneId: row.id,
+          action: {
+            type: 'token.update',
+            tokenId: token.id,
+            patch: { hp: statblock.hp, conditions: statblock.conditions },
+          },
+        },
+        origin,
+        actorId,
+      });
     }
-    db.update(scenes)
-      .set({
-        state: JSON.stringify({ ...state, tokens }),
-        stateVersion: row.stateVersion + 1,
-        updatedAt: new Date().toISOString(),
-      })
-      .where(eq(scenes.id, row.id))
-      .run();
   }
 };

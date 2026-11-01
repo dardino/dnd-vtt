@@ -94,30 +94,5 @@ export const updateScene = (
   return toScene(mergeDefined(current, updated));
 };
 
-export const replaceSceneState = (
-  db: DbExecutor,
-  id: string,
-  state: SceneState,
-  expectedVersion: number,
-): { applied: boolean; stateVersion: number } => {
-  const result = db
-    .update(scenes)
-    .set({
-      state: JSON.stringify(state),
-      stateVersion: expectedVersion + 1,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(and(eq(scenes.id, id), eq(scenes.stateVersion, expectedVersion)))
-    .run();
-  if (result.changes === 0) {
-    const current = db.select({ stateVersion: scenes.stateVersion })
-      .from(scenes)
-      .where(eq(scenes.id, id))
-      .get();
-    return { applied: false, stateVersion: current?.stateVersion ?? expectedVersion };
-  }
-  return { applied: true, stateVersion: expectedVersion + 1 };
-};
-
 export const deleteScene = (db: DbExecutor, id: string): boolean =>
   db.delete(scenes).where(eq(scenes.id, id)).run().changes > 0;

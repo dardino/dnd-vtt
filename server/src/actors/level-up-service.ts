@@ -108,7 +108,7 @@ export const applyLevelUp = (
     tx.update(actors).set({ xp, updatedAt: new Date().toISOString() })
       .where(eq(actors.id, computed.actor.id))
       .run();
-    updateTokensForActor(tx, campaignId, computed.actor.id, computed.statblock);
+    updateTokensForActor(tx, campaignId, computed.actor.id, computed.statblock, 'dm');
   });
   return { sheet: getDmSheet(db, actorId), preview: computed.preview };
 };

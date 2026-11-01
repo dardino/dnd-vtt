@@ -151,7 +151,7 @@ export const patchPlayerSheet = (
     if (input.patch.playerNotes !== undefined) {
       updateActorPlayerNotes(tx, actor.id, input.patch.playerNotes);
     }
-    updateTokensForActor(tx, actor.campaignId ?? '', actor.id, statblock);
+    updateTokensForActor(tx, actor.campaignId ?? '', actor.id, statblock, 'player');
   });
   return playerSheetByToken(db, token);
 };

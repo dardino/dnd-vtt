@@ -366,12 +366,6 @@ export const sceneSnapshotSchema = z.strictObject({
 });
 export type SceneSnapshot = z.infer<typeof sceneSnapshotSchema>;
 
-export const putSceneStateSchema = z.strictObject({
-  stateVersion: z.number().int().min(1),
-  state: sceneStateSchema,
-});
-export type PutSceneState = z.infer<typeof putSceneStateSchema>;
-
 export const actionRequestSchema = z.strictObject({
   id: z.string().uuid(),
   clientId: z.string().min(1).max(120),

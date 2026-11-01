@@ -265,6 +265,76 @@ describe('fase 5: dadi, iniziativa, HP, riposi e level-up', () => {
     expect(snapshot.json().state.tokens[0].hp.current).toBe(actor.hp.max);
   });
 
+  it('registra la sync dei token come azione annullabile', async () => {
+    const campaignId = await createCampaign(app);
+    const actor = await createPc(app, campaignId);
+    const sceneId = await createScene(app, campaignId);
+    const tokenId = uuidv7();
+    const added = await sendAction(app, campaignId, sceneId, {
+      type: 'token.add',
+      token: {
+        id: tokenId,
+        actorId: actor.id,
+        label: 'Sir Fase 5',
+        x: 1,
+        y: 1,
+        size: 1,
+        rotation: 0,
+        elevation: 0,
+        hp: { current: actor.hp.max, max: actor.hp.max, temp: 0 },
+        conditions: [],
+        visible: true,
+      },
+    });
+    expect(added.statusCode).toBe(200);
+
+    const sheet = await app.inject({ method: 'GET', url: `/api/v1/actors/${actor.id}/sheet` });
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/actors/${actor.id}/sheet`,
+      payload: {
+        sheetVersion: sheet.json().sheetVersion,
+        patch: {
+          hp: { current: actor.hp.max - 7, max: actor.hp.max, temp: 0 },
+          conditions: [{ name: 'poisoned' }],
+        },
+      },
+    });
+    expect(patched.statusCode).toBe(200);
+
+    const history = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${campaignId}/actions`,
+    });
+    const syncEntry = history.json<{
+      items: { id: string; type: string; clientId: string; origin: string; actorId: string | null }[];
+    }>().items.find((entry) => entry.type === 'token.update' && entry.clientId === 'token-sync');
+    expect(syncEntry).toMatchObject({ origin: 'dm', actorId: actor.id });
+
+    let snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
+    expect(snapshot.json().state.tokens[0]).toMatchObject({
+      id: tokenId,
+      hp: { current: actor.hp.max - 7 },
+      conditions: [{ name: 'poisoned' }],
+    });
+
+    const undone = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/actions/undo`,
+      payload: { entryId: syncEntry?.id },
+    });
+    expect(undone.statusCode).toBe(200);
+    snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
+    expect(snapshot.json().state.tokens[0]).toMatchObject({
+      id: tokenId,
+      hp: { current: actor.hp.max },
+      conditions: [],
+    });
+    const restored = await app.inject({ method: 'GET', url: `/api/v1/actors/${actor.id}/sheet` });
+    expect(restored.json().statblock.hp.current).toBe(actor.hp.max);
+    expect(restored.json().statblock.conditions).toEqual([]);
+  });
+
   it('sale di livello con anteprima e aggiorna la scheda', async () => {
     const campaignId = await createCampaign(app);
     const actor = await createPc(app, campaignId);

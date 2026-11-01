@@ -11,7 +11,7 @@ import {
   type TokenState,
 } from '@dnd-vtt/shared';
 import { and, eq } from 'drizzle-orm';
-import type { AppDatabase, DbExecutor } from '../db/client.js';
+import type { AppDatabase, DbExecutor, Transaction } from '../db/client.js';
 import {
   deleteActionLogForCampaign,
   deleteFogActionLogForScene,
@@ -29,7 +29,7 @@ import { getCampaign } from '../db/campaigns.repository.js';
 import { getScene, getSceneState } from '../db/scenes.repository.js';
 import { actionLog, scenes } from '../db/schema.js';
 import { AppError, notFound } from '../errors.js';
-import { syncPcActorsFromState } from '../actors/token-sync.js';
+import { syncPcActorsFromState } from '../actors/actor-sync.js';
 
 const tokenLabel = (token: TokenState | undefined, tokenId: string): string =>
   token?.label ?? tokenId;
@@ -136,14 +136,11 @@ export interface ApplyActionInput {
 }
 
 /**
- * Unico punto che muta `SceneState`: applica, calcola l'inverso, incrementa
- * `state_version`, scrive `action_log` ed elimina le righe oltre le 50 in
- * un'unica transazione (D34, D46).
+ * Variante transazionale di `applySceneAction`: applica, calcola l'inverso,
+ * incrementa `state_version`, scrive `action_log` ed elimina le righe oltre
+ * le 50 (D34, D46). Il chiamante deve fornire una transazione già aperta.
  */
-export const applySceneAction = (
-  db: AppDatabase,
-  input: ApplyActionInput,
-): AppliedAction => db.transaction((tx) => {
+export const applySceneActionTx = (tx: Transaction, input: ApplyActionInput): AppliedAction => {
   const row = tx.select().from(scenes).where(eq(scenes.id, input.request.sceneId)).get();
   if (row === undefined || row.campaignId !== input.campaignId) {
     throw notFound('Scena non trovata');
@@ -215,7 +212,16 @@ export const applySceneAction = (
     inverse,
     at: now,
   };
-});
+};
+
+/**
+ * Unico punto che muta `SceneState`: apre la transazione e delega a
+ * `applySceneActionTx` (D34, D46).
+ */
+export const applySceneAction = (
+  db: AppDatabase,
+  input: ApplyActionInput,
+): AppliedAction => db.transaction((tx) => applySceneActionTx(tx, input));
 
 export const listCampaignActions = (db: AppDatabase, campaignId: string) =>
   listActionLog(db, campaignId);

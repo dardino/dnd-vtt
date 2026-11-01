@@ -88,7 +88,7 @@ su Docker Desktop.
   nonce CSP per richiesta.
 - **Fase 2 completata**: schema Drizzle e migrazioni, CRUD campagne/scene/attori
   con cursore, upload originale + WebP + thumb, `action_log` con inverse e
-  transazione, `PUT /scenes/:id/state` solo per recovery, auth DM con loopback
+  transazione, auth DM con loopback
   fidato solo senza header di forwarding, allowlist `Host`, controllo `Origin`
   e rate limit. La console si apre su `/dm` con skeleton, modale di creazione o
   scelta e `lastCampaignId` in `localStorage`.
