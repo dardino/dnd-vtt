@@ -233,6 +233,9 @@ export class DmShellPage implements OnInit {
   public readonly settingsOpen = signal(false);
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
   public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
+  public readonly fogOverrideActive = computed(() => this.state()?.terrain.visionEnabled === true
+    && this.state()?.grid.type === 'square');
+
   public readonly programState = signal<ProgramState | null>(null);
   public readonly programVersion = signal(1);
   public readonly displayCode = signal<string | null>(null);
@@ -1305,9 +1308,7 @@ export class DmShellPage implements OnInit {
     if (mode === null) {
       return;
     }
-    const automatic = this.state()?.terrain.visionEnabled === true
-      && this.state()?.grid.type === 'square';
-    if (automatic) {
+    if (this.fogOverrideActive()) {
       await this.sendAction({ type: 'fog.override', override: mode });
       this.statusMessage.set(mode === 'reveal' ? 'Fog: rivela tutto' : 'Fog: nascondi tutto');
       return;

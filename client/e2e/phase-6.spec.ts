@@ -117,11 +117,18 @@ test('disegna fog e annotazioni, annulla il disegno e persiste la fog', async ({
 
   await page.getByRole('button', { name: 'Rivela tutto' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Conferma' }).click();
-  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.base).toBe('revealed');
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.override).toBe('reveal');
+  const revealedState = (await sceneState(request, sceneId)).state;
+  expect(revealedState.fog.base).toBe('hidden');
+  expect(revealedState.fog.ops).toHaveLength(1);
+
   await page.getByRole('button', { name: 'Nascondi tutto' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Conferma' }).click();
-  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.base).toBe('hidden');
-  expect((await sceneState(request, sceneId)).state.fog.ops).toHaveLength(0);
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.override).toBe('hide');
+
+  await page.getByRole('button', { name: 'Vista automatica' }).click();
+  await expect.poll(async () => (await sceneState(request, sceneId)).state.fog.override).toBe('none');
+  expect((await sceneState(request, sceneId)).state.fog.ops).toHaveLength(1);
 });
 
 test('esporta la scena in PNG', async ({ page }) => {

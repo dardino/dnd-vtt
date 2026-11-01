@@ -972,7 +972,12 @@
   (closed)="cancelFogChange()"
 >
   <p class="muted">
-    L’operazione sostituisce la copertura corrente con uno stato uniforme. Puoi annullarla dal dock Azioni.
+    @if (fogOverrideActive()) {
+      L’operazione applica un override temporaneo alla visione automatica: le aree manuali restano salvate e
+      tornano con “Vista automatica”. Puoi annullarla dal dock Azioni.
+    } @else {
+      L’operazione sostituisce la copertura corrente con uno stato uniforme. Puoi annullarla dal dock Azioni.
+    }
   </p>
   <div dialog-actions>
     <app-button (pressed)="cancelFogChange()">Annulla</app-button>
