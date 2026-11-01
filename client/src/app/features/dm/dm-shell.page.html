@@ -22,11 +22,11 @@
           class="dm-link-button"
           [routerLink]="['/dm/campaigns', shell.activeCampaign()?.id, 'actors', 'new', 'pc']"
         >Crea personaggio</a>
-        <app-button variant="ghost" [disabled]="programBusy()" (pressed)="openScreen()">Apri schermo</app-button>
-        <app-button [disabled]="programBusy() || activeScene() === null" (pressed)="takeScene()">Manda in onda</app-button>
+        <app-button variant="ghost" [disabled]="regia.busy()" (pressed)="openScreen()">Apri schermo</app-button>
+        <app-button [disabled]="regia.busy() || activeScene() === null" (pressed)="takeScene()">Manda in onda</app-button>
         <app-button
           variant="ghost"
-          [disabled]="programBusy()"
+          [disabled]="regia.busy()"
           (pressed)="toggleBlackout()"
         >{{ blackout() ? 'Riacendi schermo' : 'Blackout' }}</app-button>
         <app-button variant="ghost" (pressed)="openChoose()">Cambia campagna</app-button>
@@ -772,26 +772,26 @@
             (click)="toggleSection('screens')"
           >
             <span class="accordion__label">Schermi</span>
-            <span class="accordion__count">{{ screens().length }}</span>
+            <span class="accordion__count">{{ regia.screens().length }}</span>
             <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('screens') ? '▾' : '▸' }}</span>
           </button>
           @if (isSectionOpen('screens')) {
             <div id="sidebar-screens" class="accordion__body">
-              @if (screens().length === 0) {
+              @if (regia.screens().length === 0) {
                 <p class="muted">Nessuno schermo online. Usa “Apri schermo”.</p>
               } @else {
                 <ul class="screen-list">
-                  @for (summary of screens(); track summary.display.id) {
+                  @for (summary of regia.screens(); track summary.display.id) {
                     <li>
-                      <button type="button" class="screen-row" (click)="openScreenDialog(summary)">
+                      <button type="button" class="screen-row" (click)="regia.openScreenDialog(summary)">
                         <span class="screen-row__head">
                           <strong>{{ summary.display.code }}</strong>
                           <span class="badge">{{ summary.display.label }}</span>
                         </span>
-                        <span class="screen-row__projection">{{ screenProjectionLabel(summary) }}</span>
+                        <span class="screen-row__projection">{{ regia.projectionLabel(summary) }}</span>
                         <span class="muted">
                           {{ summary.display.viewportWidth ?? '—' }} × {{ summary.display.viewportHeight ?? '—' }}
-                          · {{ screenLastSeen(summary) }}
+                          · {{ regia.lastSeen(summary) }}
                         </span>
                       </button>
                     </li>
@@ -1055,14 +1055,14 @@
 >
   <p class="muted">Scegli lo schermo che deve ricevere la scena attiva.</p>
   <ul class="screen-list">
-    @for (summary of screens(); track summary.display.id) {
+    @for (summary of regia.screens(); track summary.display.id) {
       <li>
         <button type="button" class="screen-row" (click)="takeSceneTo(summary)">
           <span class="screen-row__head">
             <strong>{{ summary.display.code }}</strong>
             <span class="badge">{{ summary.display.label }}</span>
           </span>
-          <span class="muted">{{ screenProjectionLabel(summary) }}</span>
+          <span class="muted">{{ regia.projectionLabel(summary) }}</span>
         </button>
       </li>
     }
@@ -1157,18 +1157,18 @@
 </app-dialog>
 
 <app-dialog
-  [open]="screenDialog() !== null"
-  [title]="'Schermo ' + (screenDialog()?.display?.code ?? '')"
-  (closed)="closeScreenDialog()"
+  [open]="regia.screenDialog() !== null"
+  [title]="'Schermo ' + (regia.screenDialog()?.display?.code ?? '')"
+  (closed)="regia.closeScreenDialog()"
 >
-  @if (screenDialog(); as summary) {
+  @if (regia.screenDialog(); as summary) {
     <p class="muted">
-      {{ screenProjectionLabel(summary) }} · {{ screenLastSeen(summary) }}
+      {{ regia.projectionLabel(summary) }} · {{ regia.lastSeen(summary) }}
     </p>
     <div
       class="screen-viewer"
-      [style.aspect-ratio]="screenAspect()"
-      [attr.data-zoom]="screenViewport()?.zoom ?? 1"
+      [style.aspect-ratio]="regia.screenAspect()"
+      [attr.data-zoom]="regia.screenViewport()?.zoom ?? 1"
       (wheel)="zoomScreen($event)"
       (pointerdown)="startScreenPan($event)"
       (pointermove)="moveScreenPan($event)"
@@ -1184,11 +1184,11 @@
       </div>
     </div>
     <div class="inline-controls">
-      <span class="muted">Zoom {{ screenZoomLabel() }}%</span>
+      <span class="muted">Zoom {{ regia.screenZoomLabel() }}%</span>
       <app-button variant="ghost" (pressed)="resetScreenView()">Reimposta vista</app-button>
     </div>
   }
   <div dialog-actions>
-    <app-button (pressed)="closeScreenDialog()">Chiudi anteprima</app-button>
+    <app-button (pressed)="regia.closeScreenDialog()">Chiudi anteprima</app-button>
   </div>
 </app-dialog>

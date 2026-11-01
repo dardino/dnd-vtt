@@ -30,8 +30,6 @@ import {
   type AppliedAction,
   type CampaignExport,
   type DiceRoll,
-  type Display,
-  type DisplayState,
   type Drawing,
   type FogOp,
   type GameAction,
@@ -41,12 +39,10 @@ import {
   type MapSummary,
   type MeasureResult,
   type MonsterStatblock,
-  type ProgramState,
   type PublicDoor,
   type Scene,
   type SceneState,
   type TokenState,
-  type Viewport,
   type VisionGrid,
   type VisionSource,
 } from '@dnd-vtt/shared';
@@ -60,7 +56,6 @@ import { DiceStore } from '../../core/dice.store';
 import { MeasurementService } from '../../core/measurement.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
 import { MapService } from '../../core/map.service';
-import { ProgramService } from '../../core/program.service';
 import { RealtimeService } from '../../core/realtime.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SceneStore } from '../../core/scene.store';
@@ -68,6 +63,7 @@ import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { CampaignShellStore } from './campaign-shell.store';
+import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenPreviewComponent } from './screen-preview.component';
 import {
@@ -94,11 +90,6 @@ const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   screens: true,
   tokens: true,
 };
-
-interface ScreenSummary {
-  display: Display;
-  state: DisplayState | null;
-}
 
 const toMapDocument = (map: {
   name: string;
@@ -150,9 +141,9 @@ export class DmShellPage implements OnInit {
   public readonly dice = inject(DiceStore);
   public readonly units = inject(MeasurementService);
   public readonly sceneTools = inject(SceneToolsStore);
+  public readonly regia = inject(RegiaStore);
   public readonly shell = inject(CampaignShellStore);
   private readonly sceneActions = inject(SceneActionService);
-  private readonly programsApi = inject(ProgramService);
   private readonly mapsApi = inject(MapService);
   private readonly ai = inject(AiService);
   private readonly realtime = inject(RealtimeService);
@@ -177,11 +168,6 @@ export class DmShellPage implements OnInit {
   public readonly fogOverrideActive = computed(() => this.state()?.terrain.visionEnabled === true
     && this.state()?.grid.type === 'square');
 
-  public readonly programState = signal<ProgramState | null>(null);
-  public readonly programBusy = signal(false);
-  public readonly connectedDisplays = signal(0);
-  public readonly screens = signal<ScreenSummary[]>([]);
-  public readonly screenDialog = signal<ScreenSummary | null>(null);
   public readonly takeTargetOpen = signal(false);
   public readonly maps = signal<MapSummary[]>([]);
   public readonly mapPickerOpen = signal(false);
@@ -191,24 +177,6 @@ export class DmShellPage implements OnInit {
   public readonly prepareName = signal('');
   public readonly prepareAssignments = signal<Record<string, string>>({});
   public readonly prepareBusy = signal(false);
-  public readonly screenViewport = signal<Viewport | null>(null);
-  public readonly screenZoomLabel = computed(() =>
-    Math.round((this.screenViewport()?.zoom ?? 1) * 100));
-
-  public readonly screenAspect = computed(() => {
-    const display = this.screenDialog()?.display;
-    const width = display?.viewportWidth ?? 16;
-    const height = display?.viewportHeight ?? 9;
-    return `${width} / ${height}`;
-  });
-
-  private screenTimer: ReturnType<typeof setInterval> | null = null;
-  private screenDragging = false;
-  private screenDragStart = { x: 0, y: 0, viewport: { x: 0, y: 0, zoom: 1 } };
-  private viewportTimer: ReturnType<typeof setTimeout> | null = null;
-  private pendingViewport: Viewport | null = null;
-  private viewportSaving = false;
-  private viewportSave: Promise<void> | null = null;
   public readonly sessionBusy = signal(false);
   public readonly aiEnabled = signal(false);
   public readonly aiMessage = signal('Chat IA non configurata.');
@@ -366,9 +334,9 @@ export class DmShellPage implements OnInit {
   }
 
   public readonly zoomLabel = computed(() => `${Math.round(this.zoom() * 100)}%`);
-  public readonly blackout = computed(() => this.programState()?.blackout === true);
+  public readonly blackout = computed(() => this.regia.programState()?.blackout === true);
   public readonly airLabel = computed(() => {
-    if (this.mode() !== 'ready' || this.connectedDisplays() === 0) {
+    if (this.mode() !== 'ready' || this.regia.connectedDisplays() === 0) {
       return 'OFF AIR';
     }
     return this.blackout() ? 'BLACKOUT' : 'ON AIR';
@@ -415,16 +383,16 @@ export class DmShellPage implements OnInit {
     this.sceneTools.resetVolatile();
     window.addEventListener('keydown', this.onKeydown);
     this.presenceSubscription = this.realtime.presence$.subscribe((presence) => {
-      this.connectedDisplays.set(presence.displays);
+      this.regia.setConnectedDisplays(presence.displays);
       const campaign = this.shell.activeCampaign();
       if (campaign !== null) {
-        void this.loadScreens(campaign.id);
+        void this.regia.loadScreens(campaign.id);
       }
     });
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('keydown', this.onKeydown);
       this.stopSessionTimer();
-      this.stopScreenPolling();
+      this.regia.dispose();
       this.presenceSubscription?.unsubscribe();
       this.presenceSubscription = null;
       this.realtime.disconnect();
@@ -475,10 +443,9 @@ export class DmShellPage implements OnInit {
       this.restorePanels(campaign.id);
       const scenes = await this.shell.loadScenes(campaign.id);
       await this.shell.loadActors(campaign.id);
-      await this.loadScreens(campaign.id);
+      await this.regia.loadScreens(campaign.id);
       await this.dice.load(campaign.id);
-      const program = await this.programsApi.get(campaign.id);
-      this.programState.set(program.state);
+      await this.regia.loadProgram(campaign.id);
       this.realtime.connectDm(campaign.id);
       await this.shell.loadSessions(campaign.id);
       const ai = await this.ai.status();
@@ -1239,26 +1206,20 @@ export class DmShellPage implements OnInit {
 
   public async openScreen(): Promise<void> {
     const campaign = this.shell.activeCampaign();
-    if (campaign === null || this.programBusy()) {
+    if (campaign === null || this.regia.busy()) {
       return;
     }
-    this.programBusy.set(true);
     try {
-      const display = await this.programsApi.createDisplay(campaign.id, {
-        label: 'Schermo giocatori',
-      });
+      const display = await this.regia.createDisplay(campaign.id);
       window.open(`/display/${display.code}`, '_blank');
       this.statusMessage.set(`Schermo aperto: ${display.code}`);
-      void this.loadScreens(campaign.id);
     } catch (error) {
       this.statusMessage.set(messageFor(error));
-    } finally {
-      this.programBusy.set(false);
     }
   }
 
   public takeScene(): void {
-    const online = this.screens();
+    const online = this.regia.screens();
     if (online.length === 0) {
       this.notice.set('Nessuno schermo online: apri uno schermo prima di mandare in onda.');
       return;
@@ -1273,75 +1234,38 @@ export class DmShellPage implements OnInit {
   public async takeSceneTo(summary: ScreenSummary): Promise<void> {
     const campaign = this.shell.activeCampaign();
     const scene = this.activeScene();
-    if (campaign === null || scene === null || this.programBusy()) {
+    if (campaign === null || scene === null || this.regia.busy()) {
       return;
     }
     this.takeTargetOpen.set(false);
-    this.cancelPendingScreenViewport();
-    this.programBusy.set(true);
+    const startView = this.sceneStore.snapshot()?.state.startView;
     try {
-      await this.waitForViewportSave();
-      this.cancelPendingScreenViewport();
-      const current = await this.programsApi.get(campaign.id);
-      const startView = this.sceneStore.snapshot()?.state.startView;
-      const composition = {
-        base: {
-          ...current.state.base,
-          content: {
-            type: 'map' as const,
-            sceneId: scene.id,
-            viewport: startView ?? {
-              x: scene.widthPx / 2,
-              y: scene.heightPx / 2,
-              zoom: 1,
-            },
-            fog: true,
-            cameraLocked: false,
-          },
-        },
-        overlays: current.state.overlays,
-      };
-      const latest = await this.programsApi.getDisplayState(summary.display.code);
-      const updated = await this.programsApi.putDisplayComposition(
+      const display = await this.regia.takeSceneTo(
         campaign.id,
-        summary.display.id,
-        latest.display.compositionVersion,
-        composition,
+        scene,
+        summary,
+        startView,
       );
-      const display: Display = { ...summary.display, compositionVersion: updated.version };
-      this.screens.update((items) => items.map((item) =>
-        item.display.id === display.id ? { ...item, display } : item));
-      if (this.screenDialog()?.display.id === display.id) {
-        void this.refreshScreenDialog();
-      }
       this.statusMessage.set(`In onda su ${display.code}: ${scene.name}`);
     } catch (error) {
       this.statusMessage.set(messageFor(error));
-    } finally {
-      this.programBusy.set(false);
     }
   }
 
   public async toggleBlackout(): Promise<void> {
     const campaign = this.shell.activeCampaign();
-    if (campaign === null || this.programBusy()) {
+    if (campaign === null || this.regia.busy()) {
       return;
     }
-    this.programBusy.set(true);
     try {
-      const current = await this.programsApi.get(campaign.id);
-      const state: ProgramState = {
-        ...current.state,
-        blackout: !current.state.blackout,
+      const updated = await this.regia.putProgram(campaign.id, (state) => ({
+        ...state,
+        blackout: !state.blackout,
         updatedAt: new Date().toISOString(),
-      };
-      const updated = await this.programsApi.put(campaign.id, current.version, state);
-      this.programState.set(updated.state);
+      }));
       this.statusMessage.set(updated.state.blackout ? 'Schermo in blackout' : 'Schermo riacceso');
     } catch (error) {
       this.statusMessage.set(messageFor(error));
-    } finally {
-      this.programBusy.set(false);
     }
   }
 
@@ -1391,7 +1315,7 @@ export class DmShellPage implements OnInit {
     if (opening && section === 'screens') {
       const campaign = this.shell.activeCampaign();
       if (campaign !== null) {
-        void this.loadScreens(campaign.id);
+        void this.regia.loadScreens(campaign.id);
       }
     }
   }
@@ -1553,8 +1477,8 @@ export class DmShellPage implements OnInit {
   public openChoose(): void {
     this.notice.set(null);
     this.realtime.disconnect();
-    this.connectedDisplays.set(0);
-    this.closeScreenDialog();
+    this.regia.setConnectedDisplays(0);
+    this.regia.closeScreenDialog();
     this.mode.set('choose');
   }
 
@@ -1657,349 +1581,33 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public screenProjectionLabel(summary: ScreenSummary): string {
-    const state = summary.state;
-    if (state === null) {
-      return 'In attesa di proiezione';
-    }
-    if (state.program.blackout) {
-      return 'Blackout';
-    }
-    const base = state.composition.base;
-    const overlays = state.composition.overlays.length;
-    const suffix = overlays > 0 ? ` + ${overlays} overlay` : '';
-    switch (base.type) {
-      case 'map':
-        return `${base.scene?.name ?? 'Mappa'}${suffix}`;
-      case 'actor':
-        return `${base.actor?.name ?? 'Attore'}${suffix}`;
-      case 'image':
-        return `Immagine${suffix}`;
-      case 'text':
-        return `${base.title ?? 'Testo'}${suffix}`;
-      case 'initiative':
-        return `Iniziativa${suffix}`;
-      default:
-        return `Nero${suffix}`;
-    }
-  }
-
-  public screenLastSeen(summary: ScreenSummary): string {
-    if (summary.display.lastSeenAt === null) {
-      return 'mai collegato';
-    }
-    const seconds = Math.max(0, Math.round(
-      (Date.now() - Date.parse(summary.display.lastSeenAt)) / 1000,
-    ));
-    if (seconds < 60) {
-      return 'visto ora';
-    }
-    const minutes = Math.round(seconds / 60);
-    return `visto ${minutes} min fa`;
-  }
-
-  public async loadScreens(campaignId: string): Promise<void> {
-    try {
-      const displays = (await this.programsApi.listOnlineDisplays(campaignId))
-        .filter((display) => display.revokedAt === null);
-      const items = await Promise.all(displays.map(async (display): Promise<ScreenSummary> => {
-        try {
-          const envelope = await this.programsApi.getDisplayState(display.code);
-          return { display, state: envelope.state };
-        } catch {
-          return { display, state: null };
-        }
-      }));
-      this.screens.set(items);
-      const open = this.screenDialog();
-      if (open !== null) {
-        const match = items.find((item) => item.display.id === open.display.id);
-        if (match === undefined) {
-          this.closeScreenDialog();
-        } else {
-          this.screenDialog.set({
-            ...match,
-            state: this.viewportDirty() ? open.state : match.state,
-          });
-        }
-      }
-    } catch {
-      this.screens.set([]);
-    }
-  }
-
-  public openScreenDialog(summary: ScreenSummary): void {
-    this.screenDialog.set(summary);
-    this.screenViewport.set(this.screenViewportFrom(summary));
-    this.startScreenPolling();
-    void this.refreshScreenDialog();
-  }
-
-  public closeScreenDialog(): void {
-    this.screenDialog.set(null);
-    this.screenViewport.set(null);
-    this.screenDragging = false;
-    this.pendingViewport = null;
-    if (this.viewportTimer !== null) {
-      clearTimeout(this.viewportTimer);
-      this.viewportTimer = null;
-    }
-    this.stopScreenPolling();
-  }
-
   public zoomScreen(event: WheelEvent): void {
     event.preventDefault();
-    const viewport = this.screenViewport();
-    if (viewport === null) {
-      return;
-    }
-    const factor = event.deltaY < 0 ? 1.12 : 1 / 1.12;
-    this.applyScreenViewport({
-      ...viewport,
-      zoom: Math.max(0.2, Math.min(5, viewport.zoom * factor)),
-    }, true);
+    this.regia.zoomBy(event.deltaY < 0 ? 1.12 : 1 / 1.12);
   }
 
   public resetScreenView(): void {
-    const state = this.screenDialog()?.state;
-    const scene = state?.composition.base.type === 'map'
-      ? state.composition.base.scene
-      : undefined;
-    if (scene === undefined) {
-      this.applyScreenViewport({ x: 0, y: 0, zoom: 1 }, true);
-      return;
-    }
-    this.applyScreenViewport({
-      x: scene.widthPx / 2,
-      y: scene.heightPx / 2,
-      zoom: 1,
-    }, true);
+    this.regia.resetView();
   }
 
   public startScreenPan(event: PointerEvent): void {
-    const viewport = this.screenViewport();
-    if (viewport === null) {
+    if (this.regia.screenViewport() === null) {
       return;
     }
-    const element = event.currentTarget as HTMLElement;
-    element.setPointerCapture(event.pointerId);
-    this.screenDragging = true;
-    this.screenDragStart = {
-      x: event.clientX,
-      y: event.clientY,
-      viewport,
-    };
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    this.regia.startPan(event.clientX, event.clientY);
   }
 
   public moveScreenPan(event: PointerEvent): void {
-    if (!this.screenDragging) {
-      return;
-    }
-    const start = this.screenDragStart.viewport;
-    const dx = event.clientX - this.screenDragStart.x;
-    const dy = event.clientY - this.screenDragStart.y;
-    const base = this.screenDialog()?.state?.composition.base;
-    const scene = base?.type === 'map' ? base.scene : undefined;
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const fit = scene === undefined
-      ? 1
-      : Math.min(rect.width / scene.widthPx, rect.height / scene.heightPx);
-    const scale = Math.max(0.01, fit * start.zoom);
-    this.applyScreenViewport({
-      x: start.x - dx / scale,
-      y: start.y - dy / scale,
-      zoom: start.zoom,
-    }, true);
+    this.regia.movePan(
+      event.clientX,
+      event.clientY,
+      (event.currentTarget as HTMLElement).getBoundingClientRect(),
+    );
   }
 
   public endScreenPan(): void {
-    this.screenDragging = false;
-  }
-
-  private cancelPendingScreenViewport(): void {
-    this.pendingViewport = null;
-    if (this.viewportTimer !== null) {
-      clearTimeout(this.viewportTimer);
-      this.viewportTimer = null;
-    }
-  }
-
-  private screenViewportFrom(summary: ScreenSummary): Viewport | null {
-    const base = summary.state?.composition.base;
-    return base?.type === 'map' ? base.viewport ?? null : null;
-  }
-
-  private applyScreenViewport(viewport: Viewport, persist: boolean): void {
-    this.screenViewport.set(viewport);
-    const current = this.screenDialog();
-    if (current !== null && current.state !== null) {
-      const base = current.state.composition.base;
-      const state: DisplayState = base.type === 'map'
-        ? {
-          ...current.state,
-          composition: {
-            ...current.state.composition,
-            base: { ...base, viewport },
-          },
-        }
-        : current.state;
-      const updated: ScreenSummary = { ...current, state };
-      this.screenDialog.set(updated);
-      this.screens.update((items) =>
-        items.map((item) => (item.display.id === updated.display.id ? updated : item)));
-    }
-    if (persist) {
-      this.queueScreenViewport(viewport);
-    }
-  }
-
-  private queueScreenViewport(viewport: Viewport): void {
-    this.pendingViewport = viewport;
-    if (this.viewportSaving || this.viewportTimer !== null) {
-      return;
-    }
-    this.viewportTimer = setTimeout(() => {
-      this.viewportTimer = null;
-      void this.flushScreenViewport();
-    }, 120);
-  }
-
-  private async flushScreenViewport(): Promise<void> {
-    if (this.viewportSaving) {
-      return;
-    }
-    const viewport = this.pendingViewport;
-    this.pendingViewport = null;
-    const campaign = this.shell.activeCampaign();
-    const summary = this.screenDialog();
-    if (viewport === null || campaign === null || summary === null) {
-      return;
-    }
-    this.viewportSaving = true;
-    const save = this.saveScreenViewport(
-      campaign.id,
-      summary.display.id,
-      summary.display.code,
-      viewport,
-    );
-    this.viewportSave = save;
-    try {
-      await save;
-    } finally {
-      if (this.viewportSave === save) {
-        this.viewportSave = null;
-      }
-      this.viewportSaving = false;
-      if (this.pendingViewport !== null) {
-        this.queueScreenViewport(this.pendingViewport);
-      }
-    }
-  }
-
-  private async saveScreenViewport(
-    campaignId: string,
-    displayId: string,
-    code: string,
-    viewport: Viewport,
-  ): Promise<void> {
-    try {
-      const updated = await this.programsApi.putDisplayViewport(campaignId, displayId, viewport);
-      this.applyDisplayVersion(displayId, updated.version);
-    } catch (error) {
-      if (error instanceof HttpErrorResponse && error.status === 409) {
-        try {
-          const envelope = await this.programsApi.getDisplayState(code);
-          this.applyDisplayMeta(displayId, envelope.display);
-        } catch {
-          // Lo schermo potrebbe essere stato chiuso.
-        }
-      }
-      if (this.pendingViewport === null) {
-        this.pendingViewport = viewport;
-      }
-    }
-  }
-
-  private applyDisplayVersion(displayId: string, version: number): void {
-    this.screenDialog.update((current) => current === null || current.display.id !== displayId
-      ? current
-      : { ...current, display: { ...current.display, compositionVersion: version } });
-    this.screens.update((items) => items.map((item) => item.display.id === displayId
-      ? { ...item, display: { ...item.display, compositionVersion: version } }
-      : item));
-  }
-
-  private applyDisplayMeta(displayId: string, source: Display): void {
-    this.screenDialog.update((current) => current === null || current.display.id !== displayId
-      ? current
-      : { ...current, display: source });
-    this.screens.update((items) => items.map((item) => item.display.id === displayId
-      ? { ...item, display: source }
-      : item));
-  }
-
-  private viewportDirty(): boolean {
-    return this.screenDragging || this.pendingViewport !== null || this.viewportSaving;
-  }
-
-  private async waitForViewportSave(): Promise<void> {
-    let save = this.viewportSave;
-    while (save !== null) {
-      await save;
-      save = this.viewportSave;
-    }
-  }
-
-  private startScreenPolling(): void {
-    this.stopScreenPolling();
-    this.screenTimer = setInterval(() => {
-      void this.refreshScreenDialog();
-    }, 2000);
-  }
-
-  private stopScreenPolling(): void {
-    if (this.screenTimer !== null) {
-      clearInterval(this.screenTimer);
-      this.screenTimer = null;
-    }
-  }
-
-  private async refreshScreenDialog(): Promise<void> {
-    const current = this.screenDialog();
-    if (current === null) {
-      return;
-    }
-    try {
-      const envelope = await this.programsApi.getDisplayState(current.display.code);
-      const dirty = this.viewportDirty();
-      let state = envelope.state;
-      const localViewport = this.screenViewport();
-      if (
-        dirty
-        && localViewport !== null
-        && state.composition.base.type === 'map'
-      ) {
-        state = {
-          ...state,
-          composition: {
-            ...state.composition,
-            base: { ...state.composition.base, viewport: localViewport },
-          },
-        };
-      }
-      const updated: ScreenSummary = { display: envelope.display, state };
-      this.screenDialog.set(updated);
-      this.screens.update((items) =>
-        items.map((item) => (item.display.id === updated.display.id ? updated : item)));
-      const nextViewport = state.composition.base.type === 'map'
-        ? state.composition.base.viewport ?? null
-        : null;
-      if (!dirty && nextViewport !== null) {
-        this.screenViewport.set(nextViewport);
-      }
-    } catch {
-      // Lo schermo può essere stato revocato mentre il dialog è aperto.
-    }
+    this.regia.endPan();
   }
 
   private startSessionTimer(reset = true): void {
