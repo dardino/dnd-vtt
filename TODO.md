@@ -130,7 +130,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - CSP con nonce per `index.html` e `CSP_NONCE` in Angular; `frame-ancestors 'none'`.
 - Upload: solo PNG/JPEG/WebP, ri-codifica sharp, EXIF rimosso dal WebP servito, limite 100 MP e 20 MB; `originals/` non servito.
 - Link giocatore: token da 24 byte casuali, hash SHA-256 a riposo, revoca e editing toggle.
-- Codici display CSPRNG (6 caratteri, alfabeto 32) e lookup HTTP rate-limited.
+- Codici display CSPRNG (8 caratteri, alfabeto 32) e lookup HTTP rate-limited.
 - Export note private opt-in; import transazionale; idempotenza azioni legata a campagna/scena.
 - Query Drizzle parametrizzate; nessuna CORS wildcard.
 
@@ -167,9 +167,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** non scriverli affatto (la deduplica usa l'hash nel DB) oppure `KEEP_ORIGINALS=false` di default con cleanup.
   - **Fatto quando:** il default non lascia metadati EXIF su disco.
 
-- [ ] **S6 — Codici display e URL** · S
+- [x] **S6 — Codici display e URL** · S — ✅ 1 novembre 2026
   - **Problema:** il codice è salvato in chiaro e finisce in URL/history; un dump del DB espone i display attivi.
   - **Proposta:** documentare il rischio, oppure ruotare il codice alla revoca e abbreviare la validità del link; valutare hash a riposo se il DM non deve rileggerlo.
+  - **Implementato:** codice portato a 8 caratteri (32^8 combinazioni) per rendere impraticabile il brute-force via `/ws?role=display&code=…`; alfabeto e CSPRNG invariati, lookup compatibile con i codici a 6 caratteri già emessi. Decisione: il codice resta in chiaro perché il DM deve poterlo rileggere e riaprire lo schermo; rischio accettato per un deploy in LAN. Test su lunghezza e alfabeto in `server/test/displays.spec.ts`.
   - **Fatto quando:** decisione registrata.
 
 - [ ] **S7 — HTTPS e reverse proxy** · M
@@ -193,7 +194,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [ ] S3 TTL breve e revoca sessione
 - [x] S4 AllowList GET e `bodyLimit` espliciti
 - [ ] S5 Nessun originale con EXIF su disco
-- [ ] S6 Codici display documentati/ruotati
+- [x] S6 Codici display documentati e allungati a 8 caratteri
 - [ ] S7 HTTPS, proxy e cookie `secure`
 - [ ] S8 Test di regressione sicurezza in CI
 - [ ] S9 Audit dipendenze e backup cifrati

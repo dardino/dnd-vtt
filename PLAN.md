@@ -804,7 +804,7 @@ Esiste una terza superficie, `/play/:token` (8.14): una scheda mobile per il gio
 
 #### 6.4.3 Sync e pairing
 
-- pairing: codice 6 caratteri base32, PIN opzionale, QR per un secondo dispositivo, revoca immediata
+- pairing: codice 8 caratteri base32, PIN opzionale, QR per un secondo dispositivo, revoca immediata
 - il pulsante "Apri schermo giocatori" usa `window.open` come **solo scorciatoia UX**, non come canale dati (D20); sceglie monitor e dimensioni tramite `Window Management API` se il permesso è concesso, altrimenti usa `left/top` best-effort e lascia al DM il riposizionamento manuale
 - la finestra figlia apre il proprio WS usando il codice nell'URL: nessun `postMessage`, nessun relay attraverso la console. Chiudere la console non spegne lo schermo A
 - `window.opener` è usato solo per rilevare `closed` e chiudere la finestra dal pulsante; se manca (URL copiata, QR, OBS, refresh da cronologia) il comportamento è identico
@@ -2494,7 +2494,7 @@ Assunzioni: il DM è fidato, la macchina è sua, la rete è una LAN domestica. N
 | Giocatore curioso apre i devtools | WS/REST | payload per ruolo, nessun dato nascosto nel `DisplayState` |
 | Upload manipolato (polyglot, EXIF, SVG) | `POST /assets` | magic bytes, re-encode `sharp`, niente SVG, limiti di pixel |
 | XSS via markdown o chat IA | note, messaggi, testi in onda | sanitizzazione, CSP, niente `innerHTML` non filtrato |
-| Brute force del codice display | `/display/:code` | 6 caratteri base32 a 30/min per IP + PIN opzionale |
+| Brute force del codice display | `/display/:code` | 8 caratteri base32 a 30/min per IP + PIN opzionale |
 | DoS locale o raffica di tiri | API/WS | rate limit per IP, token e operazione |
 | Token o cookie nei log | log applicativi | redaction di header, cookie e path `/play/*` |
 

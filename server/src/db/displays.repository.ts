@@ -7,8 +7,13 @@ import { displays } from './schema.js';
 
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+/**
+ * 8 caratteri (32^8 combinazioni) invece di 6: il codice è provabile via WebSocket
+ * `/ws?role=display&code=…`, dove il rate limit per IP non basta contro reti distribuite.
+ * I codici già emessi a 6 caratteri restano validi (lookup invariato).
+ */
 const makeCode = (): string =>
-  Array.from({ length: 6 }, () => ALPHABET[randomInt(0, ALPHABET.length)] ?? 'A').join('');
+  Array.from({ length: 8 }, () => ALPHABET[randomInt(0, ALPHABET.length)] ?? 'A').join('');
 
 const toDisplay = (row: typeof displays.$inferSelect): Display => ({
   id: row.id,
