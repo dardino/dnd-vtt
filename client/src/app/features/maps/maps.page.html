@@ -19,20 +19,12 @@
           </select>
         </label>
       }
-      <app-button variant="primary" [disabled]="busy() || campaign() === null" (pressed)="openFilePicker()">
+      <app-button variant="primary" [disabled]="busy() || campaign() === null" (pressed)="openCreateDialog()">
         Nuova mappa
       </app-button>
       <a class="btn" routerLink="/dm">Console</a>
     </div>
   </header>
-
-  <input
-    #fileInput
-    class="file-input"
-    type="file"
-    accept="image/png,image/jpeg,image/webp"
-    (change)="uploadMap($event)"
-  />
 
   @if (error(); as message) {
     <p class="field-error" role="alert">{{ message }}</p>
@@ -49,8 +41,8 @@
   } @else if (maps().length === 0) {
     <section class="maps-page__empty surface">
       <h2>Nessuna mappa</h2>
-      <p class="muted">Carica un PNG e inizia a disegnare muri e luci.</p>
-      <app-button variant="primary" [disabled]="busy()" (pressed)="openFilePicker()">
+      <p class="muted">Crea una mappa vuota e aggiungi lo sfondo dall'editor.</p>
+      <app-button variant="primary" [disabled]="busy()" (pressed)="openCreateDialog()">
         Crea la prima mappa
       </app-button>
     </section>
@@ -71,7 +63,7 @@
               <span class="badge">{{ map.grid.type === 'hex' ? 'esagonale' : 'quadrata' }}</span>
             </div>
             <p class="muted">
-              {{ map.widthPx }} × {{ map.heightPx }} px ·
+              {{ resolution(map) }} ·
               {{ map.walls }} muri · {{ map.lights }} luci ·
               {{ map.spawns }} spawn · {{ map.playerStarts }} partenze
             </p>
@@ -86,6 +78,59 @@
     </ul>
   }
 </section>
+
+<app-dialog
+  [open]="createOpen()"
+  title="Nuova mappa"
+  (closed)="createOpen.set(false)"
+>
+  <div class="create-dialog">
+    <label class="field">
+      <span>Nome</span>
+      <input
+        class="input"
+        type="text"
+        maxlength="120"
+        [value]="draftName()"
+        (input)="onNameInput($event)"
+      />
+    </label>
+    <label class="field">
+      <span>Preset</span>
+      <select class="select" [value]="draftPreset()" (change)="onPresetChange($event)">
+        @for (preset of presets; track preset.value) {
+          <option [value]="preset.value">{{ preset.label }}</option>
+        }
+      </select>
+    </label>
+    <label class="field">
+      <span>Orientamento</span>
+      <select
+        class="select"
+        [value]="draftOrientation()"
+        (change)="onOrientationChange($event)"
+      >
+        <option value="landscape">Orizzontale</option>
+        <option value="portrait" [disabled]="portraitUnavailable()">Verticale</option>
+      </select>
+    </label>
+    @if (portraitUnavailable()) {
+      <p class="muted create-dialog__hint">
+        I preset ultrawide esistono solo in orizzontale: l'orientamento è forzato.
+      </p>
+    }
+    <p class="create-dialog__resolution">
+      Risoluzione: <strong>{{ createResolution().widthPx }}×{{ createResolution().heightPx }}</strong>
+    </p>
+    @if (createError(); as message) {
+      <p class="field-error" role="alert">{{ message }}</p>
+    }
+  </div>
+  <div dialog-actions>
+    <app-button (pressed)="createOpen.set(false)">Annulla</app-button>
+    <app-button variant="primary" [disabled]="busy()" (pressed)="createMap()">Crea mappa</app-button>
+  </div>
+</app-dialog>
 
 <app-dialog
   [open]="deleteTarget() !== null"

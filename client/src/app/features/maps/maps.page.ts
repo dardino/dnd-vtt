@@ -1,21 +1,42 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  type ElementRef,
   type OnInit,
+  computed,
   inject,
   signal,
-  viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import type { Campaign, MapSummary } from '@dnd-vtt/shared';
-import { AssetService } from '../../core/asset.service';
+import {
+  SCENE_PRESETS,
+  sceneDimensions,
+  type Campaign,
+  type MapSummary,
+  type Orientation,
+  type ResolutionPreset,
+} from '@dnd-vtt/shared';
 import { CampaignService } from '../../core/campaign.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
 import { MapService } from '../../core/map.service';
 import { httpMessage } from '../../core/http-error';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
+
+interface PresetOption {
+  value: ResolutionPreset;
+  label: string;
+}
+
+const presetLabels: Record<ResolutionPreset, string> = {
+  '720p': '720p',
+  '1080p': '1080p',
+  '1440p': '1440p',
+  '4k': '4K',
+  'ultrawide-720p': 'Ultrawide 720p',
+  'ultrawide-1080p': 'Ultrawide 1080p',
+  'ultrawide-1440p': 'Ultrawide 1440p',
+  'ultrawide-4k': 'Ultrawide 4K',
+};
 
 @Component({
   selector: 'app-maps-page',
@@ -27,11 +48,8 @@ import { Dialog } from '../../components/dialog/dialog';
 export class MapsPage implements OnInit {
   private readonly campaignsApi = inject(CampaignService);
   private readonly mapsApi = inject(MapService);
-  private readonly assets = inject(AssetService);
   private readonly lastCampaign = inject(LastCampaignService);
   private readonly router = inject(Router);
-
-  private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
 
   public readonly loading = signal(true);
   public readonly busy = signal(false);
@@ -40,6 +58,24 @@ export class MapsPage implements OnInit {
   public readonly campaign = signal<Campaign | null>(null);
   public readonly maps = signal<MapSummary[]>([]);
   public readonly deleteTarget = signal<MapSummary | null>(null);
+
+  public readonly createOpen = signal(false);
+  public readonly createError = signal<string | null>(null);
+  public readonly draftName = signal('');
+  public readonly draftPreset = signal<ResolutionPreset>('1080p');
+  public readonly draftOrientation = signal<Orientation>('landscape');
+
+  public readonly presets: readonly PresetOption[] = (
+    Object.keys(SCENE_PRESETS) as ResolutionPreset[]
+  ).map((value) => ({ value, label: presetLabels[value] }));
+
+  public readonly portraitUnavailable = computed(
+    () => SCENE_PRESETS[this.draftPreset()].portrait === null,
+  );
+
+  public readonly createResolution = computed(() =>
+    sceneDimensions(this.draftPreset(), this.draftOrientation()),
+  );
 
   public ngOnInit(): void {
     void this.load();
@@ -86,34 +122,77 @@ export class MapsPage implements OnInit {
     }
   }
 
-  public openFilePicker(): void {
-    this.fileInput()?.nativeElement.click();
-  }
-
-  public async uploadMap(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    const campaign = this.campaign();
-    if (file === undefined || campaign === null) {
+  public openCreateDialog(): void {
+    if (this.campaign() === null) {
       return;
     }
-    this.busy.set(true);
+    this.draftName.set('Nuova mappa');
+    this.draftPreset.set('1080p');
+    this.draftOrientation.set('landscape');
+    this.createError.set(null);
     this.error.set(null);
+    this.createOpen.set(true);
+  }
+
+  public onNameInput(event: Event): void {
+    this.draftName.set((event.target as HTMLInputElement).value);
+  }
+
+  public onPresetChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    const preset = this.presets.find((entry) => entry.value === value);
+    if (preset !== undefined) {
+      this.setPreset(preset.value);
+    }
+  }
+
+  public setPreset(preset: ResolutionPreset): void {
+    this.draftPreset.set(preset);
+    if (SCENE_PRESETS[preset].portrait === null) {
+      this.draftOrientation.set('landscape');
+    }
+  }
+
+  public onOrientationChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value;
+    if (value === 'landscape' || value === 'portrait') {
+      this.setOrientation(value);
+    }
+  }
+
+  public setOrientation(orientation: Orientation): void {
+    if (orientation === 'portrait' && this.portraitUnavailable()) {
+      return;
+    }
+    this.draftOrientation.set(orientation);
+  }
+
+  public async createMap(): Promise<void> {
+    const campaign = this.campaign();
+    if (campaign === null || this.busy()) {
+      return;
+    }
+    const name = this.draftName().trim() || 'Nuova mappa';
+    this.busy.set(true);
+    this.createError.set(null);
     try {
-      const asset = await this.assets.upload(file);
       const map = await this.mapsApi.create(campaign.id, {
-        name: file.name.replace(/\.[^.]+$/, '') || 'Nuova mappa',
-        imageAssetId: asset.id,
-        widthPx: asset.width,
-        heightPx: asset.height,
+        name,
+        preset: this.draftPreset(),
+        orientation: this.draftOrientation(),
       });
+      this.createOpen.set(false);
       await this.router.navigate(['/maps', map.id]);
     } catch (error) {
-      this.error.set(messageFor(error));
+      // L'errore resta nel dialog: il backdrop coprirebbe il banner della pagina.
+      this.createError.set(messageFor(error));
     } finally {
       this.busy.set(false);
     }
+  }
+
+  public resolution(map: MapSummary): string {
+    return `${map.widthPx}×${map.heightPx}`;
   }
 
   public openEditor(map: MapSummary): void {

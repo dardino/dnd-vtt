@@ -105,6 +105,17 @@
   }
 }
 
-.file-input {
-  display: none;
+.create-dialog {
+  display: grid;
+  gap: var(--space-3);
+
+  &__hint {
+    margin: 0;
+    font-size: var(--text-sm);
+  }
+
+  &__resolution {
+    margin: 0;
+    font-size: var(--text-sm);
+  }
 }

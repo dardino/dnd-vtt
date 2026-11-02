@@ -11,6 +11,8 @@ import type {
 } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
 
+export type CreateMapInput = Pick<CreateMap, 'name' | 'preset' | 'orientation'>;
+
 @Injectable({ providedIn: 'root' })
 export class MapService {
   private readonly http = inject(HttpClient);
@@ -26,7 +28,7 @@ export class MapService {
     return firstValueFrom(this.http.get<Map>(`/api/v1/maps/${id}`));
   }
 
-  public async create(campaignId: string, input: CreateMap): Promise<Map> {
+  public async create(campaignId: string, input: CreateMapInput): Promise<Map> {
     return firstValueFrom(
       this.http.post<Map>(`/api/v1/campaigns/${campaignId}/maps`, input),
     );
