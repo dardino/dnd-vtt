@@ -22,17 +22,17 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** **S0, S1 e S4 completati**, **D9 implementato** (immagine non ancora verificata con Docker), **A3 e A2 completati**. Prossimo passo: **A1 → A4**, con le attività D6 e **S5/S6** in parallelo. La migrazione **B1/B2** può partire in parallelo; **B4 (Signal Forms)** va dopo gli split dei god component.
+**Blocco attivo:** modello risoluzione/sfondo (SR3–SR7) e chiusura P3/P4. Completati S0–S9 (tranne revoca S3 e verifica TLS S7), A1–A4 (A4 con mappature locali residue), R1–R3 (R1 solo store), P1/P2/P5/P6/P7, Q1–Q4, T1 e R0.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
 ---
 
-## 1. Architettura e modello dati (P1) — **blocco attivo**
+## 1. Architettura e modello dati (P1)
 
 Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende le azioni l'unico writer, A1 può quindi veicolarle sul WebSocket, A4 centralizza gli errori.
 
-- [ ] **A1 — `RealtimeService` unico** · L · D2
+- [x] **A1 — `RealtimeService` unico** · L · D2 — ✅ 2 novembre 2026
   - **Prerequisito:** **S0** (Origin check e rate limit sul WebSocket): A1 non deve veicolare azioni su un canale senza controllo di origine.
   - **Problema:** tre meccanismi (WS display, WS presenza DM, polling azioni ogni 2 s) e due copie di riconnessione/backoff.
   - **Proposta:** `client/src/app/core/realtime.service.ts` con `connect(role, campaignId)`, parsing envelope, backoff, `seq` e dispatch a `ActionStore`/program/presence. Il polling resta solo come fallback dietro flag per una release.
@@ -226,7 +226,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] S2 `DM_PASSWORD_HASH` + minimo 12 caratteri
 - [ ] S3 TTL breve e revoca sessione (TTL 7 giorni + refresh fatti; revoca per-device aperta)
 - [x] S4 AllowList GET e `bodyLimit` espliciti
-- [ ] S5 Nessun originale con EXIF su disco
+- [x] S5 Nessun originale con EXIF su disco
 - [x] S6 Codici display documentati e allungati a 8 caratteri
 - [ ] S7 HTTPS, proxy e cookie `secure`
 - [x] S8 Test di regressione sicurezza in CI
@@ -438,19 +438,38 @@ Se esce `armv6l`, il target `arm64` non è utilizzabile su quella macchina. Se e
 
 > **Nota D9 (1 novembre 2026):** l'immagine **non è stata verificata con `docker build` in questo ambiente** (Docker assente). Sono stati eseguiti `npm run check` (lint, typecheck, test, build, `db:check`, `check:bundles`) e l'ispezione statica di `Dockerfile`, `docker-compose.yml`, `.dockerignore`, `deploy/Caddyfile`, `.github/workflows/release.yml` e degli script. La prima build multi-arch va validata su Docker Desktop (o in CI) prima di considerare la release affidabile. Restano aperti: validazione display su Pi 1 e resa bloccante della scansione Trivy (follow-up, oggi advisory).
 
----
 
+## 10. Modello risoluzione e sfondo (P1)
+
+Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel commit `a41abe8`.
+
+- [x] **SR1 — Schema preset e backgroundTransform**
+  - `sceneDimensions`, `SCENE_PRESETS`, `backgroundTransformSchema`, `imageAssetId` opzionale, `backgroundTransform` in map/scene/public scene.
+- [x] **SR2 — Migrazione e persistenza**
+  - migrazione `0008_past_vin_gonzales.sql`, mapper/repository/export/import, copia mappa→scena, dimensioni scena immutabili.
+- [ ] **SR3 — UI creazione e sfondo**
+  - dialog mappa/scena con preset e orientamento; pulsante Sfondo nell'editor; upload/rimozione, cover, drag e scala; nessun cambio di `widthPx/heightPx`.
+- [ ] **SR4 — Rendering con trasformazione**
+  - `SceneCanvasComponent`, `DisplayLayerComponent` e canvas editor disegnano lo sfondo a `x/y/scale` clippato alla scena.
+- [ ] **SR5 — Downscale e asset**
+  - ridimensionamento server-side secondo `f = min(1, scale, scene/asset)`; sostituzione asset solo se esclusivo, altrimenti derivato; `newScale` per preservare la resa.
+- [ ] **SR6 — Background nella history P3**
+  - comandi `background.attach`/`remove`/`transform` e rimozione dell'aggiornamento dimensioni da `replaceBackground`.
+- [ ] **SR7 — Immutabilità completa**
+  - PUT mappa non deve cambiare `widthPx/heightPx`; test e validazione.
+
+---
 ## Sequenza consigliata
 
-1. **Sicurezza WS** (S0): Origin check + rate limit, **prerequisito di A1**. ✅ completato
-2. **Docker/Compose** (D9): immagine GHCR, volume, healthcheck; poi **A3 → A2 → A1 → A4**. In parallelo: **S1, S5, S6** (basso rischio).
-3. **Tooling in parallelo** (D6): coverage, fixtures, `max-len` 110, contract test; policy **R0**.
-4. **Migrazione dati** (D5/B): **B1 spike** durante l'architettura, poi **B2 `resource()`** e **B3 `@defer`**.
-5. **Refactor** (D8): `DmShellPage` → `SceneCanvas` → `ActorSheet`, rispettando R0.
-6. **Signal Forms** (**B4**): dopo gli split, form per form.
-7. **Performance** (D4): N+1, history a comandi, rendering, cache.
-8. **Hardening completo** (S2, S3, S7, S8, S9): chiude la checklist "internet-ready" prima di qualsiasi esposizione pubblica.
-9. **Distribuzione** (D9): dopo la decisione, Dockerfile/Compose/CI, prima del gate internet-ready.
+1. **S0, D9, A1-A4**: completati (A4 con mappature locali residue).
+2. **R1-R3**: R2/R3 completi; R1 ha gli store ma restano componenti/template di `DmShellPage`.
+3. **P1/P2/P5/P6/P7**: completati. **P3/P4** restano parziali (comandi storia e rendering per-layer).
+4. **Q1-Q4, T1, R0**: completati.
+5. **SR3-SR7**: UI preset/sfondo, rendering trasformato, downscale asset, comandi background, immutabilità PUT mappa.
+6. **A5, Q5, C1-C7, T2/T3**: regole shared residue, a11y, CSS, piano/config.
+7. **S3, S7**: revoca sessione per-device e verifica TLS/proxy reale.
+8. **B1-B5**: Signal Forms, `resource()`, `@defer`.
+9. **Pi 1**: validazione display in kiosk.
 
 ---
 
