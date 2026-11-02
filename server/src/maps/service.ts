@@ -2,6 +2,7 @@ import {
   createDefaultSceneState,
   emptyMapDocument,
   newId,
+  sceneDimensions,
   srdMonsterToStatblock,
   type Actor,
   type CreateMap,
@@ -61,11 +62,22 @@ export const listCampaignMaps = (db: AppDatabase, campaignId: string): MapSummar
 
 export const createMap = (db: AppDatabase, campaignId: string, input: CreateMap): Map => {
   requireCampaign(db, campaignId);
-  const asset = getAsset(db, input.imageAssetId);
-  if (asset === null) {
+  const asset = input.imageAssetId === undefined || input.imageAssetId === null
+    ? null
+    : getAsset(db, input.imageAssetId);
+  if (asset === null && input.imageAssetId !== undefined && input.imageAssetId !== null) {
     throw notFound('Immagine non trovata');
   }
-  return insertMap(db, campaignId, emptyMapDocument(input.name, asset.id, asset.width, asset.height));
+  const presetDimensions = sceneDimensions(
+    input.preset ?? '1080p',
+    input.orientation ?? 'landscape',
+  );
+  return insertMap(db, campaignId, emptyMapDocument(
+    input.name,
+    asset?.id ?? null,
+    input.widthPx ?? presetDimensions.widthPx,
+    input.heightPx ?? presetDimensions.heightPx,
+  ));
 };
 
 export const requireMapFull = (db: AppDatabase, id: string): Map => requireMap(db, id);
@@ -102,6 +114,7 @@ export const duplicateMap = (db: AppDatabase, id: string): Map => {
   const document: MapDocument = {
     name: `${source.name} (copia)`,
     imageAssetId: source.imageAssetId,
+    backgroundTransform: { ...source.backgroundTransform },
     widthPx: source.widthPx,
     heightPx: source.heightPx,
     grid: source.grid,
@@ -233,6 +246,7 @@ export const createSceneFromMap = (
     widthPx: map.widthPx,
     heightPx: map.heightPx,
     ...(map.imageAssetId === null ? {} : { imageAssetId: map.imageAssetId }),
+    backgroundTransform: { ...map.backgroundTransform },
     mapId: map.id,
   }, state);
   updateCampaign(tx, campaignId, { activeSceneId: scene.id });

@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import { conditionSchema } from './common.js';
+import {
+  backgroundTransformSchema, defaultBackgroundTransform, orientationSchema, resolutionPresetSchema,
+} from './scene-size.js';
 import { deathSavesSchema, hpSchema } from './sheet.js';
 
 export const gridConfigSchema = z.strictObject({
@@ -224,11 +227,7 @@ export const sceneStateSchema = z.strictObject({
   fog: fogStateSchema,
   terrain: terrainSchema.default(defaultTerrain),
   showDoorIcons: z.boolean().default(true),
-  startView: z.strictObject({
-    x: z.number(),
-    y: z.number(),
-    zoom: z.number().positive(),
-  }).optional(),
+  startView: z.strictObject({ x: z.number(), y: z.number(), zoom: z.number().positive() }).optional(),
   tokens: z.array(tokenStateSchema),
   loot: z.array(lootEntrySchema),
   drawings: z.array(drawingSchema),
@@ -325,6 +324,7 @@ export const sceneSchema = z.strictObject({
   mapId: z.string().uuid().nullable().optional(),
   name: z.string().min(1),
   imageAssetId: z.string().uuid().nullable(),
+  backgroundTransform: backgroundTransformSchema.default(defaultBackgroundTransform),
   widthPx: z.number().int().positive(),
   heightPx: z.number().int().positive(),
   stateVersion: z.number().int().min(1),
@@ -333,22 +333,34 @@ export const sceneSchema = z.strictObject({
 });
 export type Scene = z.infer<typeof sceneSchema>;
 
+/**
+ * `widthPx`/`heightPx` restano opzionali per compatibilità: se presenti hanno
+ * precedenza sui preset, altrimenti si usano `preset` + `orientation`
+ * (default 1080p landscape).
+ */
 export const createSceneSchema = z.strictObject({
   name: z.string().trim().min(1).max(120),
-  widthPx: z.number().int().min(1).max(20000).default(1920),
-  heightPx: z.number().int().min(1).max(20000).default(1080),
+  preset: resolutionPresetSchema.optional(),
+  orientation: orientationSchema.optional(),
+  widthPx: z.number().int().min(1).max(20000).optional(),
+  heightPx: z.number().int().min(1).max(20000).optional(),
   imageAssetId: z.string().uuid().optional(),
+  backgroundTransform: backgroundTransformSchema.optional(),
   mapId: z.string().uuid().optional(),
   fogBase: z.enum(['hidden', 'revealed']).optional(),
 });
 export type CreateScene = z.infer<typeof createSceneSchema>;
 
+/**
+ * La risoluzione è immutabile dopo la creazione: `preset`, `orientation`,
+ * `widthPx` e `heightPx` sono accettati solo in `createSceneSchema` e un PATCH
+ * che li include è un 400.
+ */
 export const updateSceneSchema = z
   .strictObject({
     name: z.string().trim().min(1).max(120).optional(),
-    widthPx: z.number().int().min(1).max(20000).optional(),
-    heightPx: z.number().int().min(1).max(20000).optional(),
     imageAssetId: z.string().uuid().nullable().optional(),
+    backgroundTransform: backgroundTransformSchema.optional(),
   })
   .refine((patch) => Object.keys(patch).length > 0, { message: 'nessun campo da aggiornare' });
 export type UpdateScene = z.infer<typeof updateSceneSchema>;

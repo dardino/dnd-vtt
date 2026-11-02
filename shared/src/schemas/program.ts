@@ -2,13 +2,8 @@ import { z } from 'zod';
 import { actorPortraitSchema } from './actor.js';
 import { conditionNameSchema } from './common.js';
 import { diceRollSchema } from './dice.js';
-import {
-  fogStateSchema,
-  gridConfigSchema,
-  initiativeEntrySchema,
-  publicDoorSchema,
-  visionGridSchema,
-} from './scene.js';
+import { fogStateSchema, gridConfigSchema, initiativeEntrySchema, publicDoorSchema, visionGridSchema } from './scene.js';
+import { backgroundTransformSchema, defaultBackgroundTransform } from './scene-size.js';
 
 export const viewportSchema = z.strictObject({
   x: z.number(),
@@ -131,6 +126,7 @@ export const publicSceneSchema = z.strictObject({
   widthPx: z.number().int().positive(),
   heightPx: z.number().int().positive(),
   imageUrl: z.string().nullable(),
+  backgroundTransform: backgroundTransformSchema.default(defaultBackgroundTransform),
   grid: gridConfigSchema,
   tokens: z.array(publicTokenSchema),
   fog: fogStateSchema,

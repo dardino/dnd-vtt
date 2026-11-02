@@ -1,6 +1,7 @@
 import {
   actorPortraitSchema,
   actorStatblockSchema,
+  backgroundTransformSchema,
   mapDocumentSchema,
   type ActionLogEntry,
   type Actor,
@@ -31,6 +32,7 @@ export const toScene = (row: typeof scenes.$inferSelect): Scene => ({
   mapId: row.mapId,
   name: row.name,
   imageAssetId: row.imageAssetId,
+  backgroundTransform: backgroundTransformSchema.parse(JSON.parse(row.backgroundTransform) as unknown),
   widthPx: row.widthPx,
   heightPx: row.heightPx,
   stateVersion: row.stateVersion,

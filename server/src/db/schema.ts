@@ -41,6 +41,7 @@ export const scenes = sqliteTable('scenes', {
   mapId: text('map_id').references(() => maps.id, { onDelete: 'set null' }),
   name: text('name').notNull(),
   imageAssetId: text('image_asset_id'),
+  backgroundTransform: text('background_transform').notNull().default('{"x":0,"y":0,"scale":1}'),
   widthPx: integer('width_px').notNull(),
   heightPx: integer('height_px').notNull(),
   state: text('state').notNull(),

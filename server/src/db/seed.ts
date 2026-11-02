@@ -7,7 +7,13 @@ import { insertCampaign } from './campaigns.repository.js';
 import { insertMap } from './maps.repository.js';
 import { createSceneFromMap } from '../maps/service.js';
 import { campaigns } from './schema.js';
-import { defaultGridConfig, defaultTerrain, wallSegmentSchema, type WallSegment } from '@dnd-vtt/shared';
+import {
+  defaultBackgroundTransform,
+  defaultGridConfig,
+  defaultTerrain,
+  wallSegmentSchema,
+  type WallSegment,
+} from '@dnd-vtt/shared';
 
 const wall = (
   ax: number,
@@ -76,6 +82,7 @@ export const seedDemo = async (env: AppEnv, handle: DatabaseHandle): Promise<See
   const document: MapDocument = {
     name: 'Dungeon di prova',
     imageAssetId: asset.id,
+    backgroundTransform: { ...defaultBackgroundTransform },
     widthPx: 1260,
     heightPx: 840,
     grid: { ...defaultGridConfig },

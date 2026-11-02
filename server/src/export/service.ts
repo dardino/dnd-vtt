@@ -20,7 +20,7 @@ import { getProgramRow, insertProgram } from '../db/programs.repository.js';
 import { insertScene } from '../db/scenes.repository.js';
 import { getAsset } from '../db/assets.repository.js';
 import { insertMap } from '../db/maps.repository.js';
-import { toActor, toMap } from '../db/mappers.js';
+import { toActor, toMap, toScene } from '../db/mappers.js';
 import { listSessions } from '../db/sessions.repository.js';
 import { actors, maps, scenes, sessions } from '../db/schema.js';
 import { notFound } from '../errors.js';
@@ -91,18 +91,7 @@ export const exportCampaign = async (
   const program = getProgramRow(db, campaignId);
   const bundleMaps: MapRecord[] = mapRows.map(toMap);
   const bundleScenes = sceneRows.map((row) => ({
-    scene: {
-      id: row.id,
-      campaignId: row.campaignId,
-      mapId: row.mapId,
-      name: row.name,
-      imageAssetId: row.imageAssetId,
-      widthPx: row.widthPx,
-      heightPx: row.heightPx,
-      stateVersion: row.stateVersion,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-    },
+    scene: toScene(row),
     state: JSON.parse(row.state) as SceneState,
   }));
   const bundleActors: CampaignExport['actors'] = actorRows.map((row) => ({
@@ -234,6 +223,7 @@ export const importCampaign = async (
         imageAssetId: map.imageAssetId === null
           ? null
           : assetMap.get(map.imageAssetId) ?? null,
+        backgroundTransform: { ...map.backgroundTransform },
         widthPx: map.widthPx,
         heightPx: map.heightPx,
         grid: map.grid,
@@ -260,6 +250,7 @@ export const importCampaign = async (
         ...(entry.scene.mapId === null || entry.scene.mapId === undefined
           ? {}
           : { mapId: mapMap.get(entry.scene.mapId) }),
+        backgroundTransform: { ...entry.scene.backgroundTransform },
       }, remap(entry.state, new Map([...actorMap, ...assetMap, ...mapMap])));
       sceneMap.set(entry.scene.id, scene.id);
     }

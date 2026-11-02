@@ -1,6 +1,8 @@
 import { and, desc, eq, lt, or } from 'drizzle-orm';
 import {
   createDefaultSceneState,
+  defaultBackgroundTransform,
+  sceneDimensions,
   type CreateScene,
   type Scene,
   type SceneState,
@@ -66,14 +68,19 @@ export const insertScene = (
   state: SceneState = createDefaultSceneState(),
 ): Scene => {
   const now = new Date().toISOString();
+  const presetDimensions = sceneDimensions(
+    input.preset ?? '1080p',
+    input.orientation ?? 'landscape',
+  );
   const row = {
     id: uuidv7(),
     campaignId,
     mapId: input.mapId ?? null,
     name: input.name,
     imageAssetId: input.imageAssetId ?? null,
-    widthPx: input.widthPx,
-    heightPx: input.heightPx,
+    backgroundTransform: JSON.stringify(input.backgroundTransform ?? defaultBackgroundTransform),
+    widthPx: input.widthPx ?? presetDimensions.widthPx,
+    heightPx: input.heightPx ?? presetDimensions.heightPx,
     state: JSON.stringify(state),
     stateVersion: 1,
     createdAt: now,
@@ -92,7 +99,15 @@ export const updateScene = (
   if (current === undefined) {
     return null;
   }
-  const updated = { ...patch, updatedAt: new Date().toISOString() };
+  const { name, imageAssetId, backgroundTransform } = patch;
+  const updated = {
+    ...(name === undefined ? {} : { name }),
+    ...(imageAssetId === undefined ? {} : { imageAssetId }),
+    ...(backgroundTransform === undefined
+      ? {}
+      : { backgroundTransform: JSON.stringify(backgroundTransform) }),
+    updatedAt: new Date().toISOString(),
+  };
   db.update(scenes).set(updated).where(eq(scenes.id, id)).run();
   return toScene(mergeDefined(current, updated));
 };

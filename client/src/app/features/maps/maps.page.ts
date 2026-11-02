@@ -105,6 +105,8 @@ export class MapsPage implements OnInit {
       const map = await this.mapsApi.create(campaign.id, {
         name: file.name.replace(/\.[^.]+$/, '') || 'Nuova mappa',
         imageAssetId: asset.id,
+        widthPx: asset.width,
+        heightPx: asset.height,
       });
       await this.router.navigate(['/maps', map.id]);
     } catch (error) {

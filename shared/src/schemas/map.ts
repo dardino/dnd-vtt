@@ -1,10 +1,74 @@
 import { z } from 'zod';
+import { defaultGridConfig, gridConfigSchema, terrainSchema, tokenLightSchema } from './scene.js';
 import {
-  defaultGridConfig,
-  gridConfigSchema,
-  terrainSchema,
-  tokenLightSchema,
-} from './scene.js';
+  backgroundTransformSchema,
+  defaultBackgroundTransform,
+  orientationSchema,
+  resolutionPresetSchema,
+  type BackgroundTransform,
+  type Orientation,
+  type ResolutionPreset,
+} from './scene-size.js';
+
+export interface SceneDimensions {
+  widthPx: number;
+  heightPx: number;
+}
+
+/**
+ * Dimensioni canoniche per preset e orientamento. Ultrawide esiste solo in
+ * landscape: in portrait `sceneDimensions` ripiega sulle dimensioni landscape
+ * invece di restituire una coppia inventata.
+ */
+export const SCENE_PRESETS: Record<
+  ResolutionPreset,
+  { landscape: SceneDimensions; portrait: SceneDimensions | null }
+> = {
+  '720p': {
+    landscape: { widthPx: 1280, heightPx: 720 },
+    portrait: { widthPx: 720, heightPx: 1280 },
+  },
+  '1080p': {
+    landscape: { widthPx: 1920, heightPx: 1080 },
+    portrait: { widthPx: 1080, heightPx: 1920 },
+  },
+  '1440p': {
+    landscape: { widthPx: 2560, heightPx: 1440 },
+    portrait: { widthPx: 1440, heightPx: 2560 },
+  },
+  '4k': {
+    landscape: { widthPx: 3840, heightPx: 2160 },
+    portrait: { widthPx: 2160, heightPx: 3840 },
+  },
+  'ultrawide-720p': {
+    landscape: { widthPx: 1680, heightPx: 720 },
+    portrait: null,
+  },
+  'ultrawide-1080p': {
+    landscape: { widthPx: 2560, heightPx: 1080 },
+    portrait: null,
+  },
+  'ultrawide-1440p': {
+    landscape: { widthPx: 3440, heightPx: 1440 },
+    portrait: null,
+  },
+  'ultrawide-4k': {
+    landscape: { widthPx: 5120, heightPx: 2160 },
+    portrait: null,
+  },
+};
+
+/** Fallback documentato: ultrawide + portrait restituisce il preset landscape. */
+export const sceneDimensions = (
+  preset: ResolutionPreset,
+  orientation: Orientation,
+): SceneDimensions => {
+  const entry = SCENE_PRESETS[preset];
+  if (orientation === 'portrait') {
+    return entry.portrait ?? entry.landscape;
+  }
+  return entry.landscape;
+};
 
 export const mapViewSchema = z.strictObject({
   x: z.number(),
@@ -44,6 +108,7 @@ export type PlayerStart = z.infer<typeof playerStartSchema>;
 export const mapDocumentSchema = z.strictObject({
   name: z.string().trim().min(1).max(120),
   imageAssetId: z.string().uuid().nullable(),
+  backgroundTransform: backgroundTransformSchema.default(defaultBackgroundTransform),
   widthPx: z.number().int().positive().max(20000),
   heightPx: z.number().int().positive().max(20000),
   grid: gridConfigSchema,
@@ -91,11 +156,20 @@ export const mapListSchema = z.strictObject({
 });
 export type MapList = z.infer<typeof mapListSchema>;
 
+/**
+ * `widthPx`/`heightPx` restano opzionali per compatibilità e, se presenti,
+ * hanno precedenza sui preset. Altrimenti le dimensioni derivano da
+ * `preset` + `orientation` (default 1080p landscape).
+ */
 export const createMapSchema = z.strictObject({
   name: z.string().trim().min(1).max(120),
-  imageAssetId: z.string().uuid(),
+  preset: resolutionPresetSchema.default('1080p'),
+  orientation: orientationSchema.default('landscape'),
+  imageAssetId: z.string().uuid().nullable().optional(),
+  widthPx: z.number().int().min(1).max(20000).optional(),
+  heightPx: z.number().int().min(1).max(20000).optional(),
 });
-export type CreateMap = z.infer<typeof createMapSchema>;
+export type CreateMap = z.input<typeof createMapSchema>;
 
 export const putMapSchema = z.strictObject({
   version: z.number().int().min(1),
@@ -139,11 +213,13 @@ export const emptyMapDocument = (
   imageAssetId: string | null,
   widthPx: number,
   heightPx: number,
+  backgroundTransform: BackgroundTransform = defaultBackgroundTransform,
 ): MapDocument => {
   const maxSightFeet = Math.max(1, Math.round((Math.max(widthPx, heightPx) / 70) * 5));
   return {
     name,
     imageAssetId,
+    backgroundTransform: { ...backgroundTransform },
     widthPx,
     heightPx,
     grid: { ...defaultGridConfig },

@@ -3,6 +3,7 @@ export * from './schemas/sheet.js';
 export * from './schemas/srd.js';
 export * from './schemas/build.js';
 export * from './schemas/scene.js';
+export * from './schemas/scene-size.js';
 export * from './schemas/map.js';
 export * from './schemas/campaign.js';
 export * from './schemas/actor.js';

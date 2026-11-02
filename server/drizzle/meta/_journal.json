@@ -57,6 +57,13 @@
       "when": 1793475832975,
       "tag": "0007_flat_apocalypse",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793647605181,
+      "tag": "0008_past_vin_gonzales",
+      "breakpoints": true
     }
   ]
 }

@@ -696,6 +696,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
 const toDocument = (map: Map): MapDocument => ({
   name: map.name,
   imageAssetId: map.imageAssetId,
+  backgroundTransform: map.backgroundTransform,
   widthPx: map.widthPx,
   heightPx: map.heightPx,
   grid: map.grid,

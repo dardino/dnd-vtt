@@ -234,9 +234,166 @@ describe('CRUD campagne, scene e attori', () => {
     const snapshot = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
     expect(snapshot.statusCode).toBe(200);
     expect(snapshot.json()).toMatchObject({
-      scene: { id: sceneId, stateVersion: 1 },
+      scene: {
+        id: sceneId,
+        stateVersion: 1,
+        backgroundTransform: { x: 0, y: 0, scale: 1 },
+      },
       stateVersion: 1,
       state: createDefaultSceneState(),
+    });
+    await closeTestApp(testApp);
+  });
+
+  it('deriva le dimensioni della scena da preset e orientation', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const campaignId = await createCampaign(app);
+
+    const portrait = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/scenes`,
+      payload: { name: 'Verticale', preset: '720p', orientation: 'portrait' },
+    });
+    expect(portrait.statusCode).toBe(201);
+    expect(portrait.json()).toMatchObject({ widthPx: 720, heightPx: 1280 });
+
+    const fallback = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/scenes`,
+      payload: { name: 'Senza dimensioni' },
+    });
+    expect(fallback.statusCode).toBe(201);
+    expect(fallback.json()).toMatchObject({ widthPx: 1920, heightPx: 1080 });
+    await closeTestApp(testApp);
+  });
+
+  it('rifiuta il PATCH della risoluzione di scena', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const campaignId = await createCampaign(app);
+    const sceneId = await createScene(app, campaignId);
+
+    for (const payload of [
+      { preset: '4k' },
+      { orientation: 'portrait' },
+      { widthPx: 1000 },
+      { heightPx: 1000 },
+    ]) {
+      const patched = await app.inject({
+        method: 'PATCH',
+        url: `/api/v1/scenes/${sceneId}`,
+        payload,
+      });
+      expect(patched.statusCode).toBe(400);
+    }
+    await closeTestApp(testApp);
+  });
+
+  it('crea una mappa da preset/orientation senza sfondo', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const campaignId = await createCampaign(app);
+
+    const created = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/maps`,
+      payload: { name: 'Mappa verticale', preset: '1440p', orientation: 'portrait' },
+    });
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({
+      widthPx: 1440,
+      heightPx: 2560,
+      imageAssetId: null,
+    });
+    await closeTestApp(testApp);
+  });
+
+  it('persiste backgroundTransform su create, patch, export e import', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const campaignId = await createCampaign(app);
+    const created = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/scenes`,
+      payload: { name: 'Sfondo', backgroundTransform: { x: 10, y: -5, scale: 2 } },
+    });
+    expect(created.statusCode).toBe(201);
+    const sceneId = created.json<{ id: string }>().id;
+    expect(created.json().backgroundTransform).toEqual({ x: 10, y: -5, scale: 2 });
+
+    const patched = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/scenes/${sceneId}`,
+      payload: { backgroundTransform: { x: 0, y: 0, scale: 1.5 } },
+    });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json().backgroundTransform).toEqual({ x: 0, y: 0, scale: 1.5 });
+
+    const exported = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${campaignId}/export`,
+    });
+    expect(exported.statusCode).toBe(200);
+    const bundle = exported.json();
+    expect(bundle.scenes[0].scene.backgroundTransform).toEqual({ x: 0, y: 0, scale: 1.5 });
+
+    const imported = await app.inject({
+      method: 'POST',
+      url: '/api/v1/campaigns/import',
+      payload: bundle,
+    });
+    expect(imported.statusCode).toBe(201);
+    const importedCampaignId = imported.json<{ campaign: { id: string } }>().campaign.id;
+    const scenes = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${importedCampaignId}/scenes`,
+    });
+    expect(scenes.statusCode).toBe(200);
+    expect(scenes.json().items[0].backgroundTransform).toEqual({ x: 0, y: 0, scale: 1.5 });
+    await closeTestApp(testApp);
+  });
+
+  it('copia backgroundTransform dalla mappa alla scena creata', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const campaignId = await createCampaign(app);
+    const createdMap = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/maps`,
+      payload: { name: 'Mappa con sfondo' },
+    });
+    expect(createdMap.statusCode).toBe(201);
+    const map = createdMap.json<Record<string, unknown> & { id: string; version: number }>();
+    const document: Record<string, unknown> = { ...map };
+    for (const key of ['id', 'campaignId', 'version', 'createdAt', 'updatedAt']) {
+      delete document[key];
+    }
+    const mapId = map.id;
+    const put = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/maps/${mapId}`,
+      payload: {
+        version: map.version,
+        document: { ...document, backgroundTransform: { x: 3, y: 4, scale: 0.5 } },
+      },
+    });
+    expect(put.statusCode).toBe(200);
+
+    const fromMap = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/scenes/from-map`,
+      payload: { mapId },
+    });
+    expect(fromMap.statusCode).toBe(201);
+    const sceneId = fromMap.json<{ sceneId: string }>().sceneId;
+    const scene = await app.inject({ method: 'GET', url: `/api/v1/scenes/${sceneId}` });
+    expect(scene.json()).toMatchObject({
+      scene: {
+        widthPx: 1920,
+        heightPx: 1080,
+        backgroundTransform: { x: 3, y: 4, scale: 0.5 },
+      },
     });
     await closeTestApp(testApp);
   });

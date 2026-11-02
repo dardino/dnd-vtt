@@ -94,6 +94,7 @@ const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
 const toMapDocument = (map: {
   name: string;
   imageAssetId: string | null;
+  backgroundTransform: MapDocument['backgroundTransform'];
   widthPx: number;
   heightPx: number;
   grid: GridConfig;
@@ -107,6 +108,7 @@ const toMapDocument = (map: {
 }): MapDocument => ({
   name: map.name,
   imageAssetId: map.imageAssetId,
+  backgroundTransform: map.backgroundTransform,
   widthPx: map.widthPx,
   heightPx: map.heightPx,
   grid: map.grid,

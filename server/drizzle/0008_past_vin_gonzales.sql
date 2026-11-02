@@ -1,0 +1,1 @@
+ALTER TABLE `scenes` ADD `background_transform` text DEFAULT '{"x":0,"y":0,"scale":1}' NOT NULL;

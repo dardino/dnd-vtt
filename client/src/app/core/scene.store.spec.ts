@@ -27,6 +27,7 @@ const snapshot = (): SceneSnapshot => ({
     campaignId: CAMPAIGN_ID,
     name: 'Ingresso',
     imageAssetId: null,
+    backgroundTransform: { x: 0, y: 0, scale: 1 },
     widthPx: 1920,
     heightPx: 1080,
     stateVersion: 1,

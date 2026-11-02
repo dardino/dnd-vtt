@@ -75,6 +75,8 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Problema:** 50 `structuredClone` completi del documento; con 4.000 muri e 500 spawn la history pesa centinaia di MB.
   - **Proposta:** `MapCommand` con `apply`/`invert` (o patch JSON) e limite 50 invariato; snapshot completo solo per operazioni strutturali.
   - **Fatto quando:** 1.000 modifiche senza crescita MB; undo/redo coperti da test.
+  - **Nota (2 novembre 2026):** con la risoluzione immutabile, `replaceBackground` non deve più cambiare
+    `widthPx`/`heightPx`; aggiorna solo asset e trasformazione (vedi `docs/scene-resolution-background-design.md`).
 
 - [ ] **P4 — Rendering canvas incrementale** · M
   - **Problema:** `renderAll()` a ogni wheel/pointermove; griglia editor con un `Konva.Line` per cella; `getComputedStyle` a ogni render.
