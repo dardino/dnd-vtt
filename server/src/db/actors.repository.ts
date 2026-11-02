@@ -1,4 +1,4 @@
-import { and, desc, eq, like, lt, or } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, lt, or } from 'drizzle-orm';
 import type { Actor, ActorKind, CreateActor, PcStatblock, UpdateActor } from '@dnd-vtt/shared';
 import { v7 as uuidv7 } from 'uuid';
 import type { DbExecutor } from './client.js';
@@ -48,6 +48,16 @@ export const listActors = (
 export const getActor = (db: DbExecutor, id: string): Actor | null => {
   const row = db.select().from(actors).where(eq(actors.id, id)).get();
   return row === undefined ? null : toActor(row);
+};
+
+/** Batch loader per proiezioni: una sola query per tutti gli attori richiesti. */
+export const getActorsByIds = (db: DbExecutor, ids: readonly string[]): Map<string, Actor> => {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) {
+    return new Map();
+  }
+  const rows = db.select().from(actors).where(inArray(actors.id, unique)).all();
+  return new Map(rows.map((row) => [row.id, toActor(row)]));
 };
 
 export const getActorRow = (db: DbExecutor, id: string): typeof actors.$inferSelect | null =>

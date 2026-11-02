@@ -61,10 +61,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 ## 2. Performance (P1)
 
-- [ ] **P1 — `projectDisplay`/`publicScene`: eliminare l'N+1 residuo** · M
+- [x] **P1 — `projectDisplay`/`publicScene`: eliminare l'N+1 residuo** · M
   - **Problema:** la cache per scena copre i token, ma `projectDisplay` continua a risolvere asset per layer/contenuto; con 30 token e 3 display restano centinaia di query sincrone.
   - **Proposta:** batch loader per richiesta (`actorsById`, `assetsById`) con una query `IN (...)` per tabella, passato a `publicScene` e `projectDisplay`; cache per singolo broadcast.
-  - **Fatto quando:** query ~costanti (≤ 4) indipendenti da token/display; test con 30 token e 3 display.
+  - **Fatto quando:** una `getActorsByIds` e una `getAssetsByIds` per proiezione, indipendenti da token/layer/display; nessuna `getActor`/`getAsset` per elemento; test con 30 token, 30 attori e 3 display.
 
 - [ ] **P2 — `updateTokensForActor` mirato** · M
   - **Problema:** scandisce tutte le scene della campagna a ogni modifica di scheda.
