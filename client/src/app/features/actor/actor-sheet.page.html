@@ -64,77 +64,27 @@
     }
 
     @if (pc() || editMode()) {
-      <section class="surface portrait-editor">
-        <h2>Ritratto</h2>
-        <div
-          class="portrait-editor__frame"
-          (pointerdown)="startPortraitDrag($event)"
-          (pointermove)="movePortrait($event)"
-          (pointerup)="finishPortraitDrag()"
-          (pointercancel)="finishPortraitDrag()"
-        >
-          @if (portraitUrl(); as url) {
-            <img
-              [src]="url"
-              alt=""
-              draggable="false"
-              [style.object-position]="(portraitFocusX() * 100) + '% ' + (portraitFocusY() * 100) + '%'"
-              [style.transform]="'scale(' + portraitZoom() + ')'"
-            />
-            <span
-              class="portrait-editor__crop"
-              aria-hidden="true"
-              [style.left.%]="portraitFocusX() * 100"
-              [style.top.%]="portraitFocusY() * 100"
-            ></span>
-          } @else {
-            <span class="muted">Nessun ritratto</span>
-          }
-        </div>
-        <p class="muted">Trascina il cerchio per scegliere il ritaglio del thumbnail.</p>
-        <input #portraitInput class="file-input" type="file" accept="image/*" (change)="uploadPortrait($event)" />
-        <div class="inline-controls">
-          <button type="button" class="btn" [disabled]="portraitBusy()" (click)="portraitInput.click()">
-            {{ portraitBusy() ? 'Caricamento…' : 'Carica ritratto' }}
-          </button>
-          @if (portraitUrl() !== null) {
-            <label class="field field--inline">
-              <span>Zoom</span>
-              <input
-                type="range"
-                min="1"
-                max="3"
-                step="0.05"
-                [value]="portraitZoom()"
-                (input)="setPortraitZoom($event)"
-                (change)="savePortrait()"
-              />
-            </label>
-          }
-        </div>
-      </section>
+      <app-actor-sheet-portrait-editor
+        [url]="portraitUrl()"
+        [focusX]="portraitFocusX()"
+        [focusY]="portraitFocusY()"
+        [zoom]="portraitZoom()"
+        [busy]="portraitBusy()"
+        (upload)="uploadPortrait($event)"
+        (focusChange)="onPortraitFocus($event)"
+        (zoomChange)="setPortraitZoom($event)"
+        (save)="savePortrait()"
+      />
     }
 
-    @if (playerUrl() !== null || playerLinkError() !== null || playerEditing() === false) {
-      <section class="surface player-link">
-        <h2>Scheda giocatore</h2>
-        @if (playerUrl(); as url) {
-          <input type="text" readonly [value]="url" aria-label="URL scheda giocatore" />
-        }
-        <div class="inline-controls">
-          <button type="button" class="btn" [disabled]="playerLinkBusy()" (click)="togglePlayerEditing()">
-            {{ playerEditing() ? 'Spegni matita' : 'Accendi matita' }}
-          </button>
-          @if (playerUrl(); as url) {
-            <a class="btn" [href]="url" target="_blank" rel="noopener">Apri scheda</a>
-          }
-          <span class="muted">{{ playerEditing() ? 'Il giocatore può modificare la scheda' : 'Sola lettura' }}</span>
-        </div>
-        @if (playerLinkError(); as error) {
-          <p class="state--error" role="alert">{{ error }}</p>
-        }
-      </section>
-    }
+    <app-actor-sheet-player-link
+      [url]="playerUrl()"
+      [editing]="playerEditing()"
+      [busy]="playerLinkBusy()"
+      [error]="playerLinkError()"
+      (copyRequest)="copyPlayerLink()"
+      (toggleEditing)="togglePlayerEditing()"
+    />
 
     <nav class="sheet-tabs" aria-label="Sezioni scheda">
       @for (tabItem of tabs(); track tabItem.key) {
@@ -350,105 +300,21 @@
   }
 </section>
 
-<app-dialog
+<app-actor-sheet-level-up-dialog
   [open]="levelUpOpen()"
-  title="Sali di livello"
+  [character]="pc()"
+  [currentXp]="currentXp()"
+  [abilities]="abilities()"
+  [subclasses]="levelUpSubclasses()"
+  [needsSubclass]="levelUpNeedsSubclass()"
+  [isAsi]="levelUpIsAsi()"
+  [feats]="levelUpFeats()"
+  [preview]="levelUpPreview()"
+  [error]="levelUpError()"
+  [busy]="levelUpBusy()"
+  [form]="levelUpForm()"
   (closed)="levelUpOpen.set(false)"
->
-  @if (pc(); as character) {
-    <div class="levelup">
-      <p class="muted">
-        Livello {{ character.class.level }} → <strong>{{ character.class.level + 1 }}</strong>
-        · XP {{ currentXp() }}
-      </p>
-
-      <label class="field">
-        <span>Punti ferita</span>
-        <select [value]="levelUpHpMethod()" (change)="setLevelUpHpMethod($event)">
-          <option value="average">Media ({{ character.hitDice.die / 2 + 1 }})</option>
-          <option value="roll">Tiro del dado vita</option>
-        </select>
-      </label>
-      @if (levelUpHpMethod() === 'roll') {
-        <label class="field">
-          <span>Tiro d{{ character.hitDice.die }}</span>
-          <input
-            type="number"
-            min="1"
-            [max]="character.hitDice.die"
-            [value]="levelUpHpRoll()"
-            (input)="setLevelUpHpRoll($event)"
-          />
-        </label>
-      }
-
-      @if (levelUpNeedsSubclass()) {
-        <label class="field">
-          <span>Sottoclasse</span>
-          <select [value]="levelUpSubclass()" (change)="setLevelUpSubclass($event)">
-            @for (subclass of levelUpSubclasses(); track subclass.id) {
-              <option [value]="subclass.id">{{ subclass.name }}</option>
-            }
-          </select>
-        </label>
-      }
-
-      @if (levelUpIsAsi()) {
-        <label class="field">
-          <span>Talento (alternativo all’aumento)</span>
-          <select [value]="levelUpFeat()" (change)="setLevelUpFeat($event)">
-            <option value="">Nessun talento</option>
-            @for (feat of levelUpFeats(); track feat.id) {
-              <option [value]="feat.id">{{ feat.name }}</option>
-            }
-          </select>
-        </label>
-        @if (levelUpFeat() === '') {
-          <div class="inline-controls">
-            <label class="field field--small">
-              <span>Caratteristica</span>
-              <select [value]="levelUpAsiPrimary()" (change)="setLevelUpAsiPrimary($event)">
-                @for (ability of abilities(); track ability.key) {
-                  <option [value]="ability.key">{{ ability.label }}</option>
-                }
-              </select>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" [checked]="levelUpAsiSplit()" (change)="setLevelUpAsiSplit($event)" />
-              <span>+1 e +1</span>
-            </label>
-            @if (levelUpAsiSplit()) {
-              <label class="field field--small">
-                <span>Seconda caratteristica</span>
-                <select [value]="levelUpAsiSecondary()" (change)="setLevelUpAsiSecondary($event)">
-                  @for (ability of abilities(); track ability.key) {
-                    <option [value]="ability.key">{{ ability.label }}</option>
-                  }
-                </select>
-              </label>
-            }
-          </div>
-        }
-      }
-
-      @if (levelUpError(); as error) {
-        <p class="state--error" role="alert">{{ error }}</p>
-      }
-
-      @if (levelUpPreview(); as preview) {
-        <section class="levelup__preview">
-          <h3>Anteprima</h3>
-          <p>HP massimi <strong>{{ preview.hpMax }}</strong> (+{{ preview.hpGain }})</p>
-          <p>Privilegi: {{ preview.features.length }} · slot: {{ preview.slots.length }}</p>
-        </section>
-      }
-
-      <div class="actions">
-        <button type="button" class="btn" [disabled]="levelUpBusy()" (click)="previewLevelUp()">Anteprima</button>
-        <button type="button" class="btn btn--primary" [disabled]="levelUpBusy()" (click)="confirmLevelUp()">
-          {{ levelUpBusy() ? 'Applicazione…' : 'Conferma level-up' }}
-        </button>
-      </div>
-    </div>
-  }
-</app-dialog>
+  (formChange)="setLevelUpForm($event)"
+  (previewRequest)="previewLevelUp()"
+  (confirmRequest)="confirmLevelUp()"
+/>

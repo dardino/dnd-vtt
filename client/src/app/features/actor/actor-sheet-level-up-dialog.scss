@@ -1,0 +1,57 @@
+@use '../../../styles/mixins' as mx;
+
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.levelup {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.levelup__preview {
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-sunken);
+
+  h3 {
+    margin-bottom: var(--space-1);
+    font-size: var(--text-base);
+  }
+}
+
+.field {
+  @include mx.field(var(--radius-md));
+}
+
+.field--small {
+  width: 6rem;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.inline-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.state--error {
+  color: var(--color-danger);
+}

@@ -44,7 +44,6 @@ import { MeasurementService } from '../../core/measurement.service';
 import { PlayerService } from '../../core/player.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
-import { Dialog } from '../../components/dialog/dialog';
 import {
   ActorSheetCombatPanel,
   type CombatHpChange,
@@ -53,7 +52,16 @@ import {
   ActorSheetInventoryPanel,
   type InventoryPanelItem,
 } from './actor-sheet-inventory-panel';
+import {
+  ActorSheetLevelUpDialog,
+  type LevelUpFormState,
+} from './actor-sheet-level-up-dialog';
 import { ActorSheetNotesPanel } from './actor-sheet-notes-panel';
+import { ActorSheetPlayerLink } from './actor-sheet-player-link';
+import {
+  ActorSheetPortraitEditor,
+  type PortraitFocus,
+} from './actor-sheet-portrait-editor';
 import {
   ActorSheetSpellPanel,
   type SpellPanelPactSlot,
@@ -67,10 +75,12 @@ type SheetTab = 'combat' | 'abilities' | 'spells' | 'equipment' | 'features' | '
   selector: 'app-actor-sheet',
   imports: [
     RouterLink,
-    Dialog,
     ActorSheetCombatPanel,
     ActorSheetInventoryPanel,
+    ActorSheetLevelUpDialog,
     ActorSheetNotesPanel,
+    ActorSheetPlayerLink,
+    ActorSheetPortraitEditor,
     ActorSheetSpellPanel,
   ],
   templateUrl: './actor-sheet.page.html',
@@ -103,7 +113,6 @@ export class ActorSheetPage implements OnInit {
   public readonly portraitFocusY = signal(DEFAULT_ACTOR_PORTRAIT.focusY);
   public readonly portraitZoom = signal(DEFAULT_ACTOR_PORTRAIT.zoom);
   public readonly portraitBusy = signal(false);
-  private portraitDragging = false;
   public readonly savingNotes = signal(false);
   public readonly notesSaved = signal(false);
   public readonly busy = signal(false);
@@ -112,13 +121,16 @@ export class ActorSheetPage implements OnInit {
   public readonly levelUpPreview = signal<LevelUpPreview | null>(null);
   public readonly levelUpError = signal<string | null>(null);
   public readonly levelUpBusy = signal(false);
-  public readonly levelUpHpMethod = signal<'average' | 'roll'>('average');
-  public readonly levelUpHpRoll = signal(6);
-  public readonly levelUpSubclass = signal('');
-  public readonly levelUpAsiPrimary = signal<Ability>('str');
-  public readonly levelUpAsiSecondary = signal<Ability>('con');
-  public readonly levelUpAsiSplit = signal(false);
-  public readonly levelUpFeat = signal('');
+  public readonly levelUpForm = signal<LevelUpFormState>({
+    hpMethod: 'average',
+    hpRoll: 6,
+    subclass: '',
+    asiPrimary: 'str',
+    asiSecondary: 'con',
+    asiSplit: false,
+    feat: '',
+  });
+
   public readonly restBusy = signal(false);
   public readonly playerUrl = signal<string | null>(null);
   public readonly playerEditing = signal(true);
@@ -517,45 +529,20 @@ export class ActorSheetPage implements OnInit {
     this.levelUpOpen.set(true);
     this.levelUpError.set(null);
     this.levelUpPreview.set(null);
-    this.levelUpHpMethod.set('average');
-    this.levelUpHpRoll.set(Math.ceil(pc.hitDice.die / 2));
-    this.levelUpSubclass.set(pc.class.subclassId ?? this.levelUpSubclasses()[0]?.id ?? '');
-    this.levelUpFeat.set('');
-    this.levelUpAsiSplit.set(false);
-    this.levelUpAsiPrimary.set('str');
-    this.levelUpAsiSecondary.set('con');
+    this.levelUpForm.set({
+      hpMethod: 'average',
+      hpRoll: Math.ceil(pc.hitDice.die / 2),
+      subclass: pc.class.subclassId ?? this.levelUpSubclasses()[0]?.id ?? '',
+      asiPrimary: 'str',
+      asiSecondary: 'con',
+      asiSplit: false,
+      feat: '',
+    });
     await this.previewLevelUp();
   }
 
-  public setLevelUpHpMethod(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'average' || value === 'roll') {
-      this.levelUpHpMethod.set(value);
-    }
-  }
-
-  public setLevelUpHpRoll(event: Event): void {
-    this.levelUpHpRoll.set(Math.max(1, Math.trunc(Number((event.target as HTMLInputElement).value))));
-  }
-
-  public setLevelUpSubclass(event: Event): void {
-    this.levelUpSubclass.set((event.target as HTMLSelectElement).value);
-  }
-
-  public setLevelUpAsiPrimary(event: Event): void {
-    this.levelUpAsiPrimary.set((event.target as HTMLSelectElement).value as Ability);
-  }
-
-  public setLevelUpAsiSecondary(event: Event): void {
-    this.levelUpAsiSecondary.set((event.target as HTMLSelectElement).value as Ability);
-  }
-
-  public setLevelUpAsiSplit(event: Event): void {
-    this.levelUpAsiSplit.set((event.target as HTMLInputElement).checked);
-  }
-
-  public setLevelUpFeat(event: Event): void {
-    this.levelUpFeat.set((event.target as HTMLSelectElement).value);
+  public setLevelUpForm(form: LevelUpFormState): void {
+    this.levelUpForm.set(form);
   }
 
   public async previewLevelUp(): Promise<void> {
@@ -593,26 +580,27 @@ export class ActorSheetPage implements OnInit {
     if (pc === null) {
       throw new Error('nessun personaggio');
     }
-    const input: LevelUpInput = { hpMethod: this.levelUpHpMethod() };
+    const form = this.levelUpForm();
+    const input: LevelUpInput = { hpMethod: form.hpMethod };
     if (input.hpMethod === 'roll') {
-      input.hpRoll = this.levelUpHpRoll();
+      input.hpRoll = form.hpRoll;
     }
-    if (this.levelUpNeedsSubclass() && this.levelUpSubclass() !== '') {
-      input.subclassId = this.levelUpSubclass();
-    } else if (pc.class.subclassId === undefined && this.levelUpSubclass() !== '') {
-      input.subclassId = this.levelUpSubclass();
+    if (this.levelUpNeedsSubclass() && form.subclass !== '') {
+      input.subclassId = form.subclass;
+    } else if (pc.class.subclassId === undefined && form.subclass !== '') {
+      input.subclassId = form.subclass;
     }
     if (this.levelUpIsAsi()) {
-      if (this.levelUpFeat() !== '') {
-        input.featId = this.levelUpFeat();
-      } else if (this.levelUpAsiSplit()) {
+      if (form.feat !== '') {
+        input.featId = form.feat;
+      } else if (form.asiSplit) {
         input.abilityIncreases = [
-          { source: 'asi', ability: this.levelUpAsiPrimary(), amount: 1 },
-          { source: 'asi', ability: this.levelUpAsiSecondary(), amount: 1 },
+          { source: 'asi', ability: form.asiPrimary, amount: 1 },
+          { source: 'asi', ability: form.asiSecondary, amount: 1 },
         ];
       } else {
         input.abilityIncreases = [
-          { source: 'asi', ability: this.levelUpAsiPrimary(), amount: 2 },
+          { source: 'asi', ability: form.asiPrimary, amount: 2 },
         ];
       }
     }
@@ -703,13 +691,7 @@ export class ActorSheetPage implements OnInit {
     }
   }
 
-  public async uploadPortrait(event: Event): Promise<void> {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    input.value = '';
-    if (file === undefined) {
-      return;
-    }
+  public async uploadPortrait(file: File): Promise<void> {
     this.portraitBusy.set(true);
     try {
       const asset = await this.assetsApi.upload(file);
@@ -726,41 +708,13 @@ export class ActorSheetPage implements OnInit {
     }
   }
 
-  public startPortraitDrag(event: PointerEvent): void {
-    if (this.portraitUrl() === null) {
-      return;
-    }
-    const element = event.currentTarget as HTMLElement;
-    element.setPointerCapture(event.pointerId);
-    this.portraitDragging = true;
-    this.movePortrait(event);
+  public onPortraitFocus(focus: PortraitFocus): void {
+    this.portraitFocusX.set(focus.focusX);
+    this.portraitFocusY.set(focus.focusY);
   }
 
-  public movePortrait(event: PointerEvent): void {
-    if (!this.portraitDragging) {
-      return;
-    }
-    const element = event.currentTarget as HTMLElement;
-    const rect = element.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width;
-    const y = (event.clientY - rect.top) / rect.height;
-    this.portraitFocusX.set(Math.max(0.02, Math.min(0.98, x)));
-    this.portraitFocusY.set(Math.max(0.02, Math.min(0.98, y)));
-  }
-
-  public finishPortraitDrag(): void {
-    if (!this.portraitDragging) {
-      return;
-    }
-    this.portraitDragging = false;
-    void this.savePortrait();
-  }
-
-  public setPortraitZoom(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    if (Number.isFinite(value)) {
-      this.portraitZoom.set(Math.max(1, Math.min(3, value)));
-    }
+  public setPortraitZoom(value: number): void {
+    this.portraitZoom.set(Math.max(1, Math.min(3, value)));
   }
 
   public async savePortrait(): Promise<void> {
@@ -853,11 +807,23 @@ export class ActorSheetPage implements OnInit {
       const result = await this.players.createLink(this.actorId());
       this.playerUrl.set(result.url);
       this.playerEditing.set(true);
-      await navigator.clipboard?.writeText(result.url).catch(() => undefined);
+      await this.copyPlayerLink();
     } catch (error) {
       this.playerLinkError.set(this.messageFor(error));
     } finally {
       this.playerLinkBusy.set(false);
+    }
+  }
+
+  public async copyPlayerLink(): Promise<void> {
+    const url = this.playerUrl();
+    if (url === null) {
+      return;
+    }
+    try {
+      await navigator.clipboard?.writeText(url);
+    } catch {
+      // La copia è un'utilità: se il browser la nega l'URL resta selezionabile.
     }
   }
 

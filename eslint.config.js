@@ -124,7 +124,6 @@ export default tseslint.config(
       'client/src/app/features/maps/map-editor.page.ts',
       'client/src/app/features/character/character-wizard.page.html',
       'client/src/app/features/character/character-wizard.store.ts',
-      'client/src/app/features/actor/actor-sheet.page.html',
       'shared/src/schemas/sheet.ts',
       'shared/src/lib/sheet/__fixtures__/catalog.ts',
       'client/src/app/features/maps/map-editor.page.html',
