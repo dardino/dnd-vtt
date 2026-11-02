@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import sharp from 'sharp';
 import {
   createDefaultSceneState,
   emptyMapDocument,
@@ -5,6 +8,7 @@ import {
   sceneDimensions,
   srdMonsterToStatblock,
   type Actor,
+  type Asset,
   type CreateMap,
   type CreateSceneFromMap,
   type CreateSceneFromMapResult,
@@ -16,6 +20,8 @@ import {
   type TokenState,
 } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
+import { storeAsset } from '../assets/service.js';
+import type { AppEnv } from '../config/env.js';
 import { getActor, insertActor } from '../db/actors.repository.js';
 import { getAsset } from '../db/assets.repository.js';
 import { getCampaign, updateCampaign } from '../db/campaigns.repository.js';
@@ -82,22 +88,64 @@ export const createMap = (db: AppDatabase, campaignId: string, input: CreateMap)
 
 export const requireMapFull = (db: AppDatabase, id: string): Map => requireMap(db, id);
 
-export const putMap = (
+/**
+ * Riduce lo sfondo alla dimensione effettivamente renderizzata, preservando la
+ * resa: il nuovo asset viene salvato come derivato e la scala viene ricalcolata.
+ * L'asset originale non viene mai sovrascritto in questo passo; i derivati non
+ * più referenziati andranno raccolti dal GC (vedi TODO SR5).
+ */
+const downscaleBackground = async (
+  env: AppEnv,
+  db: AppDatabase,
+  document: MapDocument,
+  asset: Asset,
+): Promise<MapDocument> => {
+  const scale = document.backgroundTransform.scale;
+  const factor = Math.min(
+    1,
+    document.widthPx / asset.width,
+    document.heightPx / asset.height,
+  );
+  if (factor >= 1) {
+    return document;
+  }
+  const width = Math.max(1, Math.round(asset.width * factor));
+  const height = Math.max(1, Math.round(asset.height * factor));
+  if (width === asset.width && height === asset.height) {
+    return document;
+  }
+  const source = await readFile(join(env.uploadDir, 'webp', `${asset.hash}.webp`));
+  const resized = await sharp(source, { limitInputPixels: 100_000_000, failOn: 'error' })
+    .resize({ width, height, fit: 'fill' })
+    .webp({ quality: 82 })
+    .toBuffer();
+  const derived = await storeAsset(env, db, resized);
+  return {
+    ...document,
+    imageAssetId: derived.id,
+    backgroundTransform: { ...document.backgroundTransform, scale: scale / factor },
+  };
+};
+
+export const putMap = async (
+  env: AppEnv,
   db: AppDatabase,
   id: string,
   version: number,
   document: MapDocument,
-): Map => {
+): Promise<Map> => {
   const current = requireMap(db, id);
   if (current.version !== version) {
     throw new AppError('state_conflict', 409, 'La mappa è stata modificata altrove', {
       currentVersion: current.version,
     });
   }
-  if (document.imageAssetId !== null && getAsset(db, document.imageAssetId) === null) {
+  const asset = document.imageAssetId === null ? null : getAsset(db, document.imageAssetId);
+  if (document.imageAssetId !== null && asset === null) {
     throw notFound('Immagine non trovata');
   }
-  const updated = updateMapDocument(db, id, document, version);
+  const next = asset === null ? document : await downscaleBackground(env, db, document, asset);
+  const updated = updateMapDocument(db, id, next, version);
   if (updated === null) {
     throw new AppError('state_conflict', 409, 'La mappa è stata modificata altrove');
   }

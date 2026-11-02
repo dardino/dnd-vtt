@@ -50,7 +50,7 @@ export const mapRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =
     app.put('/maps/:id', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(putMapSchema, request.body);
-      return reply.send(putMap(db, id, body.version, body.document));
+      return reply.send(await putMap(env, db, id, body.version, body.document));
     });
 
     app.delete('/maps/:id', async (request, reply) => {
