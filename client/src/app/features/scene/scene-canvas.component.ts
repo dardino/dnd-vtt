@@ -37,6 +37,7 @@ import {
   type VisionGrid,
 } from '@dnd-vtt/shared';
 import { MeasurementService } from '../../core/measurement.service';
+import { CanvasInputController } from './canvas-input-controller';
 import { FogRenderer } from './fog-renderer';
 import { GridRenderer } from './grid-renderer';
 import { MapLayerRenderer } from './map-layer-renderer';
@@ -168,7 +169,7 @@ export class SceneCanvasComponent implements OnDestroy {
   private drawingDraft: Point[] | null = null;
   private lassoPoints: Point[] | null = null;
   private draggingMeasure = false;
-  private rightPan: { pointerX: number; pointerY: number } | null = null;
+  private input: CanvasInputController | null = null;
   private loadingImages = new Map<string, Promise<HTMLImageElement>>();
   private portraitImages = new Map<string, HTMLImageElement>();
 
@@ -215,6 +216,8 @@ export class SceneCanvasComponent implements OnDestroy {
       clearTimeout(this.idleTimer);
     }
     this.resizeObserver?.disconnect();
+    this.input?.detach();
+    this.input = null;
     this.stage?.destroy();
     this.stage = null;
   }
@@ -320,14 +323,26 @@ export class SceneCanvasComponent implements OnDestroy {
     stage.add(this.drawingLayer);
     stage.add(this.measureLayer);
 
-    stage.on('wheel', (event) => this.onWheel(event));
-    stage.on('contextmenu', (event) => event.evt.preventDefault());
-    stage.on('dragstart', () => this.beginInteraction());
-    stage.on('dragmove', () => {
-      this.syncCameraFromStage();
-      this.publishCamera();
+    this.input = new CanvasInputController({
+      element: container,
+      camera: this.sceneCamera,
+      readOnly: () => this.readOnly(),
+      syncCamera: () => {
+        this.syncCameraFromStage();
+        this.syncCameraContext();
+      },
+      applyCamera: () => this.applyCamera(),
+      onInteractionStart: () => this.beginInteraction(),
+      onInteractionEnd: () => this.scheduleTiles(),
+      setPanning: (panning) => {
+        stage.draggable(!panning && this.tool() === 'select' && !this.readOnly());
+      },
     });
-    stage.on('dragend', () => this.scheduleTiles());
+    this.input.attach();
+
+    stage.on('dragstart', () => this.input?.stageDragStart());
+    stage.on('dragmove', () => this.input?.stageDragMove());
+    stage.on('dragend', () => this.input?.stageDragEnd());
     stage.on('click tap', (event) => {
       if (event.target === stage) {
         this.tokenSelected.emit(null);
@@ -445,27 +460,6 @@ export class SceneCanvasComponent implements OnDestroy {
       this.renderDrawings();
       this.scheduleTiles();
     });
-  }
-
-  private onWheel(event: Konva.KonvaEventObject<WheelEvent>): void {
-    event.evt.preventDefault();
-    if (this.readOnly()) {
-      return;
-    }
-    const stage = this.stage;
-    if (stage === null) {
-      return;
-    }
-    const pointer = stage.getPointerPosition();
-    if (pointer === null) {
-      return;
-    }
-    const factor = event.evt.deltaY < 0 ? 1.08 : 1 / 1.08;
-    this.syncCameraFromStage();
-    this.syncCameraContext();
-    this.sceneCamera.zoomAt(factor, pointer);
-    this.applyCamera();
-    this.beginInteraction();
   }
 
   private beginInteraction(): void {
@@ -729,22 +723,7 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private onPointerDown(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void {
-    if (
-      event.evt instanceof MouseEvent
-      && event.evt.button === 2
-      && this.stage !== null
-      && !this.readOnly()
-    ) {
-      const pointer = this.stage.getPointerPosition();
-      if (pointer !== null) {
-        this.syncCameraFromStage();
-        this.rightPan = {
-          pointerX: pointer.x,
-          pointerY: pointer.y,
-        };
-        this.stage.draggable(false);
-      }
-      event.evt.preventDefault();
+    if (event.evt instanceof MouseEvent && event.evt.button !== 0) {
       return;
     }
     const tool = this.tool();
@@ -781,18 +760,7 @@ export class SceneCanvasComponent implements OnDestroy {
 
   private onPointerMove(): void {
     const stage = this.stage;
-    if (this.rightPan !== null && stage !== null) {
-      const pointer = stage.getPointerPosition();
-      if (pointer !== null) {
-        this.syncCameraFromStage();
-        this.syncCameraContext();
-        this.sceneCamera.panBy(
-          pointer.x - this.rightPan.pointerX,
-          pointer.y - this.rightPan.pointerY,
-        );
-        this.rightPan = { pointerX: pointer.x, pointerY: pointer.y };
-        this.applyCamera();
-      }
+    if (stage === null || this.input?.panning === true) {
       return;
     }
     const point = this.worldPoint();
@@ -824,9 +792,7 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private onPointerUp(): void {
-    if (this.rightPan !== null) {
-      this.rightPan = null;
-      this.stage?.draggable(this.tool() === 'select' && !this.readOnly());
+    if (this.input?.panning === true) {
       return;
     }
     if (this.draggingMeasure) {

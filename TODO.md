@@ -264,7 +264,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Fatto quando:** tutti i file coinvolti scendono sotto 400 righe (obiettivo 350), test sugli store, E2E invariati.
   - **Stato (R1c, 1 novembre 2026):** `RegiaStore` estratto in `regia.store.ts` (+ `regia-viewport.ts` e `regia-summary.ts`), con test su program, display e viewport; `dm-shell.page.ts` scende a 1.498 righe effettive. Restano componenti e template.
 
-- [ ] **R2 — `SceneCanvasComponent`** · L
+- [x] **R2 — `SceneCanvasComponent`** · L
   - **Proposta:** `KonvaStageService`, `MapLayerRenderer`, `GridRenderer`, `FogRenderer`, `TokenRenderer`, `CanvasInputController`; la matematica resta in `shared`.
   - **Fatto quando:** ogni renderer è testabile in isolamento e nessun file supera 400 righe.
   - **Stato (R2a, 1 novembre 2026):** `GridRenderer` estratto in `grid-renderer.ts` con test dedicati (quadrata, esagonale, visibilità, clip); `scene-canvas.component.ts` scende a 1.458 righe effettive. Restano mappa, fog, token e input.
@@ -272,6 +272,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Stato (R2c, 1 novembre 2026):** `TokenRenderer` estratto in `token-renderer.ts` con test su token senza/con ritratto, nascosto, selezione, label/PF e draggable; il componente conserva stage, input, visione, orchestrazione e collegamento degli handler, e scende a 1.197 righe effettive. Restano mappa e input.
   - **Stato (R2d, 1 novembre 2026):** `MapLayerRenderer` estratto in `map-layer-renderer.ts` con test su immagine singola, tile/LOD scelto, preview, fallback e caricamento fallito; il componente conserva stage, cache immagini, input e orchestrazione, e scende a 1.112 righe effettive. Resta l'input.
   - **Stato (R2e, 1 novembre 2026):** `SceneCamera` estratto in `scene-camera.ts` con test su fit, limiti di zoom, zoom verso un punto, pan, viewport salvato e conversioni schermo↔mondo; il componente delega camera/zoom/pan/fit e conserva stage, layer, input e renderer, e scende a 1.089 righe effettive. Resta l'input.
+  - **Stato (R2f, 2 novembre 2026):** `CanvasInputController` estratto in `canvas-input-controller.ts` con test su wheel verso il puntatore, limiti di zoom, pan centrale/destro con pointer capture, drag pan e detach; il componente delega i gesti camera e conserva stage, layer, tool, fog/misura/token, e scende a 1.055 righe effettive.
 
 - [ ] **R3 — `ActorSheetPage`** · M
   - **Proposta:** `SheetHeader`, `SheetTabs`, `CombatPanel`, `SpellPanel`, `InventoryPanel`, `NotesPanel`, `PortraitEditor`, `LevelUpDialog`, `PlayerLinkPanel`.
