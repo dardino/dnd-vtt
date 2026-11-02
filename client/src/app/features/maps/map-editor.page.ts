@@ -41,6 +41,11 @@ import {
   type EditorTool,
   type WallsDrawnEvent,
 } from './map-editor-canvas.component';
+import {
+  pushBoundedHistory,
+  snapshotOf,
+  type HistorySnapshot,
+} from './map-history';
 
 const TOOL_LABELS: Array<{ tool: EditorTool; label: string; hint: string }> = [
   { tool: 'select', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
@@ -91,8 +96,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly spawnTab = signal<'srd' | 'actors'>('srd');
   public readonly actors = signal<Actor[]>([]);
 
-  private history: MapDocument[] = [];
-  private redoStack: MapDocument[] = [];
+  private history: HistorySnapshot<MapDocument>[] = [];
+  private redoStack: HistorySnapshot<MapDocument>[] = [];
   private unloadHandler = (event: BeforeUnloadEvent): void => {
     if (this.dirty()) {
       event.preventDefault();
@@ -634,8 +639,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (doc === null || previous === undefined) {
       return;
     }
-    this.redoStack.push(doc);
-    this.doc.set(previous);
+    this.redoStack = pushBoundedHistory(this.redoStack, snapshotOf(doc));
+    this.doc.set(previous.value);
     this.dirty.set(true);
   }
 
@@ -645,8 +650,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (doc === null || next === undefined) {
       return;
     }
-    this.history.push(doc);
-    this.doc.set(next);
+    this.history = pushBoundedHistory(this.history, snapshotOf(doc));
+    this.doc.set(next.value);
     this.dirty.set(true);
   }
 
@@ -681,10 +686,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     const next = structuredClone(current);
     mutator(next);
-    this.history.push(current);
-    if (this.history.length > 50) {
-      this.history.shift();
-    }
+    this.history = pushBoundedHistory(this.history, snapshotOf(current));
     this.redoStack = [];
     this.doc.set(next);
     this.dirty.set(true);
