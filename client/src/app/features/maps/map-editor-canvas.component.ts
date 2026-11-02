@@ -13,7 +13,6 @@ import {
 } from '@angular/core';
 import Konva from 'konva';
 import {
-  HEX_ROW_RATIO,
   cellCenterPx,
   distanceToSegment,
   latticePointPx,
@@ -30,6 +29,7 @@ import {
   type WallSegment,
 } from '@dnd-vtt/shared';
 import { MeasurementService } from '../../core/measurement.service';
+import { MapGridRenderer } from './map-grid-renderer';
 
 export type EditorTool
   = | 'select'
@@ -95,6 +95,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
 
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
   private readonly units = inject(MeasurementService);
+  private readonly gridRenderer = new MapGridRenderer();
   private stage: Konva.Stage | null = null;
   private mapLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
@@ -559,67 +560,13 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (layer === null) {
       return;
     }
-    layer.destroyChildren();
-    const grid = this.grid();
-    const image = this.image();
-    if (!this.showGrid() || image === null) {
-      this.gridLines.set(0);
-      layer.draw();
-      return;
-    }
-    const scale = this.stage?.scaleX() ?? 1;
-    const strokeWidth = Math.max(0.5, 1 / Math.max(scale, 0.05));
-    const stroke = 'rgba(110, 180, 255, 0.42)';
-    if (grid.type === 'hex') {
-      const radius = grid.cellSizePx / Math.sqrt(3);
-      const rowStep = grid.cellSizePx * HEX_ROW_RATIO;
-      const rows = Math.ceil((image.height - grid.offsetY) / rowStep);
-      const columns = Math.ceil((image.width - grid.offsetX) / grid.cellSizePx);
-      if (rows * columns > 20_000) {
-        layer.draw();
-        return;
-      }
-      for (let row = 0; row <= rows; row += 1) {
-        for (let column = 0; column <= columns; column += 1) {
-          const centerX = grid.offsetX + (column + 0.5 + (row & 1) / 2) * grid.cellSizePx;
-          const centerY = grid.offsetY + (row + 0.5) * rowStep;
-          const points: number[] = [];
-          for (let side = 0; side < 6; side += 1) {
-            const angle = (Math.PI / 3) * side - Math.PI / 2;
-            points.push(centerX + radius * Math.cos(angle), centerY + radius * Math.sin(angle));
-          }
-          layer.add(new Konva.Line({
-            points,
-            closed: true,
-            stroke,
-            strokeWidth,
-            listening: false,
-          }));
-        }
-      }
-      layer.draw();
-      this.gridLines.set(layer.getChildren().length);
-      return;
-    }
-    const cell = grid.cellSizePx;
-    for (let x = grid.offsetX; x <= image.width; x += cell) {
-      layer.add(new Konva.Line({
-        points: [x, grid.offsetY, x, image.height],
-        stroke,
-        strokeWidth,
-        listening: false,
-      }));
-    }
-    for (let y = grid.offsetY; y <= image.height; y += cell) {
-      layer.add(new Konva.Line({
-        points: [grid.offsetX, y, image.width, y],
-        stroke,
-        strokeWidth,
-        listening: false,
-      }));
-    }
-    layer.draw();
-    this.gridLines.set(layer.getChildren().length);
+    this.gridLines.set(this.gridRenderer.render({
+      layer,
+      grid: this.grid(),
+      visible: this.showGrid(),
+      scale: this.stage?.scaleX() ?? 1,
+      image: this.image(),
+    }));
   }
 
   private renderWalls(): void {
