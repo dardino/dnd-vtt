@@ -86,10 +86,15 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** LRU (100 mappe / 50 ritratti) e clear su cambio campagna/scena.
   - **Fatto quando:** memoria stabile in una sessione lunga.
 
-- [ ] **P6 — Indici di paginazione** · S
-  - **Problema:** il cursore `createdAt+id` non ha un indice composito verificato.
-  - **Proposta:** `EXPLAIN QUERY PLAN` su campaigns/scenes/actors; indice `(campaignId, createdAt, id)` dove serve.
-  - **Fatto quando:** i piani usano l'indice, test di query plan.
+- [x] **P6 — Indici di paginazione** · S
+  - **Problema (corretto):** gli indici compositi per il cursore `createdAt+id` esistevano già; mancava solo una verifica automatica.
+  - **Esito:** `campaigns_created_at_idx (created_at, id)`, `scenes_campaign_idx (campaign_id, created_at, id)`,
+    `actors_campaign_idx (campaign_id, created_at, id)` e `actors_kind_idx (kind, created_at, id)` sono usati
+    dai piani (`EXPLAIN QUERY PLAN`) senza `TEMP B-TREE`: nessuna migrazione necessaria. Regressione coperta da
+    `server/test/query-plan.spec.ts`. Nota: il predicato `createdAt < ? OR (createdAt = ? AND id < ?)` non
+    produce un range seek sulla tupla; per campagne il piano è uno scan dell'indice, per scene/attori il seek
+    usa solo `campaign_id`/`kind`. Un confronto row-value `(created_at, id) < (?, ?)` sarebbe più selettivo,
+    ma è un cambio di query fuori dallo scope di questo passo.
 
 - [ ] **P7 — `applySceneAction`: misurare prima di ottimizzare** · S
   - **Problema:** riserializza e ri-valida l'intero `SceneState` a ogni azione.
