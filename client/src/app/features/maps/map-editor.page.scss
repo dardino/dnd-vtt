@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: block;
   width: 100%;
@@ -40,8 +42,10 @@
     text-decoration: none;
     white-space: nowrap;
 
-    &:hover {
-      color: var(--color-text);
+    @include mx.hover {
+      &:hover {
+        color: var(--color-text);
+      }
     }
   }
 
@@ -56,11 +60,18 @@
     font: inherit;
     font-weight: 600;
 
-    &:hover,
     &:focus {
       border-color: var(--color-border);
       background: var(--color-bg);
       outline: none;
+    }
+
+    @include mx.hover {
+      &:hover {
+        border-color: var(--color-border);
+        background: var(--color-bg);
+        outline: none;
+      }
     }
   }
 
@@ -97,9 +108,11 @@
     text-align: left;
     cursor: pointer;
 
-    &:hover {
-      background: var(--color-bg-hover);
-      color: var(--color-text);
+    @include mx.hover {
+      &:hover {
+        background: var(--color-bg-hover);
+        color: var(--color-text);
+      }
     }
 
     &.is-active {
@@ -201,9 +214,11 @@
     text-align: left;
     cursor: pointer;
 
-    &:hover {
-      background: var(--color-bg-hover);
-      color: var(--color-text);
+    @include mx.hover {
+      &:hover {
+        background: var(--color-bg-hover);
+        color: var(--color-text);
+      }
     }
   }
 }
@@ -261,8 +276,10 @@
       text-align: left;
       cursor: pointer;
 
-      &:hover {
-        background: var(--color-bg-hover);
+      @include mx.hover {
+        &:hover {
+          background: var(--color-bg-hover);
+        }
       }
     }
   }

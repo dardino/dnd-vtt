@@ -24,6 +24,14 @@
   min-height: 0;
 }
 
+/// Gli stati hover valgono solo sui dispositivi con puntatore che li
+/// supporta: su touch non restano "appiccicati" dopo il tap.
+@mixin hover {
+  @media (hover: hover) {
+    @content;
+  }
+}
+
 // --- superfici ----------------------------------------------------------
 @mixin bordered($radius: var(--radius-md), $bg: var(--color-bg-raised)) {
   border: var(--border-width) solid var(--color-border);
@@ -58,8 +66,10 @@
   color: var(--color-text);
   transition: border-color var(--transition), background var(--transition);
 
-  &:hover {
-    border-color: var(--color-border-strong);
+  @include hover {
+    &:hover {
+      border-color: var(--color-border-strong);
+    }
   }
 
   &:focus-visible {
@@ -88,7 +98,7 @@
   }
 }
 
-@mixin button-base($radius: var(--radius-md)) {
+@mixin button-base($radius: var(--radius-sm)) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -103,8 +113,10 @@
   line-height: 1;
   transition: background var(--transition), border-color var(--transition), color var(--transition);
 
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover);
+  @include hover {
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+    }
   }
 
   &:disabled {
@@ -126,9 +138,11 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover);
-    color: var(--color-text);
+  @include hover {
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+      color: var(--color-text);
+    }
   }
 
   &:disabled {

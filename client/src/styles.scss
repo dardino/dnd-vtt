@@ -1,5 +1,6 @@
 @use './styles/tokens';
 @use './styles/themes';
+@use './styles/animations';
 @use './styles/mixins' as mx;
 
 *,
@@ -60,7 +61,7 @@ a {
 }
 
 .surface {
-  @include mx.surface(var(--radius-lg));
+  @include mx.surface;
 }
 
 .muted {
@@ -94,12 +95,14 @@ a {
 }
 
 .btn {
-  @include mx.button-base(var(--radius-sm));
+  @include mx.button-base;
   gap: var(--space-2);
 }
 
-.btn:hover {
-  border-color: var(--color-border-strong);
+@include mx.hover {
+  .btn:hover {
+    border-color: var(--color-border-strong);
+  }
 }
 
 .btn--primary {
@@ -108,9 +111,11 @@ a {
   color: var(--color-accent-contrast);
 }
 
-.btn--primary:hover {
-  background: var(--color-accent-hover);
-  border-color: var(--color-accent-hover);
+@include mx.hover {
+  .btn--primary:hover {
+    background: var(--color-accent-hover);
+    border-color: var(--color-accent-hover);
+  }
 }
 
 .btn:disabled {
@@ -148,8 +153,10 @@ a {
   font-size: var(--text-sm);
 }
 
-.check:hover {
-  background: var(--color-bg-hover);
+@include mx.hover {
+  .check:hover {
+    background: var(--color-bg-hover);
+  }
 }
 
 .check input {
@@ -164,4 +171,17 @@ a {
 
 .sr-only {
   @include mx.visually-hidden;
+}
+
+/// Un unico punto ferma spinner, shimmer, dado e transizioni per chi
+/// preferisce ridurre il movimento.
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

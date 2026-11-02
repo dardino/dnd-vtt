@@ -41,7 +41,7 @@
 }
 
 .field {
-  @include mx.field(var(--radius-md));
+  @include mx.field;
 }
 
 .field--small {
@@ -68,8 +68,10 @@
   background: var(--color-bg);
   color: var(--color-text);
 
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+    }
   }
 }
 
@@ -96,8 +98,10 @@
   color: var(--color-text-muted);
   cursor: pointer;
 
-  &:hover:not(:disabled) {
-    color: var(--color-text);
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover:not(:disabled) {
+      color: var(--color-text);
+      background: var(--color-bg-hover);
+    }
   }
 }

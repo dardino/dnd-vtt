@@ -21,7 +21,7 @@
   z-index: 5;
   padding: var(--space-3);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--color-bg-raised) 94%, transparent);
   backdrop-filter: blur(8px);
 
@@ -72,7 +72,7 @@
 }
 
 .player__panel {
-  @include mx.surface(var(--radius-lg));
+  @include mx.surface;
   @include mx.stack(var(--space-2));
   padding: var(--space-3);
 
@@ -83,12 +83,12 @@
   textarea,
   input,
   select {
-    @include mx.control(var(--radius-md));
+    @include mx.control;
     background: var(--color-bg);
   }
 
   button {
-    @include mx.button-base(var(--radius-md));
+    @include mx.button-base;
     background: var(--color-bg);
   }
 }

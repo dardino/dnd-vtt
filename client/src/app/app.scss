@@ -65,10 +65,16 @@
   text-decoration: none;
 }
 
-.shell-nav a:hover,
 .shell-nav a.is-active {
   background: var(--color-bg-hover);
   color: var(--color-text);
+}
+
+@include mx.hover {
+  .shell-nav a:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text);
+  }
 }
 
 .theme-toggle {

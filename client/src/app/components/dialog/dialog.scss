@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: contents;
 }
@@ -43,9 +45,11 @@
   color: var(--color-text-muted);
   font-size: var(--text-lg);
 
-  &:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text);
+  @include mx.hover {
+    &:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text);
+    }
   }
 }
 

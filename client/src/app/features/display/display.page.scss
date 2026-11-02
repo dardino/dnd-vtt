@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: block;
   width: 100vw;
@@ -83,8 +85,13 @@
   -webkit-text-stroke: 0.5px var(--display-bg);
   text-shadow: 0 0 3px var(--display-bg);
 
-  &:hover,
   &:focus-visible {
     opacity: 1;
+  }
+
+  @include mx.hover {
+    &:hover {
+      opacity: 1;
+    }
   }
 }

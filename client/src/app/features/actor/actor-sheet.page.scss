@@ -1,9 +1,8 @@
 @use '../../../styles/mixins' as mx;
 
 :host {
+  @include mx.fill-height;
   display: flex;
-  flex: 1;
-  min-height: 0;
   padding: var(--space-4) var(--space-5);
 }
 
@@ -40,8 +39,10 @@
   font-size: var(--text-sm);
   text-decoration: none;
 
-  &:hover {
-    color: var(--color-text);
+  @include mx.hover {
+    &:hover {
+      color: var(--color-text);
+    }
   }
 }
 
@@ -56,7 +57,7 @@
   min-height: var(--control-height);
   padding: var(--space-1) var(--space-2);
   border: var(--border-width) solid var(--color-accent);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   font-size: var(--text-sm);
@@ -81,9 +82,11 @@
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 
-  &:hover {
-    color: var(--color-text);
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      color: var(--color-text);
+      background: var(--color-bg-hover);
+    }
   }
 
   &--active {
@@ -215,7 +218,7 @@
 }
 
 .field {
-  @include mx.field(var(--radius-md));
+  @include mx.field;
 }
 
 .field--small {
@@ -233,8 +236,10 @@
   background: var(--color-bg);
   color: var(--color-text);
 
-  &:hover {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      background: var(--color-bg-hover);
+    }
   }
 }
 

@@ -2,9 +2,8 @@
 @use '../../../styles/mixins' as mx;
 
 :host {
+  @include mx.fill-height;
   display: flex;
-  flex: 1;
-  min-height: 0;
   padding: var(--space-5);
 }
 
@@ -62,9 +61,11 @@
   transition: background var(--transition), color var(--transition), border-color var(--transition);
 }
 
-.step:hover {
-  background: var(--color-bg-hover);
-  color: var(--color-text);
+@include mx.hover {
+  .step:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text);
+  }
 }
 
 .step--active {
@@ -403,8 +404,10 @@
   text-align: left;
 }
 
-.error-row:hover {
-  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+@include mx.hover {
+  .error-row:hover {
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  }
 }
 
 .warning-row {
@@ -486,18 +489,6 @@ code {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .spinner {
-    animation: none;
-  }
 }
 
 @include mx.respond('xl') {

@@ -303,17 +303,20 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 ## 6. CSS e UI (P2)
 
-- [ ] **C1 — Scala dei raggi** · S
+- [x] **C1 — Scala dei raggi** · S — ✅ 2 novembre 2026
   - **Proposta:** `control` = `--radius-sm`, card = `--radius-md`, overlay = `--radius-lg`; rimuovere gli override locali.
   - **Fatto quando:** nessun `border-radius` hardcoded fuori dai token.
+  - **Esito:** `.surface` e i pannelli usano `--radius-md`; controlli, field e pulsanti `--radius-sm`; dialog/overlay `--radius-lg`; rimossi gli override `field`/`control`/`button-base` con `--radius-md`. Restano solo pill `999px` e cerchi `50%` per forma, non per raggio.
 
-- [ ] **C2 — Catena `:host`/fill-height** · S
+- [x] **C2 — Catena `:host`/fill-height** · S — ✅ 2 novembre 2026
   - **Proposta:** usare `mx.fill-height` sui `:host` di pagina; rimuovere `@mixin fill-height` da `_layout.scss` se resta inutilizzato.
   - **Fatto quando:** tutte le route hanno altezza coerente.
+  - **Esito:** `dm-shell`, `character-wizard`, `actor-sheet` e `actor-wizard` usano `mx.fill-height`; rimosso il duplicato morto da `_layout.scss` (resta il mixin attivo in `_mixins.scss`).
 
-- [ ] **C3 — Animazioni, motion e hover** · S
+- [x] **C3 — Animazioni, motion e hover** · S — ✅ 2 novembre 2026
   - **Proposta:** `_animations.scss` con `shimmer`/`spin`; `prefers-reduced-motion` globale; hover solo dentro `@media (hover: hover)`.
   - **Fatto quando:** spinner, dado e skeleton rispettano la preferenza.
+  - **Esito:** keyframes centralizzati in `_animations.scss` (rimossi dai componenti), regola globale `prefers-reduced-motion` per animazioni/transizioni, mixin `mx.hover` applicato a tutti gli stati hover.
 
 - [ ] **C4 — Ultimi colori hardcoded** · S
   - **Proposta:** sostituire i residui `#hex`/`rgb()` con `--editor-*`, `--overlay-*`, `--fog-color`; fallback solo nei default TS del canvas.

@@ -61,8 +61,10 @@
   background: var(--color-bg);
   color: var(--color-text);
 
-  &:hover {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      background: var(--color-bg-hover);
+    }
   }
 }
 

@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: inline-flex;
 }
@@ -10,15 +12,17 @@
   min-height: var(--control-height);
   padding: var(--space-1) var(--space-3);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-bg-raised);
   color: var(--color-text);
   font-size: var(--text-sm);
   line-height: 1;
   transition: background var(--transition), border-color var(--transition), color var(--transition);
 
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+    }
   }
 
   &:disabled {
@@ -32,8 +36,10 @@
   background: var(--color-accent);
   color: var(--color-accent-contrast);
 
-  &:hover:not(:disabled) {
-    background: var(--color-accent-hover, var(--color-accent));
+  @include mx.hover {
+    &:hover:not(:disabled) {
+      background: var(--color-accent-hover, var(--color-accent));
+    }
   }
 }
 
@@ -47,8 +53,10 @@
   background: transparent;
   color: var(--color-text-muted);
 
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover);
-    color: var(--color-text);
+  @include mx.hover {
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+      color: var(--color-text);
+    }
   }
 }

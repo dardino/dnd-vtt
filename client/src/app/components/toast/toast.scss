@@ -1,3 +1,5 @@
+@use '../../../styles/mixins' as mx;
+
 :host {
   display: contents;
 }
@@ -57,8 +59,10 @@
   font-size: var(--text-lg);
   line-height: 1;
 
-  &:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text);
+  @include mx.hover {
+    &:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text);
+    }
   }
 }

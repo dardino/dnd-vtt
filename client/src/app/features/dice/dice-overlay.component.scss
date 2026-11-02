@@ -25,8 +25,10 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
 
-  &:hover {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      background: var(--color-bg-hover);
+    }
   }
 }
 
@@ -39,7 +41,7 @@
 .dice__roll {
   min-height: var(--control-height);
   border: var(--border-width) solid var(--color-accent);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-accent);
   color: var(--color-accent-contrast);
   font-weight: 600;
@@ -92,7 +94,7 @@
 }
 
 .field {
-  @include mx.field(var(--radius-md));
+  @include mx.field;
 }
 
 @media (max-width: 520px) {

@@ -20,7 +20,7 @@
 }
 
 .notes {
-  @include mx.control(var(--radius-md));
+  @include mx.control;
   background: var(--color-bg);
   font-family: var(--font-sans);
   resize: vertical;

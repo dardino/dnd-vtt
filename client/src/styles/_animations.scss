@@ -1,0 +1,17 @@
+/// Animazioni condivise definite globalmente: i keyframes restano
+/// referenziabili dagli stili delle feature con view encapsulation.
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

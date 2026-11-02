@@ -2,9 +2,8 @@
 @use '../../../styles/mixins' as mx;
 
 :host {
+  @include mx.fill-height;
   display: flex;
-  flex: 1;
-  min-height: 0;
 }
 
 .dm-shell {
@@ -201,9 +200,11 @@
   color: var(--color-text-muted);
   font-size: var(--text-xs);
 
-  &:hover {
-    color: var(--color-text);
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      color: var(--color-text);
+      background: var(--color-bg-hover);
+    }
   }
 }
 
@@ -239,9 +240,11 @@
   color: var(--color-text-muted);
   text-align: left;
 
-  &:hover {
-    background: var(--color-bg-hover);
-    color: var(--color-text);
+  @include mx.hover {
+    &:hover {
+      background: var(--color-bg-hover);
+      color: var(--color-text);
+    }
   }
 
   &[aria-expanded='true'] {
@@ -374,14 +377,16 @@
   min-height: var(--control-height);
   padding: var(--space-1) var(--space-3);
   border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-bg);
   color: var(--color-text);
   font-size: var(--text-sm);
   text-decoration: none;
 
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+    }
   }
 
   &:disabled {
@@ -421,8 +426,10 @@
   font-size: var(--text-sm);
   cursor: pointer;
 
-  &:hover {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      background: var(--color-bg-hover);
+    }
   }
 }
 
@@ -602,8 +609,10 @@
   color: var(--color-text);
   font-size: var(--text-xs);
 
-  &:hover:not(:disabled) {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+    }
   }
 
   &:disabled {
@@ -719,8 +728,10 @@
   color: var(--color-text);
   text-align: left;
 
-  &:hover {
-    border-color: var(--color-border-strong);
+  @include mx.hover {
+    &:hover {
+      border-color: var(--color-border-strong);
+    }
   }
 }
 
@@ -808,9 +819,11 @@
   color: var(--color-text-muted);
   font-size: var(--text-xs);
 
-  &:hover {
-    color: var(--color-text);
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      color: var(--color-text);
+      background: var(--color-bg-hover);
+    }
   }
 }
 
@@ -839,8 +852,10 @@
   color: var(--color-text);
   text-decoration: none;
 
-  &:hover {
-    border-color: var(--color-border-strong);
+  @include mx.hover {
+    &:hover {
+      border-color: var(--color-border-strong);
+    }
   }
 
   &--empty {
@@ -937,8 +952,10 @@
   font-size: var(--text-xs);
   text-decoration: none;
 
-  &:hover {
-    text-decoration: underline;
+  @include mx.hover {
+    &:hover {
+      text-decoration: underline;
+    }
   }
 }
 
@@ -992,14 +1009,16 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
 
-  &:hover {
-    color: var(--color-text);
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      color: var(--color-text);
+      background: var(--color-bg-hover);
+    }
   }
 }
 
 .field {
-  @include mx.field(var(--radius-md));
+  @include mx.field;
 }
 
 .field-error {
@@ -1070,8 +1089,10 @@
   background: var(--color-bg);
   text-align: left;
 
-  &:hover {
-    background: var(--color-bg-hover);
+  @include mx.hover {
+    &:hover {
+      background: var(--color-bg-hover);
+    }
   }
 }
 
@@ -1084,22 +1105,6 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   text-transform: uppercase;
-}
-
-@keyframes shimmer {
-  from {
-    background-position: 200% 0;
-  }
-
-  to {
-    background-position: -200% 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .skeleton {
-    animation: none;
-  }
 }
 
 @include mx.respond('xxl') {

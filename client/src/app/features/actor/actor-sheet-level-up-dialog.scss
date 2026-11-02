@@ -23,7 +23,7 @@
 }
 
 .field {
-  @include mx.field(var(--radius-md));
+  @include mx.field;
 }
 
 .field--small {

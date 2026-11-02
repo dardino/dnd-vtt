@@ -5,10 +5,3 @@
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: $gap;
 }
-
-/// Catena flex per far occupare a una route almeno tutta l'altezza
-/// disponibile sotto header e footer della shell.
-@mixin fill-height {
-  flex: 1 1 auto;
-  min-height: 0;
-}
