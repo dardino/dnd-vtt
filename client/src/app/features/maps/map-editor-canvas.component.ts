@@ -509,11 +509,37 @@ export class MapEditorCanvasComponent implements OnDestroy {
     }
     this.renderFrame = requestAnimationFrame(() => {
       this.renderFrame = null;
-      this.renderAll();
+      this.renderCameraFrame();
     });
   }
 
+  /**
+   * Frame di wheel/pan: lo stage ha già trasformato lo sfondo e gli overlay,
+   * quindi ridisegna solo la griglia (spessore dipendente dalla scala) e la
+   * bozza attiva, i cui handle/testo compensano la scala.
+   */
+  private renderCameraFrame(): void {
+    this.renderGrid();
+    if (this.wallDraftKind !== null || this.freehand !== null) {
+      this.renderOverlay();
+    }
+  }
+
+  /**
+   * Ridisegna scena e overlay: è il percorso dei cambi strutturali (documento,
+   * selezione, strumento), del resize e dell'immagine.
+   */
   private renderAll(): void {
+    if (this.renderScene()) {
+      this.renderOverlays();
+    }
+  }
+
+  /**
+   * Sfondo, tile/LOD e griglia. Restituisce `false` quando delega il primo
+   * render a `fit()`, che a sua volta richiama `renderAll`.
+   */
+  private renderScene(): boolean {
     if (this.tool() !== this.lastTool) {
       this.lastTool = this.tool();
       this.wallStart = null;
@@ -530,10 +556,15 @@ export class MapEditorCanvasComponent implements OnDestroy {
     }
     if (!this.fitted && this.image() !== null) {
       this.fit();
-      return;
+      return false;
     }
     this.renderMap();
     this.renderGrid();
+    return true;
+  }
+
+  /** Muri, luci, spawn, start e bozze: cambiano solo su input strutturali. */
+  private renderOverlays(): void {
     this.renderWalls();
     this.renderLights();
     this.renderActors();
@@ -623,9 +654,11 @@ export class MapEditorCanvasComponent implements OnDestroy {
         points: [segment.a.x, segment.a.y, segment.b.x, segment.b.y],
         stroke: isSelected ? colors.select : color,
         strokeWidth: isSelected ? 7 : 5,
+        strokeScaleEnabled: false,
         lineCap: 'round',
         ...(wall.kind === 'window' || wall.kind === 'lowWall' ? { dash: [8, 6] } : {}),
         opacity: wall.kind === 'door' && wall.door === 'open' ? 0.35 : 1,
+        perfectDrawEnabled: false,
         listening: false,
       }));
       if (wall.kind === 'door') {
@@ -636,6 +669,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
           fill: wall.door === 'secret' ? colors.secret : color,
           stroke: colors.stroke,
           strokeWidth: 1,
+          strokeScaleEnabled: false,
+          perfectDrawEnabled: false,
           listening: false,
         }));
       }
@@ -665,6 +700,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
           rotation: light.direction ?? 0,
           fill: light.color,
           opacity: light.enabled ? 0.12 : 0.04,
+          perfectDrawEnabled: false,
           listening: false,
         })
         : new Konva.Circle({
@@ -673,6 +709,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
           radius: dimRadius,
           fill: light.color,
           opacity: light.enabled ? 0.12 : 0.04,
+          perfectDrawEnabled: false,
           listening: false,
         });
       layer.add(shape);
@@ -685,6 +722,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
           rotation: light.direction ?? 0,
           fill: light.color,
           opacity: light.enabled ? 0.18 : 0.05,
+          perfectDrawEnabled: false,
           listening: false,
         })
         : new Konva.Circle({
@@ -693,6 +731,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
           radius: brightRadius,
           fill: light.color,
           opacity: light.enabled ? 0.18 : 0.05,
+          perfectDrawEnabled: false,
           listening: false,
         }));
       layer.add(new Konva.Circle({
@@ -702,6 +741,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
         fill: selected?.type === 'light' && selected.id === light.id ? colors.select : light.color,
         stroke: colors.stroke,
         strokeWidth: 2,
+        strokeScaleEnabled: false,
+        perfectDrawEnabled: false,
         listening: false,
       }));
     }
@@ -732,6 +773,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
         fill: spawn.hidden ? colors.spawnHidden : colors.spawn,
         stroke: selected?.type === 'spawn' && selected.id === spawn.id ? colors.select : colors.text,
         strokeWidth: selected?.type === 'spawn' && selected.id === spawn.id ? 4 : 2,
+        strokeScaleEnabled: false,
+        perfectDrawEnabled: false,
       }));
       group.add(new Konva.Text({
         text: spawn.label ?? spawn.source.type,
@@ -763,6 +806,8 @@ export class MapEditorCanvasComponent implements OnDestroy {
         fill: colors.start,
         stroke: selected?.type === 'start' && selected.id === start.id ? colors.select : colors.text,
         strokeWidth: 2,
+        strokeScaleEnabled: false,
+        perfectDrawEnabled: false,
       }));
       group.add(new Konva.Text({
         text: start.label ?? 'PG',
@@ -798,6 +843,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
         radius: 12,
         stroke: colors.warning,
         strokeWidth: 2,
+        strokeScaleEnabled: false,
         dash: [4, 4],
         listening: false,
       }));
@@ -805,24 +851,27 @@ export class MapEditorCanvasComponent implements OnDestroy {
         points: [view.x - 20, view.y, view.x + 20, view.y],
         stroke: colors.warning,
         strokeWidth: 2,
+        strokeScaleEnabled: false,
         listening: false,
       }));
       layer.add(new Konva.Line({
         points: [view.x, view.y - 20, view.x, view.y + 20],
         stroke: colors.warning,
         strokeWidth: 2,
+        strokeScaleEnabled: false,
         listening: false,
       }));
     }
     if (this.freehand !== null && this.freehand.length > 1) {
-      const scale = this.stage?.scaleX() ?? 1;
       layer.add(new Konva.Line({
         points: this.freehand.flatMap((point) => [point.x, point.y]),
         stroke: colors.select,
-        strokeWidth: Math.max(2, 3 / Math.max(scale, 0.05)),
+        strokeWidth: 3,
+        strokeScaleEnabled: false,
         lineCap: 'round',
         lineJoin: 'round',
         opacity: 0.85,
+        perfectDrawEnabled: false,
         listening: false,
       }));
     }
@@ -836,13 +885,13 @@ export class MapEditorCanvasComponent implements OnDestroy {
       const a = latticePointPx(grid, this.wallStart);
       const b = latticePointPx(grid, this.wallCurrent);
       const scale = this.stage?.scaleX() ?? 1;
-      const strokeWidth = Math.max(2, 3 / Math.max(scale, 0.05));
       layer.add(new Konva.Line({
         points: [a.x, a.y, b.x, b.y],
         stroke: colors.select,
-        strokeWidth,
+        strokeWidth: 3,
+        strokeScaleEnabled: false,
         lineCap: 'round',
-        dash: [10 / Math.max(scale, 0.05), 6 / Math.max(scale, 0.05)],
+        dash: [10, 6],
         listening: false,
       }));
       for (const point of [a, b]) {
@@ -852,7 +901,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
           radius: 6 / Math.max(scale, 0.05),
           fill: colors.select,
           stroke: colors.stroke,
-          strokeWidth: 2 / Math.max(scale, 0.05),
+          strokeWidth: 2,
+          strokeScaleEnabled: false,
+          perfectDrawEnabled: false,
           listening: false,
         }));
       }
