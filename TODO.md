@@ -448,7 +448,8 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 - [x] **SR2 — Migrazione e persistenza**
   - migrazione `0008_past_vin_gonzales.sql`, mapper/repository/export/import, copia mappa→scena, dimensioni scena immutabili.
 - [ ] **SR3 — UI creazione e sfondo**
-  - dialog mappa/scena con preset e orientamento; pulsante Sfondo nell'editor; upload/rimozione, cover, drag e scala; nessun cambio di `widthPx/heightPx`.
+  - dialog mappa/scena con preset e orientamento; upload/rimozione, cover, drag e scala; nessun cambio di `widthPx/heightPx`.
+  - [x] **SR3b — Controlli sfondo nell'editor**: Carica/Sostituisci, Rimuovi, Adatta cover; nessun cambio di `widthPx/heightPx`.
 - [ ] **SR4 — Rendering con trasformazione**
   - `SceneCanvasComponent`, `DisplayLayerComponent` e canvas editor disegnano lo sfondo a `x/y/scale` clippato alla scena.
 - [ ] **SR5 — Downscale e asset**

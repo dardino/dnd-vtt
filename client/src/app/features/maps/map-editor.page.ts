@@ -14,8 +14,10 @@ import { Router, RouterLink } from '@angular/router';
 import {
   newId,
   sizeCells,
+  defaultBackgroundTransform,
   type Actor,
   type AmbientLight,
+  type BackgroundTransform,
   type GridConfig,
   type Light,
   type Map,
@@ -90,6 +92,10 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly tool = signal<EditorTool>('select');
   public readonly selected = signal<EditorSelection | null>(null);
   public readonly showGrid = signal(true);
+  public readonly hasBackground = computed(() => {
+    const doc = this.doc();
+    return doc !== null && doc.imageAssetId !== null;
+  });
 
   public readonly spawnCell = signal<{ x: number; y: number } | null>(null);
   public readonly spawnSearch = signal('');
@@ -98,6 +104,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   private history: HistorySnapshot<MapDocument>[] = [];
   private redoStack: HistorySnapshot<MapDocument>[] = [];
+  private backgroundAssetSize: { assetId: string; width: number; height: number } | null = null;
   private unloadHandler = (event: BeforeUnloadEvent): void => {
     if (this.dirty()) {
       event.preventDefault();
@@ -206,13 +213,16 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   private async loadImage(map: Map): Promise<void> {
     if (map.imageAssetId === null) {
+      this.backgroundAssetSize = null;
       this.image.set(null);
       return;
     }
     try {
       const asset = await this.assets.get(map.imageAssetId);
+      this.backgroundAssetSize = { assetId: asset.id, width: asset.width, height: asset.height };
       this.image.set({ url: asset.url, width: map.widthPx, height: map.heightPx });
     } catch {
+      this.backgroundAssetSize = null;
       this.image.set(null);
     }
   }
@@ -575,23 +585,76 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     try {
       const asset = await this.assets.upload(file);
-      this.image.set({ url: asset.url, width: asset.width, height: asset.height });
-      this.updateDoc((doc) => {
-        doc.imageAssetId = asset.id;
-        doc.widthPx = asset.width;
-        doc.heightPx = asset.height;
-        const maxSight = Math.max(
-          1,
-          Math.round(
-            (Math.max(asset.width, asset.height) / doc.grid.cellSizePx)
-            * doc.grid.feetPerCell,
-          ),
+      const doc = this.doc();
+      if (doc === null) {
+        return;
+      }
+      this.backgroundAssetSize = { assetId: asset.id, width: asset.width, height: asset.height };
+      this.updateDoc((next) => {
+        next.imageAssetId = asset.id;
+        next.backgroundTransform = coverTransform(
+          next.widthPx,
+          next.heightPx,
+          asset.width,
+          asset.height,
         );
-        doc.terrain.visionLimitFeet = Math.min(doc.terrain.visionLimitFeet, maxSight);
       });
+      this.image.set({ url: asset.url, width: doc.widthPx, height: doc.heightPx });
     } catch (error) {
       this.error.set(messageFor(error));
     }
+  }
+
+  public removeBackground(): void {
+    const doc = this.doc();
+    if (doc === null || doc.imageAssetId === null) {
+      return;
+    }
+    this.backgroundAssetSize = null;
+    this.updateDoc((next) => {
+      next.imageAssetId = null;
+      next.backgroundTransform = { ...defaultBackgroundTransform };
+    });
+    this.image.set(null);
+  }
+
+  public async fitBackgroundCover(): Promise<void> {
+    const doc = this.doc();
+    if (doc === null || doc.imageAssetId === null) {
+      return;
+    }
+    const assetId = doc.imageAssetId;
+    let size = this.backgroundAssetSize;
+    if (size === null || size.assetId !== assetId) {
+      try {
+        const asset = await this.assets.get(assetId);
+        this.backgroundAssetSize = {
+          assetId: asset.id,
+          width: asset.width,
+          height: asset.height,
+        };
+        this.image.set({ url: asset.url, width: doc.widthPx, height: doc.heightPx });
+        size = this.backgroundAssetSize;
+      } catch (error) {
+        this.error.set(messageFor(error));
+        return;
+      }
+    }
+    const current = this.doc();
+    if (current === null || current.imageAssetId !== assetId || size === null) {
+      return;
+    }
+    const transform = coverTransform(current.widthPx, current.heightPx, size.width, size.height);
+    if (
+      current.backgroundTransform.x === transform.x
+      && current.backgroundTransform.y === transform.y
+      && current.backgroundTransform.scale === transform.scale
+    ) {
+      return;
+    }
+    this.updateDoc((next) => {
+      next.backgroundTransform = transform;
+    });
   }
 
   public async save(): Promise<void> {
@@ -640,6 +703,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     this.redoStack = pushBoundedHistory(this.redoStack, snapshotOf(doc));
+    this.backgroundAssetSize = null;
     this.doc.set(previous.value);
     this.dirty.set(true);
   }
@@ -651,6 +715,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     this.history = pushBoundedHistory(this.history, snapshotOf(doc));
+    this.backgroundAssetSize = null;
     this.doc.set(next.value);
     this.dirty.set(true);
   }
@@ -692,6 +757,21 @@ export class MapEditorPage implements OnInit, OnDestroy {
     this.dirty.set(true);
   }
 }
+
+/** Cover centrato: la scala riempie la scena e il ritaglio resta simmetrico. */
+const coverTransform = (
+  sceneWidth: number,
+  sceneHeight: number,
+  assetWidth: number,
+  assetHeight: number,
+): BackgroundTransform => {
+  const scale = Math.max(sceneWidth / assetWidth, sceneHeight / assetHeight);
+  return {
+    x: (sceneWidth - assetWidth * scale) / 2,
+    y: (sceneHeight - assetHeight * scale) / 2,
+    scale,
+  };
+};
 
 const toDocument = (map: Map): MapDocument => ({
   name: map.name,

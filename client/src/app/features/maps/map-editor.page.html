@@ -21,7 +21,13 @@
           accept="image/png,image/jpeg,image/webp"
           (change)="replaceBackground($event)"
         />
-        <app-button variant="ghost" (pressed)="openBackgroundPicker()">Sfondo</app-button>
+        <app-button variant="ghost" (pressed)="openBackgroundPicker()">
+          {{ hasBackground() ? 'Sostituisci sfondo' : 'Carica sfondo' }}
+        </app-button>
+        @if (hasBackground()) {
+          <app-button variant="ghost" [disabled]="saving()" (pressed)="fitBackgroundCover()">Adatta</app-button>
+          <app-button variant="ghost" [disabled]="saving()" (pressed)="removeBackground()">Rimuovi</app-button>
+        }
         <app-button variant="ghost" [disabled]="saving()" (pressed)="undo()">Annulla</app-button>
         <app-button variant="ghost" [disabled]="saving()" (pressed)="redo()">Ripeti</app-button>
         <app-button variant="ghost" (pressed)="captureStartView()">Vista iniziale</app-button>
@@ -341,6 +347,7 @@
     </div>
 
     <footer class="editor__status">
+      <span>{{ document.imageAssetId === null ? 'Nessuno sfondo' : 'Sfondo caricato' }}</span>
       <span>{{ document.widthPx }} × {{ document.heightPx }} px</span>
       <span>{{ document.terrain.walls.length }} muri · {{ document.terrain.lights.length }} luci</span>
       <span>{{ document.spawns.length }} spawn · {{ document.playerStarts.length }} partenze</span>
