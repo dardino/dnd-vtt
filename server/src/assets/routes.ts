@@ -2,10 +2,10 @@ import type { FastifyPluginCallback } from 'fastify';
 import { dmPreHandler } from '../http/guards.js';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
-import { deleteAsset, getAsset } from '../db/assets.repository.js';
+import { deleteAsset, getAsset, getStoredAsset } from '../db/assets.repository.js';
 import { AppError, notFound } from '../errors.js';
 import { idParamsSchema, parse } from '../http/validation.js';
-import { assetInUse, storeAsset } from './service.js';
+import { assetInUse, deleteAssetFiles, storeAsset } from './service.js';
 
 export const assetRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =>
   (app, _options, done) => {
@@ -38,13 +38,16 @@ export const assetRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback
 
     app.delete('/assets/:id', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
-      if (getAsset(db, id) === null) {
+      const asset = getStoredAsset(db, id);
+      if (asset === null) {
         throw notFound('Asset non trovato');
       }
       if (assetInUse(db, id)) {
         throw new AppError('asset_in_use', 409, 'Asset referenziato da una scena o da un attore');
       }
-      deleteAsset(db, id);
+      if (deleteAsset(db, id)) {
+        await deleteAssetFiles(env, asset);
+      }
       return reply.status(204).send();
     });
 

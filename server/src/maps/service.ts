@@ -20,10 +20,15 @@ import {
   type TokenState,
 } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
-import { storeAsset } from '../assets/service.js';
+import { deleteAssetFiles, storeAsset } from '../assets/service.js';
 import type { AppEnv } from '../config/env.js';
 import { getActor, insertActor } from '../db/actors.repository.js';
-import { getAsset } from '../db/assets.repository.js';
+import {
+  countAssetReferences,
+  deleteAsset,
+  getAsset,
+  getStoredAsset,
+} from '../db/assets.repository.js';
 import { getCampaign, updateCampaign } from '../db/campaigns.repository.js';
 import { requireCampaign } from '../campaigns/service.js';
 import { deleteMap, getMap, insertMap, listMaps, updateMapDocument } from '../db/maps.repository.js';
@@ -91,8 +96,8 @@ export const requireMapFull = (db: AppDatabase, id: string): Map => requireMap(d
 /**
  * Riduce lo sfondo alla dimensione effettivamente renderizzata, preservando la
  * resa: il nuovo asset viene salvato come derivato e la scala viene ricalcolata.
- * L'asset originale non viene mai sovrascritto in questo passo; i derivati non
- * più referenziati andranno raccolti dal GC (vedi TODO SR5).
+ * L'asset originale non viene mai sovrascritto in questo passo: se dopo
+ * l'aggiornamento non resta referenziato, `putMap` lo raccoglie insieme ai file.
  */
 const downscaleBackground = async (
   env: AppEnv,
@@ -154,7 +159,7 @@ export const putMap = async (
       },
     );
   }
-  const asset = document.imageAssetId === null ? null : getAsset(db, document.imageAssetId);
+  const asset = document.imageAssetId === null ? null : getStoredAsset(db, document.imageAssetId);
   if (document.imageAssetId !== null && asset === null) {
     throw notFound('Immagine non trovata');
   }
@@ -162,6 +167,11 @@ export const putMap = async (
   const updated = updateMapDocument(db, id, next, version);
   if (updated === null) {
     throw new AppError('state_conflict', 409, 'La mappa è stata modificata altrove');
+  }
+  if (asset !== null && asset.id !== next.imageAssetId && countAssetReferences(db, asset.id) === 0) {
+    if (deleteAsset(db, asset.id)) {
+      await deleteAssetFiles(env, asset);
+    }
   }
   return updated;
 };

@@ -452,13 +452,15 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
   - [x] **SR3b — Controlli sfondo nell'editor**: Carica/Sostituisci, Rimuovi, Adatta cover; nessun cambio di `widthPx/heightPx`.
 - [x] **SR4 — Rendering con trasformazione** — ✅ 2 novembre 2026
   - `SceneCanvasComponent`, `DisplayLayerComponent` e canvas editor disegnano lo sfondo a `x/y/scale` clippato alla scena.
-- [ ] **SR5 — Downscale e asset**
-  - ridimensionamento server-side secondo `f = min(1, scale, scene/asset)`; sostituzione asset solo se esclusivo, altrimenti derivato; `newScale` per preservare la resa.
+- [x] **SR5 — Downscale e asset** — ✅ 2 novembre 2026
+  - ridimensionamento server-side secondo `f = min(1, scene.width/asset.width, scene.height/asset.height)`; sostituzione asset solo se esclusivo, altrimenti derivato; `newScale` per preservare la resa.
   - **Stato:** downscale fatto — `putMap` asincrono riduce il WebP con `sharp` secondo
     `f = min(1, widthPx/asset.width, heightPx/asset.height)`, crea un asset derivato con `storeAsset`,
     aggiorna `imageAssetId` e `backgroundTransform.scale = scale/f`, senza toccare `widthPx/heightPx`.
-    Test in `server/test/maps-downscale.spec.ts`.
-  - **Aperto:** replace-in-place quando l'asset è esclusivo + GC dei derivati non più referenziati.
+  - **Stato:** replace-in-place completato — dopo il downscale l'asset precedente viene eliminato
+    (riga + WebP/preview/thumb/tile/originale) solo se non più referenziato da mappe, scene, attori o programmi
+    (`countAssetReferences`); se condiviso resta intatto. Cleanup file in `deleteAssetFiles` con path
+    validati dentro `uploadDir`. Test in `server/test/maps-downscale.spec.ts`.
 - [ ] **SR6 — Background nella history P3**
   - comandi `background.attach`/`remove`/`transform` e rimozione dell'aggiornamento dimensioni da `replaceBackground`.
 - [x] **SR7 - Immutabilità completa**

@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
-import { mapDocumentSchema, type BackgroundTransform, type Map } from '@dnd-vtt/shared';
+import {
+  mapDocumentSchema,
+  type BackgroundTransform,
+  type Map,
+  type ProgramState,
+} from '@dnd-vtt/shared';
 import { getAsset } from '../src/db/assets.repository.js';
+import { insertProgram } from '../src/db/programs.repository.js';
 import { storeAsset } from '../src/assets/service.js';
 import { closeTestApp, createTestApp, type TestApp } from './helpers.js';
 import { createCampaign } from './factories.js';
@@ -127,6 +134,9 @@ describe('downscale sfondo al salvataggio mappa', () => {
   it.each([0.5, 1, 2])('riduce a f di scena e preserva la resa con scale=%s', async (scale) => {
     const { testApp, campaignId, original } = await setup(1920, 1280);
     const map = await createMap(testApp.app, campaignId, original.id);
+    const originalSize = (await stat(
+      join(testApp.env.uploadDir, 'webp', `${original.hash}.webp`),
+    )).size;
     const saved = await saveMap(testApp.app, map, { x: 0, y: 0, scale });
 
     expect(saved.widthPx).toBe(1280);
@@ -144,9 +154,10 @@ describe('downscale sfondo al salvataggio mappa', () => {
     expect(derived.height).toBe(Math.round(1280 * f));
     expect(saved.backgroundTransform.scale).toBeCloseTo(scale / f, 10);
 
-    const fileSize = async (hash: string): Promise<number> =>
-      (await stat(join(testApp.env.uploadDir, 'webp', `${hash}.webp`))).size;
-    expect(await fileSize(derived.hash)).toBeLessThan(await fileSize(original.hash));
+    const derivedSize = (await stat(
+      join(testApp.env.uploadDir, 'webp', `${derived.hash}.webp`),
+    )).size;
+    expect(derivedSize).toBeLessThan(originalSize);
     await closeTestApp(testApp);
   });
 
@@ -172,9 +183,74 @@ describe('downscale sfondo al salvataggio mappa', () => {
     const unchanged = await testApp.app.inject({ method: 'GET', url: `/api/v1/maps/${second.id}` });
     expect(unchanged.json<Map>().imageAssetId).toBe(original.id);
     expect(getAsset(testApp.database.db, original.id)).not.toBeNull();
+    expect(existsSync(join(testApp.env.uploadDir, 'webp', `${original.hash}.webp`))).toBe(true);
 
+    // Il secondo salvataggio rende l'asset originale non più referenziato: il GC lo raccoglie.
     const savedSecond = await saveMap(testApp.app, second, { x: 0, y: 0, scale: 1 });
     expect(savedSecond.imageAssetId).toBe(savedFirst.imageAssetId);
+    expect(getAsset(testApp.database.db, original.id)).toBeNull();
+    expect(existsSync(join(testApp.env.uploadDir, 'webp', `${original.hash}.webp`))).toBe(false);
+    await closeTestApp(testApp);
+  });
+
+  it('non elimina un asset referenziato da un layer immagine del program', async () => {
+    const { testApp, campaignId, original } = await setup(1920, 1280);
+    const state: ProgramState = {
+      base: {
+        id: 'base',
+        content: { type: 'image', assetId: original.id, fit: 'contain' },
+        frame: { x: 0, y: 0, width: 1, height: 1 },
+        opacity: 1,
+        interactive: true,
+      },
+      overlays: [],
+      hud: { dice: true, initiative: true, pointer: false },
+      blackout: false,
+      background: '#000000',
+      updatedAt: new Date().toISOString(),
+    };
+    insertProgram(testApp.database.db, campaignId, state);
+    const map = await createMap(testApp.app, campaignId, original.id);
+    const saved = await saveMap(testApp.app, map, { x: 0, y: 0, scale: 1 });
+
+    expect(saved.imageAssetId).not.toBe(original.id);
+    expect(getAsset(testApp.database.db, original.id)).not.toBeNull();
+    expect(existsSync(join(testApp.env.uploadDir, 'webp', `${original.hash}.webp`))).toBe(true);
+    await closeTestApp(testApp);
+  });
+
+  it('elimina l\'asset esclusivo e i file derivati dopo il downscale', async () => {
+    const testApp = await createTestApp({ KEEP_ORIGINALS: 'true' });
+    const campaignId = await createCampaign(testApp.app);
+    const original = await storeAsset(
+      testApp.env,
+      testApp.database.db,
+      await image(2600, 1800),
+    );
+    const map = await createMap(testApp.app, campaignId, original.id);
+    const saved = await saveMap(testApp.app, map, { x: 0, y: 0, scale: 1 });
+
+    expect(saved.imageAssetId).not.toBe(original.id);
+    expect(getAsset(testApp.database.db, original.id)).toBeNull();
+
+    const uploadDir = testApp.env.uploadDir;
+    expect(existsSync(join(uploadDir, 'webp', `${original.hash}.webp`))).toBe(false);
+    expect(existsSync(join(uploadDir, 'previews', `${original.hash}.webp`))).toBe(false);
+    expect(existsSync(join(uploadDir, 'thumbs', `${original.hash}.webp`))).toBe(false);
+    expect(existsSync(join(uploadDir, 'tiles', original.hash))).toBe(false);
+    expect(existsSync(join(uploadDir, 'originals', `${original.hash}.png`))).toBe(false);
+
+    if (saved.imageAssetId === null) {
+      throw new Error('Asset derivato non trovato');
+    }
+    const derived = getAsset(testApp.database.db, saved.imageAssetId);
+    if (derived === null) {
+      throw new Error('Asset derivato non trovato');
+    }
+    expect(existsSync(join(uploadDir, 'webp', `${derived.hash}.webp`))).toBe(true);
+
+    const fetched = await testApp.app.inject({ method: 'GET', url: `/api/v1/maps/${map.id}` });
+    expect(fetched.json<Map>().imageAssetId).toBe(saved.imageAssetId);
     await closeTestApp(testApp);
   });
 });

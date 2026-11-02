@@ -1,14 +1,17 @@
 import { createHash } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import sharp from 'sharp';
 import type { Metadata } from 'sharp';
 import { TILE_SIZE_PX, isTiledMap, tileLevels, type Asset } from '@dnd-vtt/shared';
-import { eq } from 'drizzle-orm';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
-import { findAssetByHash, insertAsset } from '../db/assets.repository.js';
-import { actors, maps, scenes } from '../db/schema.js';
+import {
+  countAssetReferences,
+  findAssetByHash,
+  insertAsset,
+  type StoredAsset,
+} from '../db/assets.repository.js';
 import { AppError } from '../errors.js';
 
 const SHARP_OPTIONS = { limitInputPixels: 100_000_000, failOn: 'error' as const };
@@ -128,16 +131,38 @@ export const storeAsset = async (
   });
 };
 
-export const assetInUse = (db: AppDatabase, id: string): boolean => {
-  const scene = db.select({ id: scenes.id }).from(scenes).where(eq(scenes.imageAssetId, id)).get();
-  if (scene !== undefined) {
-    return true;
+/**
+ * Risolve un path relativo dentro `uploadDir`, rifiutando percorsi assoluti o
+ * che escono dalla directory di upload. I path sono derivati dall'hash, ma la
+ * validazione resta una difesa contro righe DB manipolate.
+ */
+const uploadPath = (uploadDir: string, relativePath: string): string | null => {
+  const root = resolve(uploadDir);
+  const target = resolve(root, relativePath);
+  const inside = relative(root, target);
+  if (inside === '' || isAbsolute(inside) || inside === '..' || inside.startsWith(`..${sep}`)) {
+    return null;
   }
-  const map = db.select({ id: maps.id }).from(maps).where(eq(maps.imageAssetId, id)).get();
-  if (map !== undefined) {
-    return true;
-  }
-  return db.select({ id: actors.id }).from(actors)
-    .where(eq(actors.imageAssetId, id))
-    .get() !== undefined;
+  return target;
 };
+
+/** Elimina i file derivati di un asset: WebP, preview, thumb, tile e originale. */
+export const deleteAssetFiles = async (env: AppEnv, asset: StoredAsset): Promise<void> => {
+  const files = [
+    `webp/${asset.hash}.webp`,
+    `previews/${asset.hash}.webp`,
+    `thumbs/${asset.hash}.webp`,
+    ...(asset.originalPath === '' ? [] : [asset.originalPath]),
+  ];
+  const targets = files
+    .map((relativePath) => uploadPath(env.uploadDir, relativePath))
+    .filter((target): target is string => target !== null);
+  await Promise.all(targets.map((target) => rm(target, { force: true })));
+  const tiles = uploadPath(env.uploadDir, `tiles/${asset.hash}`);
+  if (tiles !== null) {
+    await rm(tiles, { recursive: true, force: true });
+  }
+};
+
+export const assetInUse = (db: AppDatabase, id: string): boolean =>
+  countAssetReferences(db, id) > 0;
