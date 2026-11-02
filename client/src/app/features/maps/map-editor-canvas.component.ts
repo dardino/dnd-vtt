@@ -29,7 +29,20 @@ import {
   type WallSegment,
 } from '@dnd-vtt/shared';
 import { MeasurementService } from '../../core/measurement.service';
+import { readThemeColors, type CssColorTokens } from '../../core/theme-colors';
 import { MapGridRenderer } from './map-grid-renderer';
+
+const EDITOR_COLOR_TOKENS = {
+  wall: { variable: '--editor-wall', fallback: '#e8dcc4' },
+  door: { variable: '--editor-door', fallback: '#d2a94a' },
+  window: { variable: '--editor-window', fallback: '#78c6e0' },
+  lowWall: { variable: '--editor-low-wall', fallback: '#a89f91' },
+  select: { variable: '--editor-draft', fallback: '#4ea1ff' },
+  warning: { variable: '--editor-warning', fallback: '#ff9f43' },
+  text: { variable: '--editor-text', fallback: '#eaf4ff' },
+  stroke: { variable: '--editor-stroke', fallback: '#0f1c2e' },
+  background: { variable: '--editor-bg', fallback: '#111' },
+} as const satisfies CssColorTokens;
 
 export type EditorTool
   = | 'select'
@@ -852,22 +865,11 @@ export class MapEditorCanvasComponent implements OnDestroy {
     | 'secret',
     string
   > {
-    const style = getComputedStyle(this.container().nativeElement);
-    const token = (name: string, fallback: string): string =>
-      style.getPropertyValue(name).trim() || fallback;
     return {
-      wall: token('--editor-wall', '#e8dcc4'),
-      door: token('--editor-door', '#d2a94a'),
-      window: token('--editor-window', '#78c6e0'),
-      lowWall: token('--editor-low-wall', '#a89f91'),
-      select: token('--editor-draft', '#4ea1ff'),
-      warning: token('--editor-warning', '#ff9f43'),
-      text: token('--editor-text', '#eaf4ff'),
-      stroke: token('--editor-stroke', '#0f1c2e'),
+      ...readThemeColors(this.container().nativeElement, EDITOR_COLOR_TOKENS),
       spawn: 'rgba(80, 140, 220, 0.65)',
       spawnHidden: 'rgba(160, 60, 60, 0.65)',
       start: 'rgba(80, 200, 120, 0.7)',
-      background: token('--editor-bg', '#111'),
       secret: '#9b59b6',
     };
   }

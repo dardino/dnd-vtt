@@ -37,6 +37,7 @@ import {
   type VisionGrid,
 } from '@dnd-vtt/shared';
 import { MeasurementService } from '../../core/measurement.service';
+import { readThemeColors, type CssColorTokens } from '../../core/theme-colors';
 import { CanvasInputController } from './canvas-input-controller';
 import { FogRenderer } from './fog-renderer';
 import { GridRenderer } from './grid-renderer';
@@ -44,6 +45,15 @@ import { LruCache } from './lru-cache';
 import { MapLayerRenderer } from './map-layer-renderer';
 import { SceneCamera, type CameraState } from './scene-camera';
 import { TokenRenderer } from './token-renderer';
+
+const SCENE_COLOR_TOKENS = {
+  text: { variable: '--color-text', fallback: '#e8e8e8' },
+  surface: { variable: '--color-bg-raised', fallback: '#242424' },
+  accent: { variable: '--color-accent', fallback: '#c9a227' },
+  danger: { variable: '--color-danger', fallback: '#b3261e' },
+  ok: { variable: '--color-ok', fallback: '#2e7d32' },
+  grid: { variable: '--color-border-strong', fallback: '#5a5a5a' },
+} as const satisfies CssColorTokens;
 
 export type SceneTool
   = | 'select'
@@ -1106,14 +1116,6 @@ export class SceneCanvasComponent implements OnDestroy {
   }
 
   private colors(): Record<'text' | 'surface' | 'accent' | 'danger' | 'ok' | 'grid', string> {
-    const style = getComputedStyle(this.host().nativeElement);
-    return {
-      text: style.getPropertyValue('--color-text').trim() || '#e8e8e8',
-      surface: style.getPropertyValue('--color-bg-raised').trim() || '#242424',
-      accent: style.getPropertyValue('--color-accent').trim() || '#c9a227',
-      danger: style.getPropertyValue('--color-danger').trim() || '#b3261e',
-      ok: style.getPropertyValue('--color-ok').trim() || '#2e7d32',
-      grid: style.getPropertyValue('--color-border-strong').trim() || '#5a5a5a',
-    };
+    return readThemeColors(this.host().nativeElement, SCENE_COLOR_TOKENS);
   }
 }
