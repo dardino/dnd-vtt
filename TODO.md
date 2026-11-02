@@ -81,10 +81,11 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** ridisegnare solo il layer toccato, `requestAnimationFrame` + throttle sugli input, griglia come singolo `Konva.Shape`, cache colori invalidata su `data-theme`/resize.
   - **Fatto quando:** 60 fps con 4.000 muri; nessun `renderAll` su move.
 
-- [ ] **P5 — Cache immagini con limite** · S
+- [x] **P5 — Cache immagini con limite** · S — ✅ 2 novembre 2026
   - **Problema:** `loadingImages`/`portraitImages` crescono per tutta la sessione.
-  - **Proposta:** LRU (100 mappe / 50 ritratti) e clear su cambio campagna/scena.
-  - **Fatto quando:** memoria stabile in una sessione lunga.
+  - **Esito:** `LruCache` (estende `Map`, hit che riporta in fondo) con limite 100 per `loadingImages` e 50 per
+    `portraitImages`; eviction della entry più vecchia a ogni `set`. Test in `lru-cache.spec.ts`.
+    Il clear su cambio campagna/scena non è stato aggiunto: l'LRU basta al limite di memoria.
 
 - [x] **P6 — Indici di paginazione** · S
   - **Problema (corretto):** gli indici compositi per il cursore `createdAt+id` esistevano già; mancava solo una verifica automatica.

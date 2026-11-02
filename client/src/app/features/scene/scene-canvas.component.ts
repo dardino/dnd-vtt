@@ -40,6 +40,7 @@ import { MeasurementService } from '../../core/measurement.service';
 import { CanvasInputController } from './canvas-input-controller';
 import { FogRenderer } from './fog-renderer';
 import { GridRenderer } from './grid-renderer';
+import { LruCache } from './lru-cache';
 import { MapLayerRenderer } from './map-layer-renderer';
 import { SceneCamera, type CameraState } from './scene-camera';
 import { TokenRenderer } from './token-renderer';
@@ -170,8 +171,8 @@ export class SceneCanvasComponent implements OnDestroy {
   private lassoPoints: Point[] | null = null;
   private draggingMeasure = false;
   private input: CanvasInputController | null = null;
-  private loadingImages = new Map<string, Promise<HTMLImageElement>>();
-  private portraitImages = new Map<string, HTMLImageElement>();
+  private loadingImages = new LruCache<string, Promise<HTMLImageElement>>(100);
+  private portraitImages = new LruCache<string, HTMLImageElement>(50);
 
   constructor() {
     effect(() => {
