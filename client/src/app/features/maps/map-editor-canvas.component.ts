@@ -115,6 +115,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
   private loadedImage: { url: string; element: HTMLImageElement } | null = null;
   private lastImageUrl: string | null = null;
   private panning: { clientX: number; clientY: number; stageX: number; stageY: number } | null = null;
+  private renderFrame: number | null = null;
 
   public constructor() {
     effect(() => {
@@ -135,6 +136,10 @@ export class MapEditorCanvasComponent implements OnDestroy {
   }
 
   public ngOnDestroy(): void {
+    if (this.renderFrame !== null) {
+      cancelAnimationFrame(this.renderFrame);
+      this.renderFrame = null;
+    }
     this.resizeObserver?.disconnect();
     this.stage?.destroy();
     this.stage = null;
@@ -255,7 +260,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       y: pointer.y - world.y * newScale,
     });
     this.publishCamera();
-    this.renderAll();
+    this.scheduleRender();
   }
 
   private onPointerDown(event: Konva.KonvaEventObject<MouseEvent | TouchEvent>): void {
@@ -336,7 +341,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
         y: this.panning.stageY + (clientY - this.panning.clientY),
       });
       this.publishCamera();
-      this.renderAll();
+      this.scheduleRender();
       return;
     }
     const pointer = stage.getPointerPosition();
@@ -478,6 +483,16 @@ export class MapEditorCanvasComponent implements OnDestroy {
       return distance <= Math.max(6, grid.cellSizePx * 0.12);
     });
     this.elementSelected.emit(wall === undefined ? null : { type: 'wall', id: wall.id });
+  }
+
+  private scheduleRender(): void {
+    if (this.renderFrame !== null) {
+      return;
+    }
+    this.renderFrame = requestAnimationFrame(() => {
+      this.renderFrame = null;
+      this.renderAll();
+    });
   }
 
   private renderAll(): void {
