@@ -278,6 +278,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** `SheetHeader`, `SheetTabs`, `CombatPanel`, `SpellPanel`, `InventoryPanel`, `NotesPanel`, `PortraitEditor`, `LevelUpDialog`, `PlayerLinkPanel`.
   - **Fatto quando:** la pagina orchestra solo input/output e nessun file supera 400 righe.
   - **Stato (R3a, 2 novembre 2026):** `ActorSheetCombatPanel` estratto in `actor-sheet-combat-panel.*` con input (`conditions`, `character`, `busy`, `restBusy`) e output (`hpPatch`, `conditionAdd`, `conditionToggle`, `deathSave`, `hitDice`, `rest`); la pagina conserva handler/HTTP (con `addCondition` idempotente) e proietta il blocco Risorse. Test dedicati su rendering, emit e stati busy. Restano header, tab e gli altri pannelli.
+  - **Stato (R3b, 2 novembre 2026):** estratti `ActorSheetSpellPanel` (`slots`, `pactSlots`, `spells` → `slotChange`, `pactSlotChange`), `ActorSheetInventoryPanel` (`items`, `currency`) e `ActorSheetNotesPanel` (`notes`, `saving`, `saved` → `notesChange`, `save`); la pagina conserva handler/HTTP e proiezione (metadati incantesimi, gittate, valuta). Test dedicati su rendering, emit e stati vuoti/salvataggio. Restano header, tab, editor ritratto, level-up e player link.
 
 ## 6. CSS e UI (P2)
 

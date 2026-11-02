@@ -49,12 +49,30 @@ import {
   ActorSheetCombatPanel,
   type CombatHpChange,
 } from './actor-sheet-combat-panel';
+import {
+  ActorSheetInventoryPanel,
+  type InventoryPanelItem,
+} from './actor-sheet-inventory-panel';
+import { ActorSheetNotesPanel } from './actor-sheet-notes-panel';
+import {
+  ActorSheetSpellPanel,
+  type SpellPanelPactSlot,
+  type SpellPanelSlot,
+  type SpellPanelSpell,
+} from './actor-sheet-spell-panel';
 
 type SheetTab = 'combat' | 'abilities' | 'spells' | 'equipment' | 'features' | 'notes';
 
 @Component({
   selector: 'app-actor-sheet',
-  imports: [RouterLink, Dialog, ActorSheetCombatPanel],
+  imports: [
+    RouterLink,
+    Dialog,
+    ActorSheetCombatPanel,
+    ActorSheetInventoryPanel,
+    ActorSheetNotesPanel,
+    ActorSheetSpellPanel,
+  ],
   templateUrl: './actor-sheet.page.html',
   styleUrl: './actor-sheet.page.scss',
 })
@@ -152,6 +170,44 @@ export class ActorSheetPage implements OnInit {
     return statblock?.kind === 'pc' ? formatGp(currencyToCopper(statblock.currency)) : '';
   });
 
+  public readonly inventoryItems = computed<readonly InventoryPanelItem[]>(() =>
+    (this.view()?.inventory ?? []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      range: this.itemRange(item),
+      valueGp: item.valueGp ?? 0,
+    })));
+
+  public readonly spellSlots = computed<readonly SpellPanelSlot[]>(() =>
+    this.pc()?.spells.slots ?? []);
+
+  public readonly pactSlots = computed<SpellPanelPactSlot | null>(() => {
+    const pact = this.pc()?.spells.pactSlots;
+    return pact === undefined
+      ? null
+      : { level: pact.level, used: pact.used, max: pact.max };
+  });
+
+  public readonly spellCards = computed<readonly SpellPanelSpell[]>(() => {
+    const pc = this.pc();
+    if (pc === null) {
+      return [];
+    }
+    return pc.snapshot.spells.map((spell) => ({
+      id: spell.id,
+      name: spell.name,
+      level: spell.level,
+      meta: [
+        spell.school,
+        spell.castingTime,
+        this.spellRangeText(spell.range),
+        spell.components,
+        spell.duration,
+      ].join(' · '),
+      description: this.formatRulesText(spell.description),
+    }));
+  });
+
   public readonly tabs = computed<{ key: SheetTab; label: string }[]>(() => {
     const current = this.view();
     const isPc = current?.statblock.kind === 'pc';
@@ -244,8 +300,8 @@ export class ActorSheetPage implements OnInit {
     this.tab.set(tab);
   }
 
-  public setNotes(event: Event): void {
-    this.notesDraft.set((event.target as HTMLTextAreaElement).value);
+  public setNotes(value: string): void {
+    this.notesDraft.set(value);
     this.notesSaved.set(false);
   }
 

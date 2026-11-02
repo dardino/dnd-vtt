@@ -1,0 +1,13 @@
+<section class="surface mini">
+  <h2>Note del DM</h2>
+  <p class="muted">Queste note non vengono mai inviate alla scheda giocatore.</p>
+  <textarea class="notes" rows="10" [value]="notes()" (input)="onInput($event)"></textarea>
+  <div class="actions">
+    <button type="button" class="btn btn--primary" [disabled]="saving()" (click)="onSave()">
+      {{ saving() ? 'Salvataggio…' : 'Salva note' }}
+    </button>
+    @if (saved()) {
+      <span class="muted">Salvate.</span>
+    }
+  </div>
+</section>

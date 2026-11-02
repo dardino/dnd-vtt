@@ -1,0 +1,49 @@
+<section class="surface mini">
+  <h2>Slot incantesimo</h2>
+  @if (slots().length === 0) {
+    <p class="muted">Nessuno slot.</p>
+  } @else {
+    <ul class="plain-list">
+      @for (slot of slots(); track slot.level) {
+        <li>
+          <span>Livello {{ slot.level }}</span>
+          <span class="inline-controls">
+            <button type="button" class="mini-button" (click)="changeSlot(slot.level, -1)">−</button>
+            <strong>{{ slot.used }}/{{ slot.max }}</strong>
+            <button type="button" class="mini-button" (click)="changeSlot(slot.level, 1)">+</button>
+          </span>
+        </li>
+      }
+      @if (pactSlots(); as pact) {
+        <li>
+          <span>Patto livello {{ pact.level }}</span>
+          <span class="inline-controls">
+            <button type="button" class="mini-button" (click)="changePactSlot(-1)">−</button>
+            <strong>{{ pact.used }}/{{ pact.max }}</strong>
+            <button type="button" class="mini-button" (click)="changePactSlot(1)">+</button>
+          </span>
+        </li>
+      }
+    </ul>
+  }
+</section>
+
+<section class="surface mini">
+  <h2>Incantesimi</h2>
+  @if (spells().length === 0) {
+    <p class="muted">Nessun incantesimo.</p>
+  } @else {
+    <div class="spell-sheet">
+      @for (spell of spells(); track spell.id) {
+        <article class="spell-card">
+          <header>
+            <strong>{{ spell.name }}</strong>
+            <span class="badge">{{ spell.level }}</span>
+          </header>
+          <p class="muted">{{ spell.meta }}</p>
+          <p>{{ spell.description }}</p>
+        </article>
+      }
+    </div>
+  }
+</section>

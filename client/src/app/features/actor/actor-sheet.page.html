@@ -290,78 +290,22 @@
       }
 
       @case ('spells') {
-        @if (pc(); as pc) {
-          <section class="surface mini">
-            <h2>Slot incantesimo</h2>
-            @if (pc.spells.slots.length === 0) {
-              <p class="muted">Nessuno slot.</p>
-            } @else {
-              <ul class="plain-list">
-                @for (slot of pc.spells.slots; track slot.level) {
-                  <li>
-                    <span>Livello {{ slot.level }}</span>
-                    <span class="inline-controls">
-                      <button type="button" class="mini-button" (click)="changeSlot(slot.level, -1)">−</button>
-                      <strong>{{ slot.used }}/{{ slot.max }}</strong>
-                      <button type="button" class="mini-button" (click)="changeSlot(slot.level, 1)">+</button>
-                    </span>
-                  </li>
-                }
-                @if (pc.spells.pactSlots; as pact) {
-                  <li>
-                    <span>Patto livello {{ pact.level }}</span>
-                    <span class="inline-controls">
-                      <button type="button" class="mini-button" (click)="changePactSlot(-1)">−</button>
-                      <strong>{{ pact.used }}/{{ pact.max }}</strong>
-                      <button type="button" class="mini-button" (click)="changePactSlot(1)">+</button>
-                    </span>
-                  </li>
-                }
-              </ul>
-            }
-          </section>
-          <section class="surface mini">
-            <h2>Incantesimi</h2>
-            @if (pc.snapshot.spells.length === 0) {
-              <p class="muted">Nessun incantesimo.</p>
-            } @else {
-              <div class="spell-sheet">
-                @for (spell of pc.snapshot.spells; track spell.id) {
-                  <article class="spell-card">
-                    <header>
-                      <strong>{{ spell.name }}</strong>
-                      <span class="badge">{{ spell.level }}</span>
-                    </header>
-                    <p class="muted">{{ spell.school }} · {{ spell.castingTime }} · {{ spellRangeText(spell.range) }} · {{ spell.components }} · {{ spell.duration }}</p>
-                    <p>{{ formatRulesText(spell.description) }}</p>
-                  </article>
-                }
-              </div>
-            }
-          </section>
+        @if (pc()) {
+          <app-actor-sheet-spell-panel
+            [slots]="spellSlots()"
+            [pactSlots]="pactSlots()"
+            [spells]="spellCards()"
+            (slotChange)="changeSlot($event.level, $event.delta)"
+            (pactSlotChange)="changePactSlot($event)"
+          />
         }
       }
 
       @case ('equipment') {
-        <section class="surface mini">
-          <h2>Inventario</h2>
-          @if (sheet.inventory.length === 0) {
-            <p class="muted">Nessun oggetto.</p>
-          } @else {
-            <ul class="plain-list">
-              @for (item of sheet.inventory; track item.id) {
-                <li>
-                  <span>
-                    {{ item.name }}
-                    @if (itemRange(item); as range) { <span class="muted">· {{ range }}</span> }
-                  </span>
-                  <strong>{{ item.valueGp ?? 0 }} mo</strong>
-                </li>
-              }
-            </ul>
-          }
-          <p class="muted">Monete: {{ currency() }} mo</p>
-        </section>
+        <app-actor-sheet-inventory-panel
+          [items]="inventoryItems()"
+          [currency]="currency()"
+        />
       }
 
       @case ('features') {
@@ -394,19 +338,13 @@
       }
 
       @case ('notes') {
-        <section class="surface mini">
-          <h2>Note del DM</h2>
-          <p class="muted">Queste note non vengono mai inviate alla scheda giocatore.</p>
-          <textarea class="notes" rows="10" [value]="notesDraft()" (input)="setNotes($event)"></textarea>
-          <div class="actions">
-            <button type="button" class="btn btn--primary" [disabled]="savingNotes()" (click)="saveNotes()">
-              {{ savingNotes() ? 'Salvataggio…' : 'Salva note' }}
-            </button>
-            @if (notesSaved()) {
-              <span class="muted">Salvate.</span>
-            }
-          </div>
-        </section>
+        <app-actor-sheet-notes-panel
+          [notes]="notesDraft()"
+          [saving]="savingNotes()"
+          [saved]="notesSaved()"
+          (notesChange)="setNotes($event)"
+          (save)="saveNotes()"
+        />
       }
     }
   }

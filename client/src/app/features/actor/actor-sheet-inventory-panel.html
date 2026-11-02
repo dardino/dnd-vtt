@@ -1,0 +1,19 @@
+<section class="surface mini">
+  <h2>Inventario</h2>
+  @if (items().length === 0) {
+    <p class="muted">Nessun oggetto.</p>
+  } @else {
+    <ul class="plain-list">
+      @for (item of items(); track item.id) {
+        <li>
+          <span>
+            {{ item.name }}
+            @if (item.range; as range) { <span class="muted">· {{ range }}</span> }
+          </span>
+          <strong>{{ item.valueGp }} mo</strong>
+        </li>
+      }
+    </ul>
+  }
+  <p class="muted">Monete: {{ currency() }} mo</p>
+</section>
