@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { createDefaultSceneState } from '@dnd-vtt/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SceneCanvasComponent } from './scene-canvas.component';
@@ -123,5 +123,91 @@ describe('SceneCanvasComponent', () => {
     expect(fixture.componentInstance.backgroundTransform()).toEqual({ x: 0, y: 0, scale: 1 });
     expect(fixture.componentInstance.map()).toBeNull();
     fixture.destroy();
+  });
+
+  describe('accessibilità da tastiera', () => {
+    const createCanvas = async (): Promise<{
+      fixture: ComponentFixture<SceneCanvasComponent>;
+      host: HTMLElement;
+      component: SceneCanvasComponent;
+    }> => {
+      const fixture = TestBed.createComponent(SceneCanvasComponent);
+      fixture.componentRef.setInput('state', createDefaultSceneState());
+      fixture.detectChanges();
+      await fixture.whenStable();
+      const host = (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLElement>('.scene-canvas');
+      if (host === null) {
+        throw new Error('host del canvas non trovato');
+      }
+      return { fixture, host, component: fixture.componentInstance };
+    };
+
+    it('espone role img, tabindex e aria-label descrittivo', async () => {
+      const { fixture, host } = await createCanvas();
+
+      expect(host.getAttribute('role')).toBe('img');
+      expect(host.getAttribute('tabindex')).toBe('0');
+      const label = host.getAttribute('aria-label') ?? '';
+      expect(label).toContain('strumento selezione');
+      expect(label).toContain('Frecce');
+      expect(label).toContain('Esc');
+      fixture.destroy();
+    });
+
+    it('sposta la camera con le frecce', async () => {
+      const { fixture, host, component } = await createCanvas();
+
+      host.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'ArrowRight',
+        bubbles: true,
+        cancelable: true,
+      }));
+      expect(component.camera().x).toBe(-48);
+
+      host.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+      expect(component.camera().y).toBe(48);
+      fixture.destroy();
+    });
+
+    it('zooma con + e -', async () => {
+      const { fixture, host, component } = await createCanvas();
+      const zoom = vi.spyOn(component, 'zoomBy');
+
+      const plus = new KeyboardEvent('keydown', { key: '+', bubbles: true, cancelable: true });
+      host.dispatchEvent(plus);
+      expect(zoom).toHaveBeenCalledWith(1.15);
+      expect(plus.defaultPrevented).toBe(true);
+
+      host.dispatchEvent(new KeyboardEvent('keydown', { key: '-', bubbles: true }));
+      expect(zoom).toHaveBeenLastCalledWith(1 / 1.15);
+      fixture.destroy();
+    });
+
+    it('deseleziona il token con Escape', async () => {
+      const { fixture, host, component } = await createCanvas();
+      const selected: Array<string | null> = [];
+      component.tokenSelected.subscribe((id) => selected.push(id));
+
+      host.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+      expect(selected).toEqual([null]);
+      fixture.destroy();
+    });
+
+    it('ignora i tasti quando il focus è in un campo editabile', async () => {
+      const { fixture, host, component } = await createCanvas();
+      const input = document.createElement('input');
+      host.appendChild(input);
+      const before = component.camera();
+      const zoom = vi.spyOn(component, 'zoomBy');
+
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: '+', bubbles: true }));
+
+      expect(component.camera()).toEqual(before);
+      expect(zoom).not.toHaveBeenCalled();
+      fixture.destroy();
+    });
   });
 });

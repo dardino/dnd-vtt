@@ -12,6 +12,11 @@
   min-height: 24rem;
   background: var(--editor-bg);
 
+  &:focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: -2px;
+  }
+
   &[data-tool='wall'],
   &[data-tool='freehand'],
   &[data-tool='door'],

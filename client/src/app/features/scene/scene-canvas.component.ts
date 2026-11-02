@@ -38,6 +38,7 @@ import {
   type Viewport,
   type VisionGrid,
 } from '@dnd-vtt/shared';
+import { canvasKeyboardCommand } from '../../core/canvas-keyboard';
 import { MeasurementService } from '../../core/measurement.service';
 import { readThemeColors, type CssColorTokens } from '../../core/theme-colors';
 import { CanvasInputController } from './canvas-input-controller';
@@ -65,6 +66,16 @@ export type SceneTool
     | 'fog-rect'
     | 'fog-lasso'
     | 'draw';
+
+const SCENE_TOOL_LABELS: Record<SceneTool, string> = {
+  select: 'selezione',
+  measure: 'misura',
+  'fog-reveal': 'rivela nebbia',
+  'fog-hide': 'nascondi nebbia',
+  'fog-rect': 'nebbia rettangolare',
+  'fog-lasso': 'nebbia a lasso',
+  draw: 'disegno',
+};
 
 export interface ActorPortraitThumb {
   url: string;
@@ -157,6 +168,10 @@ export class SceneCanvasComponent implements OnDestroy {
       : `${this.units.formatDistance(measure.feet)} · ${measure.cells} celle`;
   });
 
+  public readonly ariaLabel = computed(() =>
+    `Scena di gioco, strumento ${SCENE_TOOL_LABELS[this.tool()]}. `
+    + 'Frecce per spostare la vista, + e - per lo zoom, Esc per deselezionare.');
+
   private stage: Konva.Stage | null = null;
   private readonly sceneCamera = new SceneCamera();
   private readonly gridRenderer = new GridRenderer();
@@ -248,6 +263,30 @@ export class SceneCanvasComponent implements OnDestroy {
     }
     this.syncCameraContext();
     this.sceneCamera.zoomBy(factor);
+    this.applyCamera();
+    this.beginInteraction();
+  }
+
+  /** Scorciatoie da tastiera: pan, zoom e deselezione. */
+  public onKeyDown(event: KeyboardEvent): void {
+    const command = canvasKeyboardCommand(event);
+    if (command === null) {
+      return;
+    }
+    event.preventDefault();
+    if (command.type === 'deselect') {
+      this.tokenSelected.emit(null);
+      return;
+    }
+    if (this.readOnly() || this.stage === null) {
+      return;
+    }
+    if (command.type === 'zoom') {
+      this.zoomBy(command.factor);
+      return;
+    }
+    this.syncCameraContext();
+    this.sceneCamera.panBy(command.dx, command.dy);
     this.applyCamera();
     this.beginInteraction();
   }

@@ -7,7 +7,10 @@ import {
   type WallSegment,
 } from '@dnd-vtt/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MapEditorCanvasComponent } from './map-editor-canvas.component';
+import {
+  MapEditorCanvasComponent,
+  type EditorSelection,
+} from './map-editor-canvas.component';
 
 const konva = vi.hoisted(() => {
   class MockNode {
@@ -36,6 +39,18 @@ const konva = vi.hoisted(() => {
     }
 
     public draw(): void {}
+
+    public destroy(): void {}
+
+    public width(): number { return 1; }
+
+    public height(): number { return 1; }
+
+    public scaleX(): number { return 1; }
+
+    public x(): number { return 0; }
+
+    public y(): number { return 0; }
   }
 
   return {
@@ -52,11 +67,11 @@ const konva = vi.hoisted(() => {
 vi.mock('konva', () => ({ default: konva }));
 
 interface FakeStage {
+  width: () => number; height: () => number;
   scaleX: () => number;
   scale: ReturnType<typeof vi.fn>;
   position: ReturnType<typeof vi.fn>;
-  x: () => number;
-  y: () => number;
+  x: () => number; y: () => number;
   getPointerPosition: () => { x: number; y: number };
   destroy: ReturnType<typeof vi.fn>;
 }
@@ -71,6 +86,10 @@ interface PanState {
 interface ShapeLike {
   getAttr: (name: string) => unknown;
   getChildren: () => ShapeLike[];
+}
+
+class MockResizeObserver {
+  public observe(): void {} public unobserve(): void {} public disconnect(): void {}
 }
 
 class FakeLayer {
@@ -115,6 +134,7 @@ interface RenderScheduler {
   renderOverlay(): void;
   onWheel(event: unknown): void;
   onPointerMove(event: unknown): void;
+  onKeyDown(event: KeyboardEvent): void;
   ngOnDestroy(): void;
 }
 
@@ -167,6 +187,8 @@ const spawns: MapSpawn[] = [{
 const playerStarts: PlayerStart[] = [{ id: 'start-1', x: 2, y: 2 }];
 
 const fakeStage = (): FakeStage => ({
+  width: () => 100,
+  height: () => 100,
   scaleX: () => 1,
   scale: vi.fn(),
   position: vi.fn(),
@@ -196,6 +218,7 @@ describe('MapEditorCanvasComponent rendering incrementale', () => {
     });
     vi.stubGlobal('requestAnimationFrame', requestFrame);
     vi.stubGlobal('cancelAnimationFrame', cancelFrame);
+    vi.stubGlobal('ResizeObserver', MockResizeObserver);
     TestBed.configureTestingModule({ imports: [MapEditorCanvasComponent] });
   });
 
@@ -387,5 +410,73 @@ describe('MapEditorCanvasComponent rendering incrementale', () => {
       expect(group.getChildren()[0]?.getAttr('strokeScaleEnabled')).toBe(false);
     }
     fixture.destroy();
+  });
+
+  describe('accessibilità da tastiera', () => {
+    it('espone role img, tabindex e aria-label descrittivo', () => {
+      const { fixture, editor } = createEditor();
+      withInputs(editor, fixture);
+      fixture.componentRef.setInput('tool', 'wall');
+      fixture.detectChanges();
+
+      const host = (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLElement>('.map-editor-canvas');
+
+      expect(host?.getAttribute('role')).toBe('img');
+      expect(host?.getAttribute('tabindex')).toBe('0');
+      expect(host?.getAttribute('aria-label') ?? '').toContain('strumento muro');
+      expect(host?.getAttribute('aria-label') ?? '').toContain('Frecce');
+      fixture.destroy();
+    });
+
+    it('sposta la camera con le frecce', () => {
+      const { fixture, editor } = createEditor();
+      const stage = fakeStage();
+      editor.stage = stage;
+
+      editor.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight', cancelable: true }));
+
+      expect(stage.position).toHaveBeenCalledWith({ x: -48, y: 0 });
+      fixture.destroy();
+    });
+
+    it('zooma con + e -', () => {
+      const { fixture, editor } = createEditor();
+      const stage = fakeStage();
+      editor.stage = stage;
+
+      editor.onKeyDown(new KeyboardEvent('keydown', { key: '+', cancelable: true }));
+
+      expect(stage.scale).toHaveBeenCalledWith({ x: 1.15, y: 1.15 });
+      fixture.destroy();
+    });
+
+    it('deseleziona con Escape', () => {
+      const { fixture, editor } = createEditor();
+      editor.stage = fakeStage();
+      const selected: Array<EditorSelection | null> = [];
+      fixture.componentInstance.elementSelected.subscribe((value) => selected.push(value));
+
+      editor.onKeyDown(new KeyboardEvent('keydown', { key: 'Escape' }));
+
+      expect(selected).toEqual([null]);
+      fixture.destroy();
+    });
+
+    it('ignora i tasti quando il focus è in un campo editabile', () => {
+      const { fixture, editor } = createEditor();
+      const stage = fakeStage();
+      editor.stage = stage;
+      const input = document.createElement('input');
+      document.body.appendChild(input);
+
+      const event = new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true });
+      input.dispatchEvent(event);
+      editor.onKeyDown(event);
+
+      expect(stage.position).not.toHaveBeenCalled();
+      input.remove();
+      fixture.destroy();
+    });
   });
 });

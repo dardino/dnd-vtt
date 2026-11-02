@@ -4,6 +4,7 @@ import {
   type ElementRef,
   type OnDestroy,
   afterNextRender,
+  computed,
   effect,
   inject,
   input,
@@ -30,6 +31,7 @@ import {
   type WallPoint,
   type WallSegment,
 } from '@dnd-vtt/shared';
+import { canvasKeyboardCommand } from '../../core/canvas-keyboard';
 import { MeasurementService } from '../../core/measurement.service';
 import { readThemeColors, type CssColorTokens } from '../../core/theme-colors';
 import { MapGridRenderer } from './map-grid-renderer';
@@ -57,6 +59,19 @@ export type EditorTool
     | 'light'
     | 'spawn'
     | 'start';
+
+const EDITOR_TOOL_LABELS: Record<EditorTool, string> = {
+  select: 'selezione',
+  wall: 'muro',
+  freehand: 'mano libera',
+  door: 'porta',
+  window: 'finestra',
+  lowWall: 'muretto',
+  eraser: 'gomma',
+  light: 'luce',
+  spawn: 'mostro',
+  start: 'punto di partenza',
+};
 
 export interface EditorSelection {
   type: 'wall' | 'light' | 'spawn' | 'start';
@@ -108,6 +123,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public readonly elementSelected = output<EditorSelection | null>();
   public readonly cameraChanged = output<Camera>();
   public readonly gridLines = signal(0);
+  public readonly ariaLabel = computed(() =>
+    `Editor mappa, strumento ${EDITOR_TOOL_LABELS[this.tool()]}. `
+    + 'Frecce per spostare la vista, + e - per lo zoom, Esc per deselezionare.');
 
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
   private readonly units = inject(MeasurementService);
@@ -264,18 +282,57 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (pointer === null) {
       return;
     }
+    this.zoomAt(event.evt.deltaY < 0 ? 1.1 : 1 / 1.1, pointer);
+  }
+
+  /** Zoom ancorato a un punto schermo, con limiti relativi al fit. */
+  private zoomAt(factor: number, anchor: { x: number; y: number }): void {
+    const stage = this.stage;
+    if (stage === null) {
+      return;
+    }
     const oldScale = stage.scaleX();
-    const factor = event.evt.deltaY < 0 ? 1.1 : 1 / 1.1;
     const fit = Math.max(0.0001, this.fitScale());
     const newScale = Math.max(fit * 0.1, Math.min(fit * 20, oldScale * factor));
     const world = {
-      x: (pointer.x - stage.x()) / oldScale,
-      y: (pointer.y - stage.y()) / oldScale,
+      x: (anchor.x - stage.x()) / oldScale,
+      y: (anchor.y - stage.y()) / oldScale,
     };
     stage.scale({ x: newScale, y: newScale });
     stage.position({
-      x: pointer.x - world.x * newScale,
-      y: pointer.y - world.y * newScale,
+      x: anchor.x - world.x * newScale,
+      y: anchor.y - world.y * newScale,
+    });
+    this.publishCamera();
+    this.scheduleRender();
+  }
+
+  /**
+   * Scorciatoie da tastiera: pan, zoom e deselezione. `Delete` resta fuori:
+   * la rimozione passa da `removeSelected()` nella pagina, che la applica in
+   * modo confermabile/annullabile tramite la cronologia comandi.
+   */
+  public onKeyDown(event: KeyboardEvent): void {
+    const command = canvasKeyboardCommand(event);
+    if (command === null) {
+      return;
+    }
+    event.preventDefault();
+    if (command.type === 'deselect') {
+      this.elementSelected.emit(null);
+      return;
+    }
+    const stage = this.stage;
+    if (stage === null) {
+      return;
+    }
+    if (command.type === 'zoom') {
+      this.zoomAt(command.factor, { x: stage.width() / 2, y: stage.height() / 2 });
+      return;
+    }
+    stage.position({
+      x: stage.x() + command.dx,
+      y: stage.y() + command.dy,
     });
     this.publishCamera();
     this.scheduleRender();

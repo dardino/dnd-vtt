@@ -1,11 +1,15 @@
 <div
   #host
   class="map-editor-canvas"
+  role="img"
+  tabindex="0"
+  [attr.aria-label]="ariaLabel()"
   [attr.data-tool]="tool()"
   [attr.data-camera-scale]="camera().scale"
   [attr.data-camera-x]="camera().x"
   [attr.data-camera-y]="camera().y"
   [attr.data-grid-lines]="gridLines()"
+  (keydown)="onKeyDown($event)"
 >
   <div #container class="map-editor-canvas__stage"></div>
 </div>

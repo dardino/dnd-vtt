@@ -1,6 +1,9 @@
 <div
   #host
   class="scene-canvas"
+  role="img"
+  tabindex="0"
+  [attr.aria-label]="ariaLabel()"
   [class.scene-canvas--measure]="tool() === 'measure'"
   [class.scene-canvas--tool]="tool() !== 'select' && tool() !== 'measure'"
   [attr.data-camera-scale]="camera().scale"
@@ -12,6 +15,7 @@
   [attr.data-grid-type]="state().grid.type"
   (dragover)="onDragOver($event)"
   (drop)="onDrop($event)"
+  (keydown)="onKeyDown($event)"
 >
   <div #container class="scene-canvas__stage"></div>
   @if (statusLabel() !== '') {

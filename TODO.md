@@ -336,9 +336,12 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** valutare `@container` per i pannelli console/actor sheet durante l'ondata `@defer`; se non porta benefici misurabili, rimuovere il requisito dal piano.
   - **Fatto quando:** decisione registrata e, se adottata, applicata ai pannelli.
 
-- [ ] **C7 — Accessibilità canvas** · M
+- [x] **C7 — Accessibilità canvas** · M — ✅ 2 novembre 2026
   - **Proposta:** `role="img"` + `aria-label` descrittivo sullo stage, scorciatoie tastiera per pan/zoom/selezione, conferma esplicita per azioni distruttive.
   - **Fatto quando:** le azioni principali sono raggiungibili da tastiera e testate.
+  - **Esito:** scene e map editor hanno host `role="img"`, `tabindex="0"`, `aria-label` con strumento e scorciatoie;
+    `canvas-keyboard.ts` centralizza frecce (pan), `+`/`-` (zoom) ed `Esc` (deselezione), ignorando i campi
+    editabili. `Delete` nel map editor resta sulla pagina (`removeSelected()`), documentato nel componente.
 
 ## 7. Tooling e allineamento al piano (P2)
 
