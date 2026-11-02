@@ -66,10 +66,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** batch loader per richiesta (`actorsById`, `assetsById`) con una query `IN (...)` per tabella, passato a `publicScene` e `projectDisplay`; cache per singolo broadcast.
   - **Fatto quando:** una `getActorsByIds` e una `getAssetsByIds` per proiezione, indipendenti da token/layer/display; nessuna `getActor`/`getAsset` per elemento; test con 30 token, 30 attori e 3 display.
 
-- [ ] **P2 — `updateTokensForActor` mirato** · M
+- [x] **P2 — `updateTokensForActor` mirato** · M — ✅ 2 novembre 2026
   - **Problema:** scandisce tutte le scene della campagna a ogni modifica di scheda.
   - **Proposta:** pre-filtro SQL (`json_each` su `scenes.state`) e parse solo delle scene candidate; alternativa: tabella indice `scene_tokens(actor_id, scene_id)` aggiornata in transazione.
-  - **Fatto quando:** O(scene candidate), benchmark con 50 scene.
+  - **Esito:** `json_each`/`json_extract` con guardia `json_valid` seleziona solo le scene candidate; fallback `LIKE` con wildcard escapate se JSON1 non è disponibile. Test con 50 scene (3 candidate, 10 con JSON corrotto) in `token-sync.spec.ts`, incluso il percorso di fallback.
 
 - [ ] **P3 — History editor mappa a comandi/patch** · M · D4
   - **Problema:** 50 `structuredClone` completi del documento; con 4.000 muri e 500 spawn la history pesa centinaia di MB.
