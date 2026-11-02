@@ -140,6 +140,20 @@ export const putMap = async (
       currentVersion: current.version,
     });
   }
+  if (
+    document.widthPx !== current.widthPx
+    || document.heightPx !== current.heightPx
+  ) {
+    throw new AppError(
+      'validation_error',
+      400,
+      'Le dimensioni della mappa non possono essere modificate',
+      {
+        expected: { widthPx: current.widthPx, heightPx: current.heightPx },
+        received: { widthPx: document.widthPx, heightPx: document.heightPx },
+      },
+    );
+  }
   const asset = document.imageAssetId === null ? null : getAsset(db, document.imageAssetId);
   if (document.imageAssetId !== null && asset === null) {
     throw notFound('Immagine non trovata');

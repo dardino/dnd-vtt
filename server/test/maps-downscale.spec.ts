@@ -62,6 +62,67 @@ const setup = async (width: number, height: number): Promise<{
   return { testApp, campaignId, original };
 };
 
+describe('immutabilità dimensioni mappa', () => {
+  const putDocument = async (
+    app: FastifyInstance,
+    map: Map,
+    changes: Record<string, unknown>,
+  ) => app.inject({
+    method: 'PUT',
+    url: `/api/v1/maps/${map.id}`,
+    payload: {
+      version: map.version,
+      document: { ...documentFor(map), ...changes },
+    },
+  });
+
+  it('rifiuta il cambio di widthPx/heightPx con 400 validation_error', async () => {
+    const { testApp, campaignId, original } = await setup(640, 360);
+    const map = await createMap(testApp.app, campaignId, original.id);
+    const response = await putDocument(testApp.app, map, {
+      widthPx: map.widthPx + 1,
+      heightPx: map.heightPx + 1,
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toMatchObject({
+      error: {
+        code: 'validation_error',
+        details: {
+          expected: { widthPx: map.widthPx, heightPx: map.heightPx },
+          received: { widthPx: map.widthPx + 1, heightPx: map.heightPx + 1 },
+        },
+      },
+    });
+
+    const unchanged = await testApp.app.inject({ method: 'GET', url: `/api/v1/maps/${map.id}` });
+    expect(unchanged.json<Map>()).toMatchObject({
+      widthPx: map.widthPx,
+      heightPx: map.heightPx,
+      version: map.version,
+    });
+    await closeTestApp(testApp);
+  });
+
+  it('accetta il salvataggio con le stesse dimensioni', async () => {
+    const { testApp, campaignId, original } = await setup(640, 360);
+    const map = await createMap(testApp.app, campaignId, original.id);
+    const response = await putDocument(testApp.app, map, {
+      name: 'Mappa rinominata',
+      widthPx: map.widthPx,
+      heightPx: map.heightPx,
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<Map>()).toMatchObject({
+      name: 'Mappa rinominata',
+      widthPx: map.widthPx,
+      heightPx: map.heightPx,
+    });
+    await closeTestApp(testApp);
+  });
+});
+
 describe('downscale sfondo al salvataggio mappa', () => {
   it.each([0.5, 1, 2])('riduce a f di scena e preserva la resa con scale=%s', async (scale) => {
     const { testApp, campaignId, original } = await setup(1920, 1280);

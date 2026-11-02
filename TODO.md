@@ -461,7 +461,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
   - **Aperto:** replace-in-place quando l'asset è esclusivo + GC dei derivati non più referenziati.
 - [ ] **SR6 — Background nella history P3**
   - comandi `background.attach`/`remove`/`transform` e rimozione dell'aggiornamento dimensioni da `replaceBackground`.
-- [ ] **SR7 — Immutabilità completa**
+- [x] **SR7 - Immutabilità completa**
   - PUT mappa non deve cambiare `widthPx/heightPx`; test e validazione.
 
 ---
