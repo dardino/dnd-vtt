@@ -167,12 +167,6 @@
   }
 }
 
-.badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
 .badge {
   @include mx.pill;
   color: var(--color-text-muted);
@@ -259,15 +253,6 @@
   width: 6rem;
 }
 
-.saves-track {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-  font-size: var(--text-sm);
-}
-
 .mini-button {
   display: grid;
   place-items: center;
@@ -280,23 +265,6 @@
   color: var(--color-text);
 
   &:hover {
-    background: var(--color-bg-hover);
-  }
-}
-
-.btn--danger {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-}
-
-.badge--action {
-  border: var(--border-width) solid var(--color-border);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: pointer;
-
-  &:hover {
-    color: var(--color-text);
     background: var(--color-bg-hover);
   }
 }

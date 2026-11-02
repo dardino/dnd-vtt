@@ -1,0 +1,99 @@
+<div class="two-columns">
+  <section class="surface mini">
+    <h2>Punti ferita</h2>
+    <div class="inline-controls">
+      <label class="field field--small">
+        <span>Danno</span>
+        <input type="number" min="0" [value]="damageAmount()" (input)="setDamage($event)" />
+      </label>
+      <button type="button" class="btn btn--danger" [disabled]="busy()" (click)="submitDamage()">
+        Subisci
+      </button>
+      <label class="field field--small">
+        <span>Cura</span>
+        <input type="number" min="0" [value]="healAmount()" (input)="setHeal($event)" />
+      </label>
+      <button type="button" class="btn" [disabled]="busy()" (click)="submitHeal()">Cura</button>
+    </div>
+    <div class="inline-controls">
+      <label class="field field--small">
+        <span>PF temporanei</span>
+        <input type="number" min="0" [value]="tempAmount()" (input)="setTemp($event)" />
+      </label>
+      <button type="button" class="btn" [disabled]="busy()" (click)="submitTemp()">
+        Applica temp
+      </button>
+    </div>
+    @if (character(); as character) {
+      <div class="saves-track">
+        <span>Successi morte</span>
+        <button type="button" class="mini-button" (click)="changeDeathSave('successes', -1)">
+          −
+        </button>
+        <strong>{{ character.deathSaves.successes }}/3</strong>
+        <button type="button" class="mini-button" (click)="changeDeathSave('successes', 1)">
+          +
+        </button>
+        <span>Fallimenti</span>
+        <button type="button" class="mini-button" (click)="changeDeathSave('failures', -1)">
+          −
+        </button>
+        <strong>{{ character.deathSaves.failures }}/3</strong>
+        <button type="button" class="mini-button" (click)="changeDeathSave('failures', 1)">
+          +
+        </button>
+      </div>
+      <div class="saves-track">
+        <span>Dadi vita</span>
+        <button type="button" class="mini-button" (click)="changeHitDice(-1)">−</button>
+        <strong>{{ character.hitDice.used }}/{{ character.hitDice.total }} d{{ character.hitDice.die }}</strong>
+        <button type="button" class="mini-button" (click)="changeHitDice(1)">+</button>
+      </div>
+    }
+  </section>
+
+  <section class="surface mini">
+    <h2>Condizioni</h2>
+    <div class="inline-controls">
+      <select class="select" [value]="conditionToAdd()" (change)="setConditionToAdd($event)">
+        @for (condition of conditionNames; track condition) {
+          <option [value]="condition">{{ condition }}</option>
+        }
+      </select>
+      <button type="button" class="btn" [disabled]="busy()" (click)="addCondition()">Aggiungi</button>
+    </div>
+    @if (conditions().length === 0) {
+      <p class="muted">Nessuna condizione attiva.</p>
+    } @else {
+      <div class="badges">
+        @for (condition of conditions(); track condition.name) {
+          <button type="button" class="badge badge--action" (click)="toggleCondition(condition)">
+            {{ condition.name }}<span aria-hidden="true"> ×</span>
+          </button>
+        }
+      </div>
+    }
+  </section>
+</div>
+
+<ng-content />
+
+@if (character(); as character) {
+  <section class="surface mini">
+    <h2>Riposi</h2>
+    <div class="inline-controls">
+      <button type="button" class="btn" [disabled]="restBusy()" (click)="startRest('short')">
+        Riposo breve
+      </button>
+      <button
+        type="button"
+        class="btn btn--primary"
+        [disabled]="restBusy()"
+        (click)="startRest('long')"
+      >
+        Riposo lungo
+      </button>
+    </div>
+    <p class="muted">Il lungo recupera HP e dadi vita; il breve ricarica solo risorse e slot pact.</p>
+  </section>
+}

@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import type { DmSheetView, PcStatblock, SheetPatch } from '@dnd-vtt/shared';
+import type { Condition, DmSheetView, PcStatblock, SheetPatch } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActorService } from '../../core/actor.service';
 import { AssetService } from '../../core/asset.service';
@@ -126,9 +126,8 @@ describe('ActorSheetPage', () => {
 
   it('applica la cura agli HP di un PG fuori mappa con patch ottimistica', async () => {
     const page = create();
-    page.healAmount.set(5);
 
-    await page.heal();
+    await page.onHpChange({ mode: 'heal', amount: 5 });
 
     expect(patchSheet).toHaveBeenCalledWith(ACTOR_ID, {
       sheetVersion: 1,
@@ -147,5 +146,26 @@ describe('ActorSheetPage', () => {
 
     expect(page.error()).toBe('Attore non trovato.');
     expect(page.view()?.statblock.hp.current).toBe(10);
+  });
+
+  it('aggiunge una condizione assente con patch alla scheda', async () => {
+    const page = create();
+
+    await page.addCondition({ name: 'prone' });
+
+    expect(patchSheet).toHaveBeenCalledWith(ACTOR_ID, {
+      sheetVersion: 1,
+      patch: { conditions: [{ name: 'prone' }] },
+    });
+  });
+
+  it('non aggiunge una condizione già attiva', async () => {
+    const conditions: Condition[] = [{ name: 'prone' }];
+    current = { ...current, statblock: { ...current.statblock, conditions } };
+    const page = create();
+
+    await page.addCondition({ name: 'prone' });
+
+    expect(patchSheet).not.toHaveBeenCalled();
   });
 });

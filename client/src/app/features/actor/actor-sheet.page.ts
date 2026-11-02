@@ -9,7 +9,6 @@ import {
 import { RouterLink } from '@angular/router';
 import {
   abilityModifier,
-  conditionNameSchema,
   currencyToCopper,
   DEFAULT_ACTOR_PORTRAIT,
   formatGp,
@@ -21,7 +20,6 @@ import {
   type ActorPortrait,
   type Campaign,
   type Condition,
-  type ConditionName,
   type DmSheetView,
   type LevelUpInput,
   type LevelUpPreview,
@@ -47,12 +45,16 @@ import { PlayerService } from '../../core/player.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
 import { Dialog } from '../../components/dialog/dialog';
+import {
+  ActorSheetCombatPanel,
+  type CombatHpChange,
+} from './actor-sheet-combat-panel';
 
 type SheetTab = 'combat' | 'abilities' | 'spells' | 'equipment' | 'features' | 'notes';
 
 @Component({
   selector: 'app-actor-sheet',
-  imports: [RouterLink, Dialog],
+  imports: [RouterLink, Dialog, ActorSheetCombatPanel],
   templateUrl: './actor-sheet.page.html',
   styleUrl: './actor-sheet.page.scss',
 })
@@ -87,11 +89,6 @@ export class ActorSheetPage implements OnInit {
   public readonly savingNotes = signal(false);
   public readonly notesSaved = signal(false);
   public readonly busy = signal(false);
-  public readonly damageAmount = signal(5);
-  public readonly healAmount = signal(5);
-  public readonly tempAmount = signal(0);
-  public readonly conditionToAdd = signal<ConditionName>('prone');
-  public readonly conditionNames = conditionNameSchema.options;
   public readonly xpDraft = signal(0);
   public readonly levelUpOpen = signal(false);
   public readonly levelUpPreview = signal<LevelUpPreview | null>(null);
@@ -284,43 +281,25 @@ export class ActorSheetPage implements OnInit {
     return formatModifier(abilityModifier(value));
   }
 
-  public setDamage(event: Event): void {
-    this.damageAmount.set(Math.max(0, Math.trunc(Number((event.target as HTMLInputElement).value))));
-  }
-
-  public setHeal(event: Event): void {
-    this.healAmount.set(Math.max(0, Math.trunc(Number((event.target as HTMLInputElement).value))));
-  }
-
-  public setTemp(event: Event): void {
-    this.tempAmount.set(Math.max(0, Math.trunc(Number((event.target as HTMLInputElement).value))));
-  }
-
-  public setConditionToAdd(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if ((conditionNameSchema.options as string[]).includes(value)) {
-      this.conditionToAdd.set(value as ConditionName);
-    }
-  }
-
   public setXpDraft(event: Event): void {
     this.xpDraft.set(Math.max(0, Math.trunc(Number((event.target as HTMLInputElement).value))));
   }
 
-  public async damage(): Promise<void> {
-    await this.changeHp(-Math.abs(this.damageAmount()));
+  public async onHpChange(change: CombatHpChange): Promise<void> {
+    if (change.mode === 'temp') {
+      await this.applyTempHp(change.amount);
+      return;
+    }
+    const amount = Math.abs(change.amount);
+    await this.changeHp(change.mode === 'damage' ? -amount : amount);
   }
 
-  public async heal(): Promise<void> {
-    await this.changeHp(Math.abs(this.healAmount()));
-  }
-
-  public async applyTempHp(): Promise<void> {
+  public async applyTempHp(amount: number): Promise<void> {
     const view = this.view();
     if (view === null) {
       return;
     }
-    const hp = { ...view.statblock.hp, temp: Math.max(0, this.tempAmount()) };
+    const hp = { ...view.statblock.hp, temp: Math.max(0, amount) };
     await this.withBusy(async () => {
       if (this.onMap()) {
         await this.sceneActions.send(this.campaignId(), this.combatSceneId() ?? '', {
@@ -335,30 +314,24 @@ export class ActorSheetPage implements OnInit {
     });
   }
 
-  public async addCondition(): Promise<void> {
-    const name = this.conditionToAdd();
+  public async addCondition(condition: Condition): Promise<void> {
     const view = this.view();
-    const pc = this.pc();
-    if (view === null || view.statblock.conditions.some((condition) => condition.name === name)) {
+    if (view === null || view.statblock.conditions.some((entry) => entry.name === condition.name)) {
       return;
     }
-    const condition: Condition = { name };
-    await this.withBusy(async () => {
-      if (this.onMap()) {
-        await this.sceneActions.send(this.campaignId(), this.combatSceneId() ?? '', {
-          type: 'token.condition',
-          tokenId: this.tokenId() ?? '',
-          op: 'add',
-          condition,
-        });
-      } else if (pc !== null) {
-        await this.patch({ conditions: [...view.statblock.conditions, condition] });
-      }
-      await this.reload();
-    });
+    await this.changeCondition(condition, 'add');
   }
 
-  public async removeCondition(condition: Condition): Promise<void> {
+  public async toggleCondition(condition: Condition): Promise<void> {
+    const view = this.view();
+    if (view === null) {
+      return;
+    }
+    const active = view.statblock.conditions.some((entry) => entry.name === condition.name);
+    await this.changeCondition(condition, active ? 'remove' : 'add');
+  }
+
+  private async changeCondition(condition: Condition, op: 'add' | 'remove'): Promise<void> {
     const view = this.view();
     const pc = this.pc();
     if (view === null) {
@@ -369,12 +342,14 @@ export class ActorSheetPage implements OnInit {
         await this.sceneActions.send(this.campaignId(), this.combatSceneId() ?? '', {
           type: 'token.condition',
           tokenId: this.tokenId() ?? '',
-          op: 'remove',
+          op,
           condition,
         });
       } else if (pc !== null) {
         await this.patch({
-          conditions: view.statblock.conditions.filter((entry) => entry.name !== condition.name),
+          conditions: op === 'add'
+            ? [...view.statblock.conditions, condition]
+            : view.statblock.conditions.filter((entry) => entry.name !== condition.name),
         });
       }
       await this.reload();

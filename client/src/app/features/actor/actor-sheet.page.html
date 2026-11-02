@@ -174,98 +174,40 @@
           </article>
         </div>
 
-        <div class="two-columns">
-          <section class="surface mini">
-            <h2>Punti ferita</h2>
-            <div class="inline-controls">
-              <label class="field field--small">
-                <span>Danno</span>
-                <input type="number" min="0" [value]="damageAmount()" (input)="setDamage($event)" />
-              </label>
-              <button type="button" class="btn btn--danger" [disabled]="busy()" (click)="damage()">Subisci</button>
-              <label class="field field--small">
-                <span>Cura</span>
-                <input type="number" min="0" [value]="healAmount()" (input)="setHeal($event)" />
-              </label>
-              <button type="button" class="btn" [disabled]="busy()" (click)="heal()">Cura</button>
-            </div>
-            <div class="inline-controls">
-              <label class="field field--small">
-                <span>PF temporanei</span>
-                <input type="number" min="0" [value]="tempAmount()" (input)="setTemp($event)" />
-              </label>
-              <button type="button" class="btn" [disabled]="busy()" (click)="applyTempHp()">Applica temp</button>
-            </div>
-            @if (pc(); as character) {
-              <div class="saves-track">
-                <span>Successi morte</span>
-                <button type="button" class="mini-button" (click)="changeDeathSave('successes', -1)">−</button>
-                <strong>{{ character.deathSaves.successes }}/3</strong>
-                <button type="button" class="mini-button" (click)="changeDeathSave('successes', 1)">+</button>
-                <span>Fallimenti</span>
-                <button type="button" class="mini-button" (click)="changeDeathSave('failures', -1)">−</button>
-                <strong>{{ character.deathSaves.failures }}/3</strong>
-                <button type="button" class="mini-button" (click)="changeDeathSave('failures', 1)">+</button>
-              </div>
-              <div class="saves-track">
-                <span>Dadi vita</span>
-                <button type="button" class="mini-button" (click)="changeHitDice(-1)">−</button>
-                <strong>{{ character.hitDice.used }}/{{ character.hitDice.total }} d{{ character.hitDice.die }}</strong>
-                <button type="button" class="mini-button" (click)="changeHitDice(1)">+</button>
-              </div>
+        <app-actor-sheet-combat-panel
+          [conditions]="sheet.statblock.conditions"
+          [character]="pc()"
+          [busy]="busy()"
+          [restBusy]="restBusy()"
+          (hpPatch)="onHpChange($event)"
+          (conditionAdd)="addCondition($event)"
+          (conditionToggle)="toggleCondition($event)"
+          (deathSave)="changeDeathSave($event.kind, $event.delta)"
+          (hitDice)="changeHitDice($event)"
+          (rest)="rest($event)"
+        >
+          @if (pc(); as character) {
+            @if (character.resources.length > 0) {
+              <section class="surface mini">
+                <h2>Risorse</h2>
+                <ul class="plain-list">
+                  @for (resource of character.resources; track resource.id) {
+                    <li>
+                      <span>{{ resource.name }} <span class="muted">({{ resource.recharge }})</span></span>
+                      <span class="inline-controls">
+                        <button type="button" class="mini-button" (click)="changeResource(resource.id, -1)">−</button>
+                        <strong>{{ resource.used }}/{{ resource.max }}</strong>
+                        <button type="button" class="mini-button" (click)="changeResource(resource.id, 1)">+</button>
+                      </span>
+                    </li>
+                  }
+                </ul>
+              </section>
             }
-          </section>
-
-          <section class="surface mini">
-            <h2>Condizioni</h2>
-            <div class="inline-controls">
-              <select class="select" [value]="conditionToAdd()" (change)="setConditionToAdd($event)">
-                @for (condition of conditionNames; track condition) {
-                  <option [value]="condition">{{ condition }}</option>
-                }
-              </select>
-              <button type="button" class="btn" [disabled]="busy()" (click)="addCondition()">Aggiungi</button>
-            </div>
-            @if (sheet.statblock.conditions.length === 0) {
-              <p class="muted">Nessuna condizione attiva.</p>
-            } @else {
-              <div class="badges">
-                @for (condition of sheet.statblock.conditions; track condition.name) {
-                  <button type="button" class="badge badge--action" (click)="removeCondition(condition)">
-                    {{ condition.name }}<span aria-hidden="true"> ×</span>
-                  </button>
-                }
-              </div>
-            }
-          </section>
-        </div>
+          }
+        </app-actor-sheet-combat-panel>
 
         @if (pc(); as character) {
-          @if (character.resources.length > 0) {
-            <section class="surface mini">
-              <h2>Risorse</h2>
-              <ul class="plain-list">
-                @for (resource of character.resources; track resource.id) {
-                  <li>
-                    <span>{{ resource.name }} <span class="muted">({{ resource.recharge }})</span></span>
-                    <span class="inline-controls">
-                      <button type="button" class="mini-button" (click)="changeResource(resource.id, -1)">−</button>
-                      <strong>{{ resource.used }}/{{ resource.max }}</strong>
-                      <button type="button" class="mini-button" (click)="changeResource(resource.id, 1)">+</button>
-                    </span>
-                  </li>
-                }
-              </ul>
-            </section>
-          }
-          <section class="surface mini">
-            <h2>Riposi</h2>
-            <div class="inline-controls">
-              <button type="button" class="btn" [disabled]="restBusy()" (click)="rest('short')">Riposo breve</button>
-              <button type="button" class="btn btn--primary" [disabled]="restBusy()" (click)="rest('long')">Riposo lungo</button>
-            </div>
-            <p class="muted">Il lungo recupera HP e dadi vita; il breve ricarica solo risorse e slot pact.</p>
-          </section>
           <section class="surface mini">
             <h2>Avanzamento</h2>
             <div class="inline-controls">
