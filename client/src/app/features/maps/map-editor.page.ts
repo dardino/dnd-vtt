@@ -44,10 +44,13 @@ import {
   type WallsDrawnEvent,
 } from './map-editor-canvas.component';
 import {
-  pushBoundedHistory,
-  snapshotOf,
-  type HistorySnapshot,
-} from './map-history';
+  arrayInsert,
+  arrayRemove,
+  replaceBackground,
+  replaceFields,
+  type MapCommand,
+} from './map-command';
+import { MapHistory } from './map-history';
 
 const TOOL_LABELS: Array<{ tool: EditorTool; label: string; hint: string }> = [
   { tool: 'select', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
@@ -102,9 +105,14 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly spawnTab = signal<'srd' | 'actors'>('srd');
   public readonly actors = signal<Actor[]>([]);
 
-  private history: HistorySnapshot<MapDocument>[] = [];
-  private redoStack: HistorySnapshot<MapDocument>[] = [];
-  private backgroundAssetSize: { assetId: string; width: number; height: number } | null = null;
+  private readonly history = new MapHistory();
+  private backgroundAsset: {
+    assetId: string;
+    url: string;
+    width: number;
+    height: number;
+  } | null = null;
+
   private unloadHandler = (event: BeforeUnloadEvent): void => {
     if (this.dirty()) {
       event.preventDefault();
@@ -213,16 +221,66 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   private async loadImage(map: Map): Promise<void> {
     if (map.imageAssetId === null) {
-      this.backgroundAssetSize = null;
+      this.backgroundAsset = null;
       this.image.set(null);
       return;
     }
     try {
       const asset = await this.assets.get(map.imageAssetId);
-      this.backgroundAssetSize = { assetId: asset.id, width: asset.width, height: asset.height };
+      this.backgroundAsset = {
+        assetId: asset.id,
+        url: asset.url,
+        width: asset.width,
+        height: asset.height,
+      };
       this.image.set({ url: asset.url, width: map.widthPx, height: map.heightPx });
     } catch {
-      this.backgroundAssetSize = null;
+      this.backgroundAsset = null;
+      this.image.set(null);
+    }
+  }
+
+  /** Riallinea l'anteprima (stato UI separato) al documento dopo undo/redo. */
+  private syncImageFromDoc(): void {
+    const doc = this.doc();
+    if (doc === null || doc.imageAssetId === null) {
+      this.backgroundAsset = null;
+      this.image.set(null);
+      return;
+    }
+    if (this.backgroundAsset?.assetId === doc.imageAssetId) {
+      this.image.set({
+        url: this.backgroundAsset.url,
+        width: doc.widthPx,
+        height: doc.heightPx,
+      });
+      return;
+    }
+    this.backgroundAsset = null;
+    this.image.set(null);
+    void this.reloadBackgroundImage(doc.imageAssetId);
+  }
+
+  private async reloadBackgroundImage(assetId: string): Promise<void> {
+    try {
+      const asset = await this.assets.get(assetId);
+      const doc = this.doc();
+      if (doc === null || doc.imageAssetId !== assetId) {
+        return;
+      }
+      this.backgroundAsset = {
+        assetId: asset.id,
+        url: asset.url,
+        width: asset.width,
+        height: asset.height,
+      };
+      this.image.set({ url: asset.url, width: doc.widthPx, height: doc.heightPx });
+    } catch {
+      const doc = this.doc();
+      if (doc === null || doc.imageAssetId !== assetId) {
+        return;
+      }
+      this.backgroundAsset = null;
       this.image.set(null);
     }
   }
@@ -248,28 +306,33 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public onWallsDrawn(event: WallsDrawnEvent): void {
-    this.updateDoc((doc) => {
-      const cols = Math.ceil((doc.widthPx - doc.grid.offsetX) / doc.grid.cellSizePx);
-      const rows = Math.ceil((doc.heightPx - doc.grid.offsetY) / doc.grid.cellSizePx);
-      for (const wall of event.walls) {
-        const inBounds = wall.a.x >= 0 && wall.a.x <= cols && wall.a.y >= 0 && wall.a.y <= rows
-          && wall.b.x >= 0 && wall.b.x <= cols && wall.b.y >= 0 && wall.b.y <= rows;
-        if (!inBounds) {
-          continue;
-        }
-        doc.terrain.walls.push({
-          ...wall,
-          id: wall.id || newId(),
-          ...(wall.kind === 'door' ? { door: wall.door ?? 'closed' } : {}),
-        });
-      }
-    });
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
+    const cols = Math.ceil((doc.widthPx - doc.grid.offsetX) / doc.grid.cellSizePx);
+    const rows = Math.ceil((doc.heightPx - doc.grid.offsetY) / doc.grid.cellSizePx);
+    const walls = event.walls
+      .filter((wall) => wall.a.x >= 0 && wall.a.x <= cols && wall.a.y >= 0 && wall.a.y <= rows
+        && wall.b.x >= 0 && wall.b.x <= cols && wall.b.y >= 0 && wall.b.y <= rows)
+      .map<WallSegment>((wall) => ({
+        ...wall,
+        id: wall.id || newId(),
+        ...(wall.kind === 'door' ? { door: wall.door ?? 'closed' } : {}),
+      }));
+    if (walls.length === 0) {
+      return;
+    }
+    this.execute(arrayInsert('wall', walls));
   }
 
   public onWallRemoved(id: string): void {
-    this.updateDoc((doc) => {
-      doc.terrain.walls = doc.terrain.walls.filter((wall) => wall.id !== id);
-    });
+    const doc = this.doc();
+    const index = doc?.terrain.walls.findIndex((wall) => wall.id === id) ?? -1;
+    const wall = doc?.terrain.walls[index];
+    if (wall !== undefined) {
+      this.execute(arrayRemove('wall', wall, index));
+    }
     if (this.selected()?.type === 'wall' && this.selected()?.id === id) {
       this.selected.set(null);
     }
@@ -290,9 +353,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       shape: 'circle',
       angle: 60,
     };
-    this.updateDoc((doc) => {
-      doc.terrain.lights.push(light);
-    });
+    this.execute(arrayInsert('light', [light]));
     this.selected.set({ type: 'light', id: light.id });
     this.tool.set('select');
   }
@@ -307,9 +368,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       y: cell.y,
       label: `PG ${(this.doc()?.playerStarts.length ?? 0) + 1}`,
     };
-    this.updateDoc((doc) => {
-      doc.playerStarts.push(start);
-    });
+    this.execute(arrayInsert('start', [start]));
     this.selected.set({ type: 'start', id: start.id });
     this.tool.set('select');
   }
@@ -339,9 +398,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       hidden: false,
       quantity: 1,
     };
-    this.updateDoc((doc) => {
-      doc.spawns.push(spawn);
-    });
+    this.execute(arrayInsert('spawn', [spawn]));
     this.spawnCell.set(null);
     this.selected.set({ type: 'spawn', id: spawn.id });
     this.tool.set('select');
@@ -363,9 +420,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       hidden: false,
       quantity: 1,
     };
-    this.updateDoc((doc) => {
-      doc.spawns.push(spawn);
-    });
+    this.execute(arrayInsert('spawn', [spawn]));
     this.spawnCell.set(null);
     this.selected.set({ type: 'spawn', id: spawn.id });
     this.tool.set('select');
@@ -375,27 +430,27 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (!this.inBounds(event.cell)) {
       return;
     }
-    this.updateDoc((doc) => {
-      if (event.selection.type === 'spawn') {
-        const spawn = doc.spawns.find((entry) => entry.id === event.selection.id);
-        if (spawn !== undefined) {
-          spawn.x = event.cell.x;
-          spawn.y = event.cell.y;
-        }
-      } else if (event.selection.type === 'start') {
-        const start = doc.playerStarts.find((entry) => entry.id === event.selection.id);
-        if (start !== undefined) {
-          start.x = event.cell.x;
-          start.y = event.cell.y;
-        }
-      } else if (event.selection.type === 'light') {
-        const light = doc.terrain.lights.find((entry) => entry.id === event.selection.id);
-        if (light !== undefined) {
-          light.x = event.cell.x;
-          light.y = event.cell.y;
-        }
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
+    const after = { x: event.cell.x, y: event.cell.y };
+    if (event.selection.type === 'spawn') {
+      const spawn = doc.spawns.find((entry) => entry.id === event.selection.id);
+      if (spawn !== undefined) {
+        this.execute(replaceFields('spawn', spawn.id, { x: spawn.x, y: spawn.y }, after));
       }
-    });
+    } else if (event.selection.type === 'start') {
+      const start = doc.playerStarts.find((entry) => entry.id === event.selection.id);
+      if (start !== undefined) {
+        this.execute(replaceFields('start', start.id, { x: start.x, y: start.y }, after));
+      }
+    } else if (event.selection.type === 'light') {
+      const light = doc.terrain.lights.find((entry) => entry.id === event.selection.id);
+      if (light !== undefined) {
+        this.execute(replaceFields('light', light.id, { x: light.x, y: light.y }, after));
+      }
+    }
   }
 
   public updateWall(kind: WallKind, door?: WallSegment['door']): void {
@@ -403,18 +458,15 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (wall === null) {
       return;
     }
-    this.updateDoc((doc) => {
-      const target = doc.terrain.walls.find((entry) => entry.id === wall.id);
-      if (target === undefined) {
-        return;
-      }
-      target.kind = kind;
-      if (kind === 'door') {
-        target.door = door ?? target.door ?? 'closed';
-      } else {
-        delete target.door;
-      }
-    });
+    const before: Partial<WallSegment> = { kind: wall.kind };
+    if (wall.door !== undefined) {
+      before.door = wall.door;
+    }
+    const after: Partial<WallSegment> = { kind };
+    if (kind === 'door') {
+      after.door = door ?? wall.door ?? 'closed';
+    }
+    this.execute(replaceFields('wall', wall.id, before, after));
   }
 
   public updateWallKind(event: Event): void {
@@ -428,13 +480,16 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public updateDoor(event: Event): void {
+    const wall = this.selectedWall();
+    if (wall === null) {
+      return;
+    }
     const value = (event.target as HTMLSelectElement).value as WallSegment['door'];
-    this.updateDoc((doc) => {
-      const target = doc.terrain.walls.find((entry) => entry.id === this.selectedWall()?.id);
-      if (target !== undefined) {
-        target.door = value;
-      }
-    });
+    if (value === undefined) {
+      return;
+    }
+    const before: Partial<WallSegment> = wall.door === undefined ? {} : { door: wall.door };
+    this.execute(replaceFields('wall', wall.id, before, { door: value }));
   }
 
   public updateLightField(field: keyof Light, event: Event): void {
@@ -444,12 +499,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const value = this.fieldValue(target);
-    this.updateDoc((doc) => {
-      const entry = doc.terrain.lights.find((item) => item.id === light.id);
-      if (entry !== undefined) {
-        Object.assign(entry, { [field]: value });
-      }
-    });
+    const { before, after } = fieldPatch(light, field, value);
+    this.execute(replaceFields('light', light.id, before, after));
   }
 
   public updateSpawnField(field: keyof MapSpawn, event: Event): void {
@@ -459,12 +510,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const value = this.fieldValue(target);
-    this.updateDoc((doc) => {
-      const entry = doc.spawns.find((item) => item.id === spawn.id);
-      if (entry !== undefined) {
-        Object.assign(entry, { [field]: value });
-      }
-    });
+    const { before, after } = fieldPatch(spawn, field, value);
+    this.execute(replaceFields('spawn', spawn.id, before, after));
   }
 
   public updateStartLabel(event: Event): void {
@@ -473,78 +520,132 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const label = (event.target as HTMLInputElement).value;
-    this.updateDoc((doc) => {
-      const entry = doc.playerStarts.find((item) => item.id === start.id);
-      if (entry !== undefined) {
-        entry.label = label;
-      }
-    });
+    const { before, after } = fieldPatch(start, 'label', label);
+    this.execute(replaceFields('start', start.id, before, after));
   }
 
   public updateMapField(field: 'name' | 'fogBase' | 'notes', event: Event): void {
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
     const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-    this.updateDoc((doc) => {
-      Object.assign(doc, { [field]: target.value });
-    });
+    const { before, after } = fieldPatch(doc, field, target.value);
+    this.execute(replaceFields('map', before, after));
   }
 
   public updateGridField(field: keyof GridConfig, event: Event): void {
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const value = this.fieldValue(target);
-    this.updateDoc((doc) => {
-      Object.assign(doc.grid, { [field]: value });
-      const maxSight = Math.max(
-        1,
-        Math.round((Math.max(doc.widthPx, doc.heightPx) / doc.grid.cellSizePx) * doc.grid.feetPerCell),
-      );
-      doc.terrain.visionLimitFeet = Math.min(doc.terrain.visionLimitFeet, maxSight);
+    const { before, after } = fieldPatch(doc.grid, field, value);
+    const gridCommand = replaceFields('grid', before, after);
+    const nextGrid = { ...doc.grid, [field]: value };
+    const maxSight = Math.max(
+      1,
+      Math.round(
+        (Math.max(doc.widthPx, doc.heightPx) / nextGrid.cellSizePx) * nextGrid.feetPerCell,
+      ),
+    );
+    const nextVision = Math.min(doc.terrain.visionLimitFeet, maxSight);
+    if (nextVision === doc.terrain.visionLimitFeet) {
+      this.execute(gridCommand);
+      return;
+    }
+    const visionCommand = replaceFields(
+      'terrain',
+      { visionLimitFeet: doc.terrain.visionLimitFeet },
+      { visionLimitFeet: nextVision },
+    );
+    this.execute({
+      label: gridCommand.label,
+      bytes: gridCommand.bytes + visionCommand.bytes,
+      apply: (next) => {
+        gridCommand.apply(next);
+        visionCommand.apply(next);
+      },
+      invert: (next) => {
+        visionCommand.invert(next);
+        gridCommand.invert(next);
+      },
     });
   }
 
   public updateTerrainField(field: keyof Terrain | 'showDoorIcons', event: Event): void {
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     const value = this.fieldValue(target);
-    this.updateDoc((doc) => {
-      if (field === 'showDoorIcons') {
-        doc.showDoorIcons = Boolean(value);
-        return;
-      }
-      Object.assign(doc.terrain, { [field]: value });
-    });
+    if (field === 'showDoorIcons') {
+      const { before, after } = fieldPatch(doc, 'showDoorIcons', Boolean(value));
+      this.execute(replaceFields('map', before, after));
+      return;
+    }
+    const { before, after } = fieldPatch(doc.terrain, field, value);
+    this.execute(replaceFields('terrain', before, after));
   }
 
   public updateVisionLimit(event: Event): void {
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
     const raw = Number((event.target as HTMLInputElement).value);
     const value = Math.max(1, Math.min(this.maxSightFeet(), Math.round(raw)));
-    this.updateDoc((doc) => {
-      doc.terrain.visionLimitFeet = value;
-    });
+    this.execute(replaceFields(
+      'terrain',
+      { visionLimitFeet: doc.terrain.visionLimitFeet },
+      { visionLimitFeet: value },
+    ));
   }
 
   public setAmbient(event: Event): void {
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
     const value = (event.target as HTMLSelectElement).value as AmbientLight;
-    this.updateDoc((doc) => {
-      doc.terrain.ambientLight = value;
-    });
+    const { before, after } = fieldPatch(doc.terrain, 'ambientLight', value);
+    this.execute(replaceFields('terrain', before, after));
   }
 
   public removeSelected(): void {
     const selection = this.selected();
-    if (selection === null) {
+    const doc = this.doc();
+    if (selection === null || doc === null) {
       return;
     }
-    this.updateDoc((doc) => {
-      if (selection.type === 'wall') {
-        doc.terrain.walls = doc.terrain.walls.filter((wall) => wall.id !== selection.id);
-      } else if (selection.type === 'light') {
-        doc.terrain.lights = doc.terrain.lights.filter((light) => light.id !== selection.id);
-      } else if (selection.type === 'spawn') {
-        doc.spawns = doc.spawns.filter((spawn) => spawn.id !== selection.id);
-      } else {
-        doc.playerStarts = doc.playerStarts.filter((start) => start.id !== selection.id);
-      }
-    });
+    const command = this.removeCommand(doc, selection);
+    if (command !== null) {
+      this.execute(command);
+    }
     this.selected.set(null);
+  }
+
+  private removeCommand(doc: MapDocument, selection: EditorSelection): MapCommand | null {
+    if (selection.type === 'wall') {
+      const index = doc.terrain.walls.findIndex((wall) => wall.id === selection.id);
+      const wall = doc.terrain.walls[index];
+      return wall === undefined ? null : arrayRemove('wall', wall, index);
+    }
+    if (selection.type === 'light') {
+      const index = doc.terrain.lights.findIndex((light) => light.id === selection.id);
+      const light = doc.terrain.lights[index];
+      return light === undefined ? null : arrayRemove('light', light, index);
+    }
+    if (selection.type === 'spawn') {
+      const index = doc.spawns.findIndex((spawn) => spawn.id === selection.id);
+      const spawn = doc.spawns[index];
+      return spawn === undefined ? null : arrayRemove('spawn', spawn, index);
+    }
+    const index = doc.playerStarts.findIndex((start) => start.id === selection.id);
+    const start = doc.playerStarts[index];
+    return start === undefined ? null : arrayRemove('start', start, index);
   }
 
   public selectLight(light: Light): void {
@@ -564,12 +665,14 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   public captureStartView(): void {
     const view = this.canvas()?.currentView();
-    if (view === undefined) {
+    const doc = this.doc();
+    if (view === undefined || doc === null) {
       return;
     }
-    this.updateDoc((doc) => {
-      doc.startView = view;
-    });
+    const before: Partial<MapDocument> = doc.startView === undefined
+      ? {}
+      : { startView: doc.startView };
+    this.execute(replaceFields('map', before, { startView: view }));
   }
 
   public openBackgroundPicker(): void {
@@ -589,16 +692,27 @@ export class MapEditorPage implements OnInit, OnDestroy {
       if (doc === null) {
         return;
       }
-      this.backgroundAssetSize = { assetId: asset.id, width: asset.width, height: asset.height };
-      this.updateDoc((next) => {
-        next.imageAssetId = asset.id;
-        next.backgroundTransform = coverTransform(
-          next.widthPx,
-          next.heightPx,
-          asset.width,
-          asset.height,
-        );
-      });
+      this.backgroundAsset = {
+        assetId: asset.id,
+        url: asset.url,
+        width: asset.width,
+        height: asset.height,
+      };
+      this.execute(replaceBackground(
+        {
+          imageAssetId: doc.imageAssetId,
+          backgroundTransform: doc.backgroundTransform,
+        },
+        {
+          imageAssetId: asset.id,
+          backgroundTransform: coverTransform(
+            doc.widthPx,
+            doc.heightPx,
+            asset.width,
+            asset.height,
+          ),
+        },
+      ));
       this.image.set({ url: asset.url, width: doc.widthPx, height: doc.heightPx });
     } catch (error) {
       this.error.set(messageFor(error));
@@ -610,11 +724,17 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (doc === null || doc.imageAssetId === null) {
       return;
     }
-    this.backgroundAssetSize = null;
-    this.updateDoc((next) => {
-      next.imageAssetId = null;
-      next.backgroundTransform = { ...defaultBackgroundTransform };
-    });
+    this.backgroundAsset = null;
+    this.execute(replaceBackground(
+      {
+        imageAssetId: doc.imageAssetId,
+        backgroundTransform: doc.backgroundTransform,
+      },
+      {
+        imageAssetId: null,
+        backgroundTransform: { ...defaultBackgroundTransform },
+      },
+    ));
     this.image.set(null);
   }
 
@@ -624,17 +744,18 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const assetId = doc.imageAssetId;
-    let size = this.backgroundAssetSize;
+    let size = this.backgroundAsset;
     if (size === null || size.assetId !== assetId) {
       try {
         const asset = await this.assets.get(assetId);
-        this.backgroundAssetSize = {
+        this.backgroundAsset = {
           assetId: asset.id,
+          url: asset.url,
           width: asset.width,
           height: asset.height,
         };
         this.image.set({ url: asset.url, width: doc.widthPx, height: doc.heightPx });
-        size = this.backgroundAssetSize;
+        size = this.backgroundAsset;
       } catch (error) {
         this.error.set(messageFor(error));
         return;
@@ -652,9 +773,16 @@ export class MapEditorPage implements OnInit, OnDestroy {
     ) {
       return;
     }
-    this.updateDoc((next) => {
-      next.backgroundTransform = transform;
-    });
+    this.execute(replaceBackground(
+      {
+        imageAssetId: current.imageAssetId,
+        backgroundTransform: current.backgroundTransform,
+      },
+      {
+        imageAssetId: current.imageAssetId,
+        backgroundTransform: transform,
+      },
+    ));
   }
 
   public async save(): Promise<void> {
@@ -698,26 +826,24 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   public undo(): void {
     const doc = this.doc();
-    const previous = this.history.pop();
-    if (doc === null || previous === undefined) {
+    const next = doc === null ? null : this.history.undo(doc);
+    if (next === null) {
       return;
     }
-    this.redoStack = pushBoundedHistory(this.redoStack, snapshotOf(doc));
-    this.backgroundAssetSize = null;
-    this.doc.set(previous.value);
+    this.doc.set(next);
     this.dirty.set(true);
+    this.syncImageFromDoc();
   }
 
   public redo(): void {
     const doc = this.doc();
-    const next = this.redoStack.pop();
-    if (doc === null || next === undefined) {
+    const next = doc === null ? null : this.history.redo(doc);
+    if (next === null) {
       return;
     }
-    this.history = pushBoundedHistory(this.history, snapshotOf(doc));
-    this.backgroundAssetSize = null;
-    this.doc.set(next.value);
+    this.doc.set(next);
     this.dirty.set(true);
+    this.syncImageFromDoc();
   }
 
   private fieldValue(
@@ -744,19 +870,29 @@ export class MapEditorPage implements OnInit, OnDestroy {
     return cell.x < cols && cell.y < rows;
   }
 
-  private updateDoc(mutator: (doc: MapDocument) => void): void {
+  private execute(command: MapCommand): void {
     const current = this.doc();
     if (current === null) {
       return;
     }
-    const next = structuredClone(current);
-    mutator(next);
-    this.history = pushBoundedHistory(this.history, snapshotOf(current));
-    this.redoStack = [];
-    this.doc.set(next);
+    this.doc.set(this.history.execute(current, command));
     this.dirty.set(true);
   }
 }
+
+/**
+ * Estrae i campi toccati da un elemento: i valori `undefined` non entrano nel
+ * patch, così l'inversione ripristina l'assenza del campo opzionale.
+ */
+const fieldPatch = <T extends object>(
+  source: T,
+  field: keyof T,
+  value: unknown,
+): { before: Partial<T>; after: Partial<T> } => {
+  const after = { [field]: value } as Partial<T>;
+  const before = source[field] === undefined ? {} : ({ [field]: source[field] } as Partial<T>);
+  return { before, after };
+};
 
 /** Cover centrato: la scala riempie la scena e il ritaglio resta simmetrico. */
 const coverTransform = (

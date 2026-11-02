@@ -49,6 +49,19 @@ const rename = (page: MapEditorPage, value: string): void => {
   page.updateMapField('name', { target: input } as unknown as Event);
 };
 
+const numberInput = (value: number): Event => {
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.value = String(value);
+  return { target: input } as unknown as Event;
+};
+
+const textInput = (value: string): Event => {
+  const input = document.createElement('input');
+  input.value = value;
+  return { target: input } as unknown as Event;
+};
+
 describe('MapEditorPage history', () => {
   const upload = vi.fn();
   const get = vi.fn();
@@ -88,6 +101,74 @@ describe('MapEditorPage history', () => {
     rename(page, 'Tre');
     page.redo();
     expect(page.doc()?.name).toBe('Tre');
+
+    fixture.destroy();
+  });
+
+  it('sequenza mista add/move/update/remove con undo e redo completi', () => {
+    const fixture = TestBed.createComponent(MapEditorPage);
+    const page = fixture.componentInstance;
+    const initial = emptyMapDocument('Iniziale', null, 800, 800);
+    page.doc.set(initial);
+
+    page.onWallsDrawn({
+      walls: [
+        { id: 'wall-1', kind: 'wall', a: { x: 0, y: 0 }, b: { x: 0, y: 1 } },
+        { id: 'wall-2', kind: 'door', a: { x: 1, y: 0 }, b: { x: 1, y: 1 } },
+        { id: 'fuori', kind: 'wall', a: { x: 99, y: 99 }, b: { x: 100, y: 100 } },
+      ],
+    });
+    page.placeLight({ x: 1, y: 1 });
+    const light = page.doc()?.terrain.lights[0];
+    if (light === undefined) {
+      throw new Error('luce non creata');
+    }
+    page.select({ type: 'light', id: light.id });
+    page.moveElement({ selection: { type: 'light', id: light.id }, cell: { x: 4, y: 5 } });
+    page.updateLightField('brightFeet', numberInput(30));
+
+    page.placeStart({ x: 2, y: 2 });
+    page.updateStartLabel(textInput('Ingresso'));
+    page.removeSelected();
+
+    const edited = structuredClone(page.doc());
+    expect(edited?.terrain.walls.map((wall) => wall.id)).toEqual(['wall-1', 'wall-2']);
+    expect(edited?.terrain.lights[0]).toMatchObject({ x: 4, y: 5, brightFeet: 30 });
+    expect(edited?.playerStarts).toEqual([]);
+    expect(page.selected()).toBeNull();
+    expect(page.dirty()).toBe(true);
+
+    for (let index = 0; index < 7; index += 1) {
+      page.undo();
+    }
+    expect(page.doc()).toEqual(initial);
+    expect(page.dirty()).toBe(true);
+
+    for (let index = 0; index < 7; index += 1) {
+      page.redo();
+    }
+    expect(page.doc()).toEqual(edited);
+
+    fixture.destroy();
+  });
+
+  it('la griglia riduce il limite di visione e undo ripristina entrambi', () => {
+    const fixture = TestBed.createComponent(MapEditorPage);
+    const page = fixture.componentInstance;
+    page.doc.set(emptyMapDocument('Griglia', null, 700, 700));
+    const visionLimit = page.doc()?.terrain.visionLimitFeet;
+
+    page.updateGridField('feetPerCell', numberInput(2));
+    expect(page.doc()?.grid.feetPerCell).toBe(2);
+    expect(page.doc()?.terrain.visionLimitFeet).toBe(20);
+
+    page.undo();
+    expect(page.doc()?.grid.feetPerCell).toBe(5);
+    expect(page.doc()?.terrain.visionLimitFeet).toBe(visionLimit);
+
+    page.redo();
+    expect(page.doc()?.grid.feetPerCell).toBe(2);
+    expect(page.doc()?.terrain.visionLimitFeet).toBe(20);
 
     fixture.destroy();
   });

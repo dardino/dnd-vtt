@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** modello risoluzione/sfondo (SR3–SR7) e chiusura P3/P4. Completati S0–S9 (tranne revoca S3 e verifica TLS S7), A1–A4 (A4 con mappature locali residue), R1–R3 (R1 solo store), P1/P2/P5/P6/P7, Q1–Q4, T1 e R0.
+**Blocco attivo:** modello risoluzione/sfondo (SR3–SR7) e chiusura P4. Completati S0–S9 (tranne revoca S3 e verifica TLS S7), A1–A4 (A4 con mappature locali residue), R1–R3 (R1 solo store), P1/P2/P5/P6/P7, Q1–Q4, T1 e R0.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -71,10 +71,14 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** pre-filtro SQL (`json_each` su `scenes.state`) e parse solo delle scene candidate; alternativa: tabella indice `scene_tokens(actor_id, scene_id)` aggiornata in transazione.
   - **Esito:** `json_each`/`json_extract` con guardia `json_valid` seleziona solo le scene candidate; fallback `LIKE` con wildcard escapate se JSON1 non è disponibile. Test con 50 scene (3 candidate, 10 con JSON corrotto) in `token-sync.spec.ts`, incluso il percorso di fallback.
 
-- [ ] **P3 — History editor mappa a comandi/patch** · M · D4
+- [x] **P3 — History editor mappa a comandi/patch** · M · D4 — ✅ 2 novembre 2026
   - **Problema:** 50 `structuredClone` completi del documento; con 4.000 muri e 500 spawn la history pesa centinaia di MB.
   - **Proposta:** `MapCommand` con `apply`/`invert` (o patch JSON) e limite 50 invariato; snapshot completo solo per operazioni strutturali.
   - **Fatto quando:** 1.000 modifiche senza crescita MB; undo/redo coperti da test.
+  - **Esito:** `MapHistory` + `MapCommand` integrati in `map-editor.page.ts`; tutti gli handler usano
+    `arrayInsert`/`arrayRemove`/`replaceFields`/`replaceBackground`; undo/redo riallineano `image` e mantengono
+    dirty/selezione. Budget 200 comandi / 32 MB condiviso tra undo e redo. Test pagina sulla sequenza mista e test
+    history con 1.000 edit su 4.000 muri e 500 spawn senza accumulo del documento.
   - **Nota (2 novembre 2026):** con la risoluzione immutabile, `replaceBackground` non deve più cambiare
     `widthPx`/`heightPx`; aggiorna solo asset e trasformazione (vedi `docs/scene-resolution-background-design.md`).
 
@@ -461,8 +465,9 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
     (riga + WebP/preview/thumb/tile/originale) solo se non più referenziato da mappe, scene, attori o programmi
     (`countAssetReferences`); se condiviso resta intatto. Cleanup file in `deleteAssetFiles` con path
     validati dentro `uploadDir`. Test in `server/test/maps-downscale.spec.ts`.
-- [ ] **SR6 — Background nella history P3**
-  - comandi `background.attach`/`remove`/`transform` e rimozione dell'aggiornamento dimensioni da `replaceBackground`.
+- [x] **SR6 — Background nella history P3** — ✅ 2 novembre 2026
+  - `replaceBackground` copre attach/remove/transform di asset e trasformazione; nessun aggiornamento di
+    `widthPx`/`heightPx` nella history.
 - [x] **SR7 - Immutabilità completa**
   - PUT mappa non deve cambiare `widthPx/heightPx`; test e validazione.
 
@@ -471,7 +476,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 
 1. **S0, D9, A1-A4**: completati (A4 con mappature locali residue).
 2. **R1-R3**: R2/R3 completi; R1 ha gli store ma restano componenti/template di `DmShellPage`.
-3. **P1/P2/P5/P6/P7**: completati. **P3/P4** restano parziali (comandi storia e rendering per-layer).
+3. **P1/P2/P3/P5/P6/P7**: completati. **P4** resta parziale (rendering per-layer).
 4. **Q1-Q4, T1, R0**: completati.
 5. **SR3-SR7**: UI preset/sfondo, rendering trasformato, downscale asset, comandi background, immutabilità PUT mappa.
 6. **A5, Q5, C1-C7, T2/T3**: regole shared residue, a11y, CSS, piano/config.
