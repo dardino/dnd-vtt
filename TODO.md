@@ -96,10 +96,14 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
     usa solo `campaign_id`/`kind`. Un confronto row-value `(created_at, id) < (?, ?)` sarebbe più selettivo,
     ma è un cambio di query fuori dallo scope di questo passo.
 
-- [ ] **P7 — `applySceneAction`: misurare prima di ottimizzare** · S
+- [x] **P7 — `applySceneAction`: misurare prima di ottimizzare** · S
   - **Problema:** riserializza e ri-valida l'intero `SceneState` a ogni azione.
   - **Proposta:** misurare payload/parse su scene reali; se > 50 ms passare a patch JSON con `stateVersion`, altrimenti documentare e chiudere.
   - **Fatto quando:** decisione registrata con numeri.
+  - **Esito:** misurato, sotto soglia. `npm run bench:scene-action` (DB temporaneo migrato, 1.000 token,
+    2.000 fog ops, stato 368,6 KiB): su tre esecuzioni `token.update` mediana 4,28-5,30 ms,
+    `grid.update` mediana 3,79-4,40 ms (max osservato 9,98 ms). Nessuna patch JSON necessaria;
+    lo script resta come regressione manuale.
 
 ## 3. Qualità e test (P1)
 

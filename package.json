@@ -23,6 +23,7 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "test:e2e": "turbo run test:e2e",
+    "bench:scene-action": "npm run bench:scene-action -w @dnd-vtt/server",
     "check": "turbo run lint typecheck test build && npm run db:check && npm run check:bundles -w @dnd-vtt/server",
     "files:report": "node scripts/files-report.mjs",
     "audit": "npm audit --omit=dev --audit-level=high",
