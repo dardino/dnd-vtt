@@ -759,7 +759,7 @@
   overflow: hidden;
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-md);
-  background: #000;
+  background: var(--display-bg);
   cursor: grab;
   touch-action: none;
 

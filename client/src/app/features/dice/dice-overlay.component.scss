@@ -1,5 +1,9 @@
 @use '../../../styles/mixins' as mx;
 
+// Come `app-dialog`, l'overlay non deve introdurre una scatola propria: avvolge
+// solo `<app-dialog>` e, senza `display: contents`, sarebbe un elemento vuoto
+// nel flusso/flex di `dm-shell`. Il `<dialog>` proiettato conserva
+// `aria-labelledby` verso il proprio titolo (vedi `dice-overlay.component.spec.ts`).
 :host {
   display: contents;
 }

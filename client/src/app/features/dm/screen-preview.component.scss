@@ -9,7 +9,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--display-bg, #000);
+  background: var(--display-bg);
 
   &--blackout app-display-layer {
     visibility: hidden;

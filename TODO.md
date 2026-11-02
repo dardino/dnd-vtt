@@ -318,13 +318,19 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Fatto quando:** spinner, dado e skeleton rispettano la preferenza.
   - **Esito:** keyframes centralizzati in `_animations.scss` (rimossi dai componenti), regola globale `prefers-reduced-motion` per animazioni/transizioni, mixin `mx.hover` applicato a tutti gli stati hover.
 
-- [ ] **C4 — Ultimi colori hardcoded** · S
+- [x] **C4 — Ultimi colori hardcoded** · S — ✅ 2 novembre 2026
   - **Proposta:** sostituire i residui `#hex`/`rgb()` con `--editor-*`, `--overlay-*`, `--fog-color`; fallback solo nei default TS del canvas.
   - **Fatto quando:** grep senza literal nelle feature SCSS.
+  - **Esito:** `screen-viewer` e `screen-preview` usano `--display-bg` (rimosso il fallback `#000`); la maschera
+    del ritaglio ritratto usa il nuovo token `--overlay-scrim` (28% nero). Nessun `#hex`/`rgb()` residuo nelle
+    SCSS delle feature; i default TS dei canvas non sono stati toccati.
 
-- [ ] **C5 — `display: contents` documentato** · S
+- [x] **C5 — `display: contents` documentato** · S — ✅ 2 novembre 2026
   - **Proposta:** commento in `dialog.scss`/`dice-overlay` e test che `aria-labelledby` continua a funzionare.
   - **Fatto quando:** il motivo è scritto accanto alla regola.
+  - **Esito:** commento accanto ai due `:host` (nessuna scatola nel flusso/flex del genitore); `dialog.spec.ts`
+    già copriva `aria-labelledby`, aggiunto `dice-overlay.component.spec.ts` che verifica la catena
+    overlay → dialog → titolo.
 
 - [ ] **C6 — Container query** · M · B3
   - **Proposta:** valutare `@container` per i pannelli console/actor sheet durante l'ondata `@defer`; se non porta benefici misurabili, rimuovere il requisito dal piano.

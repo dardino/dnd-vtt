@@ -1,5 +1,11 @@
 @use '../../../styles/mixins' as mx;
 
+// `app-dialog` avvolge un `<dialog>` nativo: l'host non deve generare una
+// scatola, altrimenti aggiunge un flex/grid item al layout del genitore
+// (in `dm-shell` i dialog sono figli di un contenitore flex) e può alterarne
+// l'ingombro. `display: contents` proietta il `<dialog>` nel layout come se
+// fosse scritto inline; titolo e id restano nel DOM, quindi `aria-labelledby`
+// continua a risolvere (coperto da `dialog.spec.ts`).
 :host {
   display: contents;
 }
