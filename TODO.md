@@ -496,8 +496,8 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 2. **R1-R3**: R2/R3 completi; R1 ha gli store ma restano componenti/template di `DmShellPage`.
 3. **P1/P2/P3/P5/P6/P7/P4**: completati (P4 con rendering per-layer).
 4. **Q1-Q4, T1, R0**: completati.
-5. **SR3-SR7**: UI preset/sfondo, rendering trasformato, downscale asset, comandi background, immutabilità PUT mappa.
-6. **A5, Q5, C1-C7, T2/T3**: regole shared residue, a11y, CSS, piano/config.
+5. **SR3-SR7 e C1-C5/C7**: completati.
+6. **A5, Q5, C6, T2/T3**: regole shared residue, a11y, container query, piano/config.
 7. **S3, S7**: revoca sessione per-device e verifica TLS/proxy reale.
 8. **B1-B5**: Signal Forms, `resource()`, `@defer`.
 9. **Pi 1**: validazione display in kiosk.
