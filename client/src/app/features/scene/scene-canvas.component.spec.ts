@@ -112,4 +112,16 @@ describe('SceneCanvasComponent', () => {
     await fixture.whenStable();
     expect(() => fixture.destroy()).not.toThrow();
   });
+
+  it('usa una trasformazione neutra di default senza sfondo', async () => {
+    const fixture = TestBed.createComponent(SceneCanvasComponent);
+    fixture.componentRef.setInput('state', createDefaultSceneState());
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.backgroundTransform()).toEqual({ x: 0, y: 0, scale: 1 });
+    expect(fixture.componentInstance.map()).toBeNull();
+    fixture.destroy();
+  });
 });

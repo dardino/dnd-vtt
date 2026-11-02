@@ -450,7 +450,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 - [ ] **SR3 — UI creazione e sfondo**
   - dialog mappa/scena con preset e orientamento; upload/rimozione, cover, drag e scala; nessun cambio di `widthPx/heightPx`.
   - [x] **SR3b — Controlli sfondo nell'editor**: Carica/Sostituisci, Rimuovi, Adatta cover; nessun cambio di `widthPx/heightPx`.
-- [ ] **SR4 — Rendering con trasformazione**
+- [x] **SR4 — Rendering con trasformazione** — ✅ 2 novembre 2026
   - `SceneCanvasComponent`, `DisplayLayerComponent` e canvas editor disegnano lo sfondo a `x/y/scale` clippato alla scena.
 - [ ] **SR5 — Downscale e asset**
   - ridimensionamento server-side secondo `f = min(1, scale, scene/asset)`; sostituzione asset solo se esclusivo, altrimenti derivato; `newScale` per preservare la resa.

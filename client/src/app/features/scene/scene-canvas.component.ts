@@ -15,6 +15,7 @@ import {
 import Konva from 'konva';
 import {
   cellCenterPx,
+  defaultBackgroundTransform,
   newId,
   pointInPolygon,
   latticePointPx,
@@ -24,6 +25,7 @@ import {
   snapTokenCell,
   tokenCenterPx,
   measureDistance,
+  type BackgroundTransform,
   type CellPoint,
   type Drawing,
   type FogOp,
@@ -75,8 +77,12 @@ export interface SceneMapImage {
   url: string;
   previewUrl: string;
   hash: string;
+  /** Dimensioni della scena in pixel mondo. */
   width: number;
   height: number;
+  /** Dimensioni native dell'asset, se diverse dalla scena. */
+  imageWidth?: number;
+  imageHeight?: number;
   tiled: boolean;
 }
 
@@ -108,6 +114,7 @@ const IDLE_MS = 160;
 })
 export class SceneCanvasComponent implements OnDestroy {
   public readonly map = input<SceneMapImage | null>(null);
+  public readonly backgroundTransform = input<BackgroundTransform>(defaultBackgroundTransform);
   public readonly state = input.required<SceneState>();
   public readonly selectedTokenId = input<string | null>(null);
   public readonly tool = input<SceneTool>('select');
@@ -167,6 +174,7 @@ export class SceneCanvasComponent implements OnDestroy {
   private resizeObserver: ResizeObserver | null = null;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private activeAssetId: string | null = null;
+  private lastBackgroundTransform: BackgroundTransform | null = null;
   private mapGeneration = 0;
   private lastGrid: GridConfig | null = null;
   private lastGridVisible: boolean | null = null;
@@ -187,6 +195,7 @@ export class SceneCanvasComponent implements OnDestroy {
   constructor() {
     effect(() => {
       this.map();
+      this.backgroundTransform();
       this.state();
       this.selectedTokenId();
       this.tool();
@@ -406,7 +415,13 @@ export class SceneCanvasComponent implements OnDestroy {
       this.drawingDraft = null;
       this.renderDraftPreview();
     }
-    if (this.activeAssetId !== (map?.hash ?? null)) {
+    const transform = this.backgroundTransform();
+    const transformChanged = this.lastBackgroundTransform === null
+      || this.lastBackgroundTransform.x !== transform.x
+      || this.lastBackgroundTransform.y !== transform.y
+      || this.lastBackgroundTransform.scale !== transform.scale;
+    if (this.activeAssetId !== (map?.hash ?? null) || transformChanged) {
+      this.lastBackgroundTransform = transform;
       this.loadMap(map);
     }
     const grid = this.state().grid;
@@ -460,6 +475,7 @@ export class SceneCanvasComponent implements OnDestroy {
     void this.mapLayerRenderer.renderBase({
       layer,
       map,
+      transform: this.backgroundTransform(),
       isCurrent: () => generation === this.mapGeneration,
       loadImage: (url) => this.loadImage(url),
     }).then((placed) => {
@@ -514,6 +530,7 @@ export class SceneCanvasComponent implements OnDestroy {
     this.mapLayerRenderer.renderTiles({
       layer,
       map,
+      transform: this.backgroundTransform(),
       camera: this.sceneCamera.state,
       viewport: { width: stage.width(), height: stage.height() },
       isCurrent: () => generation === this.mapGeneration,

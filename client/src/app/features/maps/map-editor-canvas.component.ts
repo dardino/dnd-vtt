@@ -14,10 +14,12 @@ import {
 import Konva from 'konva';
 import {
   cellCenterPx,
+  defaultBackgroundTransform,
   distanceToSegment,
   latticePointPx,
   pixelToCell,
   wallSegmentPx,
+  type BackgroundTransform,
   type CellPoint,
   type GridConfig,
   type MapSpawn,
@@ -87,6 +89,7 @@ interface Camera {
 })
 export class MapEditorCanvasComponent implements OnDestroy {
   public readonly image = input<EditorMapImage | null>(null);
+  public readonly backgroundTransform = input<BackgroundTransform>(defaultBackgroundTransform);
   public readonly grid = input.required<GridConfig>();
   public readonly terrain = input.required<Terrain>();
   public readonly spawns = input<MapSpawn[]>([]);
@@ -134,6 +137,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public constructor() {
     effect(() => {
       this.image();
+      this.backgroundTransform();
       this.grid();
       this.terrain();
       this.spawns();
@@ -548,16 +552,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       return;
     }
     if (this.loadedImage?.url === image.url) {
-      layer.destroyChildren();
-      layer.add(new Konva.Image({
-        image: this.loadedImage.element,
-        x: 0,
-        y: 0,
-        width: image.width,
-        height: image.height,
-        listening: false,
-      }));
-      layer.draw();
+      this.drawBackground(layer, image, this.loadedImage.element);
       return;
     }
     const element = new Image();
@@ -566,6 +561,35 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.renderMap();
     };
     element.src = image.url;
+  }
+
+  /**
+   * Anteprima identica al canvas di scena: x/y/scale dallo sfondo, dimensioni
+   * native dell'asset e ritaglio sul rettangolo della mappa.
+   */
+  private drawBackground(
+    layer: Konva.Layer,
+    image: EditorMapImage,
+    element: HTMLImageElement,
+  ): void {
+    const transform = this.backgroundTransform();
+    const imageWidth = element.naturalWidth > 0 ? element.naturalWidth : image.width;
+    const imageHeight = element.naturalHeight > 0 ? element.naturalHeight : image.height;
+    layer.destroyChildren();
+    const clipped = new Konva.Group({
+      listening: false,
+      clip: { x: 0, y: 0, width: image.width, height: image.height },
+    });
+    clipped.add(new Konva.Image({
+      image: element,
+      x: transform.x,
+      y: transform.y,
+      width: imageWidth * transform.scale,
+      height: imageHeight * transform.scale,
+      listening: false,
+    }));
+    layer.add(clipped);
+    layer.draw();
   }
 
   private renderGrid(): void {

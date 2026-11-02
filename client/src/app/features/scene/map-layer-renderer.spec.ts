@@ -13,6 +13,9 @@ const konva = vi.hoisted(() => {
     y?: number;
     width?: number;
     height?: number;
+    scaleX?: number;
+    scaleY?: number;
+    clip?: { x: number; y: number; width: number; height: number };
     listening?: boolean;
   }
 
@@ -86,15 +89,22 @@ vi.mock('konva', () => ({
   },
 }));
 
-const map = (overrides: Partial<MapImageSource> = {}): MapImageSource => ({
-  url: '/uploads/maps/hash.webp',
-  previewUrl: '/uploads/previews/hash.webp',
-  hash: 'hash',
-  width: 1024,
-  height: 512,
-  tiled: false,
-  ...overrides,
-});
+const map = (overrides: Partial<MapImageSource> = {}): MapImageSource => {
+  const base = {
+    url: '/uploads/maps/hash.webp',
+    previewUrl: '/uploads/previews/hash.webp',
+    hash: 'hash',
+    width: 1024,
+    height: 512,
+    tiled: false,
+    ...overrides,
+  };
+  return {
+    ...base,
+    imageWidth: overrides.imageWidth ?? base.width,
+    imageHeight: overrides.imageHeight ?? base.height,
+  };
+};
 
 const image = (): HTMLImageElement =>
   ({ naturalWidth: 1, naturalHeight: 1 }) as HTMLImageElement;
@@ -151,7 +161,12 @@ describe('MapLayerRenderer', () => {
     expect(placed).toBe(true);
     expect(urls).toEqual([source.url]);
     expect(target.children).toHaveLength(1);
-    expect(target.children[0]?.config).toMatchObject({
+    const clipped = target.children[0];
+    expect(clipped?.config).toMatchObject({
+      listening: false,
+      clip: { x: 0, y: 0, width: 1024, height: 512 },
+    });
+    expect(clipped?.children[0]?.config).toMatchObject({
       x: 0,
       y: 0,
       width: 1024,
@@ -160,6 +175,59 @@ describe('MapLayerRenderer', () => {
     });
     expect(target.drawCount).toBe(1);
     expect(renderer.showPreview()).toBe(false);
+  });
+
+  it('applica x/y/scale e ritaglia l\'immagine alla scena', async () => {
+    const target = layer();
+    const urls: string[] = [];
+    const source = map({ width: 1280, height: 720, imageWidth: 2048, imageHeight: 1024 });
+    const renderer = new MapLayerRenderer();
+
+    const placed = await renderer.renderBase({
+      layer: target as unknown as MapTilesRenderParams['layer'],
+      map: source,
+      transform: { x: 100, y: -50, scale: 0.5 },
+      isCurrent: () => true,
+      loadImage: loaderFor(urls),
+    });
+
+    expect(placed).toBe(true);
+    const clipped = target.children[0];
+    expect(clipped?.config.clip).toEqual({ x: 0, y: 0, width: 1280, height: 720 });
+    expect(clipped?.children[0]?.config).toMatchObject({
+      x: 100,
+      y: -50,
+      width: 1024,
+      height: 512,
+    });
+  });
+
+  it('usa le dimensioni native dell\'immagine con trasformazione neutra', async () => {
+    const target = layer();
+    const source: MapImageSource = {
+      url: '/uploads/maps/hash.webp',
+      previewUrl: '/uploads/previews/hash.webp',
+      hash: 'hash',
+      width: 1280,
+      height: 720,
+      tiled: false,
+    };
+    const renderer = new MapLayerRenderer();
+    const loaded = { naturalWidth: 640, naturalHeight: 360 } as HTMLImageElement;
+
+    await renderer.renderBase({
+      layer: target as unknown as MapTilesRenderParams['layer'],
+      map: source,
+      isCurrent: () => true,
+      loadImage: () => Promise.resolve(loaded),
+    });
+
+    expect(target.children[0]?.children[0]?.config).toMatchObject({
+      x: 0,
+      y: 0,
+      width: 640,
+      height: 360,
+    });
   });
 
   it('disegna le tile del livello LOD scelto per la scala corrente', async () => {
@@ -178,12 +246,38 @@ describe('MapLayerRenderer', () => {
 
     // Scala 0,5 → livello 1: 16 tile visibili, ciascuna con 2 px immagine per px mappa.
     expect(ready).toEqual([true]);
-    const group = target.children.at(-1);
+    const clipped = target.children.at(-1);
+    const group = clipped?.children[0];
+    expect(group?.config).toMatchObject({ x: 0, y: 0, scaleX: 1, scaleY: 1 });
     expect(group?.children).toHaveLength(16);
     expect(group?.children[0]?.config).toMatchObject({ x: 0, y: 0, width: 1025, height: 1025 });
     expect(group?.children.at(-1)?.config).toMatchObject({ x: 3072, y: 3072 });
     expect(urls.at(-1)).toBe('/uploads/tiles/hash/1/3_3.webp');
     expect(target.children[0]?.visibleValue).toBe(false);
+  });
+
+  it('applica la trasformazione al gruppo di tile', async () => {
+    const target = layer();
+    const urls: string[] = [];
+    const source = map({ tiled: true, width: 1280, height: 720, imageWidth: 8192, imageHeight: 4096 });
+    const transform = { x: 100, y: 40, scale: 2 };
+    const renderer = new MapLayerRenderer();
+    await renderer.renderBase({
+      layer: target as unknown as MapTilesRenderParams['layer'],
+      map: source,
+      transform,
+      isCurrent: () => true,
+      loadImage: loaderFor(urls),
+    });
+
+    const { ready } = await tiles(target, source, urls, { transform }, renderer);
+
+    expect(ready).toEqual([true]);
+    const clipped = target.children.at(-1);
+    expect(clipped?.config.clip).toEqual({ x: 0, y: 0, width: 1280, height: 720 });
+    const group = clipped?.children[0];
+    expect(group?.config).toMatchObject({ x: 100, y: 40, scaleX: 2, scaleY: 2 });
+    expect(group?.children.length).toBeGreaterThan(0);
   });
 
   it('mostra la preview tiled e nasconde le altre tile durante il pan', async () => {

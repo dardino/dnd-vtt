@@ -16,6 +16,7 @@ import type { Subscription } from 'rxjs';
 import {
   abilityModifier,
   DEFAULT_ACTOR_PORTRAIT,
+  defaultBackgroundTransform,
   SIZE_CELLS,
   computeVisionGrid,
   fogBrushRadius,
@@ -159,6 +160,10 @@ export class DmShellPage implements OnInit {
 
   public readonly mode = signal<ShellMode>('loading');
   public readonly activeScene = signal<Scene | null>(null);
+  public readonly backgroundTransform = computed(
+    () => this.activeScene()?.backgroundTransform ?? defaultBackgroundTransform,
+  );
+
   public readonly mapImage = signal<SceneMapImage | null>(null);
   public readonly notice = signal<string | null>(null);
   public readonly statusMessage = signal('Console pronta.');
@@ -513,8 +518,10 @@ export class DmShellPage implements OnInit {
         url: asset.url,
         previewUrl: asset.previewUrl,
         hash: asset.hash,
-        width: asset.width,
-        height: asset.height,
+        width: scene.widthPx,
+        height: scene.heightPx,
+        imageWidth: asset.width,
+        imageHeight: asset.height,
         tiled: isTiledMap(asset.width, asset.height),
       });
     } catch {

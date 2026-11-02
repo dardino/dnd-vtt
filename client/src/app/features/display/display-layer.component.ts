@@ -1,6 +1,8 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import {
+  defaultBackgroundTransform,
   defaultTerrain,
+  type BackgroundTransform,
   type Condition,
   type DisplayLayer,
   type DisplayState,
@@ -35,6 +37,10 @@ export class DisplayLayerComponent {
       '--layer-opacity': String(layer.opacity),
     };
   });
+
+  public readonly backgroundTransform = computed<BackgroundTransform>(() =>
+    this.layer().scene?.backgroundTransform ?? defaultBackgroundTransform,
+  );
 
   public readonly mapImage = computed<SceneMapImage | null>(() => {
     const scene = this.layer().scene;

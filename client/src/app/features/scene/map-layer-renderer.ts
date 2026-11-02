@@ -1,13 +1,23 @@
 import Konva from 'konva';
-import { TILE_SIZE_PX, tileLevelForScale, tileUrl } from '@dnd-vtt/shared';
+import {
+  TILE_SIZE_PX,
+  defaultBackgroundTransform,
+  tileLevelForScale,
+  tileUrl,
+  type BackgroundTransform,
+} from '@dnd-vtt/shared';
 
 /** Immagine di sfondo della scena, con l'eventuale pipeline di tile. */
 export interface MapImageSource {
   readonly url: string;
   readonly previewUrl: string;
   readonly hash: string;
+  /** Dimensioni della scena in pixel mondo: usate per camera, griglia e clip. */
   readonly width: number;
   readonly height: number;
+  /** Dimensioni native dell'asset, se diverse da quelle della scena. */
+  readonly imageWidth?: number;
+  readonly imageHeight?: number;
   readonly tiled: boolean;
 }
 
@@ -29,6 +39,8 @@ export type MapImageLoader = (url: string) => Promise<HTMLImageElement>;
 export interface MapBaseRenderParams {
   readonly layer: Konva.Layer;
   readonly map: MapImageSource;
+  /** Posizione e scala dello sfondo rispetto alla scena. */
+  readonly transform?: BackgroundTransform;
   /** False quando una nuova mappa ha sostituito questa durante il caricamento. */
   readonly isCurrent: () => boolean;
   readonly loadImage: MapImageLoader;
@@ -37,6 +49,8 @@ export interface MapBaseRenderParams {
 export interface MapTilesRenderParams {
   readonly layer: Konva.Layer;
   readonly map: MapImageSource;
+  /** Posizione e scala dello sfondo rispetto alla scena. */
+  readonly transform?: BackgroundTransform;
   readonly camera: MapCamera;
   readonly viewport: MapViewport;
   readonly isCurrent: () => boolean;
@@ -55,7 +69,7 @@ export interface MapTilesRenderParams {
  */
 export class MapLayerRenderer {
   private layer: Konva.Layer | null = null;
-  private previewNode: Konva.Image | null = null;
+  private previewNode: Konva.Group | null = null;
 
   /** Ripulisce il layer e dimentica la preview: da chiamare al cambio mappa. */
   public reset(layer: Konva.Layer | null): void {
@@ -71,19 +85,20 @@ export class MapLayerRenderer {
    */
   public async renderBase(params: MapBaseRenderParams): Promise<boolean> {
     const { layer, map, isCurrent, loadImage } = params;
+    const transform = params.transform ?? defaultBackgroundTransform;
     this.layer = layer;
     this.previewNode = null;
     const url = map.tiled ? map.previewUrl : map.url;
     try {
       const image = await loadImage(url);
-      return this.place(layer, map, image, isCurrent);
+      return this.place(layer, map, image, isCurrent, transform);
     } catch {
       if (!map.tiled) {
         return false;
       }
       try {
         const image = await loadImage(map.url);
-        return this.place(layer, map, image, isCurrent);
+        return this.place(layer, map, image, isCurrent, transform);
       } catch {
         return false;
       }
@@ -120,25 +135,46 @@ export class MapLayerRenderer {
     if (!map.tiled || isInteracting()) {
       return;
     }
+    const transform = params.transform ?? defaultBackgroundTransform;
     const scale = Math.max(camera.scale, 0.0001);
-    const level = tileLevelForScale(scale, map.width, map.height);
+    const backgroundScale = Math.max(transform.scale, 0.0001);
+    const imageWidth = map.imageWidth ?? map.width;
+    const imageHeight = map.imageHeight ?? map.height;
+    const level = tileLevelForScale(scale * backgroundScale, imageWidth, imageHeight);
     const worldLeft = Math.max(0, -camera.x / scale);
     const worldTop = Math.max(0, -camera.y / scale);
     const worldRight = Math.min(map.width, worldLeft + viewport.width / scale);
     const worldBottom = Math.min(map.height, worldTop + viewport.height / scale);
+    // La scena è in pixel mondo: riporta il rettangolo visibile allo spazio
+    // dell'asset, poi taglia su ciò che esiste davvero.
+    const imageLeft = Math.max(0, (worldLeft - transform.x) / backgroundScale);
+    const imageTop = Math.max(0, (worldTop - transform.y) / backgroundScale);
+    const imageRight = Math.min(imageWidth, (worldRight - transform.x) / backgroundScale);
+    const imageBottom = Math.min(imageHeight, (worldBottom - transform.y) / backgroundScale);
     const tileWorld = TILE_SIZE_PX * level.scale;
-    const firstColumn = Math.max(0, Math.floor(worldLeft / tileWorld) - 1);
-    const lastColumn = Math.min(level.columns - 1, Math.ceil(worldRight / tileWorld) + 1);
-    const firstRow = Math.max(0, Math.floor(worldTop / tileWorld) - 1);
-    const lastRow = Math.min(level.rows - 1, Math.ceil(worldBottom / tileWorld) + 1);
+    const firstColumn = Math.max(0, Math.floor(imageLeft / tileWorld) - 1);
+    const lastColumn = Math.min(level.columns - 1, Math.ceil(imageRight / tileWorld) + 1);
+    const firstRow = Math.max(0, Math.floor(imageTop / tileWorld) - 1);
+    const lastRow = Math.min(level.rows - 1, Math.ceil(imageBottom / tileWorld) + 1);
 
     for (const child of [...layer.getChildren()]) {
       if (child !== this.previewNode) {
         child.destroy();
       }
     }
-    const group = new Konva.Group({ listening: false });
-    layer.add(group);
+    const clipped = new Konva.Group({
+      listening: false,
+      clip: { x: 0, y: 0, width: map.width, height: map.height },
+    });
+    const group = new Konva.Group({
+      listening: false,
+      x: transform.x,
+      y: transform.y,
+      scaleX: backgroundScale,
+      scaleY: backgroundScale,
+    });
+    clipped.add(group);
+    layer.add(clipped);
     let pending = 0;
     let failed = 0;
     for (let row = firstRow; row <= lastRow; row += 1) {
@@ -191,21 +227,29 @@ export class MapLayerRenderer {
     map: MapImageSource,
     image: HTMLImageElement,
     isCurrent: () => boolean,
+    transform: BackgroundTransform,
   ): boolean {
     if (!isCurrent()) {
       return false;
     }
-    const node = new Konva.Image({
-      image,
-      x: 0,
-      y: 0,
-      width: map.width,
-      height: map.height,
+    const imageWidth = map.imageWidth ?? (image.naturalWidth > 0 ? image.naturalWidth : map.width);
+    const imageHeight = map.imageHeight
+      ?? (image.naturalHeight > 0 ? image.naturalHeight : map.height);
+    const clipped = new Konva.Group({
       listening: false,
+      clip: { x: 0, y: 0, width: map.width, height: map.height },
     });
-    layer.add(node);
+    clipped.add(new Konva.Image({
+      image,
+      x: transform.x,
+      y: transform.y,
+      width: imageWidth * transform.scale,
+      height: imageHeight * transform.scale,
+      listening: false,
+    }));
+    layer.add(clipped);
     if (map.tiled) {
-      this.previewNode = node;
+      this.previewNode = clipped;
     }
     layer.draw();
     return true;

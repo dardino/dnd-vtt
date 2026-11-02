@@ -6,6 +6,7 @@
           <app-scene-canvas
             class="display-layer__canvas"
             [map]="map"
+            [backgroundTransform]="backgroundTransform()"
             [state]="scene"
             [tool]="'select'"
             [gridVisible]="true"

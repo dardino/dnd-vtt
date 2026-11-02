@@ -63,6 +63,7 @@
         @if (image(); as mapImage) {
           <app-map-editor-canvas
             [image]="mapImage"
+            [backgroundTransform]="document.backgroundTransform"
             [grid]="document.grid"
             [terrain]="document.terrain"
             [spawns]="document.spawns"
