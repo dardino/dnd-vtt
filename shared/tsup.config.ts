@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: ['src/index.ts', 'src/lib/id.ts'],
   format: ['esm'],
   dts: true,
   // In watch non si pulisce `dist`: Angular legge i tipi mentre tsup

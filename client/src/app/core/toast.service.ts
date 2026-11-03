@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { newId } from '@dnd-vtt/shared';
+import { newId } from '@dnd-vtt/shared/id';
 
 export type ToastKind = 'info' | 'success' | 'error';
 

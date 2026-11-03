@@ -963,14 +963,20 @@
 </app-dialog>
 
 @if (shell.activeCampaign(); as campaign) {
-  <app-dice-overlay
-    [open]="diceOpen()"
-    [campaignId]="campaign.id"
-    [sceneId]="activeScene()?.id ?? null"
-    [tokenId]="selectedTokenId()"
-    (closed)="diceOpen.set(false)"
-    (rolled)="onDiceRolled($event)"
-  />
+  @defer (when diceOpen(); prefetch on idle) {
+    <app-dice-overlay
+      [open]="diceOpen()"
+      [campaignId]="campaign.id"
+      [sceneId]="activeScene()?.id ?? null"
+      [tokenId]="selectedTokenId()"
+      (closed)="diceOpen.set(false)"
+      (rolled)="onDiceRolled($event)"
+    />
+  } @placeholder {
+    <span hidden aria-hidden="true"></span>
+  } @loading (after 80ms; minimum 120ms) {
+    <span hidden aria-hidden="true"></span>
+  }
 }
 
 <app-dialog
@@ -1176,7 +1182,11 @@
     >
       <div class="screen-viewer__stage">
         @if (summary.state; as state) {
-          <app-screen-preview [state]="state" />
+          @defer (on immediate) {
+            <app-screen-preview [state]="state" />
+          } @placeholder {
+            <p class="muted">Caricamento anteprima…</p>
+          }
         } @else {
           <p class="muted">Proiezione non disponibile.</p>
         }

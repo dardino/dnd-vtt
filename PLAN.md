@@ -2865,15 +2865,22 @@ I tiri seguono la stessa logica: non sono stato della mappa né contenuto in ond
 
 ## 21. Stato migrazione B — 3 novembre 2026
 
-D5 resta **B** (Signal Forms + `resource()` + `@defer`): questa sezione registra lo stato reale rispetto al codice, non cambia l'obiettivo. **Nessuna delle task B1–B5 è chiusa**; l'ordine e i criteri di uscita restano quelli di `TODO.md` §8.
+D5 resta **B** (Signal Forms + `resource()` + `@defer`): questa sezione registra lo stato reale rispetto al codice, non cambia l'obiettivo. B1–B3 sono chiusi; B4–B5 restano aperti. L'ordine e i criteri di uscita restano quelli di `TODO.md` §8.
 
 | Ambito | Previsto dal piano | Stato nel codice (3 novembre 2026) | Task |
 |---|---|---|---|
-| Signal Forms | stack e wizard di creazione | `@angular/forms` **non è una dipendenza**; nessun `form()`/field signal. I form usano signal e handler espliciti in componenti/store | B1 (spike), B4 (dopo R1–R3) |
-| `resource()` / `httpResource()` | letture legate ai signal | **non usato**: le letture passano da `HttpClient` + `firstValueFrom` in `campaign`, `actor`, `scene`, `srd-catalog` e `program` service | B2 |
-| `@defer` | pannelli pesanti, editor mappa, tab scheda | **nessun blocco `@defer`/`@placeholder`/`@loading`** nei template; restano i lazy route esistenti | B3 (misurare con `ng build --stats-json`) |
+| Signal Forms | stack e wizard di creazione | `@angular/forms` 22.2.4 è una dipendenza; `dice-overlay` usa `form()`/`[formField]`/`validate`. Gli altri form usano ancora signal e handler espliciti | B1 chiuso, B4 aperto |
+| `resource()` / `httpResource()` | letture legate ai signal | helper `readResource`; usato da `srd-catalog`, attori dell'editor mappe e `SceneStore.load` (params = scena, race scartate). `campaign`/`program` restano su `firstValueFrom` | B2 chiuso |
+| `@defer` | pannelli pesanti, editor mappa, tab scheda | `@defer` su dado e anteprima schermo, pannelli scheda e dialog livello, con `@placeholder` (nascosto dove serve) e `@loading` sul dado; prefetch `on idle` | B3 chiuso |
 
 Criteri di uscita invariati: B1 = API confermate e PoC verde su `dice-overlay`; B2 = loading/error uniformi e test su cambio scena/race; B3 = bundle iniziale misurato e ridotto con E2E aggiornati; B4 = form migrati con test su validazione, dirty/touched, submit e a11y; B5 = nessun form legacy residuo. La mitigazione del rischio resta l'ordine B2 → B3 → B4, con B4 vincolata agli split R1–R3.
+
+### Misurazione B3 (`ng build --stats-json`)
+
+- Bundle iniziale prima: 801.01 kB (warning budget 700 kB). Il barrel `@dnd-vtt/shared` trascinava Zod e tutti i locale nel chunk iniziale.
+- Dopo l'export `@dnd-vtt/shared/id` usato da `ToastService` e `sideEffects: false`: **299.87 kB** iniziali (-63%).
+- Dopo `@defer`: init 308.95 kB (+9 kB di runtime defer), ma le route si alleggeriscono: dm-shell 191 → 123 kB, actor-sheet 71 → 54.65 kB; dado (68.55 kB), pannello incantesimi (4.93 kB) e dialog livello (8.61 kB) diventano chunk separati.
+- Nessun warning di budget; E2E mirati (fase 3b, 5, 7, 8) e axe 4/4 verdi.
 
 ### Allineamento piano ↔ codice
 

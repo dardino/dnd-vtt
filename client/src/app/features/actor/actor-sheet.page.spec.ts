@@ -170,4 +170,16 @@ describe('ActorSheetPage', () => {
 
     expect(patchSheet).not.toHaveBeenCalled();
   });
+
+  it('non mostra placeholder del dialog livello a riposo', () => {
+    const fixture = TestBed.createComponent(ActorSheetPage);
+    fixture.componentRef.setInput('actorId', ACTOR_ID);
+    fixture.componentRef.setInput('campaignId', CAMPAIGN_ID);
+    fixture.componentInstance.view.set(current);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Caricamento livello');
+
+    fixture.destroy();
+  });
 });

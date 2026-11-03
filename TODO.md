@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B3-B5, S3, S7 e Pi 1. Restano parziali A4 (mappature locali) e R1 (componenti/template DmShell). Completati S0-S9 (tranne revoca S3 e verifica TLS S7), A1-A3, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7, B1 e B2.
+**Blocco attivo:** B4-B5, S3, S7 e Pi 1. Restano parziali A4 (mappature locali) e R1 (componenti/template DmShell). Completati S0-S9 (tranne revoca S3 e verifica TLS S7), A1-A3, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7, B1-B3.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -384,9 +384,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Esito:** nuovo helper `client/src/app/core/read-resource.ts` (`readResource<T, P>`) su `resource()` con params reattivi (`undefined` = idle), `value`/`status`/`error`, `isLoading`/`isIdle`/`hasError`, `reload`, deduplica dei toast per stato+messaggio (un retry con una nuova `HttpErrorResponse` non duplica) e nessun passaggio dall'`ErrorHandler` per gli errori HTTP, che restano tradotti nel toast contestuale; gli errori non-HTTP restano al `GlobalErrorHandler`. Migrati `SrdCatalogService` (forkJoin + `srdCatalogSchema.parse`, `load()` idempotente e `catalog`/`loading`/`error` con `httpMessage`), la lista attori di `MapEditorPage` (params = `campaignId` della mappa) e `SceneStore.load` (`requestedSceneId` come params, `reload()` sulla stessa scena, stato/azioni ottimistiche invariati, risposte superate scartate). Test in `read-resource.spec.ts` (idle, caricamento, errore HTTP+toast, errori non-HTTP, cambio params, risposta vecchia scartata, retry senza toast duplicato), `srd-catalog.service.spec.ts`, map editor sul cambio campagna e `scene.store.spec.ts` (404, cambio scena con risposta vecchia, reload). Restano da migrare le letture di campaign/program.
 
 
-- [ ] **B3 — `@defer` sui componenti pesanti** · M
+- [x] **B3 — `@defer` sui componenti pesanti** · M — ✅ 3 novembre 2026
   - **Proposta:** applicarlo a pannelli editor mappa, pannelli console, tab della scheda e step dei wizard; aggiungere `@placeholder`/`@loading`/`@error` e prefetch `on idle` dove serve. Misurare il bundle con `ng build --stats-json` prima/dopo.
   - **Fatto quando:** bundle iniziale misurato e ridotto, E2E aggiornati.
+  - **Esito:** misura con `ng build --stats-json` prima/dopo. Il guadagno principale viene dal barrel `shared`: un export dedicato `@dnd-vtt/shared/id` (usato da `ToastService`) più `sideEffects: false` toglie Zod e i locale dal chunk iniziale. Bundle iniziale **801.01 kB → 299.87 kB** (-63%), poi 308.95 kB (+9 kB di runtime defer). `@defer` applicato a: dado (`when diceOpen()`, prefetch idle, `@placeholder` nascosto + `@loading`), anteprima schermo (`on immediate`), pannelli incantesimi/equipaggiamento/note della scheda (`on immediate`) e dialog livello (`when levelUpOpen()`, prefetch idle, placeholder nascosto). Ritratto e link giocatore restano eager per evitare layout shift above-the-fold. Route ridotte: dm-shell 191 → 123 kB, actor-sheet 71 → 54.65 kB; dado (68.55 kB) e pannello incantesimi (4.93 kB) in chunk separati. E2E mirati fase 3b/5/7/8 (11/11) e axe (4/4) verdi; nessun warning di budget.
 
 - [ ] **B4 — Signal Forms, form per form** · L
   - **Proposta:** ordine `dice-overlay` (fatto in B1) → inspector editor mappa → editing `actor-sheet` → `actor-wizard` → `character-wizard`. Riusare la validazione di dominio in `shared`, senza duplicarla nel template.

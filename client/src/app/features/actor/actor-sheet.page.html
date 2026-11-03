@@ -241,21 +241,29 @@
 
       @case ('spells') {
         @if (pc()) {
-          <app-actor-sheet-spell-panel
-            [slots]="spellSlots()"
-            [pactSlots]="pactSlots()"
-            [spells]="spellCards()"
-            (slotChange)="changeSlot($event.level, $event.delta)"
-            (pactSlotChange)="changePactSlot($event)"
-          />
+          @defer (on immediate) {
+            <app-actor-sheet-spell-panel
+              [slots]="spellSlots()"
+              [pactSlots]="pactSlots()"
+              [spells]="spellCards()"
+              (slotChange)="changeSlot($event.level, $event.delta)"
+              (pactSlotChange)="changePactSlot($event)"
+            />
+          } @placeholder {
+            <p class="muted">Caricamento incantesimi…</p>
+          }
         }
       }
 
       @case ('equipment') {
-        <app-actor-sheet-inventory-panel
-          [items]="inventoryItems()"
-          [currency]="currency()"
-        />
+        @defer (on immediate) {
+          <app-actor-sheet-inventory-panel
+            [items]="inventoryItems()"
+            [currency]="currency()"
+          />
+        } @placeholder {
+          <p class="muted">Caricamento equipaggiamento…</p>
+        }
       }
 
       @case ('features') {
@@ -288,33 +296,41 @@
       }
 
       @case ('notes') {
-        <app-actor-sheet-notes-panel
-          [notes]="notesDraft()"
-          [saving]="savingNotes()"
-          [saved]="notesSaved()"
-          (notesChange)="setNotes($event)"
-          (save)="saveNotes()"
-        />
+        @defer (on immediate) {
+          <app-actor-sheet-notes-panel
+            [notes]="notesDraft()"
+            [saving]="savingNotes()"
+            [saved]="notesSaved()"
+            (notesChange)="setNotes($event)"
+            (save)="saveNotes()"
+          />
+        } @placeholder {
+          <p class="muted">Caricamento note…</p>
+        }
       }
     }
   }
 </section>
 
-<app-actor-sheet-level-up-dialog
-  [open]="levelUpOpen()"
-  [character]="pc()"
-  [currentXp]="currentXp()"
-  [abilities]="abilities()"
-  [subclasses]="levelUpSubclasses()"
-  [needsSubclass]="levelUpNeedsSubclass()"
-  [isAsi]="levelUpIsAsi()"
-  [feats]="levelUpFeats()"
-  [preview]="levelUpPreview()"
-  [error]="levelUpError()"
-  [busy]="levelUpBusy()"
-  [form]="levelUpForm()"
-  (closed)="levelUpOpen.set(false)"
-  (formChange)="setLevelUpForm($event)"
-  (previewRequest)="previewLevelUp()"
-  (confirmRequest)="confirmLevelUp()"
-/>
+@defer (when levelUpOpen(); prefetch on idle) {
+  <app-actor-sheet-level-up-dialog
+    [open]="levelUpOpen()"
+    [character]="pc()"
+    [currentXp]="currentXp()"
+    [abilities]="abilities()"
+    [subclasses]="levelUpSubclasses()"
+    [needsSubclass]="levelUpNeedsSubclass()"
+    [isAsi]="levelUpIsAsi()"
+    [feats]="levelUpFeats()"
+    [preview]="levelUpPreview()"
+    [error]="levelUpError()"
+    [busy]="levelUpBusy()"
+    [form]="levelUpForm()"
+    (closed)="levelUpOpen.set(false)"
+    (formChange)="setLevelUpForm($event)"
+    (previewRequest)="previewLevelUp()"
+    (confirmRequest)="confirmLevelUp()"
+  />
+} @placeholder {
+  <span hidden aria-hidden="true"></span>
+}
