@@ -1,7 +1,8 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import type { AuthSession, AuthSessionList } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
+import { httpMessage } from './http-error';
 
 export type DmRole = 'dm' | 'none';
 
@@ -56,12 +57,12 @@ export class AuthService {
   }
 
   private messageFor(error: unknown): string {
-    if (error instanceof HttpErrorResponse && error.status === 429) {
-      return 'Troppi tentativi: attendi un minuto e riprova.';
-    }
-    if (error instanceof HttpErrorResponse && error.status === 401) {
-      return 'Password non valida.';
-    }
-    return 'Impossibile contattare il server.';
+    return httpMessage(error, {
+      fallback: 'Impossibile contattare il server.',
+      byStatus: {
+        429: 'Troppi tentativi: attendi un minuto e riprova.',
+        401: 'Password non valida.',
+      },
+    });
   }
 }

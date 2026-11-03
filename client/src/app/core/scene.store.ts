@@ -1,4 +1,4 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { effect, inject, signal } from '@angular/core';
 import {
   applyAction,
@@ -8,6 +8,7 @@ import {
 } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
+import { httpMessage } from './http-error';
 import { readResource } from './read-resource';
 
 interface SceneStoreState {
@@ -162,9 +163,9 @@ export const SceneStore = signalStore(
   }),
 );
 
-const messageFor = (error: unknown): string => {
-  if (error instanceof HttpErrorResponse && error.status === 404) {
-    return 'La scena non esiste più.';
-  }
-  return 'Impossibile caricare la scena.';
-};
+const messageFor = (error: unknown): string => httpMessage(error, {
+  fallback: 'Impossibile caricare la scena.',
+  byStatus: {
+    404: 'La scena non esiste più.',
+  },
+});

@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, type OnInit, computed, inject, input, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
@@ -11,6 +10,7 @@ import {
   type SrdMonster,
 } from '@dnd-vtt/shared';
 import { ActorService } from '../../core/actor.service';
+import { httpMessage } from '../../core/http-error';
 import { ABILITY_LABELS, SIZE_LABELS } from '../../core/labels';
 import { MeasurementService } from '../../core/measurement.service';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
@@ -237,9 +237,10 @@ export class ActorWizardPage implements OnInit {
         '/dm/campaigns', this.campaignId(), 'actors', actor.id, 'sheet',
       ]);
     } catch (error) {
-      this.saveError.set(error instanceof HttpErrorResponse && error.status === 404
-        ? 'La campagna non esiste più.'
-        : 'Salvataggio non riuscito. Controlla i campi e riprova.');
+      this.saveError.set(httpMessage(error, {
+        fallback: 'Salvataggio non riuscito. Controlla i campi e riprova.',
+        byStatus: { 404: 'La campagna non esiste più.' },
+      }));
     } finally {
       this.saving.set(false);
     }

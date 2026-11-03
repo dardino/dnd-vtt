@@ -1,8 +1,9 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { inject } from '@angular/core';
 import type { DiceRoll, DiceRollList, DiceRollRequest, DiceVisibility } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
+import { httpMessage } from './http-error';
 
 interface DiceStoreState {
   rolls: DiceRoll[];
@@ -64,12 +65,10 @@ export const DiceStore = signalStore(
   }),
 );
 
-const messageFor = (error: unknown): string => {
-  if (error instanceof HttpErrorResponse && error.status === 422) {
-    return 'Formula non valida. Usa forme come 1d20+5 o 4d6kh3.';
-  }
-  if (error instanceof HttpErrorResponse && error.status === 429) {
-    return 'Troppe richieste: attendi un istante.';
-  }
-  return 'Tiro non riuscito. Controlla il server.';
-};
+const messageFor = (error: unknown): string => httpMessage(error, {
+  fallback: 'Tiro non riuscito. Controlla il server.',
+  byStatus: {
+    422: 'Formula non valida. Usa forme come 1d20+5 o 4d6kh3.',
+    429: 'Troppe richieste: attendi un istante.',
+  },
+});

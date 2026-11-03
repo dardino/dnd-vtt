@@ -1,4 +1,5 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { httpMessage } from './http-error';
 import { DestroyRef, inject } from '@angular/core';
 import { newId, type ActionLogEntry, type ActionRequest, type AppliedAction, type GameAction } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
@@ -324,17 +325,11 @@ const toAppliedAction = (entry: ActionLogEntry): AppliedAction => ({
   at: entry.createdAt,
 });
 
-const messageFor = (error: unknown): string => {
-  if (error instanceof HttpErrorResponse) {
-    if (error.status === 0) {
-      return 'Server non raggiungibile: le modifiche restano locali finché non torna la connessione.';
-    }
-    if (error.status === 403) {
-      return 'La console è in sola lettura.';
-    }
-    if (error.status === 409) {
-      return 'La scena è cambiata altrove: stato riallineato.';
-    }
-  }
-  return 'Azione non applicata. Stato riallineato dal server.';
-};
+const messageFor = (error: unknown): string => httpMessage(error, {
+  fallback: 'Azione non applicata. Stato riallineato dal server.',
+  byStatus: {
+    0: 'Server non raggiungibile: le modifiche restano locali finché non torna la connessione.',
+    403: 'La console è in sola lettura.',
+    409: 'La scena è cambiata altrove: stato riallineato.',
+  },
+});

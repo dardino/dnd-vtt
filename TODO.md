@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B4-B5, S7 e Pi 1. Restano parziali A4 (mappature locali) e R1 (componenti/template DmShell). Completati S0-S9 (tranne verifica TLS S7), A1-A3, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7, B1-B3.
+**Blocco attivo:** B4-B5, S7 e Pi 1. Resta parziale R1 (componenti/template DmShell). Completati S0-S9 (tranne verifica TLS S7), A1-A4, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7, B1-B3.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -48,11 +48,11 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** `RealtimeHub` come classe creata in `buildApp` e passata alle route; `IdempotencyCache`/`RollStats` come istanze con TTL e `dispose()`.
   - **Fatto quando:** due app in un test sono isolate; cleanup deterministico.
 
-- [ ] **A4 — `ErrorHandler` globale e toast** · M
+- [x] **A4 - `ErrorHandler` globale e toast** · M — ✅ 3 novembre 2026
   - **Problema:** `messageFor` è ancora duplicato in store/feature; gli errori non gestiti non hanno un punto unico.
   - **Proposta:** `ToastService` signal-based + container in `app.html`; `ErrorHandler` globale che usa `http-error.ts`; gli store smettono di mappare i messaggi.
   - **Fatto quando:** un errore non gestito mostra un toast; un solo punto di traduzione HTTP.
-  - **Stato:** `ToastService` + container e `GlobalErrorHandler` fatti (1 novembre 2026); restano le mappature locali in store/feature.
+  - **Stato:** `ToastService` + container e `GlobalErrorHandler` fatti (1 novembre 2026); le mappature locali di `action.store`, `dice.store`, `scene.store`, `dm-shell`, `auth.service`, `player`, `actor-sheet`, `map-editor` e `maps` ora passano tutte da `httpMessage` (3 novembre 2026).
 
 - [x] **A5 — Regole di dominio residue in `shared`** · M
   - **Problema:** `buildFeatures`/`classFeatures`, slot incantesimo, `startView`/`mapView`/`viewport`, envelope paginato, lista skill, `mime` immagini e viste `DmSheetView`/`PlayerSheetView` hanno ancora copie.

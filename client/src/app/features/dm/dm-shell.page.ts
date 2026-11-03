@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -53,6 +52,7 @@ import { AiService } from '../../core/ai.service';
 import { AssetService } from '../../core/asset.service';
 import { AuthService } from '../../core/auth.service';
 import { CampaignService } from '../../core/campaign.service';
+import { httpMessage } from '../../core/http-error';
 import { DiceStore } from '../../core/dice.store';
 import { MeasurementService } from '../../core/measurement.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
@@ -1650,18 +1650,12 @@ export class DmShellPage implements OnInit {
 const readValue = (event: Event): string =>
   (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;
 
-const messageFor = (error: unknown): string => {
-  if (error instanceof HttpErrorResponse && error.status === 404) {
-    return 'La campagna non esiste più.';
-  }
-  if (error instanceof HttpErrorResponse && error.status === 401) {
-    return 'Sessione scaduta: autentica di nuovo.';
-  }
-  if (error instanceof HttpErrorResponse && error.status === 413) {
-    return 'Il file supera il limite di upload.';
-  }
-  if (error instanceof HttpErrorResponse && error.status === 415) {
-    return 'Formato non supportato: usa PNG, JPEG o WebP.';
-  }
-  return 'Operazione non riuscita. Controlla il server e riprova.';
-};
+const messageFor = (error: unknown): string => httpMessage(error, {
+  fallback: 'Operazione non riuscita. Controlla il server e riprova.',
+  byStatus: {
+    404: 'La campagna non esiste più.',
+    401: 'Sessione scaduta: autentica di nuovo.',
+    413: 'Il file supera il limite di upload.',
+    415: 'Formato non supportato: usa PNG, JPEG o WebP.',
+  },
+});
