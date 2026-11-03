@@ -101,7 +101,10 @@ export const RegiaStore = signalStore(
       }
     };
 
+    let screensGeneration = 0;
+
     const loadScreens = async (campaignId: string): Promise<void> => {
+      const generation = ++screensGeneration;
       try {
         const displays = (await programsApi.listOnlineDisplays(campaignId))
           .filter((display) => display.revokedAt === null);
@@ -113,6 +116,9 @@ export const RegiaStore = signalStore(
             return { display, state: null };
           }
         }));
+        if (generation !== screensGeneration) {
+          return;
+        }
         patchState(store, { screens: items, error: null });
         const open = store.screenDialog();
         if (open !== null) {
@@ -126,7 +132,9 @@ export const RegiaStore = signalStore(
           }
         }
       } catch (error) {
-        patchState(store, { screens: [], error });
+        if (generation === screensGeneration) {
+          patchState(store, { screens: [], error });
+        }
       }
     };
 

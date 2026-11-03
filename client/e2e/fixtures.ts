@@ -1,8 +1,22 @@
-import { expect, type APIRequestContext, type Page } from '@playwright/test';
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import type { MonsterStatblock, SceneSnapshot } from '@dnd-vtt/shared';
 
 export const CAMPAIGN_NAME = 'E2E Campagna';
 export const STAGE_CAMPAIGN_NAME = 'E2E Regia';
+
+/**
+ * Nome campagna predefinito per lo spec corrente. Ogni file usa una campagna
+ * propria così i worker Playwright non si contendono scena attiva e token.
+ * `phase-2` resta sulla campagna "vergine" perché verifica il primo avvio.
+ */
+const specCampaignName = (): string => {
+  const file = test.info().file.replaceAll('\\', '/');
+  const spec = /e2e\/([^/]+)\.spec\.ts$/.exec(file)?.[1] ?? 'shared';
+  return spec === 'phase-2' ? CAMPAIGN_NAME : `${CAMPAIGN_NAME} · ${spec}`;
+};
+
+/** Cache per worker: evita una GET di elenco prima di ogni openCampaign. */
+const knownCampaigns = new Map<string, string>();
 
 const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
@@ -58,14 +72,17 @@ export const createCampaign = async (
   request: APIRequestContext,
   options: CampaignFixtureOptions = {},
 ): Promise<string> => {
+  const name = options.name ?? CAMPAIGN_NAME;
   const created = await request.post('/api/v1/campaigns', {
     data: {
-      name: options.name ?? CAMPAIGN_NAME,
+      name,
       description: options.description ?? 'Fixture E2E',
       advancementMode: 'milestone',
     },
   });
-  return (await created.json() as { id: string }).id;
+  const id = (await created.json() as { id: string }).id;
+  knownCampaigns.set(name, id);
+  return id;
 };
 
 export const uploadPng = async (
@@ -91,11 +108,16 @@ export const campaignId = async (
   request: APIRequestContext,
   options: CampaignFixtureOptions = {},
 ): Promise<string> => {
-  const name = options.name ?? CAMPAIGN_NAME;
+  const name = options.name ?? specCampaignName();
+  const cached = knownCampaigns.get(name);
+  if (cached !== undefined) {
+    return cached;
+  }
   const list = await request.get('/api/v1/campaigns?limit=200');
   const items = (await list.json() as { items: { id: string; name: string }[] }).items;
   const existing = items.find((item) => item.name === name);
   if (existing !== undefined) {
+    knownCampaigns.set(name, existing.id);
     return existing.id;
   }
   return createCampaign(request, {
@@ -112,23 +134,32 @@ export const openCampaign = async (
   page: Page,
   options: OpenCampaignOptions = {},
 ): Promise<void> => {
-  const name = options.name ?? CAMPAIGN_NAME;
-  await page.goto('/dm');
-  const dialog = page.getByRole('dialog');
-  const heading = page.getByRole('heading', { level: 1, name });
-  await expect(dialog.or(heading)).toBeVisible();
-  if (await dialog.isVisible()) {
-    const createHeading = dialog.getByRole('heading', { name: 'Crea campagna' });
-    if (await createHeading.isVisible()) {
-      if (options.createIfMissing ?? true) {
-        await dialog.getByLabel('Nome').fill(name);
-        await dialog.getByRole('button', { name: 'Crea campagna' }).click();
+  const name = options.name ?? specCampaignName();
+  const createIfMissing = options.createIfMissing ?? true;
+  let id = knownCampaigns.get(name);
+  if (id === undefined) {
+    const list = await page.request.get('/api/v1/campaigns?limit=200');
+    if (list.ok()) {
+      const items = (await list.json() as { items: { id: string; name: string }[] }).items;
+      const existing = items.find((item) => item.name === name);
+      if (existing !== undefined) {
+        id = existing.id;
+        knownCampaigns.set(name, id);
       }
-    } else {
-      await dialog.getByRole('button', { name: new RegExp(name) }).first().click();
     }
   }
-  await expect(heading).toBeVisible();
+  if (id === undefined && createIfMissing) {
+    id = await createCampaign(page.request, { name });
+  }
+  if (id === undefined) {
+    throw new Error(`Campagna E2E non trovata: ${name}`);
+  }
+  await page.addInitScript(
+    ([key, value]) => localStorage.setItem(key, value),
+    ['dnd-vtt.lastCampaignId', id] as const,
+  );
+  await page.goto('/dm');
+  await expect(page.getByRole('heading', { level: 1, name })).toBeVisible();
 };
 
 export const createScene = async (

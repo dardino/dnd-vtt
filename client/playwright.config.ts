@@ -25,7 +25,9 @@ export default defineConfig({
   testDir: './e2e',
   globalSetup: join(here, 'e2e', 'global-setup.ts'),
   fullyParallel: false,
-  workers: 1,
+  // 4 worker saturano i canvas Konva e rendono instabile la regia (phase-7);
+  // 3 restano ~2,3x più veloci della suite seriale.
+  workers: 3,
   retries: 0,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
@@ -33,6 +35,18 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+  projects: [
+    {
+      // Il primo avvio verifica il DB vuoto: deve restare isolato e seriale.
+      name: 'setup',
+      testMatch: /phase-2\.spec\.ts/,
+    },
+    {
+      name: 'chromium',
+      testIgnore: /phase-2\.spec\.ts/,
+      dependencies: ['setup'],
+    },
+  ],
   webServer: {
     command: `"${process.execPath}" ../server/dist/index.js`,
     url: 'http://127.0.0.1:3100/api/v1/health',

@@ -231,15 +231,28 @@ export class SceneCanvasComponent implements OnDestroy {
         ...Object.values(this.actorPortraits()),
         ...Object.values(this.tokenPortraits()),
       ];
-      for (const portrait of portraits) {
-        if (this.portraitImages.has(portrait.url)) {
-          continue;
-        }
-        void this.loadImage(portrait.url).then((image) => {
-          this.portraitImages.set(portrait.url, image);
-          this.renderTokens();
-        }).catch(() => undefined);
+      const missing = portraits.filter((portrait) => !this.portraitImages.has(portrait.url));
+      if (missing.length === 0) {
+        return;
       }
+      void Promise.all(missing.map(async (portrait) => {
+        try {
+          return [portrait.url, await this.loadImage(portrait.url)] as const;
+        } catch {
+          return null;
+        }
+      })).then((entries) => {
+        let loaded = false;
+        for (const entry of entries) {
+          if (entry !== null) {
+            this.portraitImages.set(entry[0], entry[1]);
+            loaded = true;
+          }
+        }
+        if (loaded) {
+          this.renderTokens();
+        }
+      });
     });
     afterNextRender(() => {
       this.createStage();

@@ -70,7 +70,7 @@ describe('DmCampaignStore', () => {
     expect(h.lastWrite).toHaveBeenCalledWith(CAMPAIGN_ID);
     expect(h.loadActors).toHaveBeenCalledWith(CAMPAIGN_ID);
     expect(h.loadScreens).toHaveBeenCalledWith(CAMPAIGN_ID);
-    expect(h.diceLoad).toHaveBeenCalledWith(CAMPAIGN_ID);
+    expect(h.diceLoad).not.toHaveBeenCalled();
     expect(h.loadProgram).toHaveBeenCalledWith(CAMPAIGN_ID);
     expect(h.connectDm).toHaveBeenCalledWith(CAMPAIGN_ID);
     expect(h.loadSessions).toHaveBeenCalledWith(CAMPAIGN_ID);

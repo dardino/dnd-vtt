@@ -2,6 +2,7 @@ import { inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   isTiledMap,
+  type Campaign,
   type MapDocument,
   type MapSummary,
   type Scene,
@@ -106,32 +107,42 @@ export const DmCampaignStore = signalStore(
       ui.setSelectedTokenId(null);
       sceneTools.setMeasure(null);
       sceneStore.clear();
+      const assetLoad = loadMapAsset(scene);
       await sceneStore.load(scene.id);
       const campaign = shell.activeCampaign();
       if (campaign !== null) {
         actions.start(campaign.id, scene.id);
         layout.restore(campaign.id);
       }
-      await loadMapAsset(scene);
+      await assetLoad;
     };
 
-    const enterCampaign = async (id: string, routeCampaignId?: string): Promise<void> => {
+    const enterCampaign = async (
+      id: string,
+      routeCampaignId?: string,
+      known?: Campaign,
+    ): Promise<void> => {
       ui.setBusy(true);
       try {
-        const campaign = await shell.selectCampaign(id);
+        const campaign = known ?? await shell.selectCampaign(id);
+        if (known !== undefined) {
+          shell.setActiveCampaign(known);
+        }
         sceneTools.resetVolatile();
         store.newSceneFog.set(campaign.fogDefault);
         lastCampaign.write(campaign.id);
         ui.setNotice(null);
         layout.restore(campaign.id);
-        const scenes = await shell.loadScenes(campaign.id);
-        await shell.loadActors(campaign.id);
-        await regia.loadScreens(campaign.id);
-        await dice.load(campaign.id);
-        await regia.loadProgram(campaign.id);
+        const [scenes] = await Promise.all([
+          shell.loadScenes(campaign.id),
+          shell.loadActors(campaign.id),
+          regia.loadScreens(campaign.id),
+          layout.dockTab() === 'dice' ? dice.load(campaign.id) : Promise.resolve(),
+          regia.loadProgram(campaign.id),
+          shell.loadSessions(campaign.id),
+          aux.load(),
+        ]);
         realtime.connectDm(campaign.id);
-        await shell.loadSessions(campaign.id);
-        await aux.load();
         session.sync(shell.activeSession());
         const target = scenes.find((scene) => scene.id === campaign.activeSceneId) ?? scenes[0];
         if (target !== undefined) {
@@ -170,7 +181,7 @@ export const DmCampaignStore = signalStore(
       const remembered = lastCampaign.read();
       const target = fromRoute ?? campaigns.find((campaign) => campaign.id === remembered);
       if (target !== undefined) {
-        await enterCampaign(target.id, requestedId);
+        await enterCampaign(target.id, requestedId, target);
         return;
       }
       store.mode.set(campaigns.length === 0 ? 'create' : 'choose');
@@ -237,7 +248,7 @@ export const DmCampaignStore = signalStore(
             fogDefault: 'hidden',
           });
           shell.addCampaign(created);
-          await enterCampaign(created.id);
+          await enterCampaign(created.id, undefined, created);
         } catch (error) {
           ui.setNotice(messageFor(error));
         } finally {

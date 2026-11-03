@@ -252,7 +252,7 @@ export const createDmCampaignStoreHarness = (): DmCampaignStoreHarness => {
           prependScene,
         },
       },
-      { provide: DmLayoutStore, useValue: { restore } },
+      { provide: DmLayoutStore, useValue: { restore, dockTab: () => 'initiative' } },
       { provide: DmSessionStore, useValue: { sync: sessionSync } },
       { provide: DmAuxStore, useValue: { load: auxLoad } },
       {

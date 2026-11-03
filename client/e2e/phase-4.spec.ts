@@ -234,6 +234,10 @@ test('l’editor sostituisce lo sfondo mantenendo le dimensioni della mappa', as
   const beforeMap = await request.get(`/api/v1/maps/${before?.id}`);
   const beforeAssetId = (await beforeMap.json() as { imageAssetId: string | null }).imageAssetId;
 
+  await page.addInitScript(
+    ([key, value]) => localStorage.setItem(key, value),
+    ['dnd-vtt.lastCampaignId', id] as const,
+  );
   await page.goto('/maps');
   const card = page.locator('.map-card', { hasText: 'mappa-8k' });
   await expect(card).toBeVisible({ timeout: 15_000 });
