@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** modello risoluzione/sfondo (SR3–SR7). Completati S0–S9 (tranne revoca S3 e verifica TLS S7), A1–A4 (A4 con mappature locali residue), R1–R3 (R1 solo store), P1–P7, Q1-Q5, T1-T3 e R0.
+**Blocco attivo:** B1-B5, S3, S7 e Pi 1. Restano parziali A4 (mappature locali) e R1 (componenti/template DmShell). Completati S0-S9 (tranne revoca S3 e verifica TLS S7), A1-A3, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7 e C1-C7.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -345,9 +345,8 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
     già copriva `aria-labelledby`, aggiunto `dice-overlay.component.spec.ts` che verifica la catena
     overlay → dialog → titolo.
 
-- [ ] **C6 — Container query** · M · B3
-  - **Proposta:** valutare `@container` per i pannelli console/actor sheet durante l'ondata `@defer`; se non porta benefici misurabili, rimuovere il requisito dal piano.
-  - **Fatto quando:** decisione registrata e, se adottata, applicata ai pannelli.
+- [x] **C6 — Container query** · M · B3 — ✅ 3 novembre 2026
+  - **Decisione:** non adottate. Il layout usa classi di larghezza esplicite e grid/flex; le media query centralizzate bastano. Requisito rimosso da `PLAN.md` con motivazione.
 
 - [x] **C7 — Accessibilità canvas** · M — ✅ 2 novembre 2026
   - **Proposta:** `role="img"` + `aria-label` descrittivo sullo stage, scorciatoie tastiera per pan/zoom/selezione, conferma esplicita per azioni distruttive.
@@ -510,7 +509,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 3. **P1/P2/P3/P5/P6/P7/P4**: completati (P4 con rendering per-layer).
 4. **Q1-Q5, T1-T3, R0**: completati (T3 con eventuali follow-up minori).
 5. **SR3-SR7 e C1-C5/C7**: completati.
-6. **C6**: container query (adottare o rimuovere dal piano).
+6. **C6**: chiuso — container query non adottate, requisito rimosso dal piano.
 7. **S3, S7**: revoca sessione per-device e verifica TLS/proxy reale.
 8. **B1-B5**: Signal Forms, `resource()`, `@defer`.
 9. **Pi 1**: validazione display in kiosk.

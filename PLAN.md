@@ -667,7 +667,7 @@ Regole trasversali, valide in tutti e tre i workspace:
 - stati con `:hover` (solo pointer fine), `:focus-visible`, `[disabled]`, `[aria-expanded]`; `.is-*` solo per stati transitori non esprimibili con attributi
 - niente attributi `style` nei template e niente `setAttribute('style', …)`: i valori dinamici passano da CSS custom properties impostate via CSSOM (`el.style.setProperty`)
 - `:host` esplicito (`display: block/flex`) e nessun selettore globale di elemento fuori dal reset
-- pannelli e sidebar con container query dove il layout dipende dalla larghezza del contenitore, non del viewport
+- pannelli e sidebar: **container query valutate e non adottate** (3 novembre 2026). Il layout dipende da classi esplicite di larghezza e da grid/flex; le media query centralizzate in `_functions.scss` coprono i casi reali e `@container` aggiungerebbe complessità senza benefici misurabili.
 - **layout di pagina a 12 colonne solo per i wizard** (`@mixin grid-12` in `styles/_layout.scss`): i figli dichiarano `grid-column: span N`. La console usa un layout a tre colonne (sidebar sinistra, scena, sidebar destra); l’editor mappe usa toolbar/canvas/inspector. Nessuna delle due usa `grid-12`
 - **altezza piena**: la catena `shell main → route host → pagina` usa `flex: 1` e `min-height: 0`, così ogni pagina occupa almeno tutto lo spazio tra header e footer e i pannelli si estendono invece di restare a metà (D64)
 - **nessuna larghezza massima di pagina**: console, editor e wizard usano il 100% dello spazio disponibile; eventuali limiti si applicano solo a testo e modali, non al layout
