@@ -1,5 +1,5 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { inject } from '@angular/core';
+import { effect, inject, signal } from '@angular/core';
 import {
   applyAction,
   type AppliedAction,
@@ -8,6 +8,7 @@ import {
 } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
+import { readResource } from './read-resource';
 
 interface SceneStoreState {
   snapshot: SceneSnapshot | null;
@@ -33,6 +34,44 @@ export const SceneStore = signalStore(
   withState(initialState),
   withMethods((store) => {
     const http = inject(HttpClient);
+    const requestedSceneId = signal<string | undefined>(undefined);
+    const waiters = new Set<() => void>();
+    /**
+     * Invalida le `load()` in volo dopo un `clear()` o una nuova `load()`: la
+     * risposta superata risolve la promise ma non tocca lo stato.
+     */
+    let generation = 0;
+
+    const sceneRead = readResource<SceneSnapshot, string>({
+      params: () => requestedSceneId(),
+      loader: (sceneId) => firstValueFrom(
+        http.get<SceneSnapshot>(`/api/v1/scenes/${sceneId}/snapshot?force=true`),
+      ),
+      errorMessage: messageFor,
+    });
+
+    const settleWaiters = (): void => {
+      const pending = [...waiters];
+      waiters.clear();
+      for (const resolve of pending) {
+        resolve();
+      }
+    };
+
+    // Il resource è l'unica fonte: quando si assesta risolviamo le `load()` in
+    // attesa. Valore e scena devono coincidere per non applicare una risposta
+    // superata (il resource scarta comunque le richieste abortite).
+    effect(() => {
+      const status = sceneRead.status();
+      if (status === 'resolved') {
+        const value = sceneRead.value();
+        if (value !== undefined && value.scene.id === requestedSceneId()) {
+          settleWaiters();
+        }
+      } else if (status === 'error') {
+        settleWaiters();
+      }
+    });
 
     const applyToSnapshot = (action: GameAction): void => {
       const snapshot = store.snapshot();
@@ -44,19 +83,35 @@ export const SceneStore = signalStore(
 
     return {
       async load(sceneId: string): Promise<void> {
+        const startGeneration = ++generation;
         patchState(store, { loading: true, error: null });
-        try {
-          const snapshot = await firstValueFrom(
-            http.get<SceneSnapshot>(`/api/v1/scenes/${sceneId}/snapshot?force=true`),
-          );
+        const settled = new Promise<void>((resolve) => {
+          waiters.add(resolve);
+        });
+        if (requestedSceneId() === sceneId) {
+          sceneRead.reload();
+        } else {
+          requestedSceneId.set(sceneId);
+        }
+        await settled;
+        if (startGeneration !== generation || requestedSceneId() !== sceneId) {
+          return;
+        }
+        const snapshot = sceneRead.value();
+        if (snapshot !== undefined) {
           patchState(store, {
             snapshot,
             stateVersion: snapshot.stateVersion,
             loading: false,
+            error: null,
           });
-        } catch (error) {
-          patchState(store, { loading: false, error: messageFor(error) });
+          return;
         }
+        const error = sceneRead.error();
+        patchState(store, {
+          loading: false,
+          error: error === undefined ? null : messageFor(error),
+        });
       },
 
       applyServerAction(applied: AppliedAction): void {
@@ -96,6 +151,11 @@ export const SceneStore = signalStore(
       },
 
       clear(): void {
+        // Non azzera i params: dopo `clear()` una `load()` della stessa scena
+        // deve poter forzare una nuova lettura (`reload()`). La generazione
+        // invalida comunque le richieste ancora in volo.
+        generation += 1;
+        settleWaiters();
         patchState(store, initialState);
       },
     };

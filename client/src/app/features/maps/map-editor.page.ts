@@ -33,6 +33,7 @@ import { httpMessage } from '../../core/http-error';
 import { ActorService } from '../../core/actor.service';
 import { AssetService } from '../../core/asset.service';
 import { MapService } from '../../core/map.service';
+import { readResource } from '../../core/read-resource';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
@@ -103,7 +104,15 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly spawnCell = signal<{ x: number; y: number } | null>(null);
   public readonly spawnSearch = signal('');
   public readonly spawnTab = signal<'srd' | 'actors'>('srd');
-  public readonly actors = signal<Actor[]>([]);
+
+  private readonly campaignId = signal<string | undefined>(undefined);
+  private readonly actorList = readResource<Actor[], string>({
+    params: () => this.campaignId(),
+    loader: (campaignId) => this.actorsApi.listByCampaign(campaignId),
+    errorMessage: 'Impossibile caricare gli attori della campagna',
+  });
+
+  public readonly actors = this.actorList.value;
 
   private readonly history = new MapHistory();
   private backgroundAsset: {
@@ -173,7 +182,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   public readonly filteredActors = computed(() => {
     const query = this.spawnSearch().trim().toLowerCase();
-    return this.actors()
+    return (this.actors() ?? [])
       .filter((actor) => actor.kind !== 'pc')
       .filter((actor) => query === '' || actor.name.toLowerCase().includes(query))
       .slice(0, 80);
@@ -194,7 +203,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       const map = await this.mapsApi.get(this.mapId());
       this.applyMap(map);
       await this.loadImage(map);
-      await Promise.all([this.catalogService.load(), this.loadActors(map.campaignId)]);
+      await this.catalogService.load();
       this.error.set(null);
     } catch (error) {
       this.error.set(messageFor(error));
@@ -216,7 +225,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
     this.doc.set(document);
     this.version.set(map.version);
     this.dirty.set(false);
-    this.actors.set([]);
+    this.campaignId.set(map.campaignId);
   }
 
   private async loadImage(map: Map): Promise<void> {
@@ -282,14 +291,6 @@ export class MapEditorPage implements OnInit, OnDestroy {
       }
       this.backgroundAsset = null;
       this.image.set(null);
-    }
-  }
-
-  private async loadActors(campaignId: string): Promise<void> {
-    try {
-      this.actors.set(await this.actorsApi.listByCampaign(campaignId));
-    } catch {
-      this.actors.set([]);
     }
   }
 

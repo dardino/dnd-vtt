@@ -115,9 +115,18 @@ describe('ActionStore', () => {
     realtime.events.complete();
   });
 
+  const flushResource = async (): Promise<void> => {
+    for (let index = 0; index < 5; index += 1) {
+      await Promise.resolve();
+      TestBed.tick();
+    }
+  };
+
   const loadScene = async (stateVersion = 1): Promise<void> => {
     const loading = scene.load(SCENE_ID);
+    TestBed.tick();
     http.expectOne(sceneUrl).flush(snapshot(stateVersion));
+    await flushResource();
     await loading;
   };
 
@@ -157,8 +166,9 @@ describe('ActionStore', () => {
 
     realtime.events.next(applied(3));
 
+    TestBed.tick();
     http.expectOne(sceneUrl).flush(snapshot(3));
-    await vi.advanceTimersByTimeAsync(0);
+    await flushResource();
 
     expect(scene.stateVersion()).toBe(3);
     // Il gap non applica il payload dell'evento: lo stato arriva dal server.
@@ -230,8 +240,9 @@ describe('ActionStore', () => {
     start();
 
     realtime.events.next({ sceneId: SCENE_ID, stateVersion: 3 });
+    TestBed.tick();
     http.expectOne(sceneUrl).flush(snapshot(3));
-    await vi.advanceTimersByTimeAsync(0);
+    await flushResource();
 
     expect(scene.stateVersion()).toBe(3);
     http.expectOne(historyUrl).flush({ items: [entry(3)] });

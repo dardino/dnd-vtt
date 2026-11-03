@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B2-B5, S3, S7 e Pi 1. Restano parziali A4 (mappature locali) e R1 (componenti/template DmShell). Completati S0-S9 (tranne revoca S3 e verifica TLS S7), A1-A3, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7 e B1.
+**Blocco attivo:** B3-B5, S3, S7 e Pi 1. Restano parziali A4 (mappature locali) e R1 (componenti/template DmShell). Completati S0-S9 (tranne revoca S3 e verifica TLS S7), A1-A3, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7, B1 e B2.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -367,7 +367,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 - [x] **T3 — Pulizia configurazioni** · S — ✅ 3 novembre 2026
   - **Proposta:** verificare dipendenze duplicate (`jsdom` root/client), mixin morti, budget e `tsconfig`; rimuovere ciò che non è usato.
-  - **Esito:** `jsdom` rimosso dal root (resta solo in `client`, dove serve al runner); rimossi i mixin morti `row` e `panel`; `_layout.scss`/`grid-12` restano usati. `tsconfig`, budget e `npm ls` verificati; nessun file sorgente morto (i tre CLI sono entrypoint).
+  - **Esito:** `jsdom` rimosso dal root (resta solo in `client`, dove serve al runner); rimossi i mixin morti `row` e `panel`; `_layout.scss`/`grid-12` restano usati. `tsconfig`, budget e `npm ls` verificati; nessun file sorgente morto (i tre CLI sono entrypoint). Test client con `isolate: true` (i mock di `konva` non si contaminano più tra file, eliminando un flake latente).
 
 ## 8. Migrazione B — Signal Forms, `resource()`, `@defer` (P1/P2)
 
@@ -378,9 +378,11 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Fatto quando:** decision record con API confermate e PoC verde.
   - **Esito:** `@angular/forms` 22.2.4 (stessa versione di `@angular/core`) aggiunto al client; entrypoint `@angular/forms/signals` verificato nelle typings installate (`@publicApi 22.0`). PoC su `dice-overlay`: modello `form(signal({ formula }))`, `required` + `validate` con `parseFormula` condiviso, submit via `submit()`; direttiva reale `[formField]`. `validateStandardSchema` provato con `diceRollRequestSchema.shape.formula` (Zod 4.6.7), `resource()` verificato con cambio `params`, `@defer` verificato con rendering esplicito. API, limiti e raccomandazioni in `docs/b1-signal-forms-spike.md`. Test: `b1-spike.spec.ts` e `dice-overlay.component.spec.ts`.
 
-- [ ] **B2 — `resource()` sui servizi di lettura** · M
+- [x] **B2 — `resource()` sui servizi di lettura** · M — ✅ 3 novembre 2026
   - **Proposta:** inventariare `campaign.service`, `actor.service`, `scene.service`, `srd-catalog.service` e `program.service`; usare `resource({ params, loader })` o `httpResource` per le letture, lasciando le mutazioni nei servizi. Integrare `status()`/`error()` con `ErrorHandler`/toast (A4) e con gli store.
   - **Fatto quando:** le letture principali hanno loading/error uniformi; test su cambio scena e race condition.
+  - **Esito:** nuovo helper `client/src/app/core/read-resource.ts` (`readResource<T, P>`) su `resource()` con params reattivi (`undefined` = idle), `value`/`status`/`error`, `isLoading`/`isIdle`/`hasError`, `reload`, deduplica dei toast per stato+messaggio (un retry con una nuova `HttpErrorResponse` non duplica) e nessun passaggio dall'`ErrorHandler` per gli errori HTTP, che restano tradotti nel toast contestuale; gli errori non-HTTP restano al `GlobalErrorHandler`. Migrati `SrdCatalogService` (forkJoin + `srdCatalogSchema.parse`, `load()` idempotente e `catalog`/`loading`/`error` con `httpMessage`), la lista attori di `MapEditorPage` (params = `campaignId` della mappa) e `SceneStore.load` (`requestedSceneId` come params, `reload()` sulla stessa scena, stato/azioni ottimistiche invariati, risposte superate scartate). Test in `read-resource.spec.ts` (idle, caricamento, errore HTTP+toast, errori non-HTTP, cambio params, risposta vecchia scartata, retry senza toast duplicato), `srd-catalog.service.spec.ts`, map editor sul cambio campagna e `scene.store.spec.ts` (404, cambio scena con risposta vecchia, reload). Restano da migrare le letture di campaign/program.
+
 
 - [ ] **B3 — `@defer` sui componenti pesanti** · M
   - **Proposta:** applicarlo a pannelli editor mappa, pannelli console, tab della scheda e step dei wizard; aggiungere `@placeholder`/`@loading`/`@error` e prefetch `on idle` dove serve. Misurare il bundle con `ng build --stats-json` prima/dopo.

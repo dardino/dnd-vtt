@@ -3,7 +3,9 @@ import { Router } from '@angular/router';
 import {
   defaultBackgroundTransform,
   emptyMapDocument,
+  type Actor,
   type Asset,
+  type Map,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActorService } from '../../core/actor.service';
@@ -35,6 +37,18 @@ const secondAsset: Asset = {
   thumbUrl: '/uploads/second-thumb.png',
 };
 
+const mapFor = (id: string, campaignId: string): Map => ({
+  id,
+  campaignId,
+  version: 1,
+  createdAt: '2026-11-03T00:00:00.000Z',
+  updatedAt: '2026-11-03T00:00:00.000Z',
+  ...emptyMapDocument('Mappa', null, 700, 700),
+});
+
+const actorFor = (id: string, name: string): Actor =>
+  ({ id, name, kind: 'monster' } as unknown as Actor);
+
 const chooseFile = (name: string): Event => {
   const input = document.createElement('input');
   Object.defineProperty(input, 'files', {
@@ -65,16 +79,20 @@ const textInput = (value: string): Event => {
 describe('MapEditorPage history', () => {
   const upload = vi.fn();
   const get = vi.fn();
+  const getMap = vi.fn();
+  const listByCampaign = vi.fn();
 
   beforeEach(() => {
     upload.mockReset();
     get.mockReset();
+    getMap.mockReset();
+    listByCampaign.mockReset();
     TestBed.configureTestingModule({
       providers: [
-        { provide: MapService, useValue: {} },
+        { provide: MapService, useValue: { get: getMap } },
         { provide: AssetService, useValue: { upload, get } },
-        { provide: ActorService, useValue: {} },
-        { provide: SrdCatalogService, useValue: {} },
+        { provide: ActorService, useValue: { listByCampaign } },
+        { provide: SrdCatalogService, useValue: { load: () => Promise.resolve(), catalog: () => null } },
         { provide: Router, useValue: {} },
       ],
     });
@@ -288,6 +306,35 @@ describe('MapEditorPage history', () => {
     expect(get).toHaveBeenCalledWith(asset.id);
     expect(page.doc()?.backgroundTransform).toEqual({ x: 0, y: -100, scale: 2 });
     expect(page.image()).toEqual({ url: asset.url, width: 800, height: 600 });
+
+    fixture.destroy();
+  });
+
+  it('carica gli attori con il resource e li ricarica al cambio campagna', async () => {
+    const first = actorFor('actor-1', 'Goblin');
+    const second = actorFor('actor-2', 'Orso');
+    getMap.mockResolvedValue(mapFor('map-1', 'campaign-1'));
+    listByCampaign.mockResolvedValue([first]);
+
+    const fixture = TestBed.createComponent(MapEditorPage);
+    fixture.componentRef.setInput('mapId', 'map-1');
+    fixture.detectChanges();
+    await fixture.whenStable();
+    TestBed.tick();
+    await fixture.whenStable();
+
+    expect(listByCampaign).toHaveBeenCalledWith('campaign-1');
+    expect(fixture.componentInstance.filteredActors()).toEqual([first]);
+
+    getMap.mockResolvedValue(mapFor('map-2', 'campaign-2'));
+    listByCampaign.mockResolvedValue([second]);
+    fixture.componentInstance.ngOnInit();
+    await fixture.whenStable();
+    TestBed.tick();
+    await fixture.whenStable();
+
+    expect(listByCampaign).toHaveBeenCalledWith('campaign-2');
+    expect(fixture.componentInstance.filteredActors()).toEqual([second]);
 
     fixture.destroy();
   });
