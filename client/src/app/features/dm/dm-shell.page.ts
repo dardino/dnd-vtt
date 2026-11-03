@@ -66,6 +66,7 @@ import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
 import { AuthSessionsPanel } from './auth-sessions-panel';
+import { CharacterSlots } from './character-slots';
 import { DmDock, type DockTab } from './dm-dock';
 import { DmStatusbar } from './dm-statusbar';
 import { RegiaStore, type ScreenSummary } from './regia.store';
@@ -137,7 +138,9 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
   selector: 'app-dm-shell',
   imports: [
     ActorList,
+    AuthSessionsPanel,
     Button,
+    CharacterSlots,
     Dialog,
     DmDock,
     DmStatusbar,
@@ -151,7 +154,6 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     SessionCard,
     SidebarSection,
     TokenList,
-    AuthSessionsPanel,
   ],
   templateUrl: './dm-shell.page.html',
   styleUrl: './dm-shell.page.scss',
@@ -355,7 +357,7 @@ export class DmShellPage implements OnInit {
     return portraits;
   });
 
-  public portraitFor(actor: Actor): ActorPortraitThumb | null {
+  public readonly portraitFor = (actor: Actor): ActorPortraitThumb | null => {
     if (actor.imageAssetId === null) {
       return null;
     }
@@ -364,7 +366,7 @@ export class DmShellPage implements OnInit {
       return null;
     }
     return { url, ...(actor.portrait ?? DEFAULT_ACTOR_PORTRAIT) };
-  }
+  };
 
   public readonly zoomLabel = computed(() => `${Math.round(this.zoom() * 100)}%`);
   public readonly blackout = computed(() => this.regia.programState()?.blackout === true);
