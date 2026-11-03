@@ -6,10 +6,18 @@
       }
     </div>
 
+    @let formulaError = diceForm.formula().touched() ? diceForm.formula().errors()[0] : undefined;
+
     <div class="dice__controls">
       <label class="field">
         <span>Formula</span>
-        <input type="text" [value]="formula()" (input)="setFormula($event)" placeholder="1d20+5" />
+        <input
+          type="text"
+          [formField]="diceForm.formula"
+          placeholder="1d20+5"
+          [attr.aria-invalid]="diceForm.formula().touched() ? diceForm.formula().invalid() : null"
+          [attr.aria-describedby]="formulaError ? 'dice-formula-error' : null"
+        />
       </label>
       <label class="field field--small">
         <span>Modificatore</span>
@@ -31,6 +39,10 @@
         </select>
       </label>
     </div>
+
+    @if (formulaError; as error) {
+      <p id="dice-formula-error" class="dice__error" role="alert">{{ error.message }}</p>
+    }
 
     <button type="button" class="dice__roll" [disabled]="store.rolling()" (click)="roll()">
       {{ store.rolling() ? 'Tiro…' : 'Tira' }}

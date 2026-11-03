@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B1-B5, S3, S7 e Pi 1. Restano parziali A4 (mappature locali) e R1 (componenti/template DmShell). Completati S0-S9 (tranne revoca S3 e verifica TLS S7), A1-A3, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7 e C1-C7.
+**Blocco attivo:** B2-B5, S3, S7 e Pi 1. Restano parziali A4 (mappature locali) e R1 (componenti/template DmShell). Completati S0-S9 (tranne revoca S3 e verifica TLS S7), A1-A3, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7 e B1.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -373,9 +373,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 
 > D5 = **B**. Il piano non va riscritto: va eseguito a tappe, con misurazioni e senza bloccare l'architettura realtime già attiva.
 
-- [ ] **B1 — Spike e prerequisiti** · S
-  - **Proposta:** verificare nella versione Angular 22.2.3 lo stato di Signal Forms (`@angular/forms/signals`), l'adattatore Standard Schema/Zod e `resource()`/`httpResource()`. Reintrodurre `@angular/forms` come dipendenza diretta: oggi è presente in `node_modules` solo come residuo. Fare un PoC su un form piccolo (`dice-overlay`) con test.
+- [x] **B1 — Spike e prerequisiti** · S — ✅ 3 novembre 2026
+  - **Proposta:** verificare nella versione Angular 22.2.4 lo stato di Signal Forms (`@angular/forms/signals`), l'adattatore Standard Schema/Zod e `resource()`/`httpResource()`. Reintrodurre `@angular/forms` come dipendenza diretta: oggi è presente in `node_modules` solo come residuo. Fare un PoC su un form piccolo (`dice-overlay`) con test.
   - **Fatto quando:** decision record con API confermate e PoC verde.
+  - **Esito:** `@angular/forms` 22.2.4 (stessa versione di `@angular/core`) aggiunto al client; entrypoint `@angular/forms/signals` verificato nelle typings installate (`@publicApi 22.0`). PoC su `dice-overlay`: modello `form(signal({ formula }))`, `required` + `validate` con `parseFormula` condiviso, submit via `submit()`; direttiva reale `[formField]`. `validateStandardSchema` provato con `diceRollRequestSchema.shape.formula` (Zod 4.6.7), `resource()` verificato con cambio `params`, `@defer` verificato con rendering esplicito. API, limiti e raccomandazioni in `docs/b1-signal-forms-spike.md`. Test: `b1-spike.spec.ts` e `dice-overlay.component.spec.ts`.
 
 - [ ] **B2 — `resource()` sui servizi di lettura** · M
   - **Proposta:** inventariare `campaign.service`, `actor.service`, `scene.service`, `srd-catalog.service` e `program.service`; usare `resource({ params, loader })` o `httpResource` per le letture, lasciando le mutazioni nei servizi. Integrare `status()`/`error()` con `ErrorHandler`/toast (A4) e con gli store.
@@ -386,7 +387,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Fatto quando:** bundle iniziale misurato e ridotto, E2E aggiornati.
 
 - [ ] **B4 — Signal Forms, form per form** · L
-  - **Proposta:** ordine `dice-overlay` → inspector editor mappa → editing `actor-sheet` → `actor-wizard` → `character-wizard`. Riusare la validazione di dominio in `shared`, senza duplicarla nel template.
+  - **Proposta:** ordine `dice-overlay` (fatto in B1) → inspector editor mappa → editing `actor-sheet` → `actor-wizard` → `character-wizard`. Riusare la validazione di dominio in `shared`, senza duplicarla nel template.
   - **Dipende da R1–R3:** i form dentro i god component vanno migrati dopo lo split, per non riscriverli due volte.
   - **Fatto quando:** i form migrati usano `form()`/field signal, hanno test su validazione, dirty/touched, submit e accessibilità.
 
