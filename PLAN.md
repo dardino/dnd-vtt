@@ -2865,11 +2865,11 @@ I tiri seguono la stessa logica: non sono stato della mappa né contenuto in ond
 
 ## 21. Stato migrazione B — 3 novembre 2026
 
-D5 resta **B** (Signal Forms + `resource()` + `@defer`): questa sezione registra lo stato reale rispetto al codice, non cambia l'obiettivo. B1–B3 sono chiusi; B4–B5 restano aperti. L'ordine e i criteri di uscita restano quelli di `TODO.md` §8.
+D5 resta **B** (Signal Forms + `resource()` + `@defer`): questa sezione registra lo stato reale rispetto al codice, non cambia l'obiettivo. B1–B3 e S3 sono chiusi; B4 è in corso (B4a/B4b fatti) e B5 resta aperto. L'ordine e i criteri di uscita restano quelli di `TODO.md` §8.
 
 | Ambito | Previsto dal piano | Stato nel codice (3 novembre 2026) | Task |
 |---|---|---|---|
-| Signal Forms | stack e wizard di creazione | `@angular/forms` 22.2.4 è una dipendenza; `dice-overlay` usa `form()`/`[formField]`/`validate`. Gli altri form usano ancora signal e handler espliciti | B1 chiuso, B4 aperto |
+| Signal Forms | stack e wizard di creazione | `@angular/forms` 22.2.4 è una dipendenza; `dice-overlay`, dialog "Nuova mappa" e note della scheda usano `form()`/`[formField]`/validazione. Restano inspector mappa, livello, wizard e form DmShell | B4 in corso |
 | `resource()` / `httpResource()` | letture legate ai signal | helper `readResource`; usato da `srd-catalog`, attori dell'editor mappe e `SceneStore.load` (params = scena, race scartate). `campaign`/`program` restano su `firstValueFrom` | B2 chiuso |
 | `@defer` | pannelli pesanti, editor mappa, tab scheda | `@defer` su dado e anteprima schermo, pannelli scheda e dialog livello, con `@placeholder` (nascosto dove serve) e `@loading` sul dado; prefetch `on idle` | B3 chiuso |
 
