@@ -58,9 +58,8 @@ const chooseFile = (name: string): Event => {
 };
 
 const rename = (page: MapEditorPage, value: string): void => {
-  const input = document.createElement('input');
-  input.value = value;
-  page.updateMapField('name', { target: input } as unknown as Event);
+  page.propertiesForm.name().value.set(value);
+  page.commitMapField('name');
 };
 
 const numberInput = (value: number): Event => {
@@ -170,13 +169,34 @@ describe('MapEditorPage history', () => {
     fixture.destroy();
   });
 
+  it('blocca il commit di un nome invalido e riallinea il form dopo undo', () => {
+    const fixture = TestBed.createComponent(MapEditorPage);
+    const page = fixture.componentInstance;
+    page.doc.set(emptyMapDocument('Iniziale', null, 700, 700));
+    TestBed.tick();
+
+    page.propertiesForm.name().value.set('');
+    page.commitMapField('name');
+    expect(page.doc()?.name).toBe('Iniziale');
+
+    rename(page, 'Cripta');
+    expect(page.doc()?.name).toBe('Cripta');
+
+    page.undo();
+    fixture.detectChanges();
+    expect(page.propertiesForm.name().value()).toBe('Iniziale');
+
+    fixture.destroy();
+  });
+
   it('la griglia riduce il limite di visione e undo ripristina entrambi', () => {
     const fixture = TestBed.createComponent(MapEditorPage);
     const page = fixture.componentInstance;
     page.doc.set(emptyMapDocument('Griglia', null, 700, 700));
     const visionLimit = page.doc()?.terrain.visionLimitFeet;
 
-    page.updateGridField('feetPerCell', numberInput(2));
+    page.propertiesForm.feetPerCell().value.set(2);
+    page.commitGridField('feetPerCell');
     expect(page.doc()?.grid.feetPerCell).toBe(2);
     expect(page.doc()?.terrain.visionLimitFeet).toBe(20);
 

@@ -5,10 +5,15 @@
         <a class="editor__back" (click)="back()" role="button" tabindex="0">← Mappe</a>
         <input
           class="editor__name"
-          [value]="document.name"
-          (change)="updateMapField('name', $event)"
+          [formField]="propertiesForm.name"
+          (change)="commitMapField('name')"
           aria-label="Nome mappa"
+          [attr.aria-invalid]="fieldInvalid('name')"
+          [attr.aria-describedby]="fieldError('name') ? 'map-name-error' : null"
         />
+        @if (fieldError('name'); as error) {
+          <p id="map-name-error" class="field-error" role="alert">{{ error }}</p>
+        }
         <span class="badge" [class.badge--warn]="dirty()">
           {{ dirty() ? 'modifiche non salvate' : 'salvata' }}
         </span>
@@ -91,73 +96,158 @@
           <div class="inspector-grid">
             <label class="field">
               <span>Griglia</span>
-              <select [value]="document.grid.type" (change)="updateGridField('type', $event)">
+              <select
+                [formField]="propertiesForm.gridType"
+                (change)="commitGridField('type')"
+                [attr.aria-invalid]="fieldInvalid('gridType')"
+                [attr.aria-describedby]="fieldError('gridType') ? 'map-grid-type-error' : null"
+              >
                 <option value="square">Quadrata</option>
                 <option value="hex">Esagonale</option>
               </select>
             </label>
+            @if (fieldError('gridType'); as error) {
+              <p id="map-grid-type-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="field">
               <span>Cella (px)</span>
-              <input type="number" min="16" max="400" [value]="document.grid.cellSizePx" (change)="updateGridField('cellSizePx', $event)" />
+              <input
+                type="number"
+                [formField]="propertiesForm.cellSizePx"
+                (change)="commitGridField('cellSizePx')"
+                [attr.aria-invalid]="fieldInvalid('cellSizePx')"
+                [attr.aria-describedby]="fieldError('cellSizePx') ? 'map-cell-size-error' : null"
+              />
             </label>
+            @if (fieldError('cellSizePx'); as error) {
+              <p id="map-cell-size-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="field">
               <span>Offset X</span>
-              <input type="number" [value]="document.grid.offsetX" (change)="updateGridField('offsetX', $event)" />
+              <input
+                type="number"
+                [formField]="propertiesForm.offsetX"
+                (change)="commitGridField('offsetX')"
+                [attr.aria-invalid]="fieldInvalid('offsetX')"
+                [attr.aria-describedby]="fieldError('offsetX') ? 'map-offset-x-error' : null"
+              />
             </label>
+            @if (fieldError('offsetX'); as error) {
+              <p id="map-offset-x-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="field">
               <span>Offset Y</span>
-              <input type="number" [value]="document.grid.offsetY" (change)="updateGridField('offsetY', $event)" />
+              <input
+                type="number"
+                [formField]="propertiesForm.offsetY"
+                (change)="commitGridField('offsetY')"
+                [attr.aria-invalid]="fieldInvalid('offsetY')"
+                [attr.aria-describedby]="fieldError('offsetY') ? 'map-offset-y-error' : null"
+              />
             </label>
+            @if (fieldError('offsetY'); as error) {
+              <p id="map-offset-y-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="field">
               <span>Piedi per cella</span>
-              <input type="number" min="1" step="0.5" [value]="document.grid.feetPerCell" (change)="updateGridField('feetPerCell', $event)" />
+              <input
+                type="number"
+                step="0.5"
+                [formField]="propertiesForm.feetPerCell"
+                (change)="commitGridField('feetPerCell')"
+                [attr.aria-invalid]="fieldInvalid('feetPerCell')"
+                [attr.aria-describedby]="fieldError('feetPerCell') ? 'map-feet-per-cell-error' : null"
+              />
             </label>
+            @if (fieldError('feetPerCell'); as error) {
+              <p id="map-feet-per-cell-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="field">
               <span>Diagonali</span>
-              <select [value]="document.grid.diagonalRule" (change)="updateGridField('diagonalRule', $event)">
+              <select
+                [formField]="propertiesForm.diagonalRule"
+                (change)="commitGridField('diagonalRule')"
+                [attr.aria-invalid]="fieldInvalid('diagonalRule')"
+                [attr.aria-describedby]="fieldError('diagonalRule') ? 'map-diagonal-rule-error' : null"
+              >
                 <option value="5-5-5">5-5-5</option>
                 <option value="5-10-5">5-10-5</option>
               </select>
             </label>
+            @if (fieldError('diagonalRule'); as error) {
+              <p id="map-diagonal-rule-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="field">
               <span>Fog iniziale</span>
-              <select [value]="document.fogBase" (change)="updateMapField('fogBase', $event)">
+              <select
+                [formField]="propertiesForm.fogBase"
+                (change)="commitMapField('fogBase')"
+                [attr.aria-invalid]="fieldInvalid('fogBase')"
+                [attr.aria-describedby]="fieldError('fogBase') ? 'map-fog-base-error' : null"
+              >
                 <option value="hidden">Coperta</option>
                 <option value="revealed">Scoperta</option>
               </select>
             </label>
+            @if (fieldError('fogBase'); as error) {
+              <p id="map-fog-base-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="field">
               <span>Luce ambientale</span>
-              <select [value]="document.terrain.ambientLight" (change)="setAmbient($event)">
+              <select
+                [formField]="propertiesForm.ambientLight"
+                (change)="commitTerrainField('ambientLight')"
+                [attr.aria-invalid]="fieldInvalid('ambientLight')"
+                [attr.aria-describedby]="fieldError('ambientLight') ? 'map-ambient-light-error' : null"
+              >
                 <option value="dark">Buio</option>
                 <option value="dim">Penombra</option>
                 <option value="bright">Luce piena</option>
               </select>
             </label>
+            @if (fieldError('ambientLight'); as error) {
+              <p id="map-ambient-light-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="field">
               <span>Limite vista (ft)</span>
               <input
                 type="number"
-                min="1"
-                [max]="maxSightFeet()"
-                [value]="document.terrain.visionLimitFeet"
-                (change)="updateVisionLimit($event)"
+                [formField]="propertiesForm.visionLimitFeet"
+                (change)="commitVisionLimit()"
+                [attr.aria-invalid]="fieldInvalid('visionLimitFeet')"
+                [attr.aria-describedby]="fieldError('visionLimitFeet') ? 'map-vision-limit-error' : null"
               />
               <small class="muted">Massimo {{ maxSightFeet() }} ft.</small>
             </label>
-            <label class="check">
-              <input type="checkbox" [checked]="document.showDoorIcons" (change)="updateTerrainField('showDoorIcons', $event)" />
-              <span>Mostra icone porte</span>
-            </label>
+            @if (fieldError('visionLimitFeet'); as error) {
+              <p id="map-vision-limit-error" class="field-error" role="alert">{{ error }}</p>
+            }
             <label class="check">
               <input
                 type="checkbox"
-                [checked]="document.terrain.visionEnabled"
-                [disabled]="isHex()"
-                (change)="updateTerrainField('visionEnabled', $event)"
+                [formField]="propertiesForm.showDoorIcons"
+                (change)="commitTerrainField('showDoorIcons')"
+                [attr.aria-invalid]="fieldInvalid('showDoorIcons')"
+                [attr.aria-describedby]="fieldError('showDoorIcons') ? 'map-show-door-icons-error' : null"
+              />
+              <span>Mostra icone porte</span>
+            </label>
+            @if (fieldError('showDoorIcons'); as error) {
+              <p id="map-show-door-icons-error" class="field-error" role="alert">{{ error }}</p>
+            }
+            <label class="check">
+              <input
+                type="checkbox"
+                [formField]="propertiesForm.visionEnabled"
+                (change)="commitTerrainField('visionEnabled')"
+                [attr.aria-invalid]="fieldInvalid('visionEnabled')"
+                [attr.aria-describedby]="fieldError('visionEnabled') ? 'map-vision-enabled-error' : null"
               />
               <span>Visione automatica</span>
             </label>
+            @if (fieldError('visionEnabled'); as error) {
+              <p id="map-vision-enabled-error" class="field-error" role="alert">{{ error }}</p>
+            }
           </div>
           @if (document.terrain.walls.length > 0) {
             <p class="notice">
@@ -172,8 +262,17 @@
           }
           <label class="field">
             <span>Note DM</span>
-            <textarea rows="3" [value]="document.notes" (change)="updateMapField('notes', $event)"></textarea>
+            <textarea
+              rows="3"
+              [formField]="propertiesForm.notes"
+              (change)="commitMapField('notes')"
+              [attr.aria-invalid]="fieldInvalid('notes')"
+              [attr.aria-describedby]="fieldError('notes') ? 'map-notes-error' : null"
+            ></textarea>
           </label>
+          @if (fieldError('notes'); as error) {
+            <p id="map-notes-error" class="field-error" role="alert">{{ error }}</p>
+          }
         </section>
 
         @if (selectedWall(); as wall) {

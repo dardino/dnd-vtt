@@ -5,18 +5,20 @@ import {
   type OnDestroy,
   type OnInit,
   computed,
+  effect,
   inject,
   input,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
+import { FormField, type FieldState } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import {
   newId,
   sizeCells,
   defaultBackgroundTransform,
   type Actor,
-  type AmbientLight,
   type BackgroundTransform,
   type GridConfig,
   type Light,
@@ -25,7 +27,6 @@ import {
   type MapSpawn,
   type PlayerStart,
   type SrdMonster,
-  type Terrain,
   type WallKind,
   type WallSegment,
 } from '@dnd-vtt/shared';
@@ -52,6 +53,20 @@ import {
   type MapCommand,
 } from './map-command';
 import { MapHistory } from './map-history';
+import {
+  MAP_CELL_SIZE_MAX_PX,
+  MAP_CELL_SIZE_MIN_PX,
+  MAP_FEET_PER_CELL_MIN,
+  createMapPropertiesForm,
+  createMapPropertiesModel,
+  mapPropertiesFromDocument,
+  sameMapProperties,
+  type MapPropertiesFormModel,
+} from './map-properties.form';
+
+type MapGridField = Exclude<keyof GridConfig, 'hexOffset'>;
+type MapTerrainField = 'ambientLight' | 'visionEnabled' | 'showDoorIcons';
+type MapTextField = 'name' | 'fogBase' | 'notes';
 
 const TOOL_LABELS: Array<{ tool: EditorTool; label: string; hint: string }> = [
   { tool: 'select', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
@@ -68,7 +83,7 @@ const TOOL_LABELS: Array<{ tool: EditorTool; label: string; hint: string }> = [
 
 @Component({
   selector: 'app-map-editor-page',
-  imports: [Button, Dialog, RouterLink, MapEditorCanvasComponent],
+  imports: [Button, Dialog, FormField, RouterLink, MapEditorCanvasComponent],
   templateUrl: './map-editor.page.html',
   styleUrl: './map-editor.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -89,6 +104,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly saving = signal(false);
   public readonly error = signal<string | null>(null);
   public readonly doc = signal<MapDocument | null>(null);
+  private readonly propertiesModel = createMapPropertiesModel();
   public readonly version = signal(1);
   public readonly dirty = signal(false);
   public readonly leaveConfirm = signal(false);
@@ -140,6 +156,13 @@ export class MapEditorPage implements OnInit, OnDestroy {
     return Math.max(1, Math.round(cells * doc.grid.feetPerCell));
   });
 
+  public readonly propertiesForm = createMapPropertiesForm(this.propertiesModel, this.maxSightFeet);
+
+  private readonly propertiesFields = this.propertiesForm as unknown as Record<
+    keyof MapPropertiesFormModel,
+    () => FieldState<unknown>
+  >;
+
   public readonly selectedWall = computed(() => {
     const selection = this.selected();
     const doc = this.doc();
@@ -187,6 +210,20 @@ export class MapEditorPage implements OnInit, OnDestroy {
       .filter((actor) => query === '' || actor.name.toLowerCase().includes(query))
       .slice(0, 80);
   });
+
+  public constructor() {
+    effect(() => {
+      const doc = this.doc();
+      if (doc === null) {
+        return;
+      }
+      const next = mapPropertiesFromDocument(doc);
+      const current = untracked(() => this.propertiesForm().value());
+      if (!sameMapProperties(current, next)) {
+        this.propertiesForm().reset(next);
+      }
+    });
+  }
 
   public ngOnInit(): void {
     window.addEventListener('beforeunload', this.unloadHandler);
@@ -525,23 +562,78 @@ export class MapEditorPage implements OnInit, OnDestroy {
     this.execute(replaceFields('start', start.id, before, after));
   }
 
-  public updateMapField(field: 'name' | 'fogBase' | 'notes', event: Event): void {
+  /** Commit del campo dal form: il template usa `[formField]` e chiama questo metodo al change. */
+  public commitMapField(field: MapTextField): void {
+    const state = this.propertiesFields[field]();
+    if (!state.valid()) {
+      return;
+    }
+    const value = field === 'name' ? String(state.value()).trim() : String(state.value());
+    this.applyMapField(field, value);
+  }
+
+  public commitGridField(field: MapGridField): void {
+    const modelField = field === 'type' ? 'gridType' : field;
+    const state = this.propertiesFields[modelField]();
+    if (!state.valid()) {
+      return;
+    }
+    this.applyGridField(field, state.value() as string | number | boolean);
+  }
+
+  public commitTerrainField(field: MapTerrainField): void {
+    const state = this.propertiesFields[field]();
+    if (!state.valid()) {
+      return;
+    }
+    this.applyTerrainField(field, state.value() as string | number | boolean);
+  }
+
+  public commitVisionLimit(): void {
+    if (!this.propertiesFields.visionLimitFeet().valid()) {
+      return;
+    }
+    const raw = Number(this.propertiesFields.visionLimitFeet().value());
+    this.applyVisionLimit(raw);
+  }
+
+  /** `aria-invalid` solo dopo il blur, come i form signal del wizard. */
+  public fieldInvalid(field: keyof MapPropertiesFormModel): boolean | null {
+    const state = this.propertiesFields[field]();
+    return state.touched() ? state.invalid() : null;
+  }
+
+  /** Primo errore visibile dopo il blur, da mostrare con `role="alert"`. */
+  public fieldError(field: keyof MapPropertiesFormModel): string | null {
+    const state = this.propertiesFields[field]();
+    if (!state.touched()) {
+      return null;
+    }
+    return state.errors()[0]?.message ?? 'Valore non valido.';
+  }
+
+  private applyMapField(field: MapTextField, rawValue: string): void {
     const doc = this.doc();
     if (doc === null) {
       return;
     }
-    const target = event.target as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-    const { before, after } = fieldPatch(doc, field, target.value);
+    const value = field === 'name' ? rawValue.trim() : rawValue;
+    if (field === 'name' && value === '') {
+      return;
+    }
+    const { before, after } = fieldPatch(doc, field, value);
     this.execute(replaceFields('map', before, after));
   }
 
-  public updateGridField(field: keyof GridConfig, event: Event): void {
+  private applyGridField(field: MapGridField, rawValue: string | number | boolean): void {
     const doc = this.doc();
     if (doc === null) {
       return;
     }
-    const target = event.target as HTMLInputElement | HTMLSelectElement;
-    const value = this.fieldValue(target);
+    const value = normalizeGridValue(field, rawValue);
+    if (value === null) {
+      return;
+    }
     const { before, after } = fieldPatch(doc.grid, field, value);
     const gridCommand = replaceFields('grid', before, after);
     const nextGrid = { ...doc.grid, [field]: value };
@@ -575,13 +667,11 @@ export class MapEditorPage implements OnInit, OnDestroy {
     });
   }
 
-  public updateTerrainField(field: keyof Terrain | 'showDoorIcons', event: Event): void {
+  private applyTerrainField(field: MapTerrainField, value: string | number | boolean): void {
     const doc = this.doc();
     if (doc === null) {
       return;
     }
-    const target = event.target as HTMLInputElement | HTMLSelectElement;
-    const value = this.fieldValue(target);
     if (field === 'showDoorIcons') {
       const { before, after } = fieldPatch(doc, 'showDoorIcons', Boolean(value));
       this.execute(replaceFields('map', before, after));
@@ -591,28 +681,17 @@ export class MapEditorPage implements OnInit, OnDestroy {
     this.execute(replaceFields('terrain', before, after));
   }
 
-  public updateVisionLimit(event: Event): void {
+  private applyVisionLimit(raw: number): void {
     const doc = this.doc();
-    if (doc === null) {
+    if (doc === null || !Number.isFinite(raw)) {
       return;
     }
-    const raw = Number((event.target as HTMLInputElement).value);
     const value = Math.max(1, Math.min(this.maxSightFeet(), Math.round(raw)));
     this.execute(replaceFields(
       'terrain',
       { visionLimitFeet: doc.terrain.visionLimitFeet },
       { visionLimitFeet: value },
     ));
-  }
-
-  public setAmbient(event: Event): void {
-    const doc = this.doc();
-    if (doc === null) {
-      return;
-    }
-    const value = (event.target as HTMLSelectElement).value as AmbientLight;
-    const { before, after } = fieldPatch(doc.terrain, 'ambientLight', value);
-    this.execute(replaceFields('terrain', before, after));
   }
 
   public removeSelected(): void {
@@ -885,6 +964,30 @@ export class MapEditorPage implements OnInit, OnDestroy {
  * Estrae i campi toccati da un elemento: i valori `undefined` non entrano nel
  * patch, così l'inversione ripristina l'assenza del campo opzionale.
  */
+/**
+ * Normalizza i valori della griglia provenienti dal form o dagli eventi legacy.
+ * Restituisce `null` per input non numerici, cosi non entrano nella history.
+ */
+const normalizeGridValue = (
+  field: MapGridField,
+  rawValue: string | number | boolean,
+): string | number | null => {
+  if (field === 'type' || field === 'diagonalRule') {
+    return String(rawValue);
+  }
+  const number = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+  if (!Number.isFinite(number)) {
+    return null;
+  }
+  if (field === 'cellSizePx') {
+    return Math.min(MAP_CELL_SIZE_MAX_PX, Math.max(MAP_CELL_SIZE_MIN_PX, Math.round(number)));
+  }
+  if (field === 'feetPerCell') {
+    return Math.max(MAP_FEET_PER_CELL_MIN, number);
+  }
+  return number;
+};
+
 const fieldPatch = <T extends object>(
   source: T,
   field: keyof T,
