@@ -64,13 +64,13 @@ Frontend
 - **Konva** per stage, layer, zoom, pan, drag e hit-testing
 - `@ngrx/signals` (SignalStore) per gli store
 - `qrcode` per generare il QR del link giocatore lato client
-- `uuid` (v7) per gli id condivisi tra client e server (D6)
 
 Backend
 - **Node.js 26 LTS**, minimo **26.0.0** (richiesto da Angular 22; compatibile con ESLint 10)
 - **TypeScript 6.0.x** (vincolo Angular 22: `>=6.0 <6.1`)
 - Fastify
 - `fastify-type-provider-zod` + Zod per validazione e generazione OpenAPI
+- `uuid` v7 per gli id generati dal server; il client non genera id (D6)
 - `@fastify/websocket` per il realtime
 - `@fastify/static` per gli asset
 - `@fastify/cookie` + `@fastify/helmet` + `@fastify/rate-limit` per sessione DM, header e limiti
@@ -102,7 +102,7 @@ Tooling monorepo
 | D3 | Concorrenza ottimistica con campo `state_version` | protegge recovery, import e due scritture full-document; nel flusso normale le azioni sono serializzate dal server (D34) |
 | D4 | Fog of war come **maschera vettoriale** (`base` + operazioni ordinate) in JSON, rasterizzata a runtime | undo, scalabilità, nessun file enorme per scena; la stessa geometria filtra i token lato server; export PNG opzionale |
 | D5 | Realtime via WebSocket come **requisito MVP** (non opzionale), room per campagna | il doppio schermo è parte del flusso base: senza WS non esiste |
-| D6 | ID `uuid v7` (ordinabili nel tempo), timestamp ISO 8601 | niente collisioni lato client, ordinamento naturale |
+| D6 | ID `uuid v7` (ordinabili nel tempo), timestamp ISO 8601 | id generati solo dal server, ordinamento naturale |
 | D7 | `shared` compilato con `tsup`, consumato come pacchetto workspace | un solo artefatto, nessuna dipendenza da Angular o Node |
 | D8 | Nessun account: pairing display con codice + PIN; la console DM usa una password locale **solo** se esposta in LAN | il DM apre lo schermo A senza creare utenti; il codice è revocabile; su localhost non c'è attrito |
 | D9 | Upload fuori dal codice: directory `data/` configurabile | `uploads/` dentro `server/` finirebbe nel repo e nelle build |
@@ -319,7 +319,7 @@ dnd-vtt/
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
-    "check": "turbo run lint typecheck test build && npm run db:check",
+    "check": "turbo run lint typecheck test build && npm run db:check && npm run check:bundles -w @dnd-vtt/server",
     "db:generate": "npm run db:generate -w @dnd-vtt/server",
     "db:migrate": "npm run db:migrate -w @dnd-vtt/server",
     "db:check": "npm run db:check -w @dnd-vtt/server"
@@ -409,7 +409,7 @@ Limite noto: modificare `shared` mentre `ng serve` è attivo non sempre invalida
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "sourceMap": true
+    "noEmit": true
   }
 }
 ```
@@ -906,7 +906,7 @@ L'autosave full-document non è più il percorso normale: ogni azione è persist
 - se il server rifiuta, il client fa **rollback** allo stato precedente e mostra il motivo; nessuna azione rifiutata resta visibile
 - una sola azione in volo per client: la coda locale preserva l'ordine e evita che due azioni dello stesso DM si sovrappongano
 - `POST/PATCH` di metadati (nome scena, immagine, attore) restano REST normali e non passano dalla action history
-- `PUT /scenes/:id/state` resta solo per **recovery e import**: nessun client lo usa durante l'editing normale
+- `PUT /scenes/:id/state` è stato **rimosso** con A2/D3: l'editing passa solo dalle azioni; la recovery rilegge lo snapshot e l'import crea nuove scene
 - `GET /scenes/:id/snapshot` restituisce snapshot completo + `stateVersion`; la statusbar offre "Riallinea stato" e il client DM richiede il refresh automatico per scena ogni 100 azioni applicate o 5 minuti dall'ultimo snapshot completo, il primo dei due
 - il refresh automatico invia `If-None-Match` basato su `stateVersion`/hash: se lo stato non è cambiato il server risponde `304`, evitando di trasferire e ricostruire il JSON. Il refresh manuale forza lo snapshot completo e riallinea il client alla verità del server
 - il program continua a usare `PUT` con `program_version`; il viewport viaggia su WS con debounce e non incrementa la versione (6.4.3)
@@ -1013,7 +1013,7 @@ Note:
 - classi, sottoclassi, specie, background, talenti e incantesimi SRD **non** stanno nel database della campagna: sono cataloghi statici versionati serviti dal server, referenziati per id e congelati nello snapshot della scheda
 - `programs` ha una riga per campagna: è ciò che è in onda, non la scena attiva (D15)
 - `scenes.state` è il documento versionato (D2) tramite `state_version`, validato dallo stesso schema Zod usato dal client; contiene anche la fog (`fog.base` + `fog.ops`)
-- `scenes.state` è scritto dall'`ActionService` (6.5–6.7); `PUT /scenes/:id/state` resta solo come recovery/import e non è usato dal client durante l'editing
+- `scenes.state` è scritto dall'`ActionService` (6.5-6.7); il `PUT /scenes/:id/state` è stato rimosso con A2/D3
 - `action_log` conserva solo le ultime **50** azioni per campagna, applicate o annullate, con l'inverso calcolato dal server; quando ne arriva una 51ª elimina le più vecchie nella stessa transazione. Le azioni `pending` non sono qui: vivono in memoria (6.6)
 - `action_log.status` marca `undone`, non cancella righe: la history resta leggibile dopo un undo
 - `player_links.editing_enabled` è la matita sullo slot: se è `0`, ogni scrittura del telefono è `403`, anche sui campi in `editable`
@@ -1345,7 +1345,7 @@ interface DmSheetView {
 
 Tre proiezioni dello stesso attore, tre DTO distinti: `PublicActorView` (display, nessuna nota), `DmActorView` (console, solo `dmNotes`), `PlayerSheetView` (telefono, solo `playerNotes`). `DmSheetView` è la proiezione completa della scheda per il DM. Nessun DTO è costruito con lo spread dell'entità `actors`.
 
-`state_version` vive nella colonna, non nel JSON: il body di `PUT /scenes/:id/state` è `{ stateVersion, state }` e il server confronta con la riga. Il percorso normale non è più quel `PUT`: lo stato avanza per azioni (6.5) e quell'endpoint resta per recovery e import. Lo stato effimero (misura in corso, strumento attivo, selezione) resta in `UiStore` e non viene mai persistito.
+`state_version` vive nella colonna, non nel JSON. Il `PUT /scenes/:id/state` è stato rimosso con A2/D3: lo stato avanza per azioni (6.5), la recovery rilegge lo snapshot e l'import crea nuove scene. Lo stato effimero (misura in corso, strumento attivo, selezione) resta in `UiStore` e non viene mai persistito.
 
 ### 7.3 Scheda attore e statblock
 
@@ -2196,7 +2196,6 @@ POST   /api/v1/campaigns/:id/scenes
 GET    /api/v1/scenes/:id                              # { scene, state, stateVersion }
 GET    /api/v1/scenes/:id/snapshot                     # snapshot completo; If-None-Match → 304; `?force=true` forza il body
 PATCH  /api/v1/scenes/:id                              # metadati: nome, immagine, dimensioni
-PUT    /api/v1/scenes/:id/state                        # SOLO recovery/import → 409 · 413 (12.6)
 DELETE /api/v1/scenes/:id
 
 # azioni (6.5–6.8)
@@ -2319,7 +2318,7 @@ WS     /api/v1/ws?role=player&token=:token             # solo il proprio attore
 - `undo-to` e `redo` operano in un'unica transazione: o si annulla tutto il batch o niente. `redo` è valido solo finché non arriva una nuova azione, poi `409 action_not_undoable`
 - `POST` delle azioni player usa un lock per attore intorno a idempotenza, cooldown, auto-approvazione e inserimento pending: due richieste concorrenti non possono auto-approvarsi entrambe. Il lock serializza anche `approve`, `reject` e `DELETE`; chi arriva dopo su una richiesta già risolta perde con `409 action_stale`
 - l'id di una pending è idempotente anche prima dell'approvazione: retry e riconnessioni restituiscono la stessa decisione senza duplicare la richiesta né azzerare il cooldown
-- `PUT /scenes/:id/state` resta come **recovery/import** e confronta `state_version` nella stessa transazione; non è usato dal client durante l'editing
+- il `PUT /scenes/:id/state` è stato rimosso con A2/D3: lo stato avanza solo per azioni e la recovery rilegge lo snapshot confrontando `state_version`
 - `PUT /campaigns/:id/program` resta l'unico writer versionato del program, con `program_version`
 - `POST /play/:token/hp` non scrive mai direttamente: invia un'azione `approval` e risponde `200` se auto-approvata o `202` se pending. Il `delta` viene applicato in transazione con `clamp(0, max)` solo quando l'azione è approvata
 - `PATCH /actors/:id/sheet` richiede `sheetVersion`; il server confronta e incrementa nella stessa transazione. `POST /actors/:id/level-up` e `POST /campaigns/:id/rest` fanno lo stesso, così un level-up e un riposo concorrenti non si sovrascrivono
@@ -2433,7 +2432,7 @@ Note:
 - il canale display non espone `state` completo: solo il `DisplayState` del program in onda (D16)
 - `program.viewport` passa dal socket e viene persistito con debounce; gli altri cambi di program usano `PUT`
 - il polling di fallback usa lo stesso schema dello snapshot WS: un solo contratto
-- `PUT /scenes/:id/state` è solo recovery/import; l'autosave per documento non esiste più nel flusso normale
+- il `PUT /scenes/:id/state` è stato rimosso con A2/D3; l'autosave per documento non esiste più nel flusso normale
 - il WS non salva `SceneState`: le azioni sono applicate dal server (`ActionService`), i comandi `program.viewport` sono persistiti con debounce
 - le pending vivono in memoria: un `hello` dopo il riavvio del server non le contiene, e il client lo segnala all'attore
 
@@ -2600,7 +2599,7 @@ Assunzioni: il DM è fidato, la macchina è sua, la rete è una LAN domestica. N
 
 - **Metodo TDD (D55)**: nessuna logica di produzione senza un test che la descriva; ciclo red → green → refactor. Ogni bug parte da un test di regressione. La suite è il contratto del sistema, non un controllo fatto a posteriori.
 - **Unit (Vitest, `shared`)**: griglia, distanze, snap, modificatori, normalizzazione statblock, parser dadi e determinismo del roller con seed, **geometria della fog** (`isPointRevealed` con base, reveal/hide sovrapposti, rect, poligoni concavi, distanza dal segmento). È il codice più a rischio di regressione: copertura alta richiesta.
-- **Unit/API (Vitest + `app.inject`)**: CRUD, validazione Zod, **pipeline delle azioni** (applica, inverso, `state_version`, idempotenza per `id`), coda pending (approva, rifiuta, ritira, bersaglio sparito → `409 action_stale`), recovery `PUT /scenes/:id/state` con `state_version` stale, cascade, proiezione `DisplayState`/`DisplayDelta` (i token nascosti non compaiono né nei payload snapshot né nei delta; mai inoltrato il `GameAction` grezzo allo schermo A).
+- **Unit/API (Vitest + `app.inject`)**: CRUD, validazione Zod, **pipeline delle azioni** (applica, inverso, `state_version`, idempotenza per `id`), coda pending (approva, rifiuta, ritira, bersaglio sparito → `409 action_stale`), recovery dello snapshot con `state_version` stale (il `PUT /scenes/:id/state` è rimosso), cascade, proiezione `DisplayState`/`DisplayDelta` (i token nascosti non compaiono né nei payload snapshot né nei delta; mai inoltrato il `GameAction` grezzo allo schermo A).
 - **API action history/undo**: 51ª azione → la più vecchia viene eliminata dalla history; un id non più presente dà `409 action_not_undoable`; `undo-to` su una riga annulla quella e le successive in un'unica transazione; `redo` funziona finché non arriva una nuova azione; le azioni `notify`/`private` non compaiono nella history; dopo un riavvio del processo restano le ultime 50, la coda pending no.
 - **API action history retention**: dopo ogni applicazione, righe e inversi oltre le 50 vengono eliminati; non esiste audit più vecchio né API per recuperarlo.
 - **API pending**: nessun TTL automatico; richieste vecchie restano in attesa finché un partecipante non decide. Approvazione/rifiuto in blocco ammette solo azioni dello stesso attore e mantiene l'ordine.
@@ -2661,7 +2660,7 @@ Legenda: ✅ criteri di accettazione.
 - `lastCampaignId` in `localStorage`, scritta all'ingresso in una campagna e ignorata se l'id non esiste più
 - upload con `sharp` (originale, WebP, thumb)
 - `action_log` nello schema + `ActionService` con inverse e transazione; `SceneStore` legge e non scrive
-- `PUT /scenes/:id/state` solo come recovery/import con `state_version` e `409`
+- recovery dello stato via snapshot (`GET /scenes/:id/snapshot`); il `PUT /scenes/:id/state` è stato rimosso in A2/D3
 - **accesso DM**: env validate allo startup, `POST /auth/dm` + cookie firmato, loopback fidato, allowlist `Host`, controllo `Origin`, header di sicurezza
 - ✅ loopback diretto senza header proxy entra senza password; un loopback con `Forwarded`/`X-Forwarded-*` non ottiene bypass; `HOST=0.0.0.0` o `PUBLIC_URL` non-loopback senza `DM_PASSWORD` non parte; password errata → `401` e rate limit; richiesta cross-origin rifiutata; due console DM inviano azioni concorrenti e entrambe convergono senza `409`; asset caricato e servito in WebP + thumb; con database vuoto la modale di creazione è l'unica strada e dopo la creazione si è già in `/dm/campaigns/:id`; al reload successivo si riapre l'ultima campagna senza modale
 
@@ -2845,7 +2844,7 @@ Restano scelte **esplicitamente rimandate**, già registrate come decisioni e no
 5. schemi Zod condivisi (`Actor`, `ActorStatblock`, `DerivedSheet`, `Scene`, `SceneState`, `DisplayState`, `DiceRoll`, `GridConfig`, `Token`, `WsMessage`, `PlayerSheetView`, `DmSheetView`, `validatePcBuild`) e helper griglia/dadi/derivati con i primi test Vitest
 6. schema Drizzle + prima migrazione (`campaigns`, `scenes`, `actors`, `assets`, `displays`, `programs`, `dice_rolls`, `player_links`, `action_log`, `items`, `inventories`, `sessions`, `campaign_messages`); **catalogo SRD 5.2** versionato in JSON con test di schema, licenza e crediti
 7. CRUD campagne + attori con paginazione a cursore ed envelope errori uniforme
-8. `ActionService` minimo (applica + inverso + `action_log`) con `POST /campaigns/:id/actions`; `PUT /scenes/:id/state` solo come recovery con `state_version`
+8. `ActionService` minimo (applica + inverso + `action_log`) con `POST /campaigns/:id/actions`; recovery via snapshot con `state_version` (il `PUT /scenes/:id/state` è stato poi rimosso in A2/D3)
 9. **scheletro di regia e doppio schermo**: `ProgramState`, `GET/PUT /program`, WS con ruoli, `/display/:code` e monitor PGM — prima della grafica, per validare subito l'architettura
 10. poi **builder SRD e scheda console**, scene, core VTT, avanzamento e overlay dadi
 11. dopo l'MVP: link giocatore `/play/:token` con QR, note separate, tiri dal telefono, `editable`, matita `editingEnabled` e coda di approvazione — primo item della Fase 8
@@ -2863,3 +2862,25 @@ Il protocollo di azioni è ciò che rende il doppio schermo e la scheda del tele
 La distinzione chiave è tra **stato di lavoro** (`SceneState`, dove il DM prepara) e **stato in onda** (`ProgramState`, cosa vedono i giocatori). Tenerli separati è ciò che permette di preparare un'imboscata senza mostrarla, e di cambiare scena senza che lo schermo A salti.
 
 I tiri seguono la stessa logica: non sono stato della mappa né contenuto in onda, sono **eventi** emessi dal server. Per questo vivono in `dice_rolls` e non in `SceneState`: se stessero nella scena, ogni tiro del telefono diventerebbe un'azione con approvazione, e il tavolo si fermerebbe a ogni dado.
+
+## 21. Stato migrazione B — 3 novembre 2026
+
+D5 resta **B** (Signal Forms + `resource()` + `@defer`): questa sezione registra lo stato reale rispetto al codice, non cambia l'obiettivo. **Nessuna delle task B1–B5 è chiusa**; l'ordine e i criteri di uscita restano quelli di `TODO.md` §8.
+
+| Ambito | Previsto dal piano | Stato nel codice (3 novembre 2026) | Task |
+|---|---|---|---|
+| Signal Forms | stack e wizard di creazione | `@angular/forms` **non è una dipendenza**; nessun `form()`/field signal. I form usano signal e handler espliciti in componenti/store | B1 (spike), B4 (dopo R1–R3) |
+| `resource()` / `httpResource()` | letture legate ai signal | **non usato**: le letture passano da `HttpClient` + `firstValueFrom` in `campaign`, `actor`, `scene`, `srd-catalog` e `program` service | B2 |
+| `@defer` | pannelli pesanti, editor mappa, tab scheda | **nessun blocco `@defer`/`@placeholder`/`@loading`** nei template; restano i lazy route esistenti | B3 (misurare con `ng build --stats-json`) |
+
+Criteri di uscita invariati: B1 = API confermate e PoC verde su `dice-overlay`; B2 = loading/error uniformi e test su cambio scena/race; B3 = bundle iniziale misurato e ridotto con E2E aggiornati; B4 = form migrati con test su validazione, dirty/touched, submit e a11y; B5 = nessun form legacy residuo. La mitigazione del rischio resta l'ordine B2 → B3 → B4, con B4 vincolata agli split R1–R3.
+
+### Allineamento piano ↔ codice
+
+- **`PUT /scenes/:id/state`**: rimosso con A2/D3. Non esiste una route di scrittura full-document; lo stato avanza solo per azioni, la recovery usa `GET /scenes/:id/snapshot`. Le menzioni nel piano sono state annotate o riscritte.
+- **ID**: `uuid v7` generati **solo dal server** (`server/src/db/*.repository.ts`, `dice/service.ts`); il client non ha `uuid` e non genera id. D6 e la lista dello stack sono stati corretti (prima collocavano `uuid` nel frontend).
+- **`max-len`**: `eslint.config.js` applica 110 con URL e stringhe esenti; T1 è chiuso e il piano è già coerente.
+- **`tsconfig` client**: il typecheck usa `ngc -p tsconfig.app.json --noEmit` con `strictTemplates` attivo; la base ha `noEmit: true` (snippet corretto).
+- **Budget Angular**: `angular.json` (produzione) usa 700 kB warning / 1.2 MB errore sull'initial bundle e 20/28 kB per gli stili di componente; nessuna modifica necessaria.
+- **Gate**: `npm run check` include anche `check:bundles` oltre a lint, typecheck, test, build e `db:check` (snippet corretto).
+- **Configurazioni (T3)**: `jsdom` resta solo in `client` (rimosso dal root); rimossi i mixin `row` e `panel` non usati; `_layout.scss`/`grid-12` sono ancora usati. Nessun file sorgente morto: `migrate-cli`, `reset-cli` e `seed-cli` sono entrypoint referenziati da script e `tsup`.

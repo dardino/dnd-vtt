@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** modello risoluzione/sfondo (SR3–SR7). Completati S0–S9 (tranne revoca S3 e verifica TLS S7), A1–A4 (A4 con mappature locali residue), R1–R3 (R1 solo store), P1–P7, Q1–Q4, T1 e R0.
+**Blocco attivo:** modello risoluzione/sfondo (SR3–SR7). Completati S0–S9 (tranne revoca S3 e verifica TLS S7), A1–A4 (A4 con mappature locali residue), R1–R3 (R1 solo store), P1–P7, Q1–Q4, T1–T3 e R0.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -349,13 +349,13 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** commit separato di sola formattazione (`eslint --fix`), poi abbassare la regola.
   - **Fatto quando:** `max-len` 110 senza modifiche funzionali.
 
-- [ ] **T2 — `PLAN.md`: registrare l'adozione di B** · S · D5
+- [x] **T2 — `PLAN.md`: registrare l'adozione di B** · S · D5 — ✅ 3 novembre 2026
   - **Proposta:** aggiungere al piano una sezione "stato migrazione" con B1–B5 e i criteri di uscita; gli obiettivi del piano restano validi, non vanno riscritti.
-  - **Fatto quando:** il piano indica quali parti di Signal Forms/`resource()`/`@defer` sono già adottate e quali mancano.
+  - **Esito:** aggiunta la sezione 21 con lo stato reale: Signal Forms, `resource()`/`httpResource()` e `@defer` **non ancora adottati** (B1–B5 tutte aperte). Annotate le affermazioni contraddette: `PUT /scenes/:id/state` rimosso (A2/D3), `uuid v7` solo server, snippet `check` e `tsconfig` allineati. Verificati e confermati `max-len` 110 e budget 700 kB/1.2 MB.
 
-- [ ] **T3 — Pulizia configurazioni** · S
+- [x] **T3 — Pulizia configurazioni** · S — ✅ 3 novembre 2026
   - **Proposta:** verificare dipendenze duplicate (`jsdom` root/client), mixin morti, budget e `tsconfig`; rimuovere ciò che non è usato.
-  - **Fatto quando:** `npm ls` pulito e nessun file morto.
+  - **Esito:** `jsdom` rimosso dal root (resta solo in `client`, dove serve al runner); rimossi i mixin morti `row` e `panel`; `_layout.scss`/`grid-12` restano usati. `tsconfig`, budget e `npm ls` verificati; nessun file sorgente morto (i tre CLI sono entrypoint).
 
 ## 8. Migrazione B — Signal Forms, `resource()`, `@defer` (P1/P2)
 
@@ -497,7 +497,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 3. **P1/P2/P3/P5/P6/P7/P4**: completati (P4 con rendering per-layer).
 4. **Q1-Q4, T1, R0**: completati.
 5. **SR3-SR7 e C1-C5/C7**: completati.
-6. **A5, Q5, C6, T2/T3**: regole shared residue, a11y, container query, piano/config.
+6. **A5, Q5, C6**: regole shared residue, a11y, container query.
 7. **S3, S7**: revoca sessione per-device e verifica TLS/proxy reale.
 8. **B1-B5**: Signal Forms, `resource()`, `@defer`.
 9. **Pi 1**: validazione display in kiosk.
