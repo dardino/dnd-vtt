@@ -68,6 +68,7 @@ import { CampaignShellStore } from './campaign-shell.store';
 import { AuthSessionsPanel } from './auth-sessions-panel';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
+import { SceneToolbar } from './scene-toolbar';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenList } from './screen-list';
 import { ScreenPreviewComponent } from './screen-preview.component';
@@ -78,12 +79,10 @@ import {
   type ActorDropEvent,
   type ActorPortraitThumb,
   type SceneMapImage,
-  type SceneTool,
   type TokenMoveEvent,
 } from '../scene/scene-canvas.component';
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
-type CanvasTool = SceneTool;
 type SidebarSectionId = 'campaign' | 'scenes' | 'grid' | 'fog' | 'scenography' | 'actors' | 'ai' | 'screens' | 'devices' | 'tokens';
 
 const DEFAULT_SECTIONS: Record<SidebarSectionId, boolean> = {
@@ -140,6 +139,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     RouterLink,
     SceneCanvasComponent,
     SceneList,
+    SceneToolbar,
     DiceOverlayComponent,
     ScreenList,
     ScreenPreviewComponent,
@@ -766,14 +766,6 @@ export class DmShellPage implements OnInit {
     } catch (error) {
       this.notice.set(messageFor(error));
     }
-  }
-
-  public setTool(tool: CanvasTool): void {
-    this.sceneTools.setTool(tool);
-  }
-
-  public toggleGrid(): void {
-    this.sceneTools.toggleGrid();
   }
 
   public zoomIn(): void {

@@ -250,40 +250,6 @@
   min-height: 0;
 }
 
-.scene-toolbar {
-  display: flex;
-  flex: 0 1 auto;
-  min-height: 0;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  max-height: 100%;
-  padding: var(--space-1);
-  overflow-y: auto;
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-raised);
-}
-
-.tool {
-  @include mx.icon-button(2rem);
-  // La toolbar è una colonna scrollabile: senza `flex-shrink: 0` i bottoni
-  // si schiacciano sotto i 24px, violando WCAG 2.5.8 (target size).
-  flex: 0 0 auto;
-  font-size: var(--text-sm);
-
-  &.is-active {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
-  }
-}
-
-.tool-divider {
-  width: 1.4rem;
-  height: var(--border-width);
-  background: var(--color-border);
-}
-
 .scene-empty {
   display: grid;
   flex: 1;
