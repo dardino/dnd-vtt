@@ -1,0 +1,24 @@
+// Placeholder animati condivisi tra console DM e pannello campagna.
+.skeleton {
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--color-bg-sunken), var(--color-bg-hover), var(--color-bg-sunken));
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+
+  &--line {
+    height: 0.9rem;
+  }
+
+  &--short {
+    width: 60%;
+  }
+
+  &--title {
+    height: 2rem;
+    width: 45%;
+  }
+
+  &--block {
+    height: 5rem;
+  }
+}

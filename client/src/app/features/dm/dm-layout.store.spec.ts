@@ -1,19 +1,39 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import type { Campaign } from '@dnd-vtt/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { CampaignShellStore } from './campaign-shell.store';
 import { DEFAULT_SECTIONS, DmLayoutStore, PANEL_STORAGE_PREFIX } from './dm-layout.store';
 
 const storageKey = (campaignId: string): string => `${PANEL_STORAGE_PREFIX}${campaignId}`;
 
+const campaign = (id: string): Campaign => ({
+  id,
+  name: 'La Valle',
+  description: '',
+  activeSceneId: '0190f000-0000-7000-8000-000000000002',
+  fogDefault: 'hidden',
+  autoApprove: false,
+  advancementMode: 'milestone',
+  createdAt: '2026-11-01T10:00:00.000Z',
+  updatedAt: '2026-11-01T10:00:00.000Z',
+});
+
+const activeCampaign = signal<Campaign | null>(null);
+
+const providers = [{ provide: CampaignShellStore, useValue: { activeCampaign } }];
+
 const freshStore = (): InstanceType<typeof DmLayoutStore> => {
   TestBed.resetTestingModule();
-  TestBed.configureTestingModule({});
+  TestBed.configureTestingModule({ providers });
   return TestBed.inject(DmLayoutStore);
 };
 
 describe('DmLayoutStore', () => {
   beforeEach(() => {
     localStorage.clear();
-    TestBed.configureTestingModule({});
+    activeCampaign.set(null);
+    TestBed.configureTestingModule({ providers });
   });
 
   afterEach(() => {
@@ -80,6 +100,19 @@ describe('DmLayoutStore', () => {
     expect(other.leftOpen()).toBe(true);
     expect(other.dockTab()).toBe('initiative');
     expect(other.sections()).toEqual(DEFAULT_SECTIONS);
+  });
+
+  it('persistActive salva solo con una campagna attiva', () => {
+    const store = TestBed.inject(DmLayoutStore);
+    store.toggleRight();
+
+    store.persistActive();
+    expect(localStorage.getItem(storageKey(campaign('campaign-1').id))).toBeNull();
+
+    activeCampaign.set(campaign('campaign-1'));
+    store.persistActive();
+    const stored = JSON.parse(localStorage.getItem(storageKey('campaign-1')) ?? 'null');
+    expect(stored).toMatchObject({ right: false });
   });
 
   it('reset ai default prima di applicare il payload salvato', () => {

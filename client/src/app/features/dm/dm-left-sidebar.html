@@ -1,0 +1,279 @@
+<aside
+  class="dm-panel dm-panel--left"
+  [class.is-collapsed]="!layout.leftOpen()"
+  aria-label="Campagna"
+>
+  <div class="panel-head">
+    <span class="eyebrow panel-label">Campagna</span>
+    <button
+      type="button"
+      class="panel-toggle"
+      [attr.aria-label]="layout.leftOpen() ? 'Riduci pannello campagna' : 'Apri pannello campagna'"
+      [title]="layout.leftOpen() ? 'Riduci' : 'Apri'"
+      (click)="toggleLeft()"
+    >{{ layout.leftOpen() ? '‹' : '›' }}</button>
+  </div>
+  @if (layout.leftOpen()) {
+    <app-sidebar-section
+      id="campaign"
+      label="Dati campagna"
+      [open]="layout.sections().campaign"
+      (toggled)="toggleSection('campaign')"
+    >
+      @if (shell.activeCampaign(); as activeCampaign) {
+        <h2>{{ activeCampaign.name }}</h2>
+        <p class="muted">{{ activeCampaign.description || 'Nessuna descrizione.' }}</p>
+        <dl class="dm-meta">
+          <div><dt>Avanzamento</dt><dd>{{ activeCampaign.advancementMode }}</dd></div>
+          <div><dt>Scene</dt><dd>{{ shell.scenes().length }}</dd></div>
+          <div><dt>Auto-approva</dt><dd>{{ activeCampaign.autoApprove ? 'sì' : 'no' }}</dd></div>
+        </dl>
+        <label class="field">
+          <span>Modalità avanzamento</span>
+          <select
+            [value]="activeCampaign.advancementMode"
+            (change)="changeAdvancementMode($event)"
+          >
+            <option value="milestone">Milestone</option>
+            <option value="xp">Punti esperienza</option>
+          </select>
+        </label>
+        <app-session-card
+          [session]="shell.activeSession()"
+          [label]="session.sessionLabel()"
+          [busy]="session.sessionBusy()"
+          (start)="session.start(activeCampaign.id)"
+          (stop)="session.stop(activeCampaign.id)"
+        />
+        <input
+          #importInput
+          id="import-campaign-file"
+          class="file-input"
+          type="file"
+          accept="application/json,.json"
+          (change)="importCampaign($event)"
+        />
+        <label class="check">
+          <input
+            type="checkbox"
+            [checked]="aux.includePrivateNotes()"
+            (change)="setIncludePrivateNotes($event)"
+          />
+          <span>Includi note private dei giocatori nell’export</span>
+        </label>
+        <div class="initiative__actions">
+          <button type="button" class="dock-button" (click)="exportCampaign()">Esporta campagna</button>
+          <button type="button" class="dock-button" (click)="openImportPicker()">Importa campagna</button>
+        </div>
+      } @else {
+        <div class="skeleton skeleton--line"></div>
+        <div class="skeleton skeleton--line skeleton--short"></div>
+        <div class="skeleton skeleton--block"></div>
+      }
+    </app-sidebar-section>
+
+    @if (campaign.mode() === 'ready') {
+      <app-sidebar-section
+        id="scenes"
+        label="Scene"
+        [open]="layout.sections().scenes"
+        [hasActions]="true"
+        (toggled)="toggleSection('scenes')"
+      >
+        <app-button actions variant="ghost" [disabled]="ui.busy()" (pressed)="createScene()">
+          Crea scena
+        </app-button>
+        <app-scene-list
+          [scenes]="shell.scenes()"
+          [activeSceneId]="campaign.activeScene()?.id ?? null"
+          [busy]="ui.busy()"
+          (selectScene)="selectScene($event)"
+          (openMapPicker)="openMapPicker()"
+        />
+      </app-sidebar-section>
+
+      <app-sidebar-section
+        id="grid"
+        label="Griglia"
+        [open]="layout.sections().grid"
+        (toggled)="toggleSection('grid')"
+      >
+        @if (fog.grid(); as gridConfig) {
+          @if (campaign.activeScene()?.mapId; as mapId) {
+            <p class="notice">
+              Griglia bloccata: è definita dalla mappa nell’editor.
+              <a [routerLink]="['/maps', mapId]">Modifica mappa</a>
+            </p>
+          }
+          <label class="field">
+            <span>Forma</span>
+            <select
+              [value]="gridConfig.type"
+              [disabled]="!!campaign.activeScene()?.mapId"
+              (change)="changeGridType($event)"
+            >
+              <option value="square">Quadrata</option>
+              <option value="hex">Esagonale odd-r</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Dimensione cella (px)</span>
+            <input
+              type="number"
+              min="16"
+              max="400"
+              step="1"
+              [value]="gridConfig.cellSizePx"
+              [disabled]="!!campaign.activeScene()?.mapId"
+              (change)="changeGridSize($event)"
+            />
+          </label>
+          <p class="muted">Diagonale {{ gridConfig.diagonalRule }} · {{ units.formatDistance(gridConfig.feetPerCell) }} per cella</p>
+        }
+      </app-sidebar-section>
+
+      <app-sidebar-section
+        id="fog"
+        label="Fog"
+        [open]="layout.sections().fog"
+        (toggled)="toggleSection('fog')"
+      >
+        <div class="field">
+          <span>Pennello</span>
+          <p class="muted">
+            {{ sceneTools.fogBrushCells() }} celle di diametro · {{ fogBrushDiameterPx() }} px
+            (griglia {{ fog.grid()?.cellSizePx ?? '—' }} px)
+          </p>
+        </div>
+        <label class="field">
+          <span>Morbidezza bordo (px)</span>
+          <input
+            type="number"
+            min="0"
+            max="200"
+            [value]="sceneTools.fogSoftness()"
+            (input)="setFogSoftness($event)"
+          />
+        </label>
+        <label class="check">
+          <input type="checkbox" [checked]="sceneTools.fogSnap()" (change)="setFogSnap($event)" />
+          <span>Fog a celle (disattiva per bordo libero)</span>
+        </label>
+        <div class="initiative__actions">
+          <button type="button" class="dock-button" (click)="revealAll()">Rivela tutto</button>
+          <button type="button" class="dock-button" (click)="hideAll()">Nascondi tutto</button>
+          <button type="button" class="dock-button" (click)="clearFogOverride()">Vista automatica</button>
+        </div>
+        <p class="muted">Strumenti Fog nella toolbar: pennello, gomma, rettangolo e lasso.</p>
+      </app-sidebar-section>
+
+      <app-sidebar-section
+        id="scenography"
+        label="Scenografia"
+        [open]="layout.sections().scenography"
+        (toggled)="toggleSection('scenography')"
+      >
+        @if (fog.state(); as sceneState) {
+          <label class="check">
+            <input
+              type="checkbox"
+              [checked]="sceneState.terrain.visionEnabled"
+              [disabled]="sceneState.grid.type === 'hex'"
+              (change)="toggleVision($event)"
+            />
+            <span>Visione automatica</span>
+          </label>
+          @if (sceneState.grid.type === 'hex') {
+            <p class="muted">Griglia esagonale: fog manuale.</p>
+          }
+          @if (sceneDoors().length > 0) {
+            <h3>Porte</h3>
+            <div class="interactive-list">
+              @for (door of sceneDoors(); track door.id) {
+                <button type="button" class="interactive-row" (click)="toggleDoor(door)">
+                  <span>{{ door.door === 'secret' ? 'Porta segreta' : 'Porta' }} ({{ door.a.x }}, {{ door.a.y }})</span>
+                  <span class="badge">{{ door.door === 'open' ? 'aperta' : door.door === 'secret' ? 'segreta' : 'chiusa' }}</span>
+                </button>
+              }
+            </div>
+          }
+          @if (sceneLights().length > 0) {
+            <h3>Luci</h3>
+            <div class="interactive-list">
+              @for (light of sceneLights(); track light.id) {
+                <button type="button" class="interactive-row" (click)="toggleLight(light)">
+                  <span>Luce ({{ light.x }}, {{ light.y }})</span>
+                  <span class="badge">{{ light.enabled ? 'accesa' : 'spenta' }}</span>
+                </button>
+              }
+            </div>
+          }
+        }
+      </app-sidebar-section>
+
+      <app-sidebar-section
+        id="actors"
+        label="Attori"
+        [open]="layout.sections().actors"
+        (toggled)="toggleSection('actors')"
+      >
+        <app-actor-list
+          [actors]="availableActors()"
+          [campaignId]="shell.activeCampaign()?.id ?? ''"
+          [tokens]="tokensStore.tokens()"
+          [canAdd]="!readOnly() && campaign.activeScene() !== null"
+          [readOnly]="readOnly()"
+          [subtitle]="actorSubtitle"
+          (addActor)="addActorToMap($event)"
+          (dragStart)="onActorDragStart($event.event, $event.actor)"
+        />
+      </app-sidebar-section>
+
+      <app-sidebar-section
+        id="ai"
+        label="Chat IA"
+        [open]="layout.sections().ai"
+        (toggled)="toggleSection('ai')"
+      >
+        <p class="muted">{{ aux.aiMessage() }}</p>
+        @if (!aux.aiEnabled()) {
+          <p class="muted">
+            Il provider IA non è configurato: puoi comunque importare uno statblock
+            incollando il testo e usando il parser locale.
+          </p>
+        }
+        <label class="field">
+          <span>Statblock da incollare</span>
+          <textarea
+            rows="6"
+            [value]="aux.aiText()"
+            (input)="setAiText($event)"
+            placeholder="Nome&#10;Type: Humanoid&#10;Armor Class 13&#10;Hit Points 22&#10;Speed 30 ft.&#10;STR 12 DEX 14 CON 12 INT 10 WIS 10 CHA 8&#10;Challenge 1/2"
+          ></textarea>
+        </label>
+        <button
+          type="button"
+          class="dock-button"
+          [disabled]="aux.aiBusy() || aux.aiText().trim() === ''"
+          (click)="analyzeStatblock()"
+        >Analizza statblock</button>
+        @if (aux.aiPreview(); as preview) {
+          <div class="ai-preview">
+            <span class="eyebrow">Anteprima</span>
+            <p>{{ preview.creatureType }} · CR {{ preview.cr }} · CA {{ preview.ac }} · PF {{ preview.hp.current }}</p>
+            <label class="field">
+              <span>Nome attore</span>
+              <input type="text" [value]="aux.aiName()" (input)="setAiName($event)" />
+            </label>
+            <button
+              type="button"
+              class="dock-button"
+              [disabled]="aux.aiBusy()"
+              (click)="createParsedMonster()"
+            >Crea mostro</button>
+          </div>
+        }
+      </app-sidebar-section>
+    }
+  }
+</aside>

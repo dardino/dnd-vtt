@@ -378,6 +378,21 @@ export const DmCampaignStore = signalStore(
           store.newSceneFog.set(value);
         }
       },
+      /** Cambia la modalità di avanzamento della campagna attiva. */
+      async changeAdvancementMode(event: Event): Promise<void> {
+        const campaign = shell.activeCampaign();
+        const mode = (event.target as HTMLSelectElement).value;
+        if (campaign === null || (mode !== 'milestone' && mode !== 'xp')) {
+          return;
+        }
+        try {
+          const updated = await campaignsApi.patch(campaign.id, { advancementMode: mode });
+          shell.setActiveCampaign(updated);
+          ui.setStatusMessage(`Avanzamento: ${mode === 'xp' ? 'XP' : 'milestone'}`);
+        } catch (error) {
+          ui.setNotice(messageFor(error));
+        }
+      },
     };
   }),
 );

@@ -178,6 +178,20 @@ describe('DmCampaignStore', () => {
     expect(h.sceneLoad).toHaveBeenCalledWith(CREATED_SCENE_ID);
   });
 
+  it('changeAdvancementMode aggiorna la campagna e ignora valori non validi', async () => {
+    h.activeCampaign.set(campaign());
+    h.campaignPatch.mockResolvedValue(campaign({ advancementMode: 'xp' }));
+
+    await store().changeAdvancementMode({ target: { value: 'xp' } } as unknown as Event);
+
+    expect(h.campaignPatch).toHaveBeenCalledWith(CAMPAIGN_ID, { advancementMode: 'xp' });
+    expect(h.setActiveCampaign).toHaveBeenCalled();
+    expect(h.setStatusMessage).toHaveBeenCalledWith('Avanzamento: XP');
+
+    await store().changeAdvancementMode({ target: { value: 'altro' } } as unknown as Event);
+    expect(h.campaignPatch).toHaveBeenCalledTimes(1);
+  });
+
   it('apre e chiude il map picker caricando le mappe', async () => {
     h.activeCampaign.set(campaign());
     h.mapsList.mockResolvedValue([mapSummary()]);

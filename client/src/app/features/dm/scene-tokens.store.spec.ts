@@ -221,6 +221,16 @@ describe('SceneTokensStore', () => {
     expect(selectedTokenId()).toBe(TOKEN_ID);
   });
 
+  it('center seleziona il token e richiede il focus al canvas', () => {
+    store.center(token());
+
+    expect(selectedTokenId()).toBe(TOKEN_ID);
+    expect(store.focusRequest()).toBe(TOKEN_ID);
+
+    store.consumeFocus();
+    expect(store.focusRequest()).toBeNull();
+  });
+
   it('toggleVisibility inverte il flag e aggiorna lo stato', async () => {
     await store.toggleVisibility(SCENE_ID, token({ visible: false }));
 
