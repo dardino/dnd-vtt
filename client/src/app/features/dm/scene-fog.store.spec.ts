@@ -13,9 +13,9 @@ import {
   type SceneState,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActionStore, type ActionSyncStatus } from '../../core/action.store';
-import { SceneActionService } from '../../core/scene-action.service';
-import { SceneStore } from '../../core/scene.store';
+import { ActionStore, type ActionSyncStatus } from '../../core/stores/action.store';
+import { SceneActionService } from '../../core/services/scene-action.service';
+import { SceneStore } from '../../core/stores/scene.store';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmUiStore } from './dm-ui.store';
 import { SceneFogStore } from './scene-fog.store';

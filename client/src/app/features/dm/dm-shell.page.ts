@@ -16,12 +16,12 @@ import {
   type DiceRoll,
   type MeasureResult,
 } from '@dnd-vtt/shared';
-import { ActionStore } from '../../core/action.store';
-import { AuthService } from '../../core/auth.service';
-import { DiceStore } from '../../core/dice.store';
-import { MeasurementService } from '../../core/measurement.service';
-import { RealtimeService } from '../../core/realtime.service';
-import { SceneStore } from '../../core/scene.store';
+import { ActionStore } from '../../core/stores/action.store';
+import { AuthService } from '../../core/auth/auth.service';
+import { DiceStore } from '../../core/stores/dice.store';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { RealtimeService } from '../../core/realtime/realtime.service';
+import { SceneStore } from '../../core/stores/scene.store';
 import { Button } from '../../components/button/button';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { CampaignShellStore } from './campaign-shell.store';

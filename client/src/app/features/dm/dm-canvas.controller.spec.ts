@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import type { MeasureResult } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MeasurementService } from '../../core/measurement.service';
+import { MeasurementService } from '../../core/ui/measurement.service';
 import type { SceneCanvasComponent } from '../scene/scene-canvas.component';
 import { DmCanvasController } from './dm-canvas.controller';
 import { DmUiStore } from './dm-ui.store';

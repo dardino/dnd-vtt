@@ -6,7 +6,7 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import type { SrdCatalog } from '@dnd-vtt/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
+import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import {
   IDENTITY_ALIGNMENT_MAX_LENGTH,
   IDENTITY_NAME_MAX_LENGTH,

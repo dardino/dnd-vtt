@@ -1,8 +1,8 @@
 import { Component, type OnDestroy, type OnInit, computed, inject, input, signal } from '@angular/core';
 import type { DisplayLayer, DisplayState } from '@dnd-vtt/shared';
 import type { Subscription } from 'rxjs';
-import { ProgramService } from '../../core/program.service';
-import { RealtimeService } from '../../core/realtime.service';
+import { ProgramService } from '../../core/services/program.service';
+import { RealtimeService } from '../../core/realtime/realtime.service';
 import { DisplayLayerComponent } from './display-layer.component';
 
 @Component({

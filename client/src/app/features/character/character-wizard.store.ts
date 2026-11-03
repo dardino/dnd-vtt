@@ -23,7 +23,7 @@ import {
   type SrdSpecies,
   skills as allSkills,
 } from '@dnd-vtt/shared';
-import { SrdCatalogService, SRD_VERSION } from '../../core/srd-catalog.service';
+import { SrdCatalogService, SRD_VERSION } from '../../core/services/srd-catalog.service';
 
 export const WIZARD_STEPS = [
   'Identità',

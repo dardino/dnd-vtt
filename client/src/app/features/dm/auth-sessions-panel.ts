@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, type OnInit, inject, signal } from '@angular/core';
 import type { AuthSession } from '@dnd-vtt/shared';
-import { AuthService } from '../../core/auth.service';
-import { ToastService } from '../../core/toast.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { ToastService } from '../../core/ui/toast.service';
 
 const MAX_DEVICE_LENGTH = 48;
 

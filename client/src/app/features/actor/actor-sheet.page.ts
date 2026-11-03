@@ -30,7 +30,7 @@ import {
   type ResourcePool,
   type SrdClass,
 } from '@dnd-vtt/shared';
-import { ActorService } from '../../core/actor.service';
+import { ActorService } from '../../core/services/actor.service';
 import {
   ABILITY_LABELS,
   SKILL_LABELS,
@@ -38,14 +38,14 @@ import {
   formatSpeeds,
   type SensesLike,
   type SpeedLike,
-} from '../../core/labels';
-import { httpMessage, serverMessage } from '../../core/http-error';
-import { AssetService } from '../../core/asset.service';
-import { CampaignService } from '../../core/campaign.service';
-import { MeasurementService } from '../../core/measurement.service';
-import { PlayerService } from '../../core/player.service';
-import { SceneActionService } from '../../core/scene-action.service';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
+} from '../../core/ui/labels';
+import { httpMessage, serverMessage } from '../../core/api/http-error';
+import { AssetService } from '../../core/services/asset.service';
+import { CampaignService } from '../../core/services/campaign.service';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { PlayerService } from '../../core/services/player.service';
+import { SceneActionService } from '../../core/services/scene-action.service';
+import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import {
   ActorSheetCombatPanel,
   type CombatHpChange,

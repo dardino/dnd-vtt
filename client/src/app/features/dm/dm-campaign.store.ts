@@ -7,16 +7,16 @@ import {
   type Scene,
 } from '@dnd-vtt/shared';
 import { signalStore, withMethods, withProps } from '@ngrx/signals';
-import { ActionStore } from '../../core/action.store';
-import { AssetService } from '../../core/asset.service';
-import { AuthService } from '../../core/auth.service';
-import { CampaignService } from '../../core/campaign.service';
-import { DiceStore } from '../../core/dice.store';
-import { httpMessage } from '../../core/http-error';
-import { LastCampaignService } from '../../core/last-campaign.service';
-import { MapService } from '../../core/map.service';
-import { RealtimeService } from '../../core/realtime.service';
-import { SceneStore } from '../../core/scene.store';
+import { ActionStore } from '../../core/stores/action.store';
+import { AssetService } from '../../core/services/asset.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { CampaignService } from '../../core/services/campaign.service';
+import { DiceStore } from '../../core/stores/dice.store';
+import { httpMessage } from '../../core/api/http-error';
+import { LastCampaignService } from '../../core/services/last-campaign.service';
+import { MapService } from '../../core/services/map.service';
+import { RealtimeService } from '../../core/realtime/realtime.service';
+import { SceneStore } from '../../core/stores/scene.store';
 import type { SceneMapImage } from '../scene/scene-canvas.component';
 import { CampaignShellStore } from './campaign-shell.store';
 import type { CreateCampaignValues } from './create-campaign-dialog';

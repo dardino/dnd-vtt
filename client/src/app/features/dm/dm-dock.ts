@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import type { InitiativeState } from '@dnd-vtt/shared';
-import { ActionStore } from '../../core/action.store';
-import { DiceStore } from '../../core/dice.store';
+import { ActionStore } from '../../core/stores/action.store';
+import { DiceStore } from '../../core/stores/dice.store';
 
 export const DOCK_TABS = ['initiative', 'dice', 'actions'] as const;
 export type DockTab = (typeof DOCK_TABS)[number];

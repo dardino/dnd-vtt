@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
-import { httpMessage } from '../../core/http-error';
-import { SceneStore } from '../../core/scene.store';
+import { httpMessage } from '../../core/api/http-error';
+import { SceneStore } from '../../core/stores/scene.store';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmCampaignStore } from './dm-campaign.store';
 import { DmUiStore } from './dm-ui.store';

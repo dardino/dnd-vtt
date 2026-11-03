@@ -2,8 +2,8 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { TestBed } from '@angular/core/testing';
 import type { AuthSession } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthService } from '../../core/auth.service';
-import { ToastService } from '../../core/toast.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { ToastService } from '../../core/ui/toast.service';
 import { AuthSessionsPanel } from './auth-sessions-panel';
 
 const CURRENT_ID = '0190f000-0000-7000-8000-000000000001';

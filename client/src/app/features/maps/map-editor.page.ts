@@ -30,12 +30,12 @@ import {
   type WallKind,
   type WallSegment,
 } from '@dnd-vtt/shared';
-import { httpMessage } from '../../core/http-error';
-import { ActorService } from '../../core/actor.service';
-import { AssetService } from '../../core/asset.service';
-import { MapService } from '../../core/map.service';
-import { readResource } from '../../core/read-resource';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
+import { httpMessage } from '../../core/api/http-error';
+import { ActorService } from '../../core/services/actor.service';
+import { AssetService } from '../../core/services/asset.service';
+import { MapService } from '../../core/services/map.service';
+import { readResource } from '../../core/api/read-resource';
+import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import {

@@ -3,7 +3,7 @@ import { CSP_NONCE, ErrorHandler, provideBrowserGlobalErrorListeners } from '@an
 import type { ApplicationConfig } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
-import { GlobalErrorHandler } from './core/error-handler';
+import { GlobalErrorHandler } from './core/ui/error-handler';
 
 export const appConfig: ApplicationConfig = {
   providers: [

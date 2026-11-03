@@ -3,8 +3,8 @@ import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 import type { ActionLogEntry, DiceRoll, InitiativeState } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { ActionStore } from '../../core/action.store';
-import { DiceStore } from '../../core/dice.store';
+import { ActionStore } from '../../core/stores/action.store';
+import { DiceStore } from '../../core/stores/dice.store';
 import { DmDock, type DockTab, type DockValueChange } from './dm-dock';
 
 const CAMPAIGN_ID = '0190f000-0000-7000-8000-000000000001';

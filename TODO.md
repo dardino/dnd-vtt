@@ -26,6 +26,8 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
+**Layout `core/` (3 novembre 2026):** `api/` (errori HTTP e `readResource`), `auth/`, `realtime/`, `stores/` (azioni, dadi, scena), `services/` (campagne, attori, mappe, SRD, programma, player, scene action), `ui/` (toast, tema, misura, etichette, tastiera canvas) e `testing/` (spike B1).
+
 ---
 
 ## 1. Architettura e modello dati (P1)
@@ -35,7 +37,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] **A1 — `RealtimeService` unico** · L · D2 — ✅ 2 novembre 2026
   - **Prerequisito:** **S0** (Origin check e rate limit sul WebSocket): A1 non deve veicolare azioni su un canale senza controllo di origine.
   - **Problema:** tre meccanismi (WS display, WS presenza DM, polling azioni ogni 2 s) e due copie di riconnessione/backoff.
-  - **Proposta:** `client/src/app/core/realtime.service.ts` con `connect(role, campaignId)`, parsing envelope, backoff, `seq` e dispatch a `ActionStore`/program/presence. Il polling resta solo come fallback dietro flag per una release.
+  - **Proposta:** `client/src/app/core/realtime/realtime.service.ts` con `connect(role, campaignId)`, parsing envelope, backoff, `seq` e dispatch a `ActionStore`/program/presence. Il polling resta solo come fallback dietro flag per una release.
   - **Fatto quando:** una sola connessione per tab; azioni convergenti senza `setInterval`; test su reconnect e gap di `seq`.
 
 - [x] **A2 — `token-sync` dentro `action_log`; `PUT /scenes/:id/state`** · L · D3 — ✅ 1 novembre 2026
@@ -417,7 +419,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] **B2 — `resource()` sui servizi di lettura** · M — ✅ 3 novembre 2026
   - **Proposta:** inventariare `campaign.service`, `actor.service`, `scene.service`, `srd-catalog.service` e `program.service`; usare `resource({ params, loader })` o `httpResource` per le letture, lasciando le mutazioni nei servizi. Integrare `status()`/`error()` con `ErrorHandler`/toast (A4) e con gli store.
   - **Fatto quando:** le letture principali hanno loading/error uniformi; test su cambio scena e race condition.
-  - **Esito:** nuovo helper `client/src/app/core/read-resource.ts` (`readResource<T, P>`) su `resource()` con params reattivi (`undefined` = idle), `value`/`status`/`error`, `isLoading`/`isIdle`/`hasError`, `reload`, deduplica dei toast per stato+messaggio (un retry con una nuova `HttpErrorResponse` non duplica) e nessun passaggio dall'`ErrorHandler` per gli errori HTTP, che restano tradotti nel toast contestuale; gli errori non-HTTP restano al `GlobalErrorHandler`. Migrati `SrdCatalogService` (forkJoin + `srdCatalogSchema.parse`, `load()` idempotente e `catalog`/`loading`/`error` con `httpMessage`), la lista attori di `MapEditorPage` (params = `campaignId` della mappa) e `SceneStore.load` (`requestedSceneId` come params, `reload()` sulla stessa scena, stato/azioni ottimistiche invariati, risposte superate scartate). Test in `read-resource.spec.ts` (idle, caricamento, errore HTTP+toast, errori non-HTTP, cambio params, risposta vecchia scartata, retry senza toast duplicato), `srd-catalog.service.spec.ts`, map editor sul cambio campagna e `scene.store.spec.ts` (404, cambio scena con risposta vecchia, reload). Restano da migrare le letture di campaign/program.
+  - **Esito:** nuovo helper `client/src/app/core/api/read-resource.ts` (`readResource<T, P>`) su `resource()` con params reattivi (`undefined` = idle), `value`/`status`/`error`, `isLoading`/`isIdle`/`hasError`, `reload`, deduplica dei toast per stato+messaggio (un retry con una nuova `HttpErrorResponse` non duplica) e nessun passaggio dall'`ErrorHandler` per gli errori HTTP, che restano tradotti nel toast contestuale; gli errori non-HTTP restano al `GlobalErrorHandler`. Migrati `SrdCatalogService` (forkJoin + `srdCatalogSchema.parse`, `load()` idempotente e `catalog`/`loading`/`error` con `httpMessage`), la lista attori di `MapEditorPage` (params = `campaignId` della mappa) e `SceneStore.load` (`requestedSceneId` come params, `reload()` sulla stessa scena, stato/azioni ottimistiche invariati, risposte superate scartate). Test in `read-resource.spec.ts` (idle, caricamento, errore HTTP+toast, errori non-HTTP, cambio params, risposta vecchia scartata, retry senza toast duplicato), `srd-catalog.service.spec.ts`, map editor sul cambio campagna e `scene.store.spec.ts` (404, cambio scena con risposta vecchia, reload). Restano da migrare le letture di campaign/program.
 
 
 - [x] **B3 — `@defer` sui componenti pesanti** · M — ✅ 3 novembre 2026

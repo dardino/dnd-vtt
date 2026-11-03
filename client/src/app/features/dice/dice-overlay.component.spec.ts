@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import type { ComponentFixture } from '@angular/core/testing';
-import { DiceStore } from '../../core/dice.store';
+import { DiceStore } from '../../core/stores/dice.store';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiceOverlayComponent } from './dice-overlay.component';
 

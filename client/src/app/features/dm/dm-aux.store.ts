@@ -1,10 +1,10 @@
 import { inject } from '@angular/core';
 import type { CampaignExport, ImportResult, MonsterStatblock } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
-import { ActorService } from '../../core/actor.service';
-import { AiService } from '../../core/ai.service';
-import { CampaignService } from '../../core/campaign.service';
-import { httpMessage } from '../../core/http-error';
+import { ActorService } from '../../core/services/actor.service';
+import { AiService } from '../../core/services/ai.service';
+import { CampaignService } from '../../core/services/campaign.service';
+import { httpMessage } from '../../core/api/http-error';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmUiStore } from './dm-ui.store';
 

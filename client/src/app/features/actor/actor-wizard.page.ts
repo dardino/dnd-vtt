@@ -10,16 +10,16 @@ import {
   type Size,
   type SrdMonster,
 } from '@dnd-vtt/shared';
-import { ActorService } from '../../core/actor.service';
-import { httpMessage } from '../../core/http-error';
-import { ABILITY_LABELS, SIZE_LABELS } from '../../core/labels';
+import { ActorService } from '../../core/services/actor.service';
+import { httpMessage } from '../../core/api/http-error';
+import { ABILITY_LABELS, SIZE_LABELS } from '../../core/ui/labels';
 import {
   MeasurementService,
   feetToMeters,
   metersToFeet,
   type MeasurementUnit,
-} from '../../core/measurement.service';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
+} from '../../core/ui/measurement.service';
+import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 
 type FeatureKind = 'traits' | 'actions' | 'reactions';
 type Recharge = 'short' | 'long' | 'none';

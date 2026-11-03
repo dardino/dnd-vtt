@@ -11,7 +11,7 @@ import {
   type Viewport,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SceneStore } from '../../core/scene.store';
+import { SceneStore } from '../../core/stores/scene.store';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmScreensStore } from './dm-screens.store';
 import { DmCampaignStore } from './dm-campaign.store';

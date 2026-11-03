@@ -3,7 +3,7 @@ import { inject } from '@angular/core';
 import type { DiceRoll, DiceRollList, DiceRollRequest, DiceVisibility } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
-import { httpMessage } from './http-error';
+import { httpMessage } from '../api/http-error';
 
 interface DiceStoreState {
   rolls: DiceRoll[];

@@ -31,9 +31,9 @@ import {
   type WallPoint,
   type WallSegment,
 } from '@dnd-vtt/shared';
-import { canvasKeyboardCommand } from '../../core/canvas-keyboard';
-import { MeasurementService } from '../../core/measurement.service';
-import { readThemeColors, type CssColorTokens } from '../../core/theme-colors';
+import { canvasKeyboardCommand } from '../../core/ui/canvas-keyboard';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { readThemeColors, type CssColorTokens } from '../../core/ui/theme-colors';
 import { MapGridRenderer } from './map-grid-renderer';
 
 const EDITOR_COLOR_TOKENS = {

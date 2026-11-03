@@ -15,9 +15,9 @@ import {
   type TokenState,
 } from '@dnd-vtt/shared';
 import { signalStore, withComputed, withMethods, withProps } from '@ngrx/signals';
-import { ActionStore } from '../../core/action.store';
-import { DiceStore } from '../../core/dice.store';
-import { SceneStore } from '../../core/scene.store';
+import { ActionStore } from '../../core/stores/action.store';
+import { DiceStore } from '../../core/stores/dice.store';
+import { SceneStore } from '../../core/stores/scene.store';
 import type { ActorDropEvent, TokenMoveEvent } from '../scene/scene-canvas.component';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmUiStore } from './dm-ui.store';

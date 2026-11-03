@@ -17,10 +17,10 @@ import {
   type Orientation,
   type ResolutionPreset,
 } from '@dnd-vtt/shared';
-import { CampaignService } from '../../core/campaign.service';
-import { LastCampaignService } from '../../core/last-campaign.service';
-import { MapService } from '../../core/map.service';
-import { httpMessage } from '../../core/http-error';
+import { CampaignService } from '../../core/services/campaign.service';
+import { LastCampaignService } from '../../core/services/last-campaign.service';
+import { MapService } from '../../core/services/map.service';
+import { httpMessage } from '../../core/api/http-error';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 

@@ -9,10 +9,10 @@ import {
   type SceneState,
 } from '@dnd-vtt/shared';
 import { signalStore, withComputed, withMethods, withProps } from '@ngrx/signals';
-import { ActionStore } from '../../core/action.store';
-import { httpMessage } from '../../core/http-error';
-import { SceneActionService } from '../../core/scene-action.service';
-import { SceneStore } from '../../core/scene.store';
+import { ActionStore } from '../../core/stores/action.store';
+import { httpMessage } from '../../core/api/http-error';
+import { SceneActionService } from '../../core/services/scene-action.service';
+import { SceneStore } from '../../core/stores/scene.store';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmUiStore } from './dm-ui.store';
 import { SceneTokensStore } from './scene-tokens.store';

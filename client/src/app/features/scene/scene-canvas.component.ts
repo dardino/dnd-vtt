@@ -38,9 +38,9 @@ import {
   type Viewport,
   type VisionGrid,
 } from '@dnd-vtt/shared';
-import { canvasKeyboardCommand } from '../../core/canvas-keyboard';
-import { MeasurementService } from '../../core/measurement.service';
-import { readThemeColors, type CssColorTokens } from '../../core/theme-colors';
+import { canvasKeyboardCommand } from '../../core/ui/canvas-keyboard';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { readThemeColors, type CssColorTokens } from '../../core/ui/theme-colors';
 import { CanvasInputController } from './canvas-input-controller';
 import { FogRenderer } from './fog-renderer';
 import { GridRenderer } from './grid-renderer';

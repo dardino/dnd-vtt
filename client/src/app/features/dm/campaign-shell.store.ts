@@ -1,9 +1,9 @@
 import { inject } from '@angular/core';
 import type { Actor, Campaign, Scene, Session } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
-import { ActorService } from '../../core/actor.service';
-import { AssetService } from '../../core/asset.service';
-import { CampaignService } from '../../core/campaign.service';
+import { ActorService } from '../../core/services/actor.service';
+import { AssetService } from '../../core/services/asset.service';
+import { CampaignService } from '../../core/services/campaign.service';
 
 export interface CampaignShellState {
   campaigns: Campaign[];

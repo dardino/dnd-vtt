@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import type { AuthSession, AuthSessionList } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
-import { httpMessage } from './http-error';
+import { httpMessage } from '../api/http-error';
 
 export type DmRole = 'dm' | 'none';
 

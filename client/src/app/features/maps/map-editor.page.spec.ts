@@ -8,10 +8,10 @@ import {
   type Map,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActorService } from '../../core/actor.service';
-import { AssetService } from '../../core/asset.service';
-import { MapService } from '../../core/map.service';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
+import { ActorService } from '../../core/services/actor.service';
+import { AssetService } from '../../core/services/asset.service';
+import { MapService } from '../../core/services/map.service';
+import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import { MapEditorPage } from './map-editor.page';
 
 const asset: Asset = {

@@ -9,7 +9,7 @@ import {
   type Signal,
 } from '@angular/core';
 import { httpStatus } from './http-error';
-import { ToastService } from './toast.service';
+import { ToastService } from '../ui/toast.service';
 
 export interface ReadResourceOptions<T, P> {
   /**

@@ -9,8 +9,8 @@ import {
   type TokenState,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthService } from '../../core/auth.service';
-import { ToastService } from '../../core/toast.service';
+import { AuthService } from '../../core/auth/auth.service';
+import { ToastService } from '../../core/ui/toast.service';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmCampaignStore } from './dm-campaign.store';
 import { DEFAULT_SECTIONS, DmLayoutStore, type SidebarSectionId } from './dm-layout.store';

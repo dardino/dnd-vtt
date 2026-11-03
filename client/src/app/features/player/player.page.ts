@@ -11,10 +11,10 @@ import {
   type ConditionName,
   type PlayerSheetView,
 } from '@dnd-vtt/shared';
-import { MeasurementService } from '../../core/measurement.service';
-import { ABILITY_LABELS, SKILL_LABELS, formatSenses, type SensesLike } from '../../core/labels';
-import { httpMessage } from '../../core/http-error';
-import { PlayerService } from '../../core/player.service';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { ABILITY_LABELS, SKILL_LABELS, formatSenses, type SensesLike } from '../../core/ui/labels';
+import { httpMessage } from '../../core/api/http-error';
+import { PlayerService } from '../../core/services/player.service';
 
 type PlayerTab = 'combat' | 'abilities' | 'spells' | 'equipment' | 'notes' | 'rolls';
 

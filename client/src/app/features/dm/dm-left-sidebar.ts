@@ -13,9 +13,9 @@ import {
   type Scene,
   type SceneState,
 } from '@dnd-vtt/shared';
-import { ActionStore } from '../../core/action.store';
-import { httpMessage } from '../../core/http-error';
-import { MeasurementService } from '../../core/measurement.service';
+import { ActionStore } from '../../core/stores/action.store';
+import { httpMessage } from '../../core/api/http-error';
+import { MeasurementService } from '../../core/ui/measurement.service';
 import { Button } from '../../components/button/button';
 import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';

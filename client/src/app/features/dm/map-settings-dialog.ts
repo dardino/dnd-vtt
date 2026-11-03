@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import type { MeasurementUnit } from '../../core/measurement.service';
+import type { MeasurementUnit } from '../../core/ui/measurement.service';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 

@@ -1,9 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import type { Actor, Asset, Campaign, Scene, Session } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActorService } from '../../core/actor.service';
-import { AssetService } from '../../core/asset.service';
-import { CampaignService } from '../../core/campaign.service';
+import { ActorService } from '../../core/services/actor.service';
+import { AssetService } from '../../core/services/asset.service';
+import { CampaignService } from '../../core/services/campaign.service';
 import { CampaignShellStore } from './campaign-shell.store';
 
 const CAMPAIGN_ID = '0190f000-0000-7000-8000-000000000001';

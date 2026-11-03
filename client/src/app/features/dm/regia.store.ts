@@ -8,7 +8,7 @@ import type {
   Viewport,
 } from '@dnd-vtt/shared';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
-import { ProgramService } from '../../core/program.service';
+import { ProgramService } from '../../core/services/program.service';
 import {
   lastSeen,
   projectionLabel,

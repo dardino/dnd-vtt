@@ -22,11 +22,11 @@ import {
   type SrdItem,
   type SrdSpell,
 } from '@dnd-vtt/shared';
-import { ActorService } from '../../core/actor.service';
-import { ABILITY_LABELS } from '../../core/labels';
-import { MeasurementService } from '../../core/measurement.service';
-import { httpMessage, serverMessage } from '../../core/http-error';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
+import { ActorService } from '../../core/services/actor.service';
+import { ABILITY_LABELS } from '../../core/ui/labels';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { httpMessage, serverMessage } from '../../core/api/http-error';
+import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import {
   createCharacterIdentityForm,
   syncCharacterIdentity,

@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SrdCatalogService, SRD_VERSION } from './srd-catalog.service';
-import { ToastService } from './toast.service';
+import { ToastService } from '../ui/toast.service';
 
 const meta = {
   version: SRD_VERSION,

@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Toast } from './components/toast/toast';
-import { ThemeService } from './core/theme.service';
+import { ThemeService } from './core/ui/theme.service';
 
 @Component({
   selector: 'app-root',

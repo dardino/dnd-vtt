@@ -11,9 +11,9 @@ import {
   type TokenState,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActionStore } from '../../core/action.store';
-import { MeasurementService } from '../../core/measurement.service';
-import { SceneStore } from '../../core/scene.store';
+import { ActionStore } from '../../core/stores/action.store';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { SceneStore } from '../../core/stores/scene.store';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmAuxStore } from './dm-aux.store';
 import { DmCampaignStore, type ShellMode } from './dm-campaign.store';

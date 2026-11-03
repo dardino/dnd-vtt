@@ -13,7 +13,7 @@ import {
 import { Subject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionStore } from './action.store';
-import { RealtimeService, type RealtimeAction, type RealtimeStatus } from './realtime.service';
+import { RealtimeService, type RealtimeAction, type RealtimeStatus } from '../realtime/realtime.service';
 import { SceneStore } from './scene.store';
 
 const CAMPAIGN_ID = '0190f000-0000-7000-8000-000000000001';

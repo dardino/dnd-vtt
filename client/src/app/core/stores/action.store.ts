@@ -1,10 +1,10 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { httpMessage } from './http-error';
+import { httpMessage } from '../api/http-error';
 import { DestroyRef, inject } from '@angular/core';
 import { newId, type ActionLogEntry, type ActionRequest, type AppliedAction, type GameAction } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom, type Subscription } from 'rxjs';
-import { RealtimeService, type RealtimeAction } from './realtime.service';
+import { RealtimeService, type RealtimeAction } from '../realtime/realtime.service';
 import { SceneStore } from './scene.store';
 
 export type ActionSyncStatus = 'synced' | 'pending' | 'offline' | 'read-only';

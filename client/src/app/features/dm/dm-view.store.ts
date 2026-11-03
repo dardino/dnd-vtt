@@ -13,10 +13,10 @@ import {
   type VisionSource,
 } from '@dnd-vtt/shared';
 import { signalStore, withComputed, withMethods } from '@ngrx/signals';
-import { ActionStore } from '../../core/action.store';
-import { AuthService } from '../../core/auth.service';
-import { MeasurementService } from '../../core/measurement.service';
-import { SceneStore } from '../../core/scene.store';
+import { ActionStore } from '../../core/stores/action.store';
+import { AuthService } from '../../core/auth/auth.service';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { SceneStore } from '../../core/stores/scene.store';
 import type { ActorPortraitThumb } from '../scene/scene-canvas.component';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmCampaignStore } from './dm-campaign.store';

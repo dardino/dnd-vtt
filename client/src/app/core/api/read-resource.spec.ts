@@ -3,7 +3,7 @@ import { ApplicationRef, ErrorHandler, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readResource } from './read-resource';
-import { ToastService } from './toast.service';
+import { ToastService } from '../ui/toast.service';
 
 const deferred = <T>(): {
   promise: Promise<T>;

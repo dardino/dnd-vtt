@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { createDefaultSceneState, type SceneSnapshot, type TokenState } from '@dnd-vtt/shared';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SceneStore } from './scene.store';
-import { ToastService } from './toast.service';
+import { ToastService } from '../ui/toast.service';
 
 const CAMPAIGN_ID = '0190f000-0000-7000-8000-000000000001';
 const SCENE_ID = '0190f000-0000-7000-8000-000000000002';

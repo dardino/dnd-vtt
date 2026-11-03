@@ -3,9 +3,9 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import type { Campaign, Map, MapSummary } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CampaignService } from '../../core/campaign.service';
-import { LastCampaignService } from '../../core/last-campaign.service';
-import { MapService } from '../../core/map.service';
+import { CampaignService } from '../../core/services/campaign.service';
+import { LastCampaignService } from '../../core/services/last-campaign.service';
+import { MapService } from '../../core/services/map.service';
 import { MapsPage } from './maps.page';
 
 const campaign = {

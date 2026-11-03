@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import type { Display, Viewport } from '@dnd-vtt/shared';
-import type { ProgramService } from '../../core/program.service';
+import type { ProgramService } from '../../core/services/program.service';
 import {
   screenViewportOf,
   stateWithViewport,

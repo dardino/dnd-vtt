@@ -10,12 +10,12 @@ import type {
   SrdCatalog,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActorService } from '../../core/actor.service';
-import { AssetService } from '../../core/asset.service';
-import { CampaignService } from '../../core/campaign.service';
-import { PlayerService } from '../../core/player.service';
-import { SceneActionService } from '../../core/scene-action.service';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
+import { ActorService } from '../../core/services/actor.service';
+import { AssetService } from '../../core/services/asset.service';
+import { CampaignService } from '../../core/services/campaign.service';
+import { PlayerService } from '../../core/services/player.service';
+import { SceneActionService } from '../../core/services/scene-action.service';
+import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import { ActorSheetPage } from './actor-sheet.page';
 
 const ACTOR_ID = '0190f000-0000-7000-8000-000000000010';

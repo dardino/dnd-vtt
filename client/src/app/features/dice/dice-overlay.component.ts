@@ -7,7 +7,7 @@ import {
   diceVisibilitySchema,
   parseFormula,
 } from '@dnd-vtt/shared';
-import { DiceStore } from '../../core/dice.store';
+import { DiceStore } from '../../core/stores/dice.store';
 import { Dialog } from '../../components/dialog/dialog';
 
 const QUICK_DICE = [4, 6, 8, 10, 12, 20, 100] as const;

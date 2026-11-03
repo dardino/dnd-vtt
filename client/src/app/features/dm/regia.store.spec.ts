@@ -10,7 +10,7 @@ import type {
   Viewport,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ProgramService } from '../../core/program.service';
+import { ProgramService } from '../../core/services/program.service';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 
 const CAMPAIGN_ID = '0190f000-0000-7000-8000-000000000001';

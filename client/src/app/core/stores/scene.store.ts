@@ -8,8 +8,8 @@ import {
 } from '@dnd-vtt/shared';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import { firstValueFrom } from 'rxjs';
-import { httpMessage } from './http-error';
-import { readResource } from './read-resource';
+import { httpMessage } from '../api/http-error';
+import { readResource } from '../api/read-resource';
 
 interface SceneStoreState {
   snapshot: SceneSnapshot | null;

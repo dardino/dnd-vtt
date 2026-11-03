@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import type { ErrorHandler } from '@angular/core';
-import { httpStatus } from './http-error';
+import { httpStatus } from '../api/http-error';
 import { ToastService } from './toast.service';
 
 export const UNHANDLED_ERROR_MESSAGE = 'Si è verificato un errore imprevisto. Riprova.';

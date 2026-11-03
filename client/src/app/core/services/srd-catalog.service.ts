@@ -7,8 +7,8 @@ import {
   type SrdClass,
   type SrdMeta,
 } from '@dnd-vtt/shared';
-import { readResource } from './read-resource';
-import { httpMessage } from './http-error';
+import { readResource } from '../api/read-resource';
+import { httpMessage } from '../api/http-error';
 
 export const SRD_VERSION = 'srd-5.2.0';
 

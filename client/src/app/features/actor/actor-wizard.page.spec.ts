@@ -3,9 +3,9 @@ import type { ComponentFixture } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import type { SrdMonster } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ActorService } from '../../core/actor.service';
-import { MeasurementService } from '../../core/measurement.service';
-import { SrdCatalogService } from '../../core/srd-catalog.service';
+import { ActorService } from '../../core/services/actor.service';
+import { MeasurementService } from '../../core/ui/measurement.service';
+import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import { ActorWizardPage } from './actor-wizard.page';
 
 const CAMPAIGN_ID = '0190f000-0000-7000-8000-000000000001';

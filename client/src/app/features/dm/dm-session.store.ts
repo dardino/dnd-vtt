@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import type { Session } from '@dnd-vtt/shared';
 import { patchState, signalStore, withComputed, withMethods, withState } from '@ngrx/signals';
-import { httpMessage } from '../../core/http-error';
+import { httpMessage } from '../../core/api/http-error';
 import { CampaignShellStore } from './campaign-shell.store';
 import { DmUiStore } from './dm-ui.store';
 

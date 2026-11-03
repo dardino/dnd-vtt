@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import type { MeasureResult } from '@dnd-vtt/shared';
-import { MeasurementService } from '../../core/measurement.service';
+import { MeasurementService } from '../../core/ui/measurement.service';
 import type { SceneCanvasComponent } from '../scene/scene-canvas.component';
 import { DmUiStore } from './dm-ui.store';
 import { SceneToolsStore } from './scene-tools.store';
