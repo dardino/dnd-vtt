@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B4 (resto), B5, R1 (dock/dialoghi/slot), S7 e Pi 1. R1 ha tutti i componenti previsti (R1a-R1f) ma DmShellPage resta sopra 400 righe. Completati S0-S9 (tranne verifica TLS S7), A1-A4, R2-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4d e S3. Suite E2E completa verde (39/39).
+**Blocco attivo:** B4 (resto), B5, R1 (dialoghi e logica del page), S7 e Pi 1. R1 ha estratto sidebar, liste, toolbar, statusbar, dock, token e slot; DmShellPage resta sopra 400 righe per dialoghi e metodi di orchestrazione. Completati S0-S9 (tranne verifica TLS S7), A1-A4, R2-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4d e S3. Suite E2E completa verde (39/39).
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
