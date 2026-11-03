@@ -75,6 +75,7 @@ import { ScreenList } from './screen-list';
 import { ScreenPreviewComponent } from './screen-preview.component';
 import { SessionCard } from './session-card';
 import { SidebarSection } from './sidebar-section';
+import { TokenList } from './token-list';
 import {
   SceneCanvasComponent,
   type ActorDropEvent,
@@ -147,6 +148,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     ScreenPreviewComponent,
     SessionCard,
     SidebarSection,
+    TokenList,
     AuthSessionsPanel,
   ],
   templateUrl: './dm-shell.page.html',

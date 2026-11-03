@@ -508,46 +508,14 @@
           [count]="tokens().length"
           (toggled)="toggleSection('tokens')"
         >
-              @if (tokens().length === 0) {
-                <p class="muted">Nessun token. Trascina uno slot o un attore sulla mappa.</p>
-              } @else {
-                <ul class="token-list">
-                  @for (token of tokens(); track token.id) {
-                    <li class="token-row" [class.is-selected]="token.id === selectedTokenId()">
-                      <button type="button" class="token-row__name" (click)="centerToken(token)">
-                        <span>{{ token.label }}</span>
-                        <span class="muted">{{ token.hp.current }}/{{ token.hp.max }} PF</span>
-                      </button>
-                      <button
-                        type="button"
-                        class="token-row__icon"
-                        [attr.aria-label]="'Danneggia ' + token.label + ' di 5'"
-                        title="Danneggia 5"
-                        (click)="changeTokenHp(token, -5)"
-                      >−5</button>
-                      <button
-                        type="button"
-                        class="token-row__icon"
-                        [attr.aria-label]="'Cura ' + token.label + ' di 5'"
-                        title="Cura 5"
-                        (click)="changeTokenHp(token, 5)"
-                      >+5</button>
-                      <button
-                        type="button"
-                        class="token-row__icon"
-                        [attr.aria-label]="token.visible ? 'Nascondi ' + token.label : 'Mostra ' + token.label"
-                        (click)="toggleTokenVisibility(token)"
-                      >{{ token.visible ? '◉' : '◌' }}</button>
-                      <button
-                        type="button"
-                        class="token-row__icon"
-                        [attr.aria-label]="'Rimuovi ' + token.label"
-                        (click)="removeToken(token)"
-                      >✕</button>
-                    </li>
-                  }
-                </ul>
-              }
+          <app-token-list
+            [tokens]="tokens()"
+            [selectedTokenId]="selectedTokenId()"
+            (center)="centerToken($event)"
+            (changeHp)="changeTokenHp($event.token, $event.delta)"
+            (toggleVisibility)="toggleTokenVisibility($event)"
+            (remove)="removeToken($event)"
+          />
         </app-sidebar-section>
 
         <app-sidebar-section

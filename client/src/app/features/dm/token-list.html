@@ -1,0 +1,40 @@
+@if (tokens().length === 0) {
+  <p class="muted">Nessun token. Trascina uno slot o un attore sulla mappa.</p>
+} @else {
+  <ul class="token-list">
+    @for (token of tokens(); track token.id) {
+      <li class="token-row" [class.is-selected]="token.id === selectedTokenId()">
+        <button type="button" class="token-row__name" (click)="center.emit(token)">
+          <span>{{ token.label }}</span>
+          <span class="muted">{{ token.hp.current }}/{{ token.hp.max }} PF</span>
+        </button>
+        <button
+          type="button"
+          class="token-row__icon"
+          [attr.aria-label]="'Danneggia ' + token.label + ' di 5'"
+          title="Danneggia 5"
+          (click)="changeHp.emit({ token, delta: -5 })"
+        >−5</button>
+        <button
+          type="button"
+          class="token-row__icon"
+          [attr.aria-label]="'Cura ' + token.label + ' di 5'"
+          title="Cura 5"
+          (click)="changeHp.emit({ token, delta: 5 })"
+        >+5</button>
+        <button
+          type="button"
+          class="token-row__icon"
+          [attr.aria-label]="token.visible ? 'Nascondi ' + token.label : 'Mostra ' + token.label"
+          (click)="toggleVisibility.emit(token)"
+        >{{ token.visible ? '◉' : '◌' }}</button>
+        <button
+          type="button"
+          class="token-row__icon"
+          [attr.aria-label]="'Rimuovi ' + token.label"
+          (click)="remove.emit(token)"
+        >✕</button>
+      </li>
+    }
+  </ul>
+}

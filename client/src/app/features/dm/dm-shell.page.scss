@@ -330,11 +330,6 @@
   overflow-y: auto;
 }
 
-.icon-button {
-  @include mx.icon-button;
-  border-color: var(--color-border);
-}
-
 .badge {
   @include mx.pill(var(--color-accent), var(--color-accent));
   color: var(--color-accent-contrast);
@@ -526,59 +521,6 @@
   position: absolute;
   inset: 0;
   transform-origin: center;
-}
-
-.token-list {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.token-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-
-  &.is-selected {
-    border-color: var(--color-accent);
-  }
-}
-
-.token-row__name {
-  display: grid;
-  flex: 1;
-  gap: 1px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--color-text);
-  font-size: var(--text-sm);
-  text-align: left;
-}
-
-.token-row__icon {
-  display: grid;
-  place-items: center;
-  min-width: 1.8rem;
-  height: 1.6rem;
-  padding: 0 var(--space-1);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-
-  @include mx.hover {
-    &:hover {
-      color: var(--color-text);
-      background: var(--color-bg-hover);
-    }
-  }
 }
 
 .slots {
