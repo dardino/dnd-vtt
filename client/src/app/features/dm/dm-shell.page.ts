@@ -4,11 +4,11 @@ import {
   DestroyRef,
   type ElementRef,
   type OnInit,
+  type WritableSignal,
   computed,
   effect,
   inject,
   input,
-  signal,
   viewChild,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -54,8 +54,10 @@ import {
 } from './create-campaign-dialog';
 import { DmAuxStore } from './dm-aux.store';
 import { DmCampaignStore } from './dm-campaign.store';
+import { DmCanvasController } from './dm-canvas.controller';
 import { DmDock, type DockTab } from './dm-dock';
 import { DmLayoutStore, type SidebarSectionId } from './dm-layout.store';
+import { DmScreensStore } from './dm-screens.store';
 import { DmSessionStore } from './dm-session.store';
 import { DmStatusbar } from './dm-statusbar';
 import { DmUiStore } from './dm-ui.store';
@@ -136,10 +138,18 @@ export class DmShellPage implements OnInit {
   public readonly session = inject(DmSessionStore);
   public readonly aux = inject(DmAuxStore);
   public readonly campaign = inject(DmCampaignStore);
+  public readonly screens = inject(DmScreensStore);
+  public readonly canvasController = inject(DmCanvasController);
   private readonly realtime = inject(RealtimeService);
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
   private readonly importInput = viewChild<ElementRef<HTMLInputElement>>('importInput');
+
+  public constructor() {
+    const detachCanvas = this.canvasController.attach(() => this.canvas());
+    this.destroyRef.onDestroy(detachCanvas);
+  }
+
   public readonly focusEffect = effect(() => {
     const tokenId = this.tokensStore.focusRequest();
     const canvas = this.canvas();
@@ -169,7 +179,13 @@ export class DmShellPage implements OnInit {
   public readonly fogConfirm = this.fog.fogConfirm;
   public readonly fogOverrideActive = this.fog.fogOverrideActive;
 
-  public readonly takeTargetOpen = signal(false);
+  /**
+   * Alias scrivibile usato dal dialogo "Manda in onda": la signal dello store
+   * è scrivibile a runtime, il tipo pubblico la espone come sola lettura.
+   */
+  public readonly takeTargetOpen
+    = this.screens.takeTargetOpen as WritableSignal<boolean>;
+
   public readonly maps = this.campaign.maps;
   public readonly mapPickerOpen = this.campaign.mapPickerOpen;
   public readonly mapsLoading = this.campaign.mapsLoading;
@@ -361,6 +377,7 @@ export class DmShellPage implements OnInit {
   public ngOnInit(): void {
     this.ui.reset();
     this.campaign.reset();
+    this.screens.reset();
     this.sceneTools.resetVolatile();
     window.addEventListener('keydown', this.onKeydown);
     this.presenceSubscription = this.realtime.presence$.subscribe((presence) => {
@@ -464,28 +481,23 @@ export class DmShellPage implements OnInit {
   }
 
   public zoomIn(): void {
-    this.canvas()?.zoomBy(1.15);
+    this.canvasController.zoomIn();
   }
 
   public zoomOut(): void {
-    this.canvas()?.zoomBy(1 / 1.15);
+    this.canvasController.zoomOut();
   }
 
   public fitMap(): void {
-    this.canvas()?.fit();
+    this.canvasController.fit();
   }
 
   public onCamera(camera: { scale: number }): void {
-    this.ui.setZoom(camera.scale);
+    this.canvasController.camera(camera);
   }
 
   public onMeasured(measure: MeasureResult | null): void {
-    this.sceneTools.setMeasure(measure);
-    if (measure !== null) {
-      this.ui.setStatusMessage(
-        `Misura: ${this.units.formatDistance(measure.feet)} (${measure.cells} celle)`,
-      );
-    }
+    this.canvasController.measured(measure);
   }
 
   private persistLayout(): void {
@@ -678,72 +690,23 @@ export class DmShellPage implements OnInit {
   }
 
   public exportPng(): void {
-    this.canvas()?.exportPng();
+    this.canvasController.exportPng();
   }
 
   public async openScreen(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null || this.regia.busy()) {
-      return;
-    }
-    try {
-      const display = await this.regia.createDisplay(campaign.id);
-      window.open(`/display/${display.code}`, '_blank');
-      this.ui.setStatusMessage(`Schermo aperto: ${display.code}`);
-    } catch (error) {
-      this.ui.setStatusMessage(messageFor(error));
-    }
+    await this.screens.openScreen();
   }
 
   public takeScene(): void {
-    const online = this.regia.screens();
-    if (online.length === 0) {
-      this.ui.setNotice('Nessuno schermo online: apri uno schermo prima di mandare in onda.');
-      return;
-    }
-    if (online.length === 1 && online[0] !== undefined) {
-      void this.takeSceneTo(online[0]);
-      return;
-    }
-    this.takeTargetOpen.set(true);
+    this.screens.takeScene();
   }
 
   public async takeSceneTo(summary: ScreenSummary): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    const scene = this.activeScene();
-    if (campaign === null || scene === null || this.regia.busy()) {
-      return;
-    }
-    this.takeTargetOpen.set(false);
-    const startView = this.sceneStore.snapshot()?.state.startView;
-    try {
-      const display = await this.regia.takeSceneTo(
-        campaign.id,
-        scene,
-        summary,
-        startView,
-      );
-      this.ui.setStatusMessage(`In onda su ${display.code}: ${scene.name}`);
-    } catch (error) {
-      this.ui.setStatusMessage(messageFor(error));
-    }
+    await this.screens.takeSceneTo(summary);
   }
 
   public async toggleBlackout(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null || this.regia.busy()) {
-      return;
-    }
-    try {
-      const updated = await this.regia.putProgram(campaign.id, (state) => ({
-        ...state,
-        blackout: !state.blackout,
-        updatedAt: new Date().toISOString(),
-      }));
-      this.ui.setStatusMessage(updated.state.blackout ? 'Schermo in blackout' : 'Schermo riacceso');
-    } catch (error) {
-      this.ui.setStatusMessage(messageFor(error));
-    }
+    await this.screens.toggleBlackout();
   }
 
   public onActorDragStart(event: DragEvent, actor: Actor): void {
