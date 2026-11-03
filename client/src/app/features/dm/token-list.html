@@ -27,13 +27,13 @@
           class="token-row__icon"
           [attr.aria-label]="token.visible ? 'Nascondi ' + token.label : 'Mostra ' + token.label"
           (click)="toggleVisibility.emit(token)"
-        >{{ token.visible ? '◉' : '◌' }}</button>
+        ><span aria-hidden="true">{{ token.visible ? '👁️' : '🙈' }}</span></button>
         <button
           type="button"
           class="token-row__icon"
           [attr.aria-label]="'Rimuovi ' + token.label"
           (click)="remove.emit(token)"
-        >✕</button>
+        ><span aria-hidden="true">🗑️</span></button>
       </li>
     }
   </ul>

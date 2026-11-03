@@ -54,6 +54,7 @@
 .icon-button {
   @include mx.icon-button;
   border-color: var(--color-border);
+  font-size: 0.95rem;
 }
 
 .badge {

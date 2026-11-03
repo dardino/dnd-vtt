@@ -1,7 +1,7 @@
 <section class="actor-wizard">
   <header class="actor-wizard__header">
     <div>
-      <a class="back" [routerLink]="['/dm/campaigns', campaignId()]">← Console</a>
+      <a class="back" [routerLink]="['/dm/campaigns', campaignId()]"><span aria-hidden="true">⬅️</span> Console</a>
       <span class="eyebrow">Crea {{ form.actorKind().value() === 'npc' ? 'NPC' : 'mostro' }}</span>
       <h1>{{ step() + 1 }}. {{ steps[step()] }}</h1>
     </div>

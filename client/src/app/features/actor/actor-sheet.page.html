@@ -9,7 +9,7 @@
   } @else if (view(); as sheet) {
     <header class="sheet__header">
       <div>
-        <a class="back" [routerLink]="['/dm/campaigns', campaignId()]">← Console</a>
+        <a class="back" [routerLink]="['/dm/campaigns', campaignId()]"><span aria-hidden="true">⬅️</span> Console</a>
         <span class="eyebrow">
           {{ sheet.actor.kind === 'pc' ? 'Personaggio' : sheet.actor.kind === 'monster' ? 'Mostro' : 'NPC' }}
           · scheda v{{ sheet.sheetVersion }}
@@ -44,7 +44,7 @@
           </button>
         } @else {
           <button type="button" class="sheet__levelup" (click)="toggleEditMode()">
-            ✎ {{ editMode() ? 'Chiudi modifica' : 'Modifica' }}
+            <span aria-hidden="true">✏️</span> {{ editMode() ? 'Chiudi modifica' : 'Modifica' }}
           </button>
         }
       </div>

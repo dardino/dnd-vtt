@@ -24,7 +24,7 @@
               [attr.aria-label]="'Attiva scena ' + scene.name"
               title="Attiva scena"
               (click)="selectScene.emit(scene)"
-            >▶</button>
+            ><span aria-hidden="true">▶️</span></button>
           }
           @if (scene.mapId; as mapId) {
             <a
@@ -32,7 +32,7 @@
               [routerLink]="['/maps', mapId]"
               [attr.aria-label]="'Modifica mappa di ' + scene.name"
               title="Modifica mappa"
-            >✎</a>
+            ><span aria-hidden="true">✏️</span></a>
           }
         </span>
       </li>

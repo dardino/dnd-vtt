@@ -47,6 +47,14 @@ describe('Dialog', () => {
     expect(heading?.textContent).toContain('Titolo di prova');
   });
 
+  it("chiude con l'emoji e mantiene l'etichetta", () => {
+    const fixture = create();
+    const close = (fixture.nativeElement as HTMLElement).querySelector('.dialog__close');
+
+    expect(close?.textContent).toContain('✖️');
+    expect(close?.getAttribute('aria-label')).toBe('Chiudi');
+  });
+
   it('emette closed una sola volta su Esc', () => {
     const fixture = create();
     const dialog = (fixture.nativeElement as HTMLElement).querySelector('dialog');

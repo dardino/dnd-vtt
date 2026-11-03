@@ -26,7 +26,7 @@
   // La toolbar è una colonna scrollabile: senza `flex-shrink: 0` i bottoni
   // si schiacciano sotto i 24px, violando WCAG 2.5.8 (target size).
   flex: 0 0 auto;
-  font-size: var(--text-sm);
+  font-size: 1rem;
 
   &.is-active {
     border-color: var(--color-accent);

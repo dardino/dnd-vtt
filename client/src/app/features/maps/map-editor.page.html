@@ -2,7 +2,7 @@
   @if (doc(); as document) {
     <header class="editor__top">
       <div class="editor__title">
-        <a class="editor__back" (click)="back()" role="button" tabindex="0">← Mappe</a>
+        <a class="editor__back" (click)="back()" role="button" tabindex="0"><span aria-hidden="true">⬅️</span> Mappe</a>
         <input
           class="editor__name"
           [formField]="propertiesForm.name"
@@ -52,6 +52,7 @@
             [title]="entry.hint"
             (click)="setTool(entry.tool)"
           >
+            <span class="editor__tool-icon" aria-hidden="true">{{ entry.icon }}</span>
             <span>{{ entry.label }}</span>
           </button>
         }
@@ -61,7 +62,10 @@
           class="editor__tool"
           [class.is-active]="showGrid()"
           (click)="showGrid.set(!showGrid())"
-        >Griglia</button>
+        >
+          <span class="editor__tool-icon" aria-hidden="true">🔲</span>
+          <span>Griglia</span>
+        </button>
       </nav>
 
       <div class="editor__stage">

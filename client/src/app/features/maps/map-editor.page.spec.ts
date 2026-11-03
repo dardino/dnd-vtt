@@ -1,4 +1,4 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import {
   defaultBackgroundTransform,
@@ -355,6 +355,128 @@ describe('MapEditorPage history', () => {
 
     expect(listByCampaign).toHaveBeenCalledWith('campaign-2');
     expect(fixture.componentInstance.filteredActors()).toEqual([second]);
+
+    fixture.destroy();
+  });
+});
+
+describe('MapEditorPage toolbar', () => {
+  const getMap = vi.fn();
+  const mapId = 'map-toolbar';
+  const expectedLabels = [
+    'Seleziona', 'Muro', 'Tratto', 'Porta', 'Finestra', 'Muro basso',
+    'Gomma', 'Luce', 'Mostro', 'Partenza', 'Griglia',
+  ];
+
+  const toolButtons = (fixture: ComponentFixture<MapEditorPage>): HTMLButtonElement[] =>
+    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.editor__tool'));
+
+  const toolButtonAt = (fixture: ComponentFixture<MapEditorPage>, index: number): HTMLButtonElement => {
+    const button = toolButtons(fixture)[index];
+    if (button === undefined) {
+      throw new Error(`bottone strumento ${index} assente`);
+    }
+    return button;
+  };
+
+  const iconsOf = (fixture: ComponentFixture<MapEditorPage>): HTMLElement[] =>
+    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.editor__tool-icon'));
+
+  const iconText = (container: HTMLElement): string =>
+    container.querySelector('.editor__tool-icon')?.textContent?.trim() ?? '';
+
+  const render = async (): Promise<ComponentFixture<MapEditorPage>> => {
+    const fixture = TestBed.createComponent(MapEditorPage);
+    fixture.componentRef.setInput('mapId', mapId);
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    return fixture;
+  };
+
+  beforeEach(() => {
+    getMap.mockReset();
+    getMap.mockResolvedValue(mapFor(mapId, 'campaign-toolbar'));
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: MapService, useValue: { get: getMap } },
+        { provide: AssetService, useValue: { upload: vi.fn(), get: vi.fn() } },
+        { provide: ActorService, useValue: { listByCampaign: vi.fn().mockResolvedValue([]) } },
+        { provide: SrdCatalogService, useValue: { load: () => Promise.resolve(), catalog: () => null } },
+        { provide: Router, useValue: {} },
+      ],
+    });
+  });
+
+  it('mostra un’icona decorativa accanto a ogni strumento', async () => {
+    const fixture = await render();
+    const icons = iconsOf(fixture);
+
+    expect(toolButtons(fixture)).toHaveLength(11);
+    expect(icons).toHaveLength(11);
+    for (const icon of icons) {
+      expect(icon.textContent?.trim()).not.toBe('');
+      expect(icon.getAttribute('aria-hidden')).toBe('true');
+    }
+
+    fixture.destroy();
+  });
+
+  it('mantiene le etichette testuali per l’accessibilità', async () => {
+    const fixture = await render();
+    const texts = toolButtons(fixture).map((button) => button.textContent ?? '');
+
+    expect(texts).toHaveLength(expectedLabels.length);
+    expectedLabels.forEach((label, index) => {
+      expect(texts[index] ?? '').toContain(label);
+    });
+
+    fixture.destroy();
+  });
+
+  it('usa un’icona diversa per ogni strumento', async () => {
+    const fixture = await render();
+    const icons = iconsOf(fixture).map((icon) => icon.textContent?.trim() ?? '');
+
+    expect(new Set(icons).size).toBe(11);
+
+    fixture.destroy();
+  });
+
+  it('attiva lo strumento al click mantenendo l’icona', async () => {
+    const fixture = await render();
+    const page = fixture.componentInstance;
+    const wallIndex = page.tools.findIndex((entry) => entry.tool === 'wall');
+    const wall = toolButtonAt(fixture, wallIndex);
+    const iconBefore = iconText(wall);
+
+    expect(iconBefore).not.toBe('');
+    wall.click();
+    fixture.detectChanges();
+
+    expect(page.tool()).toBe('wall');
+    expect(wall.classList.contains('is-active')).toBe(true);
+    expect(iconText(wall)).toBe(iconBefore);
+
+    fixture.destroy();
+  });
+
+  it('la griglia resta un toggle con icona', async () => {
+    const fixture = await render();
+    const page = fixture.componentInstance;
+    const grid = toolButtonAt(fixture, expectedLabels.length - 1);
+    const initial = page.showGrid();
+
+    expect(iconText(grid)).not.toBe('');
+
+    grid.click();
+    fixture.detectChanges();
+    expect(page.showGrid()).toBe(!initial);
+
+    grid.click();
+    fixture.detectChanges();
+    expect(page.showGrid()).toBe(initial);
+    expect(iconText(grid)).not.toBe('');
 
     fixture.destroy();
   });

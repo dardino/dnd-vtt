@@ -6,7 +6,7 @@
     aria-label="Seleziona"
     title="Seleziona"
     (click)="setTool('select')"
-  >↖</button>
+  ><span aria-hidden="true">🖱️</span></button>
   <button
     type="button"
     class="tool"
@@ -14,7 +14,7 @@
     aria-label="Misura distanza"
     title="Misura distanza"
     (click)="setTool('measure')"
-  >⌁</button>
+  ><span aria-hidden="true">📏</span></button>
   <button type="button" class="tool" aria-label="Tira dadi" title="Tira dadi" (click)="openDice.emit()">🎲</button>
   <button
     type="button"
@@ -23,11 +23,29 @@
     aria-label="Mostra griglia"
     title="Mostra griglia"
     (click)="toggleGrid()"
-  >#</button>
+  ><span aria-hidden="true">🔲</span></button>
   <span class="tool-divider"></span>
-  <button type="button" class="tool" aria-label="Zoom avanti" title="Zoom avanti" (click)="zoomIn.emit()">+</button>
-  <button type="button" class="tool" aria-label="Zoom indietro" title="Zoom indietro" (click)="zoomOut.emit()">−</button>
-  <button type="button" class="tool" aria-label="Adatta mappa" title="Adatta mappa" (click)="fitMap.emit()">⤢</button>
+  <button
+    type="button"
+    class="tool"
+    aria-label="Zoom avanti"
+    title="Zoom avanti"
+    (click)="zoomIn.emit()"
+  ><span aria-hidden="true">➕</span></button>
+  <button
+    type="button"
+    class="tool"
+    aria-label="Zoom indietro"
+    title="Zoom indietro"
+    (click)="zoomOut.emit()"
+  ><span aria-hidden="true">➖</span></button>
+  <button
+    type="button"
+    class="tool"
+    aria-label="Adatta mappa"
+    title="Adatta mappa"
+    (click)="fitMap.emit()"
+  ><span aria-hidden="true">🖼️</span></button>
   <span class="tool-divider"></span>
   <button
     type="button"
@@ -36,7 +54,7 @@
     aria-label="Fog: rivela"
     title="Fog: rivela"
     (click)="setTool('fog-reveal')"
-  >◐</button>
+  ><span aria-hidden="true">👁️</span></button>
   <button
     type="button"
     class="tool"
@@ -44,7 +62,7 @@
     aria-label="Fog: nascondi"
     title="Fog: nascondi"
     (click)="setTool('fog-hide')"
-  >◑</button>
+  ><span aria-hidden="true">🌫️</span></button>
   <button
     type="button"
     class="tool"
@@ -52,7 +70,7 @@
     aria-label="Fog: rettangolo"
     title="Fog: rettangolo"
     (click)="setTool('fog-rect')"
-  >▭</button>
+  ><span aria-hidden="true">⬜</span></button>
   <button
     type="button"
     class="tool"
@@ -60,7 +78,7 @@
     aria-label="Fog: lasso"
     title="Fog: lasso (doppio click per chiudere)"
     (click)="setTool('fog-lasso')"
-  >⬠</button>
+  ><span aria-hidden="true">🎯</span></button>
   <button
     type="button"
     class="tool"
@@ -68,8 +86,14 @@
     aria-label="Disegno"
     title="Disegno"
     (click)="setTool('draw')"
-  >✎</button>
-  <button type="button" class="tool" aria-label="Esporta PNG" title="Esporta PNG" (click)="exportPng.emit()">⭳</button>
+  ><span aria-hidden="true">✏️</span></button>
+  <button
+    type="button"
+    class="tool"
+    aria-label="Esporta PNG"
+    title="Esporta PNG"
+    (click)="exportPng.emit()"
+  ><span aria-hidden="true">📤</span></button>
   <button
     type="button"
     class="tool"
@@ -77,7 +101,7 @@
     title="Annulla (Ctrl+Z)"
     [disabled]="!canUndo()"
     (click)="undo.emit()"
-  >↶</button>
+  ><span aria-hidden="true">↩️</span></button>
   <button
     type="button"
     class="tool"
@@ -85,7 +109,13 @@
     title="Ripeti (Ctrl+Shift+Z)"
     [disabled]="!canRedo()"
     (click)="redo.emit()"
-  >↷</button>
+  ><span aria-hidden="true">↪️</span></button>
   <span class="tool-divider"></span>
-  <button type="button" class="tool" aria-label="Impostazioni mappa" title="Impostazioni mappa" (click)="settings.emit()">⚙</button>
+  <button
+    type="button"
+    class="tool"
+    aria-label="Impostazioni mappa"
+    title="Impostazioni mappa"
+    (click)="settings.emit()"
+  ><span aria-hidden="true">⚙️</span></button>
 </nav>

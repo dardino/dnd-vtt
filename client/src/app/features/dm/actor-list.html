@@ -29,7 +29,7 @@
           title="Aggiungi alla mappa"
           [disabled]="readOnly() || !canAdd()"
           (click)="addActor.emit(actor)"
-        >+</button>
+        ><span aria-hidden="true">➕</span></button>
       </li>
     }
   </ul>

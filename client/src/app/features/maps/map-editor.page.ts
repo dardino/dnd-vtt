@@ -68,17 +68,17 @@ type MapGridField = Exclude<keyof GridConfig, 'hexOffset'>;
 type MapTerrainField = 'ambientLight' | 'visionEnabled' | 'showDoorIcons';
 type MapTextField = 'name' | 'fogBase' | 'notes';
 
-const TOOL_LABELS: Array<{ tool: EditorTool; label: string; hint: string }> = [
-  { tool: 'select', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
-  { tool: 'wall', label: 'Muro', hint: 'Disegna muri sui lati della griglia' },
-  { tool: 'freehand', label: 'Tratto', hint: 'Traccia libero, rasterizzato a edge' },
-  { tool: 'door', label: 'Porta', hint: 'Trasforma un lato in porta' },
-  { tool: 'window', label: 'Finestra', hint: 'Blocca il movimento, non la vista' },
-  { tool: 'lowWall', label: 'Muro basso', hint: 'Si vede sopra, blocca il movimento' },
-  { tool: 'eraser', label: 'Gomma', hint: 'Rimuove un lato' },
-  { tool: 'light', label: 'Luce', hint: 'Aggiunge una luce statica' },
-  { tool: 'spawn', label: 'Mostro', hint: 'Aggiunge uno spawn SRD o attore' },
-  { tool: 'start', label: 'Partenza', hint: 'Aggiunge un punto di partenza PG' },
+const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: string }> = [
+  { tool: 'select', icon: '🖱️', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
+  { tool: 'wall', icon: '🧱', label: 'Muro', hint: 'Disegna muri sui lati della griglia' },
+  { tool: 'freehand', icon: '✏️', label: 'Tratto', hint: 'Traccia libero, rasterizzato a edge' },
+  { tool: 'door', icon: '🚪', label: 'Porta', hint: 'Trasforma un lato in porta' },
+  { tool: 'window', icon: '🪟', label: 'Finestra', hint: 'Blocca il movimento, non la vista' },
+  { tool: 'lowWall', icon: '🪵', label: 'Muro basso', hint: 'Si vede sopra, blocca il movimento' },
+  { tool: 'eraser', icon: '🧽', label: 'Gomma', hint: 'Rimuove un lato' },
+  { tool: 'light', icon: '🔦', label: 'Luce', hint: 'Aggiunge una luce statica' },
+  { tool: 'spawn', icon: '👹', label: 'Mostro', hint: 'Aggiunge uno spawn SRD o attore' },
+  { tool: 'start', icon: '🏁', label: 'Partenza', hint: 'Aggiunge un punto di partenza PG' },
 ];
 
 @Component({

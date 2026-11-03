@@ -117,7 +117,7 @@ describe('TokenList', () => {
 
     expect(emitted).toHaveBeenCalledTimes(1);
     expect(emitted.mock.calls[0]?.[0].id).toBe('t1');
-    expect(buttons[2]?.textContent).toContain('◉');
+    expect(buttons[2]?.textContent).toContain('👁️');
   });
 
   it('emette remove con il token', () => {
@@ -145,7 +145,7 @@ describe('TokenList', () => {
     expect(buttons[1]?.getAttribute('aria-label')).toBe('Cura Goblin di 5');
     expect(buttons[1]?.getAttribute('title')).toBe('Cura 5');
     expect(buttons[2]?.getAttribute('aria-label')).toBe('Mostra Goblin');
-    expect(buttons[2]?.textContent).toContain('◌');
+    expect(buttons[2]?.textContent).toContain('🙈');
     expect(buttons[3]?.getAttribute('aria-label')).toBe('Rimuovi Goblin');
   });
 });

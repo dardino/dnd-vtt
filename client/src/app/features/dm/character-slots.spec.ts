@@ -140,7 +140,8 @@ describe('CharacterSlots', () => {
 
     expect(empty.getAttribute('href')).toBe(`/dm/campaigns/${CAMPAIGN_ID}/actors/new/pc`);
     expect(empty.getAttribute('aria-label')).toBe('Slot vuoto: aggiungi attore');
-    expect(empty.textContent?.trim()).toBe('+');
+    const icon = empty.querySelector('span[aria-hidden="true"]');
+    expect(icon?.textContent?.trim()).toBe('➕');
   });
 
   it('applica il ratio HP come variabile CSS', () => {

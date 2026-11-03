@@ -394,6 +394,11 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
     `canvas-keyboard.ts` centralizza frecce (pan), `+`/`-` (zoom) ed `Esc` (deselezione), ignorando i campi
     editabili. `Delete` nel map editor resta sulla pagina (`removeSelected()`), documentato nel componente.
 
+- [x] **C8 — Icone emoji coerenti** · M — ✅ 3 novembre 2026
+  - **Proposta:** emoji del font in tutti i controlli a icona, senza dipendenze: menu strumenti dell'editor mappe, toolbar scena, liste scene/token/attori, slot vuoti, tema, dialog/toast, frecce indietro, matita e check degli step.
+  - **Fatto quando:** ogni icona è decorativa (`aria-hidden`), label/`aria-label`/`title` restano invariati e i glifi tipografici dentro testi, misure e formule non vengono toccati.
+  - **Esito:** `TOOL_LABELS` ha `icon` (10 tool + Griglia), componenti console e condivisi usano emoji con `aria-hidden`, ritocchi `font-size`/`line-height` per la resa; chevron `▾/▸` e `×`/`+`/`−` restano tipografici. Test unit su editor, tema, dialog e toast; E2E `ui-icons` più `phase-4`/`phase-9`.
+
 ## 7. Tooling e allineamento al piano (P2)
 
 - [x] **T1 — `max-len` a 110** · S · D6
