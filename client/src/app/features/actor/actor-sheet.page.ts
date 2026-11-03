@@ -43,7 +43,6 @@ import { httpMessage, serverMessage } from '../../core/api/http-error';
 import { AssetService } from '../../core/services/asset.service';
 import { CampaignService } from '../../core/services/campaign.service';
 import { MeasurementService } from '../../core/ui/measurement.service';
-import { PlayerService } from '../../core/services/player.service';
 import { SceneActionService } from '../../core/services/scene-action.service';
 import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import {
@@ -104,7 +103,6 @@ export class ActorSheetPage implements OnInit {
   private readonly campaignsApi = inject(CampaignService);
   private readonly sceneActions = inject(SceneActionService);
   private readonly catalogService = inject(SrdCatalogService);
-  private readonly players = inject(PlayerService);
   public readonly units = inject(MeasurementService);
 
   public readonly view = signal<DmSheetView | null>(null);
@@ -140,10 +138,6 @@ export class ActorSheetPage implements OnInit {
   public readonly levelUpBusy = signal(false);
 
   public readonly restBusy = signal(false);
-  public readonly playerUrl = signal<string | null>(null);
-  public readonly playerEditing = signal(true);
-  public readonly playerLinkBusy = signal(false);
-  public readonly playerLinkError = signal<string | null>(null);
 
   public constructor() {
     // Anche una modifica arrivata da `[formField]` invalida la conferma "Salvate.".
@@ -849,53 +843,6 @@ export class ActorSheetPage implements OnInit {
     return this.units.formatText(text);
   }
 
-  public async createPlayerLink(): Promise<void> {
-    if (this.playerLinkBusy()) {
-      return;
-    }
-    this.playerLinkBusy.set(true);
-    this.playerLinkError.set(null);
-    try {
-      const result = await this.players.createLink(this.actorId());
-      this.playerUrl.set(result.url);
-      this.playerEditing.set(true);
-      await this.copyPlayerLink();
-    } catch (error) {
-      this.playerLinkError.set(this.messageFor(error));
-    } finally {
-      this.playerLinkBusy.set(false);
-    }
-  }
-
-  public async copyPlayerLink(): Promise<void> {
-    const url = this.playerUrl();
-    if (url === null) {
-      return;
-    }
-    try {
-      await navigator.clipboard?.writeText(url);
-    } catch {
-      // La copia è un'utilità: se il browser la nega l'URL resta selezionabile.
-    }
-  }
-
-  public async togglePlayerEditing(): Promise<void> {
-    if (this.playerLinkBusy()) {
-      return;
-    }
-    this.playerLinkBusy.set(true);
-    try {
-      const link = await this.players.setEditing(this.actorId(), !this.playerEditing());
-      if (link !== null) {
-        this.playerEditing.set(link.editingEnabled);
-      }
-    } catch (error) {
-      this.playerLinkError.set(this.messageFor(error));
-    } finally {
-      this.playerLinkBusy.set(false);
-    }
-  }
-
   private async load(): Promise<void> {
     try {
       const [loaded, campaign] = await Promise.all([
@@ -922,12 +869,6 @@ export class ActorSheetPage implements OnInit {
       this.notesForm().reset({ notes: view.actor.dmNotes ?? '' });
       this.xpDraft.set(view.actor.xp);
       await this.syncPortrait();
-      if (view.statblock.kind === 'pc') {
-        const link = await this.players.getLink(this.actorId());
-        if (link !== null) {
-          this.playerEditing.set(link.editingEnabled);
-        }
-      }
       this.error.set(null);
     } catch (error) {
       this.error.set(this.messageFor(error));

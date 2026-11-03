@@ -39,9 +39,6 @@
           <button type="button" class="sheet__levelup" [disabled]="!canLevelUp()" (click)="openLevelUp()">
             Sali di livello
           </button>
-          <button type="button" class="sheet__levelup" [disabled]="playerLinkBusy()" (click)="createPlayerLink()">
-            Condividi scheda
-          </button>
         } @else {
           <button type="button" class="sheet__levelup" (click)="toggleEditMode()">
             <span aria-hidden="true">✏️</span> {{ editMode() ? 'Chiudi modifica' : 'Modifica' }}
@@ -77,14 +74,9 @@
       />
     }
 
-    <app-actor-sheet-player-link
-      [url]="playerUrl()"
-      [editing]="playerEditing()"
-      [busy]="playerLinkBusy()"
-      [error]="playerLinkError()"
-      (copyRequest)="copyPlayerLink()"
-      (toggleEditing)="togglePlayerEditing()"
-    />
+    @if (pc()) {
+      <app-actor-sheet-player-link [actorId]="actorId()" />
+    }
 
     <nav class="sheet-tabs" aria-label="Sezioni scheda">
       @for (tabItem of tabs(); track tabItem.key) {

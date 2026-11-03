@@ -29,10 +29,29 @@
   }
 }
 
+.player-link__qr {
+  justify-self: start;
+}
+
+app-qr-code {
+  display: block;
+  max-width: 220px;
+}
+
+.player-link__active {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.player-link__warning {
+  color: var(--color-warn);
+  font-size: var(--text-sm);
+}
+
 .inline-controls {
   display: flex;
   flex-wrap: wrap;
-  align-items: end;
+  align-items: center;
   gap: var(--space-2);
 }
 

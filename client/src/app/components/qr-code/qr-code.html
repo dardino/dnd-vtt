@@ -1,0 +1,18 @@
+<svg
+  role="img"
+  [attr.aria-label]="label()"
+  [attr.viewBox]="viewBox()"
+  [attr.width]="size()"
+  [attr.height]="size()"
+>
+  <rect
+    [attr.width]="matrix().size"
+    [attr.height]="matrix().size"
+    fill="#fff"
+  />
+  <path
+    [attr.d]="matrix().path"
+    fill="#000"
+    shape-rendering="crispEdges"
+  />
+</svg>

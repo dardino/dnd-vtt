@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import type { MonsterStatblock, SceneSnapshot } from '@dnd-vtt/shared';
+import type { MonsterStatblock, PcBuild, SceneSnapshot } from '@dnd-vtt/shared';
 
 export const CAMPAIGN_NAME = 'E2E Campagna';
 export const STAGE_CAMPAIGN_NAME = 'E2E Regia';
@@ -245,6 +245,75 @@ export const createGoblin = async (
   });
   expect(response.status()).toBe(201);
   return response.json() as Promise<ActorFixture>;
+};
+
+/**
+ * Restituisce il PC E2E con il nome richiesto, creandolo se non esiste.
+ * Il fighter di livello 5 usa gli stessi dati SRD della fase 8.
+ */
+export const ensurePc = async (
+  request: APIRequestContext,
+  id: string,
+  name = 'E2E Giocatore',
+): Promise<string> => {
+  const actorsResponse = await request.get(`/api/v1/actors?campaignId=${id}&limit=200`);
+  const existing = (await actorsResponse.json() as {
+    items: { id: string; kind: string; name: string }[];
+  }).items
+    .find((actor) => actor.kind === 'pc' && actor.name === name);
+  if (existing !== undefined) {
+    return existing.id;
+  }
+  const classes = await request.get('/api/v1/srd/srd-5.2.0/classes');
+  const items = await request.get('/api/v1/srd/srd-5.2.0/items');
+  const fighter = (await classes.json() as { id: string; weaponMasteryCount: number[] }[])
+    .find((entry) => entry.id === 'fighter');
+  const weapons = (await items.json() as { id: string; category: string }[])
+    .filter((item) => item.category === 'weapon')
+    .slice(0, fighter?.weaponMasteryCount[4] ?? 0)
+    .map((item) => item.id);
+  const build: PcBuild = {
+    rulesVersion: 'srd-5.2.0',
+    level: 5,
+    classId: 'fighter',
+    subclassId: 'champion',
+    speciesId: 'human',
+    backgroundId: 'soldier',
+    abilityGeneration: {
+      method: 'pointBuy',
+      base: { str: 15, dex: 14, con: 14, int: 8, wis: 12, cha: 8 },
+    },
+    backgroundIncreases: [
+      { source: 'background', ability: 'str', amount: 2 },
+      { source: 'background', ability: 'con', amount: 1 },
+    ],
+    feats: [{ id: 'savage-attacker' }],
+    proficiencies: {
+      classSkills: ['athletics', 'perception'],
+      speciesSkills: ['insight'],
+      expertise: [],
+      tools: [],
+      languages: ['elvish', 'dwarvish'],
+    },
+    asiChoices: [
+      { level: 4, type: 'asi', increases: [{ source: 'asi', ability: 'str', amount: 2 }] },
+    ],
+    weaponMasteries: weapons,
+    equipment: [
+      { itemId: 'longsword', quantity: 1 },
+      { itemId: 'chain-mail', quantity: 1 },
+      { itemId: 'shield', quantity: 1 },
+    ],
+    currency: { cp: 0, sp: 0, ep: 0, gp: 55, pp: 0 },
+    budgetGp: 155,
+    spells: { cantrips: [], known: [], prepared: [], spellbook: [] },
+    hpRolls: [7, 8, 6, 9],
+  };
+  const created = await request.post(`/api/v1/campaigns/${id}/actors`, {
+    data: { name, build },
+  });
+  expect(created.status()).toBe(201);
+  return (await created.json() as { id: string }).id;
 };
 
 /**

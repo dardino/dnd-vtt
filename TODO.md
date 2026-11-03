@@ -399,6 +399,11 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Fatto quando:** ogni icona è decorativa (`aria-hidden`), label/`aria-label`/`title` restano invariati e i glifi tipografici dentro testi, misure e formule non vengono toccati.
   - **Esito:** `TOOL_LABELS` ha `icon` (10 tool + Griglia), componenti console e condivisi usano emoji con `aria-hidden`, ritocchi `font-size`/`line-height` per la resa; chevron `▾/▸` e `×`/`+`/`−` restano tipografici. Test unit su editor, tema, dialog e toast; E2E `ui-icons` più `phase-4`/`phase-9`.
 
+- [x] **C9 — Condivisione scheda con QR** · M — ✅ 3 novembre 2026
+  - **Proposta:** QR del link giocatore generato lato client, senza servizi esterni, con pannello autonomo su ogni PC.
+  - **Fatto quando:** il QR apre `/play/<token>` dal telefono, la rigenerazione invalida il link precedente e i nomi accessibili restano invariati.
+  - **Esito:** `qrcode-generator@2.0.4` + componente `QrCode` SVG (quiet zone, bianco/nero, `role="img"`); `ActorSheetPlayerLink` carica/crea/rigenera il link con conferma, copia l'URL, avvisa se `PUBLIC_URL` è loopback o diverso dalla console. E2E `phase-8-qr` su QR, rotazione e warning; documentazione LAN in `docs/deploy-docker.md`.
+
 ## 7. Tooling e allineamento al piano (P2)
 
 - [x] **T1 — `max-len` a 110** · S · D6

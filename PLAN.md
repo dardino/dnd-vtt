@@ -63,7 +63,7 @@ Frontend
 - `resource()` / `httpResource` per il data fetching legato ai signals
 - **Konva** per stage, layer, zoom, pan, drag e hit-testing
 - `@ngrx/signals` (SignalStore) per gli store
-- `qrcode` per generare il QR del link giocatore lato client
+- `qrcode-generator` per generare il QR del link giocatore lato client
 
 Backend
 - **Node.js 26 LTS**, minimo **26.0.0** (richiesto da Angular 22; compatibile con ESLint 10)
@@ -1737,7 +1737,7 @@ Le tabelle `sessions`, `campaign_messages`, `items` e `inventories` sono definit
 - un'azione pending si può ritirare dal telefono finché il DM non ha deciso; il DM può approvarla o rifiutarla dal dock `Azioni`
 - il link vale per **un solo attore**: il giocatore non può leggere altri attori, scene, mostri, fog o program, né `dm_notes`; il DM non può leggere `player_notes`
 - il token è mostrato una sola volta e salvato hashato: se perso si rigenera, non si recupera
-- QR generato lato client (libreria `qrcode`) dall'URL costruita su `PUBLIC_URL`, così funziona dal telefono in LAN
+- QR generato lato client (libreria `qrcode-generator`) dall'URL costruita su `PUBLIC_URL`, così funziona dal telefono in LAN
 - niente login: il telefono non ha credenziali, solo il link; revoca immediata dal DM
 - HP modificati con azione a delta auto-approvata secondo la policy o approvata dal DM (`clamp` sul massimo), così non esiste lost update: c'è un solo writer (D24, D34)
 

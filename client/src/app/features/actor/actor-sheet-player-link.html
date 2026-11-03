@@ -1,21 +1,61 @@
-@if (url() !== null || error() !== null || !editing()) {
-  <section class="surface player-link">
-    <h2>Scheda giocatore</h2>
-    @if (url(); as link) {
-      <input type="text" readonly [value]="link" aria-label="URL scheda giocatore" />
+<section class="surface player-link">
+  <h2>Scheda giocatore</h2>
+
+  @if (url(); as link) {
+    <div class="player-link__qr">
+      <app-qr-code
+        [value]="link"
+        label="QR per aprire la scheda giocatore sul telefono"
+      />
+    </div>
+    <input #linkInput type="text" readonly [value]="link" aria-label="URL scheda giocatore" />
+    @if (copyHint()) {
+      <span class="muted" role="status">URL selezionato: copialo manualmente.</span>
     }
     <div class="inline-controls">
-      <button type="button" class="btn" [disabled]="busy()" (click)="requestToggleEditing()">
+      <app-button variant="primary" (pressed)="copy()">Copia link</app-button>
+      <a class="btn" [href]="link" target="_blank" rel="noopener">Apri scheda</a>
+      <app-button [disabled]="busy()" (pressed)="requestRegenerate()">
+        Rigenera link e QR
+      </app-button>
+      <app-button [disabled]="busy()" (pressed)="toggleEditing()">
         {{ editing() ? 'Spegni matita' : 'Accendi matita' }}
-      </button>
-      @if (url(); as link) {
-        <a class="btn" [href]="link" target="_blank" rel="noopener">Apri scheda</a>
-        <button type="button" class="btn" (click)="requestCopy()">Copia link</button>
-      }
+      </app-button>
       <span class="muted">{{ editing() ? 'Il giocatore può modificare la scheda' : 'Sola lettura' }}</span>
     </div>
-    @if (error(); as error) {
-      <p class="state--error" role="alert">{{ error }}</p>
+    @if (warning(); as warningText) {
+      <p class="player-link__warning" role="status">{{ warningText }}</p>
     }
-  </section>
-}
+  } @else if (linkActive()) {
+    <p class="player-link__active">Link attivo</p>
+    <div class="inline-controls">
+      <app-button variant="primary" [disabled]="busy()" (pressed)="requestRegenerate()">
+        Rigenera link e QR
+      </app-button>
+      <app-button [disabled]="busy()" (pressed)="toggleEditing()">
+        {{ editing() ? 'Spegni matita' : 'Accendi matita' }}
+      </app-button>
+      <span class="muted">{{ editing() ? 'Il giocatore può modificare la scheda' : 'Sola lettura' }}</span>
+    </div>
+  } @else {
+    <app-button variant="primary" [disabled]="busy()" (pressed)="share()">
+      Condividi scheda
+    </app-button>
+  }
+
+  @if (error(); as errorText) {
+    <p class="state--error" role="alert">{{ errorText }}</p>
+  }
+</section>
+
+<app-dialog [open]="confirmOpen()" title="Rigenera link e QR" (closed)="cancelRegenerate()">
+  <p>
+    Il link attuale verrà invalidato: chi lo ha già aperto dovrà ricevere il nuovo QR.
+  </p>
+  <div dialog-actions class="inline-controls">
+    <app-button (pressed)="cancelRegenerate()">Annulla</app-button>
+    <app-button variant="primary" [disabled]="busy()" (pressed)="confirmRegenerate()">
+      Conferma
+    </app-button>
+  </div>
+</app-dialog>

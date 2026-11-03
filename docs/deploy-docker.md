@@ -164,7 +164,56 @@ mount Windows può avere locking lento o errato.
   container. Un IP statico o una prenotazione DHCP evitano sorprese.
 - `docker compose ps` deve mostrare `0.0.0.0:3000->3000/tcp`.
 
-## 6. Raspberry Pi 1 come display
+## 6. QR e link giocatore
+
+Il pulsante **Condividi scheda** della scheda personaggio (solo per i `pc`)
+crea un link `/play/<token>` e lo mostra come QR code. Il QR contiene **solo**
+quell'URL: nessun dato della scheda, nessuna nota privata, nessun servizio QR
+esterno. Perché il telefono riesca ad aprirlo, però, servono tre cose: il server
+in ascolto sulla LAN, un `PUBLIC_URL` raggiungibile e il firewall aperto.
+
+```dotenv
+HOST=0.0.0.0
+PUBLIC_URL=http://192.168.1.50:3000        # IP LAN reale del server
+ALLOWED_ORIGINS=http://192.168.1.50:3000   # origini extra; PUBLIC_URL è già inclusa
+```
+
+- `HOST=0.0.0.0` fa ascoltare il server su tutte le interfacce (in Docker
+  Compose è già forzato).
+- `PUBLIC_URL` è la base dell'URL nel QR e dell'allowlist degli `Host`:
+  se resta `localhost`/`127.0.0.1`, il telefono non raggiunge il link e il
+  server rifiuta le richieste con `421 Host non consentito`. L'origin di
+  `PUBLIC_URL` è aggiunto automaticamente; `ALLOWED_ORIGINS` serve per origini
+  extra (ad esempio `http://localhost:4200` con `ng serve`).
+- Fuori dal loopback `DM_PASSWORD`/`DM_PASSWORD_HASH` restano obbligatorie.
+
+Requisiti di rete:
+
+- apri la porta **TCP 3000** solo sul profilo **Privato** del firewall Windows
+  (Regole connessioni in entrata → Nuova regola → Porta → TCP 3000); non
+  aprire il profilo Pubblico e non fare port forwarding sul router;
+- telefono e server sulla **stessa subnet**, senza **isolamento client**:
+  guest WiFi, hotspot del telefono e reti "ospiti" dei router bloccano il
+  traffico tra dispositivi anche se sembrano sulla stessa rete;
+- assegna un **IP statico** o una **prenotazione DHCP**: se l'IP del server
+  cambia, i QR già condivisi puntano a un indirizzo morto (e vanno rigenerati);
+- il QR mostra l'URL accanto all'immagine: se la fotocamera non collabora,
+  copia o digita il link manualmente. È il fallback sempre disponibile.
+
+**Attenzione a `ng serve`:** in dev mode il client gira su `:4200` e fa proxy a
+`:3000`, mentre `PUBLIC_URL` punta a `:3000`. Su `:3000` senza `client/dist`
+non c'è la SPA, quindi il link del QR non funziona dal telefono. Per provarlo
+usa una build (`npm run build` e avvio del server) o il container Docker, non
+`ng serve`.
+
+**Dopo un reload il QR non è recuperabile:** il token è salvato solo come hash
+SHA-256 e non viene mai rimandato al browser. La scheda mostra "Link attivo" e
+il pulsante **Rigenera link e QR**, che con conferma esplicita **ruota** il
+token invalidando il link precedente. Chi aveva già aperto il vecchio link
+riceve "Questo link non è più valido." e deve ricevere il nuovo QR. Per lo
+stesso motivo, se `PUBLIC_URL` cambia (nuovo IP, HTTPS) il QR va rigenerato.
+
+## 7. Raspberry Pi 1 come display
 
 Il Pi 1 non esegue il server. Può aprire `/display/:codice` in un browser kiosk,
 in teoria a 720p; Angular + Konva su 700 MHz e 512 MB sono al limite.
@@ -176,7 +225,7 @@ in teoria a 720p; Angular + Konva su 700 MHz e 512 MB sono al limite.
   aggiornamento via WebSocket; se gli fps sono inaccettabili, cambia hardware.
 - La validazione sul dispositivo reale è ancora aperta in `TODO.md` (D9).
 
-## 7. HTTPS con reverse proxy (profilo TLS con Caddy)
+## 8. HTTPS con reverse proxy (profilo TLS con Caddy)
 
 Il server non termina TLS: Caddy (o nginx) espone HTTPS e inoltra HTTP a
 `app:3000`. Perché rate limit, cookie e controllo `Host` funzionino servono:
@@ -250,7 +299,7 @@ Con il profilo TLS attivo, la mappatura `3000:3000` del servizio `app` espone
 ancora HTTP diretto: se vuoi che tutto passi da Caddy, commenta quella riga in
 `docker-compose.yml` (l'healthcheck e Caddy raggiungono l'app via rete interna).
 
-## 8. Immagine, tag e visibilità
+## 9. Immagine, tag e visibilità
 
 - Registry: GitHub Container Registry, `ghcr.io/dardino/dnd-vtt`.
 - Tag pubblicati dalla workflow `release.yml`: `latest` (ultima `main`),
