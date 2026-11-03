@@ -482,7 +482,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
   - `sceneDimensions`, `SCENE_PRESETS`, `backgroundTransformSchema`, `imageAssetId` opzionale, `backgroundTransform` in map/scene/public scene.
 - [x] **SR2 — Migrazione e persistenza**
   - migrazione `0008_past_vin_gonzales.sql`, mapper/repository/export/import, copia mappa→scena, dimensioni scena immutabili.
-- [ ] **SR3 — UI creazione e sfondo**
+- [x] **SR3 — UI creazione e sfondo** — ✅ 3 novembre 2026
   - dialog mappa/scena con preset e orientamento; upload/rimozione, cover, drag e scala; nessun cambio di `widthPx/heightPx`.
   - [x] **SR3b — Controlli sfondo nell'editor**: Carica/Sostituisci, Rimuovi, Adatta cover; nessun cambio di `widthPx/heightPx`.
 - [x] **SR4 — Rendering con trasformazione** — ✅ 2 novembre 2026
@@ -505,12 +505,12 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 ---
 ## Sequenza consigliata
 
-1. **S0, D9, A1-A4**: completati (A4 con mappature locali residue).
+1. **S0, D9, A1-A3**: completati; A4 ha toast/ErrorHandler ma restano mappature locali.
 2. **R1-R3**: R2/R3 completi; R1 ha gli store ma restano componenti/template di `DmShellPage`.
 3. **P1/P2/P3/P5/P6/P7/P4**: completati (P4 con rendering per-layer).
-4. **Q1-Q5, T1, R0**: completati.
+4. **Q1-Q5, T1-T3, R0**: completati (T3 con eventuali follow-up minori).
 5. **SR3-SR7 e C1-C5/C7**: completati.
-6. **A5, C6**: regole shared residue, container query.
+6. **C6**: container query (adottare o rimuovere dal piano).
 7. **S3, S7**: revoca sessione per-device e verifica TLS/proxy reale.
 8. **B1-B5**: Signal Forms, `resource()`, `@defer`.
 9. **Pi 1**: validazione display in kiosk.
