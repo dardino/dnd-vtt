@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B4 (resto), B5, R1, S7 e Pi 1. R1 resta parziale (componenti/template DmShell). Completati S0-S9 (tranne verifica TLS S7), A1-A4, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7, B1-B3 e S3.
+**Blocco attivo:** B4 (resto), B5, R1, S7 e Pi 1. R1 resta parziale (componenti/template DmShell). Completati S0-S9 (tranne verifica TLS S7), A1-A4, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4d e S3.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -515,13 +515,13 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 ## Sequenza consigliata
 
 1. **S0, D9, A1-A3**: completati; A4 ha toast/ErrorHandler ma restano mappature locali.
-2. **R1-R3**: R2/R3 completi; R1 ha gli store ma restano componenti/template di `DmShellPage`.
+2. **R1-R3**: R2/R3 completi; R1 ha gli store ma restano componenti/template di DmShellPage.
 3. **P1/P2/P3/P5/P6/P7/P4**: completati (P4 con rendering per-layer).
 4. **Q1-Q5, T1-T3, R0**: completati (T3 con eventuali follow-up minori).
 5. **SR3-SR7 e C1-C5/C7**: completati.
 6. **C6**: chiuso — container query non adottate, requisito rimosso dal piano.
 7. **S3, S7**: S3 completato (revoca per-device); S7 richiede verifica TLS/proxy reale.
-8. **B1-B5**: B1-B3 chiusi; B4 ha B4a/B4b, restano inspector mappa, livello scheda, wizard e form DmShell; B5 dopo B4.
+8. **B1-B5**: B1-B3 chiusi; B4 ha B4a-B4d (dialog mappa, note, level-up, actor wizard), restano inspector mappa, character wizard e form DmShell; B5 dopo B4.
 9. **Pi 1**: validazione display in kiosk.
 
 ---
