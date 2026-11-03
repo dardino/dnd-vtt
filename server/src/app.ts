@@ -15,7 +15,12 @@ import { AppError } from './errors.js';
 import { RealtimeHub } from './realtime/hub.js';
 import { DiceService } from './dice/service.js';
 import { RollStats } from './actors/roll-stats.js';
-import { authRoutes, refreshSessionIfNeeded } from './auth/auth.js';
+import {
+  authRoutes,
+  refreshSessionIfNeeded,
+  resolveDmRoleWithSessions,
+  setResolvedDmRole,
+} from './auth/auth.js';
 import { actionRoutes } from './actions/routes.js';
 import { actorRoutes } from './actors/routes.js';
 import { aiRoutes } from './ai/routes.js';
@@ -154,11 +159,17 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
         throw new AppError('forbidden', 403, 'Origin non consentito');
       }
     }
+    // Ruolo DM risolto una volta per richiesta, incluse le revoche per-device:
+    // `requireDm` lo riusa senza ripetere la query. Per il WebSocket serve per
+    // l'upgrade DM, che è una GET e non passa dai `preHandler` delle route API.
+    if (request.url.startsWith('/api/v1') || isWebSocketPath(request.url)) {
+      setResolvedDmRole(request, resolveDmRoleWithSessions(request, env, database.db));
+    }
     // Dopo host/Origin e prima delle route: rinnova il cookie di sessione
     // quando l'attività supera un giorno, così il TTL resta scorrevole.
     // Login/logout gestiscono il proprio Set-Cookie e non vanno rinnovati qui.
     if (request.url.startsWith('/api/v1') && !/^\/api\/v1\/auth\/dm(?:[?#]|$)/.test(request.url)) {
-      refreshSessionIfNeeded(request, reply, env);
+      refreshSessionIfNeeded(request, reply, env, database.db);
     }
   });
 
@@ -225,7 +236,7 @@ export const buildApp = (options: BuildAppOptions): FastifyInstance => {
     return { status: 'ok', version: APP_VERSION, db, srdVersion: currentSrdVersion() };
   });
 
-  void app.register(authRoutes(env), { prefix: '/api/v1' });
+  void app.register(authRoutes(env, database.db), { prefix: '/api/v1' });
   void app.register(srdRoutes, { prefix: '/api/v1' });
   void app.register(characterRoutes, { prefix: '/api/v1' });
   void app.register(campaignRoutes(env, database.db), { prefix: '/api/v1' });

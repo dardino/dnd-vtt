@@ -1,5 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
+import type { AuthSession, AuthSessionList } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
 
 export type DmRole = 'dm' | 'none';
@@ -41,6 +42,17 @@ export class AuthService {
   public async logout(): Promise<void> {
     await firstValueFrom(this.http.delete('/api/v1/auth/dm'));
     this.role.set('none');
+  }
+
+  public async sessions(): Promise<AuthSession[]> {
+    const response = await firstValueFrom(
+      this.http.get<AuthSessionList>('/api/v1/auth/sessions'),
+    );
+    return response.items;
+  }
+
+  public async revokeSession(id: string): Promise<void> {
+    await firstValueFrom(this.http.delete(`/api/v1/auth/sessions/${encodeURIComponent(id)}`));
   }
 
   private messageFor(error: unknown): string {

@@ -800,6 +800,28 @@
             </div>
           }
         </section>
+
+        <section class="accordion" [class.is-open]="isSectionOpen('devices')">
+          <button
+            type="button"
+            class="accordion__trigger"
+            [attr.aria-expanded]="isSectionOpen('devices')"
+            aria-controls="sidebar-devices"
+            (click)="toggleSection('devices')"
+          >
+            <span class="accordion__label">Dispositivi</span>
+            <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('devices') ? '▾' : '▸' }}</span>
+          </button>
+          @if (isSectionOpen('devices')) {
+            <div id="sidebar-devices" class="accordion__body">
+              @defer (on idle) {
+                <app-auth-sessions-panel />
+              } @placeholder {
+                <p class="muted">Caricamento dispositivi.</p>
+              }
+            </div>
+          }
+        </section>
       }
     </aside>
 

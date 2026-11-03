@@ -64,6 +64,7 @@ import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { CampaignShellStore } from './campaign-shell.store';
+import { AuthSessionsPanel } from './auth-sessions-panel';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenPreviewComponent } from './screen-preview.component';
@@ -78,7 +79,7 @@ import {
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
 type CanvasTool = SceneTool;
-type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'scenography' | 'actors' | 'ai' | 'screens' | 'tokens';
+type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'scenography' | 'actors' | 'ai' | 'screens' | 'devices' | 'tokens';
 
 const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   campaign: true,
@@ -89,6 +90,7 @@ const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
   actors: true,
   ai: true,
   screens: true,
+  devices: true,
   tokens: true,
 };
 
@@ -126,7 +128,15 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
 
 @Component({
   selector: 'app-dm-shell',
-  imports: [Button, Dialog, RouterLink, SceneCanvasComponent, DiceOverlayComponent, ScreenPreviewComponent],
+  imports: [
+    Button,
+    Dialog,
+    RouterLink,
+    SceneCanvasComponent,
+    DiceOverlayComponent,
+    ScreenPreviewComponent,
+    AuthSessionsPanel,
+  ],
   templateUrl: './dm-shell.page.html',
   styleUrl: './dm-shell.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,

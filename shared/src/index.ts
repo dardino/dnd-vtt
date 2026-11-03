@@ -13,6 +13,7 @@ export * from './schemas/program.js';
 export * from './schemas/session.js';
 export * from './schemas/export.js';
 export * from './schemas/ai.js';
+export * from './schemas/auth.js';
 export * from './lib/id.js';
 export * from './lib/scene/actions.js';
 export * from './lib/scene/edges.js';

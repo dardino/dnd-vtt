@@ -180,6 +180,19 @@ export const playerLinks = sqliteTable('player_links', {
   index('player_links_actor_idx').on(table.actorId, table.createdAt),
 ]);
 
+/** Sessioni DM per-device: `id` è il `jti` del token firmato. */
+export const authSessions = sqliteTable('auth_sessions', {
+  id: text('id').primaryKey(),
+  createdAt: text('created_at').notNull(),
+  lastSeenAt: text('last_seen_at').notNull(),
+  expiresAt: text('expires_at').notNull(),
+  revokedAt: text('revoked_at'),
+  userAgent: text('user_agent'),
+  ip: text('ip'),
+}, (table) => [
+  index('auth_sessions_expires_idx').on(table.expiresAt),
+]);
+
 export const sessions = sqliteTable('sessions', {
   id: text('id').primaryKey(),
   campaignId: text('campaign_id')
@@ -205,5 +218,6 @@ export const schema = {
   programs,
   displays,
   playerLinks,
+  authSessions,
   sessions,
 };
