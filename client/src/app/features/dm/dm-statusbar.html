@@ -1,0 +1,13 @@
+<footer class="statusbar">
+  <span class="statusbar__message" role="status" aria-live="polite">{{ message() }}</span>
+  <span class="statusbar__item statusbar__item--{{ syncStatus() }}">{{ syncLabel() }}</span>
+  <span class="statusbar__item">v{{ version() }}</span>
+  <span class="statusbar__item">{{ tokenCount() }} token</span>
+  <span class="statusbar__item">Zoom {{ zoomLabel() }}</span>
+  <span class="statusbar__item">Misura {{ measureLabel() }}</span>
+  @if (selectedToken(); as token) {
+    <span class="statusbar__item">{{ token.label }} ({{ token.x }}, {{ token.y }})</span>
+  }
+  <span class="statusbar__item">{{ sessionLabel() }}</span>
+  <button type="button" class="statusbar__sync" (click)="sync.emit()">Riallinea</button>
+</footer>

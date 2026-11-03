@@ -66,6 +66,7 @@ import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
 import { AuthSessionsPanel } from './auth-sessions-panel';
+import { DmStatusbar } from './dm-statusbar';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
 import { SceneToolbar } from './scene-toolbar';
@@ -136,6 +137,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     ActorList,
     Button,
     Dialog,
+    DmStatusbar,
     RouterLink,
     SceneCanvasComponent,
     SceneList,

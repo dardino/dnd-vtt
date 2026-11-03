@@ -634,19 +634,18 @@
       }
     </section>
 
-    <footer class="statusbar">
-      <span class="statusbar__message" role="status" aria-live="polite">{{ statusMessage() }}</span>
-      <span class="statusbar__item statusbar__item--{{ actions.status() }}">{{ syncLabel() }}</span>
-      <span class="statusbar__item">v{{ snapshot()?.stateVersion ?? 0 }}</span>
-      <span class="statusbar__item">{{ tokens().length }} token</span>
-      <span class="statusbar__item">Zoom {{ zoomLabel() }}</span>
-      <span class="statusbar__item">Misura {{ measureLabel() }}</span>
-      @if (selectedToken(); as token) {
-        <span class="statusbar__item">{{ token.label }} ({{ token.x }}, {{ token.y }})</span>
-      }
-      <span class="statusbar__item">{{ sessionLabel() }}</span>
-      <button type="button" class="statusbar__sync" (click)="syncNow()">Riallinea</button>
-    </footer>
+    <app-dm-statusbar
+      [message]="statusMessage()"
+      [syncStatus]="actions.status()"
+      [syncLabel]="syncLabel()"
+      [version]="snapshot()?.stateVersion ?? 0"
+      [tokenCount]="tokens().length"
+      [zoomLabel]="zoomLabel()"
+      [measureLabel]="measureLabel()"
+      [selectedToken]="selectedToken()"
+      [sessionLabel]="sessionLabel()"
+      (sync)="syncNow()"
+    />
   </div>
 </section>
 
