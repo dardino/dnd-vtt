@@ -22,7 +22,6 @@ import {
   isTiledMap,
   tokenCenterCell,
   type Actor,
-  type ActionLogEntry,
   type DiceRoll,
   type Drawing,
   type FogOp,
@@ -47,7 +46,6 @@ import { MeasurementService } from '../../core/measurement.service';
 import { LastCampaignService } from '../../core/last-campaign.service';
 import { MapService } from '../../core/map.service';
 import { RealtimeService } from '../../core/realtime.service';
-import { SceneActionService } from '../../core/scene-action.service';
 import { SceneStore } from '../../core/scene.store';
 import { Button } from '../../components/button/button';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
@@ -76,6 +74,7 @@ import {
 } from './prepare-scene-dialog';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
+import { SceneFogStore } from './scene-fog.store';
 import { SceneToolbar } from './scene-toolbar';
 import { SceneTokensStore } from './scene-tokens.store';
 import { SceneToolsStore } from './scene-tools.store';
@@ -170,13 +169,13 @@ export class DmShellPage implements OnInit {
   public readonly units = inject(MeasurementService);
   public readonly sceneTools = inject(SceneToolsStore);
   public readonly tokensStore = inject(SceneTokensStore);
+  public readonly fog = inject(SceneFogStore);
   public readonly regia = inject(RegiaStore);
   public readonly shell = inject(CampaignShellStore);
   public readonly layout = inject(DmLayoutStore);
   public readonly ui = inject(DmUiStore);
   public readonly session = inject(DmSessionStore);
   public readonly aux = inject(DmAuxStore);
-  private readonly sceneActions = inject(SceneActionService);
   private readonly mapsApi = inject(MapService);
   private readonly realtime = inject(RealtimeService);
 
@@ -208,9 +207,8 @@ export class DmShellPage implements OnInit {
 
   public readonly settingsOpen = signal(false);
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
-  public readonly fogConfirm = signal<'reveal' | 'hide' | null>(null);
-  public readonly fogOverrideActive = computed(() => this.state()?.terrain.visionEnabled === true
-    && this.state()?.grid.type === 'square');
+  public readonly fogConfirm = this.fog.fogConfirm;
+  public readonly fogOverrideActive = this.fog.fogOverrideActive;
 
   public readonly takeTargetOpen = signal(false);
   public readonly maps = signal<MapSummary[]>([]);
@@ -242,13 +240,12 @@ export class DmShellPage implements OnInit {
   public readonly loginError = computed(() => this.auth.error());
   public readonly hasCampaigns = computed(() => this.shell.campaigns().length > 0);
   public readonly snapshot = computed(() => this.sceneStore.snapshot());
-  public readonly state = computed<SceneState | null>(() => this.sceneStore.snapshot()?.state ?? null);
+  public readonly state = this.fog.state;
   public readonly tokens = this.tokensStore.tokens;
-  public readonly grid = computed<GridConfig | null>(() => this.state()?.grid ?? null);
-  public readonly sceneDoors = computed(() =>
-    (this.state()?.terrain.walls ?? []).filter((wall) => wall.kind === 'door'));
+  public readonly grid = this.fog.grid;
+  public readonly sceneDoors = this.fog.sceneDoors;
 
-  public readonly sceneLights = computed(() => this.state()?.terrain.lights ?? []);
+  public readonly sceneLights = this.fog.sceneLights;
   public readonly partyPcs = computed(() => this.shell.party().filter((actor) => actor.kind === 'pc'));
   public readonly startOptions = computed(() => this.prepareDoc()?.playerStarts ?? []);
   public readonly dmDoors = computed<PublicDoor[]>(() =>
@@ -309,23 +306,13 @@ export class DmShellPage implements OnInit {
   });
 
   public readonly initiative = this.tokensStore.initiative;
-  public readonly undoneActions = computed(() =>
-    this.actions.history().filter((entry) => entry.status === 'undone').length);
+  public readonly undoneActions = this.fog.undoneActions;
 
-  public readonly lastAppliedAction = computed<ActionLogEntry | null>(() => {
-    const sceneId = this.activeScene()?.id;
-    if (sceneId === undefined) {
-      return null;
-    }
-    return this.actions.history()
-      .find((entry) => entry.sceneId === sceneId && entry.status === 'applied') ?? null;
-  });
+  public readonly lastAppliedAction = this.fog.lastAppliedAction;
 
-  public readonly canUndo = computed(() =>
-    !this.readOnly() && this.actions.pending() === 0 && this.lastAppliedAction() !== null);
+  public readonly canUndo = this.fog.canUndo;
 
-  public readonly canRedo = computed(() =>
-    !this.readOnly() && this.actions.pending() === 0 && this.undoneActions() > 0);
+  public readonly canRedo = this.fog.canRedo;
 
   public readonly syncLabel = computed(() => {
     const status = this.actions.status();
@@ -719,28 +706,18 @@ export class DmShellPage implements OnInit {
   }
 
   public async toggleDoor(wall: SceneState['terrain']['walls'][number]): Promise<void> {
-    if (wall.kind !== 'door') {
-      return;
-    }
-    await this.tokensStore.send(this.activeScene()?.id ?? null, {
-      type: 'terrain.door',
-      wallId: wall.id,
-      state: wall.door === 'open' ? 'closed' : 'open',
-    });
+    await this.fog.toggleDoor(this.activeScene(), wall);
   }
 
   public async toggleLight(light: SceneState['terrain']['lights'][number]): Promise<void> {
-    await this.tokensStore.send(
-      this.activeScene()?.id ?? null,
-      { type: 'terrain.light', lightId: light.id, enabled: !light.enabled },
-    );
+    await this.fog.toggleLight(this.activeScene(), light);
   }
 
   public async toggleVision(event: Event): Promise<void> {
-    await this.tokensStore.send(this.activeScene()?.id ?? null, {
-      type: 'terrain.vision',
-      enabled: (event.target as HTMLInputElement).checked,
-    });
+    await this.fog.toggleVision(
+      this.activeScene(),
+      (event.target as HTMLInputElement).checked,
+    );
   }
 
   public async changeAdvancementMode(event: Event): Promise<void> {
@@ -860,48 +837,15 @@ export class DmShellPage implements OnInit {
   public readonly tokenHp = this.tokensStore.tokenHp;
 
   public async undoLast(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null) {
-      return;
-    }
-    await this.actions.refreshHistory(campaign.id);
-    const entry = this.lastAppliedAction();
-    if (entry === null) {
-      return;
-    }
-    await this.undoThrough(entry.id);
+    await this.fog.undoLast(this.activeScene());
   }
 
   public async undoThrough(entryId: string): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    const scene = this.activeScene();
-    if (campaign === null || scene === null) {
-      return;
-    }
-    try {
-      const result = await this.sceneActions.undo(campaign.id, entryId);
-      await this.sceneStore.load(scene.id);
-      await this.actions.refreshHistory(campaign.id);
-      this.ui.setStatusMessage(`${result.undone} azioni annullate.`);
-    } catch {
-      this.ui.setStatusMessage('Annullamento non riuscito.');
-    }
+    await this.fog.undoThrough(this.activeScene(), entryId);
   }
 
   public async redoLastBatch(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    const scene = this.activeScene();
-    if (campaign === null || scene === null) {
-      return;
-    }
-    try {
-      const result = await this.sceneActions.redo(campaign.id);
-      await this.sceneStore.load(scene.id);
-      await this.actions.refreshHistory(campaign.id);
-      this.ui.setStatusMessage(`${result.redone} azioni ripristinate.`);
-    } catch {
-      this.ui.setStatusMessage('Nessuna azione da ripetere.');
-    }
+    await this.fog.redoLastBatch(this.activeScene());
   }
 
   public async onTokenMoved(event: TokenMoveEvent): Promise<void> {
@@ -942,38 +886,11 @@ export class DmShellPage implements OnInit {
   }
 
   public async changeGridType(event: Event): Promise<void> {
-    if (this.activeScene()?.mapId) {
-      this.ui.setNotice('Griglia bloccata: modificala dall’editor della mappa.');
-      return;
-    }
-    const value = (event.target as HTMLSelectElement).value;
-    const grid = this.grid();
-    if (grid === null || (value !== 'square' && value !== 'hex')) {
-      return;
-    }
-    await this.tokensStore.send(
-      this.activeScene()?.id ?? null,
-      { type: 'grid.update', grid: { ...grid, type: value } },
-    );
-    this.ui.setStatusMessage(value === 'hex' ? 'Griglia esagonale odd-r' : 'Griglia quadrata');
+    await this.fog.changeGridType(this.activeScene(), event);
   }
 
   public async changeGridSize(event: Event): Promise<void> {
-    if (this.activeScene()?.mapId) {
-      this.ui.setNotice('Griglia bloccata: modificala dall’editor della mappa.');
-      return;
-    }
-    const value = Number((event.target as HTMLInputElement).value);
-    const grid = this.grid();
-    if (grid === null || !Number.isFinite(value)) {
-      return;
-    }
-    const cellSizePx = Math.max(16, Math.min(400, Math.round(value)));
-    await this.tokensStore.send(
-      this.activeScene()?.id ?? null,
-      { type: 'grid.update', grid: { ...grid, cellSizePx } },
-    );
-    this.ui.setStatusMessage(`Cella: ${cellSizePx} px`);
+    await this.fog.changeGridSize(this.activeScene(), event);
   }
 
   public setNewSceneFog(event: Event): void {
@@ -1000,91 +917,43 @@ export class DmShellPage implements OnInit {
   }
 
   public async clearHistory(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null) {
-      return;
-    }
-    try {
-      const result = await this.sceneActions.clearHistory(campaign.id);
-      await this.actions.refreshHistory(campaign.id);
+    if (await this.fog.clearHistory()) {
       this.settingsOpen.set(false);
-      this.ui.setStatusMessage(`History svuotata: ${result.cleared} azioni rimosse.`);
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
     }
   }
 
   public async resetFog(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    const scene = this.activeScene();
-    if (campaign === null || scene === null) {
-      return;
-    }
-    try {
-      const result = await this.sceneActions.resetFog(campaign.id, scene.id);
-      await this.sceneStore.load(scene.id);
-      await this.actions.refreshHistory(campaign.id);
+    if (await this.fog.resetFog(this.activeScene()?.id ?? null)) {
       this.settingsOpen.set(false);
-      this.ui.setStatusMessage(`FOG ripristinata: ${result.cleared} azioni fog rimosse.`);
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
     }
   }
 
   public async onFogApplied(op: FogOp): Promise<void> {
-    await this.tokensStore.send(this.activeScene()?.id ?? null, { type: 'fog.apply', op });
-    this.ui.setStatusMessage(op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta');
+    await this.fog.onFogApplied(this.activeScene()?.id ?? null, op);
   }
 
   public async onDrawingAdded(drawing: Drawing): Promise<void> {
-    await this.tokensStore.send(this.activeScene()?.id ?? null, { type: 'drawing.add', drawing });
-    this.ui.setStatusMessage('Disegno aggiunto');
+    await this.fog.onDrawingAdded(this.activeScene()?.id ?? null, drawing);
   }
 
   public revealAll(): void {
-    this.fogConfirm.set('reveal');
+    this.fog.revealAll();
   }
 
   public hideAll(): void {
-    this.fogConfirm.set('hide');
+    this.fog.hideAll();
   }
 
   public async confirmFogChange(): Promise<void> {
-    const mode = this.fogConfirm();
-    this.fogConfirm.set(null);
-    if (mode === null) {
-      return;
-    }
-    if (this.fogOverrideActive()) {
-      await this.tokensStore.send(
-        this.activeScene()?.id ?? null,
-        { type: 'fog.override', override: mode },
-      );
-      this.ui.setStatusMessage(mode === 'reveal' ? 'Fog: rivela tutto' : 'Fog: nascondi tutto');
-      return;
-    }
-    if (mode === 'reveal') {
-      await this.tokensStore.send(
-        this.activeScene()?.id ?? null,
-        { type: 'fog.replace', base: 'revealed', ops: [] },
-      );
-      this.ui.setStatusMessage('Fog: tutta la mappa rivelata');
-    } else {
-      await this.tokensStore.send(
-        this.activeScene()?.id ?? null,
-        { type: 'fog.replace', base: 'hidden', ops: [] },
-      );
-      this.ui.setStatusMessage('Fog: tutta la mappa nascosta');
-    }
+    await this.fog.confirm(this.activeScene());
   }
 
   public async clearFogOverride(): Promise<void> {
-    await this.tokensStore.send(this.activeScene()?.id ?? null, { type: 'fog.override', override: 'none' });
-    this.ui.setStatusMessage('Fog: torna alla visione automatica');
+    await this.fog.clearOverride(this.activeScene()?.id ?? null);
   }
 
   public cancelFogChange(): void {
-    this.fogConfirm.set(null);
+    this.fog.cancel();
   }
 
   public exportPng(): void {
