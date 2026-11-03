@@ -11,7 +11,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import type { Subscription } from 'rxjs';
 import {
   DEFAULT_ACTOR_PORTRAIT,
@@ -19,14 +19,11 @@ import {
   computeVisionGrid,
   fogBrushRadius,
   gridDrawingWidth,
-  isTiledMap,
   tokenCenterCell,
   type Actor,
   type DiceRoll,
   type Drawing,
   type FogOp,
-  type GridConfig,
-  type MapDocument,
   type MapSummary,
   type MeasureResult,
   type PublicDoor,
@@ -37,14 +34,11 @@ import {
   type VisionSource,
 } from '@dnd-vtt/shared';
 import { ActionStore } from '../../core/action.store';
-import { AssetService } from '../../core/asset.service';
 import { AuthService } from '../../core/auth.service';
 import { CampaignService } from '../../core/campaign.service';
 import { httpMessage } from '../../core/http-error';
 import { DiceStore } from '../../core/dice.store';
 import { MeasurementService } from '../../core/measurement.service';
-import { LastCampaignService } from '../../core/last-campaign.service';
-import { MapService } from '../../core/map.service';
 import { RealtimeService } from '../../core/realtime.service';
 import { SceneStore } from '../../core/scene.store';
 import { Button } from '../../components/button/button';
@@ -59,6 +53,7 @@ import {
   type CreateCampaignValues,
 } from './create-campaign-dialog';
 import { DmAuxStore } from './dm-aux.store';
+import { DmCampaignStore } from './dm-campaign.store';
 import { DmDock, type DockTab } from './dm-dock';
 import { DmLayoutStore, type SidebarSectionId } from './dm-layout.store';
 import { DmSessionStore } from './dm-session.store';
@@ -88,41 +83,8 @@ import {
   SceneCanvasComponent,
   type ActorDropEvent,
   type ActorPortraitThumb,
-  type SceneMapImage,
   type TokenMoveEvent,
 } from '../scene/scene-canvas.component';
-
-type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
-
-const toMapDocument = (map: {
-  name: string;
-  imageAssetId: string | null;
-  backgroundTransform: MapDocument['backgroundTransform'];
-  widthPx: number;
-  heightPx: number;
-  grid: GridConfig;
-  terrain: MapDocument['terrain'];
-  spawns: MapDocument['spawns'];
-  playerStarts: MapDocument['playerStarts'];
-  startView?: MapDocument['startView'];
-  fogBase: MapDocument['fogBase'];
-  showDoorIcons: boolean;
-  notes: string;
-}): MapDocument => ({
-  name: map.name,
-  imageAssetId: map.imageAssetId,
-  backgroundTransform: map.backgroundTransform,
-  widthPx: map.widthPx,
-  heightPx: map.heightPx,
-  grid: map.grid,
-  terrain: map.terrain,
-  spawns: map.spawns,
-  playerStarts: map.playerStarts,
-  ...(map.startView === undefined ? {} : { startView: map.startView }),
-  fogBase: map.fogBase,
-  showDoorIcons: map.showDoorIcons,
-  notes: map.notes,
-});
 
 @Component({
   selector: 'app-dm-shell',
@@ -159,9 +121,6 @@ const toMapDocument = (map: {
 export class DmShellPage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly campaignsApi = inject(CampaignService);
-  private readonly assetsApi = inject(AssetService);
-  private readonly lastCampaign = inject(LastCampaignService);
-  private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   public readonly sceneStore = inject(SceneStore);
   public readonly actions = inject(ActionStore);
@@ -176,7 +135,7 @@ export class DmShellPage implements OnInit {
   public readonly ui = inject(DmUiStore);
   public readonly session = inject(DmSessionStore);
   public readonly aux = inject(DmAuxStore);
-  private readonly mapsApi = inject(MapService);
+  public readonly campaign = inject(DmCampaignStore);
   private readonly realtime = inject(RealtimeService);
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
@@ -194,31 +153,31 @@ export class DmShellPage implements OnInit {
 
   public readonly campaignId = input<string>();
 
-  public readonly mode = signal<ShellMode>('loading');
-  public readonly activeScene = signal<Scene | null>(null);
+  public readonly mode = this.campaign.mode;
+  public readonly activeScene = this.campaign.activeScene;
   public readonly backgroundTransform = computed(
     () => this.activeScene()?.backgroundTransform ?? defaultBackgroundTransform,
   );
 
-  public readonly mapImage = signal<SceneMapImage | null>(null);
+  public readonly mapImage = this.campaign.mapImage;
   public readonly notice = this.ui.notice;
   public readonly statusMessage = this.ui.statusMessage;
   public readonly busy = this.ui.busy;
 
-  public readonly settingsOpen = signal(false);
-  public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
+  public readonly settingsOpen = this.campaign.settingsOpen;
+  public readonly newSceneFog = this.campaign.newSceneFog;
   public readonly fogConfirm = this.fog.fogConfirm;
   public readonly fogOverrideActive = this.fog.fogOverrideActive;
 
   public readonly takeTargetOpen = signal(false);
-  public readonly maps = signal<MapSummary[]>([]);
-  public readonly mapPickerOpen = signal(false);
-  public readonly mapsLoading = signal(false);
-  public readonly prepareMap = signal<MapSummary | null>(null);
-  public readonly prepareDoc = signal<MapDocument | null>(null);
-  public readonly prepareName = signal('');
-  public readonly prepareAssignments = signal<Record<string, string>>({});
-  public readonly prepareBusy = signal(false);
+  public readonly maps = this.campaign.maps;
+  public readonly mapPickerOpen = this.campaign.mapPickerOpen;
+  public readonly mapsLoading = this.campaign.mapsLoading;
+  public readonly prepareMap = this.campaign.prepareMap;
+  public readonly prepareDoc = this.campaign.prepareDoc;
+  public readonly prepareName = this.campaign.prepareName;
+  public readonly prepareAssignments = this.campaign.prepareAssignments;
+  public readonly prepareBusy = this.campaign.prepareBusy;
   public readonly sessionBusy = this.session.sessionBusy;
   public readonly aiEnabled = this.aux.aiEnabled;
   public readonly aiMessage = this.aux.aiMessage;
@@ -232,7 +191,7 @@ export class DmShellPage implements OnInit {
   public readonly rightOpen = this.layout.rightOpen;
   public readonly dockOpen = this.layout.dockOpen;
   public readonly dockTab = this.layout.dockTab;
-  public readonly diceOpen = signal(false);
+  public readonly diceOpen = this.campaign.diceOpen;
   public readonly sections = this.layout.sections;
 
   public readonly includePrivateNotes = this.aux.includePrivateNotes;
@@ -400,6 +359,8 @@ export class DmShellPage implements OnInit {
   };
 
   public ngOnInit(): void {
+    this.ui.reset();
+    this.campaign.reset();
     this.sceneTools.resetVolatile();
     window.addEventListener('keydown', this.onKeydown);
     this.presenceSubscription = this.realtime.presence$.subscribe((presence) => {
@@ -412,126 +373,16 @@ export class DmShellPage implements OnInit {
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('keydown', this.onKeydown);
       this.session.stopTimer();
-      this.ui.reset();
       this.regia.dispose();
       this.presenceSubscription?.unsubscribe();
       this.presenceSubscription = null;
       this.realtime.disconnect();
     });
-    void this.start();
-  }
-
-  private async start(): Promise<void> {
-    try {
-      const role = await this.auth.refresh();
-      if (role !== 'dm') {
-        this.mode.set('login');
-        return;
-      }
-      await this.openCampaign();
-    } catch {
-      this.mode.set('error');
-    }
-  }
-
-  private async openCampaign(): Promise<void> {
-    const campaigns = await this.shell.loadCampaigns();
-    const requested = this.campaignId();
-    const fromRoute = requested === undefined
-      ? undefined
-      : campaigns.find((campaign) => campaign.id === requested);
-    if (requested !== undefined && fromRoute === undefined) {
-      this.lastCampaign.clear();
-      this.ui.setNotice('La campagna richiesta non esiste più.');
-    }
-    const remembered = this.lastCampaign.read();
-    const target = fromRoute ?? campaigns.find((campaign) => campaign.id === remembered);
-    if (target !== undefined) {
-      await this.enterCampaign(target.id);
-      return;
-    }
-    this.mode.set(campaigns.length === 0 ? 'create' : 'choose');
+    void this.campaign.start(this.campaignId());
   }
 
   public async enterCampaign(id: string): Promise<void> {
-    this.ui.setBusy(true);
-    try {
-      const campaign = await this.shell.selectCampaign(id);
-      this.sceneTools.resetVolatile();
-      this.newSceneFog.set(campaign.fogDefault);
-      this.lastCampaign.write(campaign.id);
-      this.ui.setNotice(null);
-      this.layout.restore(campaign.id);
-      const scenes = await this.shell.loadScenes(campaign.id);
-      await this.shell.loadActors(campaign.id);
-      await this.regia.loadScreens(campaign.id);
-      await this.dice.load(campaign.id);
-      await this.regia.loadProgram(campaign.id);
-      this.realtime.connectDm(campaign.id);
-      await this.shell.loadSessions(campaign.id);
-      await this.aux.load();
-      const active = this.shell.activeSession();
-      this.session.sync(active);
-      const target = scenes.find((scene) => scene.id === campaign.activeSceneId) ?? scenes[0];
-      if (target !== undefined) {
-        if (campaign.activeSceneId !== target.id) {
-          const updated = await this.campaignsApi.patch(campaign.id, { activeSceneId: target.id });
-          this.shell.setActiveCampaign(updated);
-        }
-        await this.loadScene(target);
-      } else {
-        this.actions.stop();
-        this.activeScene.set(null);
-        this.mapImage.set(null);
-      }
-      if (this.campaignId() !== campaign.id) {
-        await this.router.navigate(['/dm/campaigns', campaign.id], { replaceUrl: true });
-      }
-      this.mode.set('ready');
-    } catch (error) {
-      this.lastCampaign.clear();
-      this.ui.setNotice(messageFor(error));
-      this.mode.set(this.shell.campaigns().length === 0 ? 'create' : 'choose');
-    } finally {
-      this.ui.setBusy(false);
-    }
-  }
-
-  private async loadScene(scene: Scene): Promise<void> {
-    this.activeScene.set(scene);
-    this.ui.setSelectedTokenId(null);
-    this.sceneTools.setMeasure(null);
-    this.sceneStore.clear();
-    await this.sceneStore.load(scene.id);
-    const campaign = this.shell.activeCampaign();
-    if (campaign !== null) {
-      this.actions.start(campaign.id, scene.id);
-      this.layout.restore(campaign.id);
-    }
-    await this.loadMapAsset(scene);
-  }
-
-  private async loadMapAsset(scene: Scene): Promise<void> {
-    if (scene.imageAssetId === null) {
-      this.mapImage.set(null);
-      return;
-    }
-    try {
-      const asset = await this.assetsApi.get(scene.imageAssetId);
-      this.mapImage.set({
-        url: asset.url,
-        previewUrl: asset.previewUrl,
-        hash: asset.hash,
-        width: scene.widthPx,
-        height: scene.heightPx,
-        imageWidth: asset.width,
-        imageHeight: asset.height,
-        tiled: isTiledMap(asset.width, asset.height),
-      });
-    } catch {
-      this.mapImage.set(null);
-      this.ui.setNotice('La mappa della scena non è disponibile.');
-    }
+    await this.campaign.enterCampaign(id, this.campaignId());
   }
 
   public async login(password: string): Promise<void> {
@@ -539,7 +390,7 @@ export class DmShellPage implements OnInit {
     try {
       const ok = await this.auth.login(password);
       if (ok) {
-        await this.openCampaign();
+        await this.campaign.openCampaign(this.campaignId());
       }
     } finally {
       this.ui.setBusy(false);
@@ -547,162 +398,39 @@ export class DmShellPage implements OnInit {
   }
 
   public async createCampaign(values: CreateCampaignValues): Promise<void> {
-    const name = values.name.trim();
-    if (name === '') {
-      return;
-    }
-    this.ui.setBusy(true);
-    try {
-      const created = await this.campaignsApi.create({
-        name,
-        description: values.description.trim(),
-        advancementMode: values.advancementMode,
-        fogDefault: 'hidden',
-      });
-      this.shell.addCampaign(created);
-      await this.enterCampaign(created.id);
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    } finally {
-      this.ui.setBusy(false);
-    }
+    await this.campaign.createCampaign(values);
   }
 
   public async createScene(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null) {
-      return;
-    }
-    this.ui.setBusy(true);
-    try {
-      const scene = await this.campaignsApi.createScene(campaign.id, {
-        name: `Scena ${this.shell.scenes().length + 1}`,
-        widthPx: 1920,
-        heightPx: 1080,
-        fogBase: this.newSceneFog(),
-      });
-      this.shell.prependScene(scene);
-      const refreshed = await this.campaignsApi.patch(campaign.id, { activeSceneId: scene.id });
-      this.shell.setActiveCampaign(refreshed);
-      this.ui.setStatusMessage(`Scena creata: ${scene.name}`);
-      await this.loadScene(scene);
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    } finally {
-      this.ui.setBusy(false);
-    }
+    await this.campaign.createScene();
   }
 
   public async selectScene(scene: Scene): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null || scene.id === this.activeScene()?.id) {
-      return;
-    }
-    this.ui.setStatusMessage(`Scena: ${scene.name}`);
-    try {
-      const updated = await this.campaignsApi.patch(campaign.id, { activeSceneId: scene.id });
-      this.shell.setActiveCampaign(updated);
-      await this.loadScene(scene);
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    }
+    await this.campaign.selectScene(scene);
   }
 
   public async openMapPicker(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null) {
-      return;
-    }
-    this.mapsLoading.set(true);
-    this.mapPickerOpen.set(true);
-    try {
-      this.maps.set(await this.mapsApi.list(campaign.id));
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    } finally {
-      this.mapsLoading.set(false);
-    }
+    await this.campaign.openMapPicker();
   }
 
   public closeMapPicker(): void {
-    this.mapPickerOpen.set(false);
+    this.campaign.closeMapPicker();
   }
 
   public async chooseMap(map: MapSummary): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null) {
-      return;
-    }
-    try {
-      const doc = await this.mapsApi.get(map.id);
-      this.prepareMap.set(map);
-      this.prepareDoc.set(toMapDocument(doc));
-      this.prepareName.set(doc.name);
-      const assignments: Record<string, string> = {};
-      const starts = doc.playerStarts;
-      this.partyPcs().forEach((actor, index) => {
-        const start = starts[index];
-        if (start !== undefined) {
-          assignments[actor.id] = start.id;
-        }
-      });
-      this.prepareAssignments.set(assignments);
-      this.mapPickerOpen.set(false);
-      this.ui.setNotice(null);
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    }
+    await this.campaign.chooseMap(map);
   }
 
   public closePrepare(): void {
-    this.prepareMap.set(null);
-    this.prepareDoc.set(null);
-    this.prepareAssignments.set({});
+    this.campaign.closePrepare();
   }
 
   public applyAssignment(change: PrepareSceneAssignment): void {
-    this.prepareAssignments.update((current) => {
-      const next = { ...current };
-      if (change.startId === '') {
-        delete next[change.actorId];
-      } else {
-        next[change.actorId] = change.startId;
-      }
-      return next;
-    });
+    this.campaign.applyAssignment(change);
   }
 
   public async startPreparedMap(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    const map = this.prepareMap();
-    if (campaign === null || map === null || this.prepareBusy()) {
-      return;
-    }
-    const assignments = this.prepareAssignments();
-    this.prepareBusy.set(true);
-    try {
-      const result = await this.mapsApi.createScene(campaign.id, {
-        mapId: map.id,
-        name: this.prepareName().trim() || map.name,
-        playerAssignments: Object.entries(assignments).map(([actorId, startId]) => ({
-          actorId,
-          startId,
-        })),
-      });
-      const updated = await this.campaignsApi.get(campaign.id);
-      this.shell.setActiveCampaign(updated);
-      const scenes = await this.shell.loadScenes(campaign.id);
-      const scene = scenes.find((entry) => entry.id === result.sceneId);
-      this.closePrepare();
-      if (scene !== undefined) {
-        await this.loadScene(scene);
-      }
-      this.ui.setStatusMessage(`Scena avviata: ${map.name}`);
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    } finally {
-      this.prepareBusy.set(false);
-    }
+    await this.campaign.startPreparedMap();
   }
 
   public async toggleDoor(wall: SceneState['terrain']['walls'][number]): Promise<void> {
@@ -891,13 +619,6 @@ export class DmShellPage implements OnInit {
 
   public async changeGridSize(event: Event): Promise<void> {
     await this.fog.changeGridSize(this.activeScene(), event);
-  }
-
-  public setNewSceneFog(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'hidden' || value === 'revealed') {
-      this.newSceneFog.set(value);
-    }
   }
 
   public setFogSoftness(event: Event): void {
