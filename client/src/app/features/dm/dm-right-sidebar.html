@@ -1,0 +1,62 @@
+<aside
+  class="dm-panel dm-panel--right"
+  [class.is-collapsed]="!layout.rightOpen()"
+  aria-label="Token in mappa"
+>
+  <div class="panel-head">
+    <span class="eyebrow panel-label">Scena</span>
+    <button
+      type="button"
+      class="panel-toggle"
+      [attr.aria-label]="layout.rightOpen() ? 'Riduci pannello scena' : 'Apri pannello scena'"
+      [title]="layout.rightOpen() ? 'Riduci' : 'Apri'"
+      (click)="toggleRight()"
+    >{{ layout.rightOpen() ? '›' : '‹' }}</button>
+  </div>
+  @if (layout.rightOpen()) {
+    <app-sidebar-section
+      id="tokens"
+      label="In mappa"
+      [open]="layout.sections().tokens"
+      [count]="tokens().length"
+      (toggled)="toggleSection('tokens')"
+    >
+      <app-token-list
+        [tokens]="tokens()"
+        [selectedTokenId]="ui.selectedTokenId()"
+        (center)="tokensStore.center($event)"
+        (changeHp)="changeTokenHp($event)"
+        (toggleVisibility)="toggleVisibility($event)"
+        (remove)="removeToken($event)"
+      />
+    </app-sidebar-section>
+
+    <app-sidebar-section
+      id="screens"
+      label="Schermi"
+      [open]="layout.sections().screens"
+      [count]="regia.screens().length"
+      (toggled)="toggleSection('screens')"
+    >
+      <app-screen-list
+        [screens]="regia.screens()"
+        [projectionLabel]="regia.projectionLabel"
+        [lastSeen]="regia.lastSeen"
+        (selectScreen)="regia.openScreenDialog($event)"
+      />
+    </app-sidebar-section>
+
+    <app-sidebar-section
+      id="devices"
+      label="Dispositivi"
+      [open]="layout.sections().devices"
+      (toggled)="toggleSection('devices')"
+    >
+      @defer (on idle) {
+        <app-auth-sessions-panel />
+      } @placeholder {
+        <p class="muted">Caricamento dispositivi.</p>
+      }
+    </app-sidebar-section>
+  }
+</aside>

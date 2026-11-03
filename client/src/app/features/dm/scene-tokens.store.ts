@@ -141,6 +141,12 @@ export const SceneTokensStore = signalStore(
         ui.setSelectedTokenId(tokenId);
       },
 
+      /** Seleziona il token e chiede al canvas di centrarlo. */
+      center(token: TokenState): void {
+        ui.setSelectedTokenId(token.id);
+        store.focusRequest.set(token.id);
+      },
+
       consumeFocus(): void {
         store.focusRequest.set(null);
       },

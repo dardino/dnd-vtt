@@ -1,0 +1,20 @@
+@use '../../../styles/mixins' as mx;
+@use './dm-panel.shared';
+
+:host {
+  display: contents;
+}
+
+.dm-panel--right {
+  border-left: var(--border-width) solid var(--color-border);
+}
+
+:host-context(.dm-layout--right-collapsed) .dm-panel--right {
+  align-items: center;
+}
+
+@include mx.respond('lg') {
+  :host {
+    display: none;
+  }
+}

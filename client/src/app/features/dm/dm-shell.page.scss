@@ -1,5 +1,6 @@
 @use '../../../styles/layout' as layout;
 @use '../../../styles/mixins' as mx;
+@use './dm-panel.shared';
 @use './form-dialog.shared';
 @use './initiative-actions.shared';
 
@@ -119,95 +120,12 @@
   --dm-right: 3.25rem;
 }
 
-.dm-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-3);
-  background: var(--color-bg-raised);
-
-  &--left {
-    border-right: var(--border-width) solid var(--color-border);
-  }
-
-  &--right {
-    border-left: var(--border-width) solid var(--color-border);
-  }
-
-  h2 {
-    font-size: var(--text-lg);
-    font-weight: 600;
-  }
+.dm-panel--left {
+  border-right: var(--border-width) solid var(--color-border);
 }
 
 .dm-layout--left-collapsed .dm-panel--left {
   align-items: center;
-}
-
-.dm-layout--right-collapsed .dm-panel--right {
-  align-items: center;
-}
-
-.dm-panel.is-collapsed {
-  align-items: center;
-  padding: var(--space-2) 0;
-  overflow: hidden;
-
-  h2,
-  p,
-  dl,
-  section,
-  ul {
-    display: none;
-  }
-
-  .panel-head {
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
-    height: 100%;
-    gap: var(--space-2);
-  }
-
-  .panel-label {
-    writing-mode: vertical-rl;
-    text-orientation: mixed;
-    transform: rotate(180deg);
-    white-space: nowrap;
-    letter-spacing: 0.08em;
-  }
-
-  .panel-toggle {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font-size: var(--text-lg);
-  }
-}
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.panel-toggle {
-  padding: 0 var(--space-1);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-
-  @include mx.hover {
-    &:hover {
-      color: var(--color-text);
-      background: var(--color-bg-hover);
-    }
-  }
 }
 
 .dm-main {
@@ -433,8 +351,7 @@
     grid-column: 1;
   }
 
-  .dm-panel--left,
-  .dm-panel--right {
+  .dm-panel--left {
     display: none;
   }
 }

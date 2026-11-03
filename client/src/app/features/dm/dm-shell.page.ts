@@ -45,7 +45,6 @@ import { Button } from '../../components/button/button';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
-import { AuthSessionsPanel } from './auth-sessions-panel';
 import { CharacterSlots } from './character-slots';
 import { ChooseCampaignDialog } from './choose-campaign-dialog';
 import {
@@ -57,6 +56,7 @@ import { DmCampaignStore } from './dm-campaign.store';
 import { DmCanvasController } from './dm-canvas.controller';
 import { DmDock, type DockTab } from './dm-dock';
 import { DmLayoutStore, type SidebarSectionId } from './dm-layout.store';
+import { DmRightSidebar } from './dm-right-sidebar';
 import { DmScreensStore } from './dm-screens.store';
 import { DmSessionStore } from './dm-session.store';
 import { DmStatusbar } from './dm-statusbar';
@@ -75,12 +75,10 @@ import { SceneFogStore } from './scene-fog.store';
 import { SceneToolbar } from './scene-toolbar';
 import { SceneTokensStore } from './scene-tokens.store';
 import { SceneToolsStore } from './scene-tools.store';
-import { ScreenList } from './screen-list';
 import { ScreenViewerDialog } from './screen-viewer-dialog';
 import { SessionCard } from './session-card';
 import { SidebarSection } from './sidebar-section';
 import { TakeTargetDialog } from './take-target-dialog';
-import { TokenList } from './token-list';
 import {
   SceneCanvasComponent,
   type ActorDropEvent,
@@ -92,12 +90,12 @@ import {
   selector: 'app-dm-shell',
   imports: [
     ActorList,
-    AuthSessionsPanel,
     Button,
     CharacterSlots,
     ChooseCampaignDialog,
     CreateCampaignDialog,
     DmDock,
+    DmRightSidebar,
     DmStatusbar,
     FogConfirmDialog,
     LoginDialog,
@@ -109,12 +107,10 @@ import {
     SceneList,
     SceneToolbar,
     DiceOverlayComponent,
-    ScreenList,
     ScreenViewerDialog,
     SessionCard,
     SidebarSection,
     TakeTargetDialog,
-    TokenList,
   ],
   templateUrl: './dm-shell.page.html',
   styleUrl: './dm-shell.page.scss',
@@ -500,16 +496,9 @@ export class DmShellPage implements OnInit {
     this.canvasController.measured(measure);
   }
 
-  private persistLayout(): void {
-    const campaign = this.shell.activeCampaign();
-    if (campaign !== null) {
-      this.layout.persist(campaign.id);
-    }
-  }
-
   public setDockTab(tab: DockTab): void {
     this.layout.setDockTab(tab);
-    this.persistLayout();
+    this.layout.persistActive();
     const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
@@ -570,10 +559,6 @@ export class DmShellPage implements OnInit {
     await this.tokensStore.endInitiative(scene);
   }
 
-  public async changeTokenHp(token: TokenState, delta: number): Promise<void> {
-    await this.tokensStore.changeTokenHp(this.activeScene()?.id ?? null, token, delta);
-  }
-
   public readonly tokenHp = this.tokensStore.tokenHp;
 
   public async undoLast(): Promise<void> {
@@ -610,19 +595,6 @@ export class DmShellPage implements OnInit {
 
   public onTokenSelected(tokenId: string | null): void {
     this.tokensStore.select(tokenId);
-  }
-
-  public async toggleTokenVisibility(token: TokenState): Promise<void> {
-    await this.tokensStore.toggleVisibility(this.activeScene()?.id ?? null, token);
-  }
-
-  public async removeToken(token: TokenState): Promise<void> {
-    await this.tokensStore.remove(this.activeScene()?.id ?? null, token);
-  }
-
-  public centerToken(token: TokenState): void {
-    this.tokensStore.select(token.id);
-    this.tokensStore.focusRequest.set(token.id);
   }
 
   public async changeGridType(event: Event): Promise<void> {
@@ -720,7 +692,7 @@ export class DmShellPage implements OnInit {
   public selectActor(actor: Actor): void {
     const token = this.tokens().find((entry) => entry.actorId === actor.id);
     if (token !== undefined) {
-      this.centerToken(token);
+      this.tokensStore.center(token);
     } else {
       this.ui.setStatusMessage(`${actor.name}: trascina lo slot sulla mappa per schierarlo.`);
     }
@@ -745,32 +717,21 @@ export class DmShellPage implements OnInit {
 
   public toggleLeft(): void {
     this.layout.toggleLeft();
-    this.persistLayout();
+    this.layout.persistActive();
   }
 
   public toggleSection(section: SidebarSectionId): void {
-    const opening = this.layout.toggleSection(section);
-    this.persistLayout();
-    if (opening && section === 'screens') {
-      const campaign = this.shell.activeCampaign();
-      if (campaign !== null) {
-        void this.regia.loadScreens(campaign.id);
-      }
-    }
+    this.layout.toggleSection(section);
+    this.layout.persistActive();
   }
 
   public isSectionOpen(section: SidebarSectionId): boolean {
     return this.layout.sections()[section];
   }
 
-  public toggleRight(): void {
-    this.layout.toggleRight();
-    this.persistLayout();
-  }
-
   public toggleDock(): void {
     this.layout.toggleDock();
-    this.persistLayout();
+    this.layout.persistActive();
   }
 
   public async syncNow(): Promise<void> {

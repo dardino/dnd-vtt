@@ -396,64 +396,7 @@
       }
     </main>
 
-    <aside class="dm-panel dm-panel--right" [class.is-collapsed]="!rightOpen()" aria-label="Token in mappa">
-      <div class="panel-head">
-        <span class="eyebrow panel-label">Scena</span>
-        <button
-          type="button"
-          class="panel-toggle"
-          [attr.aria-label]="rightOpen() ? 'Riduci pannello scena' : 'Apri pannello scena'"
-          [title]="rightOpen() ? 'Riduci' : 'Apri'"
-          (click)="toggleRight()"
-        >{{ rightOpen() ? '›' : '‹' }}</button>
-      </div>
-      @if (rightOpen()) {
-        <app-sidebar-section
-          id="tokens"
-          label="In mappa"
-          [open]="isSectionOpen('tokens')"
-          [count]="tokens().length"
-          (toggled)="toggleSection('tokens')"
-        >
-          <app-token-list
-            [tokens]="tokens()"
-            [selectedTokenId]="selectedTokenId()"
-            (center)="centerToken($event)"
-            (changeHp)="changeTokenHp($event.token, $event.delta)"
-            (toggleVisibility)="toggleTokenVisibility($event)"
-            (remove)="removeToken($event)"
-          />
-        </app-sidebar-section>
-
-        <app-sidebar-section
-          id="screens"
-          label="Schermi"
-          [open]="isSectionOpen('screens')"
-          [count]="regia.screens().length"
-          (toggled)="toggleSection('screens')"
-        >
-          <app-screen-list
-            [screens]="regia.screens()"
-            [projectionLabel]="regia.projectionLabel"
-            [lastSeen]="regia.lastSeen"
-            (selectScreen)="regia.openScreenDialog($event)"
-          />
-        </app-sidebar-section>
-
-        <app-sidebar-section
-          id="devices"
-          label="Dispositivi"
-          [open]="isSectionOpen('devices')"
-          (toggled)="toggleSection('devices')"
-        >
-              @defer (on idle) {
-                <app-auth-sessions-panel />
-              } @placeholder {
-                <p class="muted">Caricamento dispositivi.</p>
-              }
-        </app-sidebar-section>
-      }
-    </aside>
+    <app-dm-right-sidebar />
 
     <app-character-slots
       [slots]="slots()"

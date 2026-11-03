@@ -1,4 +1,6 @@
+import { inject } from '@angular/core';
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
+import { CampaignShellStore } from './campaign-shell.store';
 import { DOCK_TABS, type DockTab } from './dm-dock';
 
 export type SidebarSectionId = 'campaign' | 'scenes' | 'grid' | 'fog' | 'scenography' | 'actors' | 'ai' | 'screens' | 'devices' | 'tokens';
@@ -58,8 +60,27 @@ export const DmLayoutStore = signalStore(
   { providedIn: 'root' },
   withState(defaultDmLayout),
   withMethods((store) => {
+    const shell = inject(CampaignShellStore);
+
     const storageKey = (campaignId: string): string =>
       `${PANEL_STORAGE_PREFIX}${campaignId}`;
+
+    const persist = (campaignId: string): void => {
+      try {
+        localStorage.setItem(
+          storageKey(campaignId),
+          JSON.stringify({
+            left: store.leftOpen(),
+            right: store.rightOpen(),
+            dock: store.dockOpen(),
+            tab: store.dockTab(),
+            sections: store.sections(),
+          }),
+        );
+      } catch {
+        // localStorage può essere disabilitato: i pannelli valgono per la sessione.
+      }
+    };
 
     return {
       toggleLeft(): void {
@@ -128,22 +149,15 @@ export const DmLayoutStore = signalStore(
         }
       },
 
-      persist(campaignId: string): void {
-        try {
-          localStorage.setItem(
-            storageKey(campaignId),
-            JSON.stringify({
-              left: store.leftOpen(),
-              right: store.rightOpen(),
-              dock: store.dockOpen(),
-              tab: store.dockTab(),
-              sections: store.sections(),
-            }),
-          );
-        } catch {
-          // localStorage può essere disabilitato: i pannelli valgono per la sessione.
+      /** Persiste le preferenze della campagna attiva, se ce n'è una. */
+      persistActive(): void {
+        const campaign = shell.activeCampaign();
+        if (campaign !== null) {
+          persist(campaign.id);
         }
       },
+
+      persist,
     };
   }),
 );
