@@ -7,6 +7,7 @@
     </div>
 
     @let formulaError = diceForm.formula().touched() ? diceForm.formula().errors()[0] : undefined;
+    @let modifierError = diceForm.modifier().touched() ? diceForm.modifier().errors()[0] : undefined;
 
     <div class="dice__controls">
       <label class="field">
@@ -21,11 +22,17 @@
       </label>
       <label class="field field--small">
         <span>Modificatore</span>
-        <input type="number" [value]="modifier()" (input)="setModifier($event)" />
+        <input
+          type="number"
+          step="1"
+          [formField]="diceForm.modifier"
+          [attr.aria-invalid]="diceForm.modifier().touched() ? diceForm.modifier().invalid() : null"
+          [attr.aria-describedby]="modifierError ? 'dice-modifier-error' : null"
+        />
       </label>
       <label class="field">
         <span>Modo</span>
-        <select [value]="mode()" (change)="setMode($event)">
+        <select [formField]="diceForm.mode">
           <option value="normal">Normale</option>
           <option value="advantage">Vantaggio</option>
           <option value="disadvantage">Svantaggio</option>
@@ -33,7 +40,7 @@
       </label>
       <label class="field">
         <span>Visibilità</span>
-        <select [value]="visibility()" (change)="setVisibility($event)">
+        <select [formField]="diceForm.visibility">
           <option value="public">Pubblico</option>
           <option value="dm">Solo DM</option>
         </select>
@@ -42,6 +49,10 @@
 
     @if (formulaError; as error) {
       <p id="dice-formula-error" class="dice__error" role="alert">{{ error.message }}</p>
+    }
+
+    @if (modifierError; as error) {
+      <p id="dice-modifier-error" class="dice__error" role="alert">{{ error.message }}</p>
     }
 
     <button type="button" class="dice__roll" [disabled]="store.rolling()" (click)="roll()">

@@ -1,7 +1,12 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormField, form, required, submit, validate } from '@angular/forms/signals';
 import type { DiceMode, DiceRoll, DiceVisibility } from '@dnd-vtt/shared';
-import { DiceFormulaError, parseFormula } from '@dnd-vtt/shared';
+import {
+  DiceFormulaError,
+  diceModeSchema,
+  diceVisibilitySchema,
+  parseFormula,
+} from '@dnd-vtt/shared';
 import { DiceStore } from '../../core/dice.store';
 import { Dialog } from '../../components/dialog/dialog';
 
@@ -9,7 +14,17 @@ const QUICK_DICE = [4, 6, 8, 10, 12, 20, 100] as const;
 
 interface DiceFormModel {
   formula: string;
+  modifier: number | null;
+  mode: DiceMode;
+  visibility: DiceVisibility;
 }
+
+const initialDiceForm = (): DiceFormModel => ({
+  formula: '1d20',
+  modifier: 0,
+  mode: 'normal',
+  visibility: 'public',
+});
 
 @Component({
   selector: 'app-dice-overlay',
@@ -28,13 +43,9 @@ export class DiceOverlayComponent {
 
   public readonly store = inject(DiceStore);
   public readonly quickDice = QUICK_DICE;
-  public readonly modifier = signal(0);
-  public readonly mode = signal<DiceMode>('normal');
-  public readonly visibility = signal<DiceVisibility>('public');
   public readonly result = computed(() => this.store.last());
 
-  // PoC B1: il campo formula usa Signal Forms; gli altri controlli restano signal semplici.
-  private readonly model = signal<DiceFormModel>({ formula: '1d20' });
+  private readonly model = signal<DiceFormModel>(initialDiceForm());
   public readonly diceForm = form(this.model, (path) => {
     required(path.formula, { message: 'Inserisci una formula' });
     validate(path.formula, ({ value }) => {
@@ -48,26 +59,24 @@ export class DiceOverlayComponent {
         };
       }
     });
+    validate(path.modifier, ({ value }) => {
+      const raw = value();
+      if (raw === null || raw === undefined) {
+        return null;
+      }
+      return Number.isFinite(raw) && Number.isInteger(raw)
+        ? null
+        : { kind: 'modifier', message: 'Inserisci un modificatore intero' };
+    });
+    validate(path.mode, ({ value }) =>
+      diceModeSchema.safeParse(value()).success
+        ? null
+        : { kind: 'mode', message: 'Scegli un modo valido' });
+    validate(path.visibility, ({ value }) =>
+      diceVisibilitySchema.safeParse(value()).success
+        ? null
+        : { kind: 'visibility', message: 'Scegli una visibilità valida' });
   });
-
-  public setModifier(event: Event): void {
-    const value = Number((event.target as HTMLInputElement).value);
-    this.modifier.set(Number.isFinite(value) ? Math.trunc(value) : 0);
-  }
-
-  public setMode(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'normal' || value === 'advantage' || value === 'disadvantage') {
-      this.mode.set(value);
-    }
-  }
-
-  public setVisibility(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'public' || value === 'dm') {
-      this.visibility.set(value);
-    }
-  }
 
   public quickDie(sides: number): void {
     this.diceForm.formula().value.set(`1d${sides}`);
@@ -77,12 +86,12 @@ export class DiceOverlayComponent {
     await submit(this.diceForm, {
       action: async () => {
         const base = this.diceForm.formula().value().trim();
-        const modifier = this.modifier();
+        const modifier = this.diceForm.modifier().value() ?? 0;
         const formula = modifier === 0 ? base : `${base}${modifier > 0 ? '+' : ''}${modifier}`;
         const result = await this.store.roll(this.campaignId(), {
           formula,
-          mode: this.mode(),
-          visibility: this.visibility(),
+          mode: this.diceForm.mode().value(),
+          visibility: this.diceForm.visibility().value(),
           ...(this.sceneId() === null ? {} : { sceneId: this.sceneId() ?? undefined }),
           ...(this.tokenId() === null ? {} : { tokenId: this.tokenId() ?? undefined }),
         });
