@@ -1,5 +1,4 @@
 import {
-  deriveSheet,
   playerEditableFieldSchema,
   type Actor,
   type CreatePlayerLinkResult,
@@ -8,6 +7,7 @@ import {
   type PlayerSheetPatch,
   type PlayerSheetView,
 } from '@dnd-vtt/shared';
+import { sheetViewBase } from '../actors/sheet-view.js';
 import type { AppDatabase } from '../db/client.js';
 import { getCampaign } from '../db/campaigns.repository.js';
 import {
@@ -48,13 +48,8 @@ const viewFor = (db: AppDatabase, link: PlayerLink): PlayerSheetView => {
     .filter((field): field is PlayerEditableField =>
       (playerEditableFieldSchema.options as string[]).includes(field));
   return {
-    actor: playerActor(actor),
-    statblock: actor.statblock,
-    derived: deriveSheet({ statblock: actor.statblock, equipped: actor.statblock.snapshot.items }),
-    inventory: actor.statblock.snapshot.items,
+    ...sheetViewBase(playerActor(actor), { id: campaign.id, name: campaign.name }),
     playerNotes: row.playerNotes ?? '',
-    sheetVersion: actor.sheetVersion,
-    campaign: { id: campaign.id, name: campaign.name },
     editingEnabled: link.editingEnabled,
     editable,
     autoApprove: campaign.autoApprove,

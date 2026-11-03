@@ -82,6 +82,8 @@ const sheetView = (): DmSheetView => {
     derived: null,
     inventory: [],
     sheetVersion: 1,
+    campaign: { id: CAMPAIGN_ID, name: 'Campagna di prova' },
+    dmNotes: null,
   };
 };
 

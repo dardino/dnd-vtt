@@ -149,12 +149,33 @@ export const levelUpPreviewSchema = z.strictObject({
 });
 export type LevelUpPreview = z.infer<typeof levelUpPreviewSchema>;
 
-export const dmSheetViewSchema = z.strictObject({
-  actor: actorSchema,
+export const publicActorSchema = actorSchema.omit({ dmNotes: true });
+export type PublicActor = z.infer<typeof publicActorSchema>;
+
+export const sheetCampaignSchema = z.strictObject({
+  id: z.string().uuid(),
+  name: z.string(),
+});
+export type SheetCampaign = z.infer<typeof sheetCampaignSchema>;
+
+/**
+ * Proiezione comune alle due schede: i campi qui sotto non vanno duplicati
+ * nelle viste DM e giocatore, che aggiungono solo ciò che è specifico del ruolo.
+ */
+export const sheetViewBaseSchema = z.strictObject({
+  actor: publicActorSchema,
   statblock: actorStatblockSchema,
   derived: derivedSheetSchema.nullable(),
   inventory: z.array(resolvedItemSchema),
   sheetVersion: z.number().int().min(1),
+  campaign: sheetCampaignSchema.nullable(),
+});
+export type SheetViewBase = z.infer<typeof sheetViewBaseSchema>;
+
+export const dmSheetViewSchema = sheetViewBaseSchema.extend({
+  /** L'attore completo conserva `dmNotes`; la vista la espone anche in chiaro. */
+  actor: actorSchema,
+  dmNotes: z.string().nullable(),
 });
 export type DmSheetView = z.infer<typeof dmSheetViewSchema>;
 
@@ -174,17 +195,9 @@ export const playerEditableFieldSchema = z.enum([
 ]);
 export type PlayerEditableField = z.infer<typeof playerEditableFieldSchema>;
 
-export const publicActorSchema = actorSchema.omit({ dmNotes: true });
-export type PublicActor = z.infer<typeof publicActorSchema>;
-
-export const playerSheetViewSchema = z.strictObject({
-  actor: publicActorSchema,
-  statblock: actorStatblockSchema,
-  derived: derivedSheetSchema.nullable(),
-  inventory: z.array(resolvedItemSchema),
+export const playerSheetViewSchema = sheetViewBaseSchema.extend({
+  campaign: sheetCampaignSchema,
   playerNotes: z.string(),
-  sheetVersion: z.number().int().min(1),
-  campaign: z.strictObject({ id: z.string().uuid(), name: z.string() }),
   editingEnabled: z.boolean(),
   editable: z.array(playerEditableFieldSchema),
   autoApprove: z.boolean(),

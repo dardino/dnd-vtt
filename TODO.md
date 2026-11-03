@@ -54,13 +54,15 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Fatto quando:** un errore non gestito mostra un toast; un solo punto di traduzione HTTP.
   - **Stato:** `ToastService` + container e `GlobalErrorHandler` fatti (1 novembre 2026); restano le mappature locali in store/feature.
 
-- [ ] **A5 — Regole di dominio residue in `shared`** · M
+- [x] **A5 — Regole di dominio residue in `shared`** · M
   - **Problema:** `buildFeatures`/`classFeatures`, slot incantesimo, `startView`/`mapView`/`viewport`, envelope paginato, lista skill, `mime` immagini e viste `DmSheetView`/`PlayerSheetView` hanno ancora copie.
   - **Proposta:** estrarre `classFeaturesFor`, `spellSlotsFor`, `viewSchema`, `paginatedSchema(item)`, `skillsTuple`, `imageMimeSchema`; derivare le due viste da una base comune.
   - **Fatto quando:** una sola implementazione per regola, con test condivisi.
-  - **Stato:** `classFeaturesFor`/`spellSlotsFor` condivisi con test; viste, envelope paginato, skill e `mime` estratti e coperti da test (A5b, 3 novembre 2026). Restano le viste `DmSheetView`/`PlayerSheetView`.
+  - **Stato:** `classFeaturesFor`/`spellSlotsFor` condivisi con test; viste, envelope paginato, skill e `mime` estratti e coperti da test (A5b, 3 novembre 2026); `DmSheetView`/`PlayerSheetView` derivano da `sheetViewBaseSchema` con mapper comune (A5c, 3 novembre 2026).
   - **A5b — Test condivisi per viste, envelope, skill e `mime`** · S — ✅ 3 novembre 2026
     - `shared/src/schemas/common.spec.ts`: default/validazione di `viewSchema`, `paginatedSchema(item)`, 18 skill in ordine canonico con bonus, `imageMimeSchema` con rifiuto di SVG.
+  - **A5c — Base comune per le viste scheda** · S — ✅ 3 novembre 2026
+    - `sheetViewBaseSchema` con campi condivisi; DM aggiunge `dmNotes`, il giocatore `playerNotes`/`editingEnabled`/`editable`/`autoApprove`; mapper `server/src/actors/sheet-view.ts` usato da entrambi i service, con test shared/server.
 
 ## 2. Performance (P1)
 

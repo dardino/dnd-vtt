@@ -1,6 +1,5 @@
 import {
   buildPcStatblock,
-  deriveSheet,
   validatePcBuild,
   type Actor,
   type CreatePc,
@@ -17,6 +16,7 @@ import {
 import { AppError, notFound } from '../errors.js';
 import { SrdVersionUnknownError, loadSrdCatalog } from '../srd/load.js';
 import type { RollStats } from './roll-stats.js';
+import { sheetViewBase } from './sheet-view.js';
 import { updateTokensForActor } from './token-sync.js';
 
 export const createPc = (
@@ -74,24 +74,11 @@ export const getDmSheet = (db: AppDatabase, actorId: string): DmSheetView => {
   if (actor === null) {
     throw notFound('Attore non trovato');
   }
-  if (actor.statblock.kind === 'pc') {
-    return {
-      actor,
-      statblock: actor.statblock,
-      derived: deriveSheet({
-        statblock: actor.statblock,
-        equipped: actor.statblock.snapshot.items,
-      }),
-      inventory: actor.statblock.snapshot.items,
-      sheetVersion: actor.sheetVersion,
-    };
-  }
+  const campaign = actor.campaignId === null ? null : getCampaign(db, actor.campaignId);
+  const campaignRef = campaign === null ? null : { id: campaign.id, name: campaign.name };
   return {
-    actor,
-    statblock: actor.statblock,
-    derived: null,
-    inventory: [],
-    sheetVersion: actor.sheetVersion,
+    ...sheetViewBase(actor, campaignRef),
+    dmNotes: actor.dmNotes,
   };
 };
 
