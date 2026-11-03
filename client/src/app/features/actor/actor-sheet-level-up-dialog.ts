@@ -4,6 +4,7 @@ import {
   input,
   output,
 } from '@angular/core';
+import { FormField, type FieldTree } from '@angular/forms/signals';
 import type {
   Ability,
   LevelUpPreview,
@@ -38,7 +39,7 @@ export interface LevelUpFeatOption {
 
 @Component({
   selector: 'app-actor-sheet-level-up-dialog',
-  imports: [Dialog],
+  imports: [Dialog, FormField],
   templateUrl: './actor-sheet-level-up-dialog.html',
   styleUrl: './actor-sheet-level-up-dialog.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -55,48 +56,14 @@ export class ActorSheetLevelUpDialog {
   public readonly preview = input<LevelUpPreview | null>(null);
   public readonly error = input<string | null>(null);
   public readonly busy = input(false);
-  public readonly form = input.required<LevelUpFormState>();
+  public readonly form = input.required<FieldTree<LevelUpFormState>>();
 
   public readonly closed = output<void>();
-  public readonly formChange = output<LevelUpFormState>();
   public readonly previewRequest = output<void>();
   public readonly confirmRequest = output<void>();
 
   public close(): void {
     this.closed.emit();
-  }
-
-  public setHpMethod(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'average' || value === 'roll') {
-      this.patch({ hpMethod: value });
-    }
-  }
-
-  public setHpRoll(event: Event): void {
-    this.patch({
-      hpRoll: Math.max(1, Math.trunc(Number((event.target as HTMLInputElement).value))),
-    });
-  }
-
-  public setSubclass(event: Event): void {
-    this.patch({ subclass: (event.target as HTMLSelectElement).value });
-  }
-
-  public setAsiPrimary(event: Event): void {
-    this.patch({ asiPrimary: (event.target as HTMLSelectElement).value as Ability });
-  }
-
-  public setAsiSecondary(event: Event): void {
-    this.patch({ asiSecondary: (event.target as HTMLSelectElement).value as Ability });
-  }
-
-  public setAsiSplit(event: Event): void {
-    this.patch({ asiSplit: (event.target as HTMLInputElement).checked });
-  }
-
-  public setFeat(event: Event): void {
-    this.patch({ feat: (event.target as HTMLSelectElement).value });
   }
 
   public requestPreview(): void {
@@ -105,9 +72,5 @@ export class ActorSheetLevelUpDialog {
 
   public requestConfirm(): void {
     this.confirmRequest.emit();
-  }
-
-  private patch(partial: Partial<LevelUpFormState>): void {
-    this.formChange.emit({ ...this.form(), ...partial });
   }
 }

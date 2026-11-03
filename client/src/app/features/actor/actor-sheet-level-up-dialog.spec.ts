@@ -1,4 +1,6 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { form, required, validate, type FieldTree } from '@angular/forms/signals';
 import type { LevelUpPreview, PcStatblock } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -6,7 +8,7 @@ import {
   type LevelUpFormState,
 } from './actor-sheet-level-up-dialog';
 
-const form = (overrides: Partial<LevelUpFormState> = {}): LevelUpFormState => ({
+const formState = (overrides: Partial<LevelUpFormState> = {}): LevelUpFormState => ({
   hpMethod: 'average',
   hpRoll: 6,
   subclass: '',
@@ -16,6 +18,30 @@ const form = (overrides: Partial<LevelUpFormState> = {}): LevelUpFormState => ({
   feat: '',
   ...overrides,
 });
+
+const createField = (
+  state: LevelUpFormState,
+  options: { die?: number } = {},
+): FieldTree<LevelUpFormState> => TestBed.runInInjectionContext(() =>
+  form(signal(state), (path) => {
+    validate(path.hpRoll, ({ value, valueOf }) => {
+      if (valueOf(path.hpMethod) !== 'roll') {
+        return null;
+      }
+      const die = options.die ?? 10;
+      if (value() < 1) {
+        return { kind: 'min', message: 'Il tiro deve essere almeno 1.' };
+      }
+      if (value() > die) {
+        return {
+          kind: 'max',
+          message: `Il tiro non può superare il dado vita (d${die}).`,
+        };
+      }
+      return null;
+    });
+    required(path.subclass, { message: 'Scegli una sottoclasse.' });
+  }));
 
 const character = (): PcStatblock => ({
   kind: 'pc',
@@ -92,10 +118,12 @@ describe('ActorSheetLevelUpDialog', () => {
     isAsi?: boolean;
     feats?: readonly { id: string; name: string }[];
     state?: LevelUpFormState;
+    field?: FieldTree<LevelUpFormState>;
     result?: LevelUpPreview | null;
     error?: string | null;
     busy?: boolean;
   } = {}) => {
+    const field = options.field ?? createField(options.state ?? formState());
     const fixture = TestBed.createComponent(ActorSheetLevelUpDialog);
     fixture.componentRef.setInput('open', options.open ?? true);
     fixture.componentRef.setInput('character', options.stats === undefined ? character() : options.stats);
@@ -112,9 +140,9 @@ describe('ActorSheetLevelUpDialog', () => {
     fixture.componentRef.setInput('preview', options.result ?? null);
     fixture.componentRef.setInput('error', options.error ?? null);
     fixture.componentRef.setInput('busy', options.busy ?? false);
-    fixture.componentRef.setInput('form', options.state ?? form());
+    fixture.componentRef.setInput('form', field);
     fixture.detectChanges();
-    return fixture;
+    return { fixture, field };
   };
 
   const buttonByText = (root: HTMLElement, text: string): HTMLButtonElement => {
@@ -126,8 +154,8 @@ describe('ActorSheetLevelUpDialog', () => {
     return button;
   };
 
-  it('mostra livello, XP e i punti ferita medi', () => {
-    const fixture = create();
+  it('mostra livello, XP e i punti ferita medi con il valore iniziale del form', () => {
+    const { fixture, field } = create();
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.textContent).toContain('Livello 1');
@@ -135,60 +163,117 @@ describe('ActorSheetLevelUpDialog', () => {
     expect(root.textContent).toContain('XP 100');
     expect(root.textContent).toContain('Media (6)');
     expect(root.querySelector('input[type="number"]')).toBeNull();
+    expect(field.hpMethod().value()).toBe('average');
+    expect(field.hpMethod().dirty()).toBe(false);
   });
 
-  it('emette formChange quando cambia il metodo dei punti ferita', () => {
-    const fixture = create();
+  it('aggiorna il form al cambio del metodo dei punti ferita', () => {
+    const { fixture, field } = create();
     const root = fixture.nativeElement as HTMLElement;
-    const changes: LevelUpFormState[] = [];
-    fixture.componentInstance.formChange.subscribe((state) => changes.push(state));
 
-    const select = root.querySelector('select') as HTMLSelectElement;
+    const select = root.querySelector('#level-up-hp-method') as HTMLSelectElement;
     select.value = 'roll';
-    select.dispatchEvent(new Event('change'));
+    select.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
 
-    expect(changes).toEqual([form({ hpMethod: 'roll' })]);
+    expect(field.hpMethod().value()).toBe('roll');
+    expect(field.hpMethod().dirty()).toBe(true);
+    const input = root.querySelector('#level-up-hp-roll') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe('6');
   });
 
-  it('mostra il tiro del dado quando il metodo è roll', () => {
-    const fixture = create({ state: form({ hpMethod: 'roll', hpRoll: 7 }) });
+  it('mostra e aggiorna il tiro del dado quando il metodo è roll', () => {
+    const { fixture, field } = create({ state: formState({ hpMethod: 'roll', hpRoll: 7 }) });
     const root = fixture.nativeElement as HTMLElement;
+    const input = root.querySelector('#level-up-hp-roll') as HTMLInputElement;
 
     expect(root.textContent).toContain('Tiro d10');
-    expect((root.querySelector('input[type="number"]') as HTMLInputElement).value).toBe('7');
+    expect(input.value).toBe('7');
+
+    input.value = '9';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(field.hpRoll().value()).toBe(9);
+    expect(field.hpRoll().dirty()).toBe(true);
   });
 
-  it('emette formChange per talento e aumento di caratteristica', () => {
-    const fixture = create({
+  it('mostra l errore del tiro solo dopo touched e aggiorna la a11y', () => {
+    const { fixture } = create({ state: formState({ hpMethod: 'roll', hpRoll: 12 }) });
+    const root = fixture.nativeElement as HTMLElement;
+    const input = root.querySelector('#level-up-hp-roll') as HTMLInputElement;
+
+    expect(root.textContent).not.toContain('Il tiro non può superare il dado vita');
+    expect(input.hasAttribute('aria-invalid')).toBe(false);
+    expect(input.getAttribute('aria-describedby')).toBeNull();
+
+    input.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('Il tiro non può superare il dado vita (d10).');
+    expect(input.getAttribute('aria-invalid')).toBe('true');
+    expect(input.getAttribute('aria-describedby')).toBe('level-up-hp-roll-error');
+
+    const alert = root.querySelector('#level-up-hp-roll-error');
+    expect(alert?.getAttribute('role')).toBe('alert');
+  });
+
+  it('richiede la sottoclasse quando serve e segnala l errore dopo touched', () => {
+    const { fixture } = create({
+      needsSubclass: true,
+      subclasses: [{ id: 'battle-master', name: 'Maestro di battaglia' }],
+    });
+    const root = fixture.nativeElement as HTMLElement;
+    const select = root.querySelector('#level-up-subclass') as HTMLSelectElement;
+
+    expect(select.value).toBe('');
+    expect(root.textContent).not.toContain('Scegli una sottoclasse.');
+    expect(select.hasAttribute('aria-invalid')).toBe(false);
+
+    select.dispatchEvent(new Event('blur'));
+    fixture.detectChanges();
+
+    expect(root.textContent).toContain('Scegli una sottoclasse.');
+    expect(select.getAttribute('aria-invalid')).toBe('true');
+    expect(select.getAttribute('aria-describedby')).toBe('level-up-subclass-error');
+  });
+
+  it('aggiorna talento e aumento di caratteristica tramite il form', () => {
+    const { fixture, field } = create({
       isAsi: true,
       feats: [{ id: 'great-weapon', name: 'Maestro d’armi' }],
     });
     const root = fixture.nativeElement as HTMLElement;
-    const changes: LevelUpFormState[] = [];
-    fixture.componentInstance.formChange.subscribe((state) => changes.push(state));
 
-    const featSelect = root.querySelectorAll('select')[1] as HTMLSelectElement;
-    featSelect.value = 'great-weapon';
-    featSelect.dispatchEvent(new Event('change'));
-
-    const abilitySelects = root.querySelectorAll('select');
-    const primary = abilitySelects[2] as HTMLSelectElement;
+    const primary = root.querySelector('#level-up-asi-primary') as HTMLSelectElement;
     primary.value = 'dex';
-    primary.dispatchEvent(new Event('change'));
+    primary.dispatchEvent(new Event('input'));
 
-    const split = root.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    const split = root.querySelector('#level-up-asi-split') as HTMLInputElement;
     split.checked = true;
-    split.dispatchEvent(new Event('change'));
+    split.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
 
-    expect(changes).toEqual([
-      form({ feat: 'great-weapon' }),
-      form({ asiPrimary: 'dex' }),
-      form({ asiSplit: true }),
-    ]);
+    const secondary = root.querySelector('#level-up-asi-secondary') as HTMLSelectElement;
+    secondary.value = 'str';
+    secondary.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    const featSelect = root.querySelector('#level-up-feat') as HTMLSelectElement;
+    featSelect.value = 'great-weapon';
+    featSelect.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(field.asiPrimary().value()).toBe('dex');
+    expect(field.asiSplit().value()).toBe(true);
+    expect(field.asiSecondary().value()).toBe('str');
+    expect(field.feat().value()).toBe('great-weapon');
+    expect(field.feat().dirty()).toBe(true);
   });
 
   it('emette previewRequest e confirmRequest', () => {
-    const fixture = create();
+    const { fixture } = create();
     const root = fixture.nativeElement as HTMLElement;
     let previews = 0;
     let confirms = 0;
@@ -207,7 +292,7 @@ describe('ActorSheetLevelUpDialog', () => {
   });
 
   it('mostra anteprima ed errore', () => {
-    const fixture = create({ result: preview(), error: 'Errore di anteprima' });
+    const { fixture } = create({ result: preview(), error: 'Errore di anteprima' });
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.textContent).toContain('Anteprima');
@@ -219,7 +304,7 @@ describe('ActorSheetLevelUpDialog', () => {
   });
 
   it('disabilita le azioni e mostra l’applicazione quando busy', () => {
-    const fixture = create({ busy: true });
+    const { fixture } = create({ busy: true });
     const root = fixture.nativeElement as HTMLElement;
     let emitted = 0;
     fixture.componentInstance.previewRequest.subscribe(() => {
@@ -240,7 +325,7 @@ describe('ActorSheetLevelUpDialog', () => {
   });
 
   it('non mostra il form senza personaggio', () => {
-    const fixture = create({ stats: null });
+    const { fixture } = create({ stats: null });
     const root = fixture.nativeElement as HTMLElement;
 
     expect(root.textContent).toContain('Sali di livello');

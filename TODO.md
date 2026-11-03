@@ -396,7 +396,8 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Fatto quando:** i form migrati usano `form()`/field signal, hanno test su validazione, dirty/touched, submit e accessibilità.
   - [x] **B4a — Dialog "Nuova mappa"** — ✅ 3 novembre 2026: modello unico, `form()`/`[formField]`, required/blank/max 120, preset valido, orientamento coerente; `submit()` blocca l'invalid, errori server nel dialog, aria dopo touched; test su vuoto, blur/a11y, dirty/touched, max 120, submit e cambio preset reattivo.
   - [x] **B4b — Note della scheda** — ✅ 3 novembre 2026: `form()` con `maxLength` 20000, textarea con `[formField]`, contatore caratteri, `aria-invalid`/`aria-describedby` dopo touched; `saveNotes()` mantiene `patchSheet`/`patchActor` esistenti. Test su valore iniziale, modifica, limite, dirty/touched e a11y.
-  - **Restano:** inspector editor mappa, editing `actor-sheet` (livello), `actor-wizard`, `character-wizard`, form in `DmShellPage` (impostazioni/credenziali/AI).
+  - [x] **B4c — Dialog level-up** — ✅ 3 novembre 2026: `levelUpModel` + `form()` con validazione `hpRoll` (min 1, max dado quando `hpMethod === 'roll'`) e sottoclasse obbligatoria quando serve; `FieldTree` passato al dialog, `[formField]` su metodo/tiro/sottoclasse/talento/ASI, `reset()` all'apertura e rimozione di `setLevelUpForm`/`formChange`. Test su valore iniziale, cambio metodo/tiro, dirty/touched, validazione, preview/confirm e a11y.
+  - **Restano:** inspector editor mappa, `actor-wizard`, `character-wizard`, form in `DmShellPage` (impostazioni/credenziali/AI).
 
 - [ ] **B5 — Pulizia finale** · S
   - **Proposta:** rimuovere stato form manuale e handler ridondanti; aggiornare `PLAN.md` allo stato "adottato".

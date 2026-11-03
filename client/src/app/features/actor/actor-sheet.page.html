@@ -324,9 +324,8 @@
     [preview]="levelUpPreview()"
     [error]="levelUpError()"
     [busy]="levelUpBusy()"
-    [form]="levelUpForm()"
+    [form]="levelUpForm"
     (closed)="levelUpOpen.set(false)"
-    (formChange)="setLevelUpForm($event)"
     (previewRequest)="previewLevelUp()"
     (confirmRequest)="confirmLevelUp()"
   />

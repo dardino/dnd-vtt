@@ -7,7 +7,7 @@ import {
   input,
   signal,
 } from '@angular/core';
-import { form, maxLength, submit } from '@angular/forms/signals';
+import { applyWhen, form, max, maxLength, min, required, submit } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 import {
   abilityModifier,
@@ -138,15 +138,6 @@ export class ActorSheetPage implements OnInit {
   public readonly levelUpPreview = signal<LevelUpPreview | null>(null);
   public readonly levelUpError = signal<string | null>(null);
   public readonly levelUpBusy = signal(false);
-  public readonly levelUpForm = signal<LevelUpFormState>({
-    hpMethod: 'average',
-    hpRoll: 6,
-    subclass: '',
-    asiPrimary: 'str',
-    asiSecondary: 'con',
-    asiSplit: false,
-    feat: '',
-  });
 
   public readonly restBusy = signal(false);
   public readonly playerUrl = signal<string | null>(null);
@@ -327,6 +318,30 @@ export class ActorSheetPage implements OnInit {
     const pc = this.pc();
     return this.catalogService.catalog()?.feats.filter((feat) =>
       pc !== null && (feat.minLevel ?? 1) <= pc.class.level + 1) ?? [];
+  });
+
+  private readonly levelUpModel = signal<LevelUpFormState>({
+    hpMethod: 'average',
+    hpRoll: 6,
+    subclass: '',
+    asiPrimary: 'str',
+    asiSecondary: 'con',
+    asiSplit: false,
+    feat: '',
+  });
+
+  public readonly levelUpForm = form(this.levelUpModel, (path) => {
+    applyWhen(path.hpRoll, ({ valueOf }) => valueOf(path.hpMethod) === 'roll', (hpRoll) => {
+      min(hpRoll, 1, { message: 'Il tiro deve essere almeno 1.' });
+      max(hpRoll, () => this.pc()?.hitDice.die ?? 1, {
+        message: () =>
+          `Il tiro non può superare il dado vita (d${this.pc()?.hitDice.die ?? '—'}).`,
+      });
+    });
+    required(path.subclass, {
+      when: () => this.levelUpNeedsSubclass(),
+      message: 'Scegli una sottoclasse.',
+    });
   });
 
   public ngOnInit(): void {
@@ -554,7 +569,7 @@ export class ActorSheetPage implements OnInit {
     this.levelUpOpen.set(true);
     this.levelUpError.set(null);
     this.levelUpPreview.set(null);
-    this.levelUpForm.set({
+    this.levelUpForm().reset({
       hpMethod: 'average',
       hpRoll: Math.ceil(pc.hitDice.die / 2),
       subclass: pc.class.subclassId ?? this.levelUpSubclasses()[0]?.id ?? '',
@@ -566,16 +581,23 @@ export class ActorSheetPage implements OnInit {
     await this.previewLevelUp();
   }
 
-  public setLevelUpForm(form: LevelUpFormState): void {
-    this.levelUpForm.set(form);
-  }
-
   public async previewLevelUp(): Promise<void> {
+    if (this.levelUpBusy()) {
+      return;
+    }
     this.levelUpBusy.set(true);
     this.levelUpError.set(null);
     try {
-      const preview = await this.actorsApi.previewLevelUp(this.actorId(), this.levelUpInput());
-      this.levelUpPreview.set(preview);
+      await submit(this.levelUpForm, {
+        action: async () => {
+          const preview = await this.actorsApi.previewLevelUp(
+            this.actorId(),
+            this.levelUpInput(),
+          );
+          this.levelUpPreview.set(preview);
+          return undefined;
+        },
+      });
     } catch (error) {
       this.levelUpError.set(this.messageFor(error));
     } finally {
@@ -590,9 +612,14 @@ export class ActorSheetPage implements OnInit {
     this.levelUpBusy.set(true);
     this.levelUpError.set(null);
     try {
-      const result = await this.actorsApi.levelUp(this.actorId(), this.levelUpInput());
-      this.view.set(result.sheet);
-      this.levelUpOpen.set(false);
+      await submit(this.levelUpForm, {
+        action: async () => {
+          const result = await this.actorsApi.levelUp(this.actorId(), this.levelUpInput());
+          this.view.set(result.sheet);
+          this.levelUpOpen.set(false);
+          return undefined;
+        },
+      });
     } catch (error) {
       this.levelUpError.set(this.messageFor(error));
     } finally {
@@ -605,7 +632,7 @@ export class ActorSheetPage implements OnInit {
     if (pc === null) {
       throw new Error('nessun personaggio');
     }
-    const form = this.levelUpForm();
+    const form = this.levelUpForm().value();
     const input: LevelUpInput = { hpMethod: form.hpMethod };
     if (input.hpMethod === 'roll') {
       input.hpRoll = form.hpRoll;

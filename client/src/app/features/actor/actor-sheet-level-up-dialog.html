@@ -5,6 +5,10 @@
 >
   @if (character(); as character) {
     <div class="levelup">
+      @let hpMethod = form().hpMethod().value();
+      @let hpRollError = form().hpRoll().touched() ? form().hpRoll().errors()[0] : undefined;
+      @let subclassError = form().subclass().touched() ? form().subclass().errors()[0] : undefined;
+
       <p class="muted">
         Livello {{ character.class.level }} → <strong>{{ character.class.level + 1 }}</strong>
         · XP {{ currentXp() }}
@@ -12,63 +16,75 @@
 
       <label class="field">
         <span>Punti ferita</span>
-        <select [value]="form().hpMethod" (change)="setHpMethod($event)">
+        <select id="level-up-hp-method" [formField]="form().hpMethod">
           <option value="average">Media ({{ character.hitDice.die / 2 + 1 }})</option>
           <option value="roll">Tiro del dado vita</option>
         </select>
       </label>
-      @if (form().hpMethod === 'roll') {
+      @if (hpMethod === 'roll') {
         <label class="field">
           <span>Tiro d{{ character.hitDice.die }}</span>
           <input
             type="number"
-            min="1"
-            [max]="character.hitDice.die"
-            [value]="form().hpRoll"
-            (input)="setHpRoll($event)"
+            id="level-up-hp-roll"
+            [formField]="form().hpRoll"
+            [attr.aria-invalid]="form().hpRoll().touched() ? form().hpRoll().invalid() : null"
+            [attr.aria-describedby]="hpRollError ? 'level-up-hp-roll-error' : null"
           />
         </label>
+        @if (hpRollError; as error) {
+          <p id="level-up-hp-roll-error" class="state--error" role="alert">{{ error.message }}</p>
+        }
       }
 
       @if (needsSubclass()) {
         <label class="field">
           <span>Sottoclasse</span>
-          <select [value]="form().subclass" (change)="setSubclass($event)">
+          <select
+            id="level-up-subclass"
+            [formField]="form().subclass"
+            [attr.aria-invalid]="form().subclass().touched() ? form().subclass().invalid() : null"
+            [attr.aria-describedby]="subclassError ? 'level-up-subclass-error' : null"
+          >
+            <option value="">Scegli una sottoclasse</option>
             @for (subclass of subclasses(); track subclass.id) {
               <option [value]="subclass.id">{{ subclass.name }}</option>
             }
           </select>
         </label>
+        @if (subclassError; as error) {
+          <p id="level-up-subclass-error" class="state--error" role="alert">{{ error.message }}</p>
+        }
       }
 
       @if (isAsi()) {
         <label class="field">
           <span>Talento (alternativo all’aumento)</span>
-          <select [value]="form().feat" (change)="setFeat($event)">
+          <select id="level-up-feat" [formField]="form().feat">
             <option value="">Nessun talento</option>
             @for (feat of feats(); track feat.id) {
               <option [value]="feat.id">{{ feat.name }}</option>
             }
           </select>
         </label>
-        @if (form().feat === '') {
+        @if (form().feat().value() === '') {
           <div class="inline-controls">
             <label class="field field--small">
               <span>Caratteristica</span>
-              <select [value]="form().asiPrimary" (change)="setAsiPrimary($event)">
+              <select id="level-up-asi-primary" [formField]="form().asiPrimary">
                 @for (ability of abilities(); track ability.key) {
                   <option [value]="ability.key">{{ ability.label }}</option>
                 }
               </select>
             </label>
             <label class="checkbox">
-              <input type="checkbox" [checked]="form().asiSplit" (change)="setAsiSplit($event)" />
+              <input id="level-up-asi-split" type="checkbox" [formField]="form().asiSplit" />
               <span>+1 e +1</span>
             </label>
-            @if (form().asiSplit) {
+            @if (form().asiSplit().value()) {
               <label class="field field--small">
                 <span>Seconda caratteristica</span>
-                <select [value]="form().asiSecondary" (change)="setAsiSecondary($event)">
+                <select id="level-up-asi-secondary" [formField]="form().asiSecondary">
                   @for (ability of abilities(); track ability.key) {
                     <option [value]="ability.key">{{ ability.label }}</option>
                   }
