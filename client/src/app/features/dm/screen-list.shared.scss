@@ -1,0 +1,38 @@
+// Regole condivise tra `ScreenList` e i dialog "Manda in onda" / "Avvia da mappa",
+// che elencano ancora schermi e mappe con la stessa resa.
+@use '../../../styles/mixins' as mx;
+
+.screen-list {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.screen-row {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  padding: var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  color: var(--color-text);
+  text-align: left;
+
+  @include mx.hover {
+    &:hover {
+      border-color: var(--color-border-strong);
+    }
+  }
+}
+
+.screen-row__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}

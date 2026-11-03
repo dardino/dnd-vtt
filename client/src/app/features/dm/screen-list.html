@@ -1,0 +1,21 @@
+@if (screens().length === 0) {
+  <p class="muted">Nessuno schermo online. Usa “Apri schermo”.</p>
+} @else {
+  <ul class="screen-list">
+    @for (summary of screens(); track summary.display.id) {
+      <li>
+        <button type="button" class="screen-row" (click)="selectScreen.emit(summary)">
+          <span class="screen-row__head">
+            <strong>{{ summary.display.code }}</strong>
+            <span class="badge">{{ summary.display.label }}</span>
+          </span>
+          <span class="screen-row__projection">{{ projectionLabel()(summary) }}</span>
+          <span class="muted">
+            {{ summary.display.viewportWidth ?? '—' }} × {{ summary.display.viewportHeight ?? '—' }}
+            · {{ lastSeen()(summary) }}
+          </span>
+        </button>
+      </li>
+    }
+  </ul>
+}

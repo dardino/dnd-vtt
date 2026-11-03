@@ -1,0 +1,18 @@
+@use '../../../styles/mixins' as mx;
+@use './screen-list.shared';
+
+:host {
+  display: block;
+}
+
+.screen-row__projection {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  @include mx.pill(var(--color-accent), var(--color-accent));
+  color: var(--color-accent-contrast);
+}

@@ -1,0 +1,10 @@
+<div class="session-card">
+  @if (session(); as current) {
+    <span class="eyebrow">Sessione {{ current.number }} in corso</span>
+    <strong class="session-card__timer">{{ label() }}</strong>
+    <button type="button" class="dock-button" [disabled]="busy()" (click)="stop.emit()">Termina</button>
+  } @else {
+    <span class="eyebrow">Sessione</span>
+    <button type="button" class="dock-button" [disabled]="busy()" (click)="start.emit()">Avvia sessione</button>
+  }
+</div>

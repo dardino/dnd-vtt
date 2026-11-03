@@ -69,7 +69,9 @@ import { AuthSessionsPanel } from './auth-sessions-panel';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
 import { SceneToolsStore } from './scene-tools.store';
+import { ScreenList } from './screen-list';
 import { ScreenPreviewComponent } from './screen-preview.component';
+import { SessionCard } from './session-card';
 import { SidebarSection } from './sidebar-section';
 import {
   SceneCanvasComponent,
@@ -139,7 +141,9 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     SceneCanvasComponent,
     SceneList,
     DiceOverlayComponent,
+    ScreenList,
     ScreenPreviewComponent,
+    SessionCard,
     SidebarSection,
     AuthSessionsPanel,
   ],
