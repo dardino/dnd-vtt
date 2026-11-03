@@ -1,6 +1,6 @@
 # TODO — D&D VTT
 
-Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora aperti**: le correzioni già applicate (sezione 11 della review) non sono ripetute.
+Backlog operativo: contiene **solo i punti ancora aperti**. La code review del 31 ottobre 2026 è stata rimossa perché superata dai lavori successivi (S, R, P, B) e resta consultabile nella storia git (commit `0d56321`).
 
 **Legenda**
 
