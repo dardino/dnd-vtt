@@ -245,39 +245,16 @@
             [open]="isSectionOpen('actors')"
             (toggled)="toggleSection('actors')"
           >
-                <a class="dm-link-button" [routerLink]="['/dm/campaigns', shell.activeCampaign()?.id, 'actors', 'new', 'monster']">
-                  Crea mostro o NPC
-                </a>
-                @if (availableActors().length === 0) {
-                  <p class="muted">Nessun mostro o NPC disponibile.</p>
-                } @else {
-                  <ul class="available-actors">
-                    @for (actor of availableActors(); track actor.id) {
-                      <li
-                        class="available-actor"
-                        [attr.draggable]="readOnly() ? null : 'true'"
-                        (dragstart)="onActorDragStart($event, actor)"
-                      >
-                        <span class="available-actor__text">
-                          <span class="available-actor__name">{{ actor.name }}</span>
-                          <span class="available-actor__meta">
-                            {{ actorSubtitle(actor) }} · {{ actor.hp?.current ?? 0 }}/{{ actor.hp?.max ?? 0 }} PF
-                            @if (tokenCount(actor.id) > 0) { · {{ tokenCount(actor.id) }} in mappa }
-                          </span>
-                        </span>
-                        <button
-                          type="button"
-                          class="icon-button"
-                          [attr.aria-label]="'Aggiungi ' + actor.name + ' alla mappa'"
-                          title="Aggiungi alla mappa"
-                          [disabled]="readOnly() || activeScene() === null"
-                          (click)="addActorToMap(actor)"
-                        >+</button>
-                      </li>
-                    }
-                  </ul>
-                  <p class="muted">Trascina un attore sulla mappa oppure usa +. Ogni trascinamento crea una nuova istanza.</p>
-                }
+                <app-actor-list
+                  [actors]="availableActors()"
+                  [campaignId]="shell.activeCampaign()?.id ?? ''"
+                  [tokens]="tokens()"
+                  [canAdd]="!readOnly() && activeScene() !== null"
+                  [readOnly]="readOnly()"
+                  [subtitle]="actorSubtitle"
+                  (addActor)="addActorToMap($event)"
+                  (dragStart)="onActorDragStart($event.event, $event.actor)"
+                />
           </app-sidebar-section>
 
           <app-sidebar-section

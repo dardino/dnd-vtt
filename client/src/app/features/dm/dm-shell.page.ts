@@ -63,6 +63,7 @@ import { SceneStore } from '../../core/scene.store';
 import { Button } from '../../components/button/button';
 import { Dialog } from '../../components/dialog/dialog';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
+import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
 import { AuthSessionsPanel } from './auth-sessions-panel';
 import { RegiaStore, type ScreenSummary } from './regia.store';
@@ -131,6 +132,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
 @Component({
   selector: 'app-dm-shell',
   imports: [
+    ActorList,
     Button,
     Dialog,
     RouterLink,
@@ -921,10 +923,6 @@ export class DmShellPage implements OnInit {
   public tokenHp(tokenId: string): string {
     const token = this.tokens().find((entry) => entry.id === tokenId);
     return token === undefined ? '—' : `${token.hp.current}/${token.hp.max}`;
-  }
-
-  public tokenCount(actorId: string): number {
-    return this.tokens().filter((token) => token.actorId === actorId).length;
   }
 
   public async undoLast(): Promise<void> {

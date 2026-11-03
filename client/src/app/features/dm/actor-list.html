@@ -1,0 +1,37 @@
+<a
+  class="dm-link-button"
+  [routerLink]="['/dm/campaigns', campaignId(), 'actors', 'new', 'monster']"
+>
+  Crea mostro o NPC
+</a>
+@if (actors().length === 0) {
+  <p class="muted">Nessun mostro o NPC disponibile.</p>
+} @else {
+  <ul class="available-actors">
+    @for (actor of actors(); track actor.id) {
+      @let count = tokenCounts()[actor.id] ?? 0;
+      <li
+        class="available-actor"
+        [attr.draggable]="readOnly() ? null : 'true'"
+        (dragstart)="onDragStart($event, actor)"
+      >
+        <span class="available-actor__text">
+          <span class="available-actor__name">{{ actor.name }}</span>
+          <span class="available-actor__meta">
+            {{ subtitle()(actor) }} · {{ actor.hp?.current ?? 0 }}/{{ actor.hp?.max ?? 0 }} PF
+            @if (count > 0) { · {{ count }} in mappa }
+          </span>
+        </span>
+        <button
+          type="button"
+          class="icon-button"
+          [attr.aria-label]="'Aggiungi ' + actor.name + ' alla mappa'"
+          title="Aggiungi alla mappa"
+          [disabled]="readOnly() || !canAdd()"
+          (click)="addActor.emit(actor)"
+        >+</button>
+      </li>
+    }
+  </ul>
+  <p class="muted">Trascina un attore sulla mappa oppure usa +. Ogni trascinamento crea una nuova istanza.</p>
+}
