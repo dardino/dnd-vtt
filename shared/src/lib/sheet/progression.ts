@@ -1,5 +1,10 @@
 import type { SrdClass } from '../../schemas/srd.js';
 
+export interface SpellSlotsForLevel {
+  slots: { level: number; max: number }[];
+  pactSlots?: { level: number; max: number };
+}
+
 export const XP_THRESHOLDS: readonly number[] = [
   0,
   300,
@@ -67,15 +72,26 @@ export const PREPARED_CASTERS: ReadonlySet<string> = new Set([
 
 export const isPreparedCaster = (classId: string): boolean => PREPARED_CASTERS.has(classId);
 
+/**
+ * Slot normali e pact disponibili per una classe a un dato livello.
+ * Gli slot con `max` zero vengono omessi; il pact slot è assente quando non c'è.
+ */
+export const spellSlotsFor = (characterClass: SrdClass, level: number): SpellSlotsForLevel => {
+  const row = characterClass.spellcasting?.slots[level - 1] ?? [];
+  const slots = row.flatMap((max, index) => (max > 0 ? [{ level: index + 1, max }] : []));
+  const pact = characterClass.spellcasting?.pactSlots?.[level - 1];
+  return {
+    slots,
+    ...(pact === undefined || pact.count === 0
+      ? {}
+      : { pactSlots: { level: pact.level, max: pact.count } }),
+  };
+};
+
 /** Livello massimo di incantesimo disponibile per una classe a un dato livello. */
 export const maxSpellLevelForClass = (characterClass: SrdClass, level: number): number => {
-  const casting = characterClass.spellcasting;
-  if (casting === undefined) {
-    return 0;
-  }
-  if (casting.progression === 'pact') {
-    return casting.pactSlots?.[level - 1]?.level ?? 0;
-  }
-  return maxSpellLevel((casting.slots[level - 1] ?? [])
-    .map((max, index) => ({ level: index + 1, max })));
+  const { slots, pactSlots } = spellSlotsFor(characterClass, level);
+  return characterClass.spellcasting?.progression === 'pact'
+    ? pactSlots?.level ?? 0
+    : maxSpellLevel(slots);
 };

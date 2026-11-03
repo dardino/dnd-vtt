@@ -6,8 +6,9 @@ import type {
 } from '../../schemas/sheet.js';
 import type { SrdCatalog, SrdClass, SrdFeat } from '../../schemas/srd.js';
 import { abilityModifier } from './abilities.js';
+import { classFeaturesFor } from './class-features.js';
 import { hpMaxFor } from './hp.js';
-import { averageHpGain } from './progression.js';
+import { averageHpGain, spellSlotsFor } from './progression.js';
 
 export interface PcLevelUpInput {
   hpMethod: 'average' | 'roll';
@@ -52,21 +53,6 @@ const characterClassOf = (catalog: SrdCatalog, statblock: PcStatblock): SrdClass
 const speciesBonus = (catalog: SrdCatalog, statblock: PcStatblock): number =>
   catalog.species.find((entry) => entry.id === statblock.species.id)?.hpPerLevelBonus ?? 0;
 
-const classFeatures = (
-  characterClass: SrdClass,
-  subclassId: string | undefined,
-  level: number,
-): ResolvedFeature[] => {
-  const features = characterClass.features
-    .filter((entry) => entry.level <= level)
-    .map((entry) => feature(entry.id, entry.name, entry.level, entry.description, entry.recharge, 'class'));
-  const subclass = characterClass.subclasses.find((entry) => entry.id === subclassId);
-  const subclassFeatures = (subclass?.features ?? [])
-    .filter((entry) => entry.level <= level)
-    .map((entry) => feature(entry.id, entry.name, entry.level, entry.description, entry.recharge, 'subclass'));
-  return [...features, ...subclassFeatures];
-};
-
 const mergeFeatures = (
   current: readonly ResolvedFeature[],
   newClassFeatures: readonly ResolvedFeature[],
@@ -79,27 +65,21 @@ const newSpellSlots = (
   characterClass: SrdClass,
   current: readonly SpellSlotPool[],
   level: number,
-): SpellSlotPool[] => {
-  const row = characterClass.spellcasting?.slots[level - 1] ?? [];
-  return row.flatMap((max, index) => {
-    if (max <= 0) {
-      return [];
-    }
-    const previous = current.find((slot) => slot.level === index + 1);
-    return [{ level: index + 1, max, used: Math.min(previous?.used ?? 0, max) }];
-  });
-};
+): SpellSlotPool[] => spellSlotsFor(characterClass, level).slots.map((slot) => {
+  const previous = current.find((entry) => entry.level === slot.level);
+  return { ...slot, used: Math.min(previous?.used ?? 0, slot.max) };
+});
 
 const newPactSlots = (
   characterClass: SrdClass,
   current: PcStatblock['spells']['pactSlots'],
   level: number,
 ): PcStatblock['spells']['pactSlots'] => {
-  const pact = characterClass.spellcasting?.pactSlots?.[level - 1];
-  if (pact === undefined || pact.count === 0) {
+  const pact = spellSlotsFor(characterClass, level).pactSlots;
+  if (pact === undefined) {
     return undefined;
   }
-  return { level: pact.level, max: pact.count, used: Math.min(current?.used ?? 0, pact.count) };
+  return { ...pact, used: Math.min(current?.used ?? 0, pact.max) };
 };
 
 const validateAbilityIncreases = (
@@ -199,7 +179,7 @@ export const levelUpPcStatblock = (
   const pactSlots = newPactSlots(characterClass, statblock.spells.pactSlots, level);
   const features = mergeFeatures(
     statblock.snapshot.features,
-    classFeatures(characterClass, subclassId, level),
+    classFeaturesFor(characterClass, subclassId, level),
   );
   if (feat !== undefined) {
     features.push(feature(feat.id, feat.name, level, feat.description, 'none', 'feat'));

@@ -25,6 +25,7 @@ export * from './lib/scene/hp.js';
 export * from './lib/scene/fog.js';
 export * from './lib/scene/initiative.js';
 export * from './lib/dice/roller.js';
+export * from './lib/sheet/class-features.js';
 export * from './lib/sheet/rest.js';
 export * from './lib/sheet/level-up.js';
 export * from './lib/equipment/recommend.js';

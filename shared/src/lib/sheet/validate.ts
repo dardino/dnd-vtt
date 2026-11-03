@@ -11,7 +11,7 @@ import type {
 import type { SrdCatalog, SrdClass, SrdFeat, SrdItem, SrdSpell } from '../../schemas/srd.js';
 import { POINT_BUY_BUDGET, STANDARD_ARRAY, pointBuyCost } from './abilities.js';
 import { pcAbilityScores, pcHpMax } from './hp.js';
-import { isPreparedCaster, maxSpellLevel } from './progression.js';
+import { isPreparedCaster, maxSpellLevelForClass } from './progression.js';
 
 const WIZARD = 'wizard';
 
@@ -604,11 +604,7 @@ const validateSpells = (context: Context): void => {
     }
   }
 
-  const levels = spellcasting.progression === 'pact'
-    ? (spellcasting.pactSlots?.[build.level - 1]?.level ?? 0)
-    : maxSpellLevel(
-      (spellcasting.slots[build.level - 1] ?? []).map((max, index) => ({ level: index + 1, max })),
-    );
+  const levels = maxSpellLevelForClass(characterClass, build.level);
 
   const checkSpell = (
     id: string,

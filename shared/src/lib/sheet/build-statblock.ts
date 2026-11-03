@@ -7,7 +7,9 @@ import type {
   SpellChoice,
 } from '../../schemas/sheet.js';
 import type { SrdCatalog, SrdClass, SrdFeat, SrdSpell } from '../../schemas/srd.js';
+import { classFeaturesFor } from './class-features.js';
 import { pcAbilityScores, pcHpMax } from './hp.js';
+import { spellSlotsFor } from './progression.js';
 
 export interface BuildPcStatblockInput {
   build: PcBuild;
@@ -99,20 +101,11 @@ const buildFeatures = (
   catalog: SrdCatalog,
   characterClass: SrdClass,
 ): ResolvedFeature[] => {
-  const result: ResolvedFeature[] = [];
-  for (const entry of characterClass.features) {
-    if (entry.level <= build.level) {
-      result.push(feature(entry.id, entry.name, entry.level, entry.description, entry.recharge, 'class'));
-    }
-  }
-  if (build.subclassId !== undefined) {
-    const subclass = characterClass.subclasses.find((entry) => entry.id === build.subclassId);
-    for (const entry of subclass?.features ?? []) {
-      if (entry.level <= build.level) {
-        result.push(feature(entry.id, entry.name, entry.level, entry.description, entry.recharge, 'subclass'));
-      }
-    }
-  }
+  const result: ResolvedFeature[] = classFeaturesFor(
+    characterClass,
+    build.subclassId,
+    build.level,
+  );
   const species = catalog.species.find((entry) => entry.id === build.speciesId);
   for (const trait of species?.traits ?? []) {
     result.push(feature(
@@ -140,25 +133,6 @@ const buildFeatures = (
   return result;
 };
 
-const spellSlots = (
-  characterClass: SrdClass,
-  level: number,
-): PcStatblock['spells']['slots'] => {
-  const row = characterClass.spellcasting?.slots[level - 1] ?? [];
-  return row.flatMap((max, index) =>
-    max > 0 ? [{ level: index + 1, max, used: 0 }] : []);
-};
-
-const pactSlots = (
-  characterClass: SrdClass,
-  level: number,
-): PcStatblock['spells']['pactSlots'] => {
-  const pact = characterClass.spellcasting?.pactSlots?.[level - 1];
-  return pact === undefined || pact.count === 0
-    ? undefined
-    : { level: pact.level, max: pact.count, used: 0 };
-};
-
 /**
  * Trasforma una build valida nell'attore persistito: calcola HP e slot,
  * congela snapshot di privilegi, incantesimi e oggetti, e riporta tutte le
@@ -173,6 +147,7 @@ export const buildPcStatblock = ({ build, catalog, alignment }: BuildPcStatblock
   }
   const abilities = pcAbilityScores(build);
   const hpMax = pcHpMax(build, catalog);
+  const spellSlots = spellSlotsFor(characterClass, build.level);
   const abilityIncreases = [
     ...build.backgroundIncreases,
     ...build.asiChoices.flatMap((choice) => choice.increases ?? []),
@@ -230,10 +205,10 @@ export const buildPcStatblock = ({ build, catalog, alignment }: BuildPcStatblock
       prepared: spellChoices(build.spells.prepared, 'class', true),
       alwaysPrepared: [],
       spellbook: spellChoices(build.spells.spellbook, 'class'),
-      slots: spellSlots(characterClass, build.level),
-      ...(pactSlots(characterClass, build.level) === undefined
+      slots: spellSlots.slots.map((slot) => ({ ...slot, used: 0 })),
+      ...(spellSlots.pactSlots === undefined
         ? {}
-        : { pactSlots: pactSlots(characterClass, build.level) }),
+        : { pactSlots: { ...spellSlots.pactSlots, used: 0 } }),
     },
     hitDice: { die: characterClass.hitDie, total: build.level, used: 0 },
     hpRolls: [...build.hpRolls],

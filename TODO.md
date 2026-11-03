@@ -58,6 +58,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Problema:** `buildFeatures`/`classFeatures`, slot incantesimo, `startView`/`mapView`/`viewport`, envelope paginato, lista skill, `mime` immagini e viste `DmSheetView`/`PlayerSheetView` hanno ancora copie.
   - **Proposta:** estrarre `classFeaturesFor`, `spellSlotsFor`, `viewSchema`, `paginatedSchema(item)`, `skillsTuple`, `imageMimeSchema`; derivare le due viste da una base comune.
   - **Fatto quando:** una sola implementazione per regola, con test condivisi.
+  - **Stato:** `classFeaturesFor`/`spellSlotsFor` condivisi con test (3 novembre 2026); restano viste, envelope, skill e `mime`.
 
 ## 2. Performance (P1)
 
