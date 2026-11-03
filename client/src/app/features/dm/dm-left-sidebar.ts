@@ -20,6 +20,7 @@ import { Button } from '../../components/button/button';
 import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
 import { actorSubtitle } from './dm-actor';
+import { DmAiPanel } from './dm-ai-panel';
 import { DmAuxStore } from './dm-aux.store';
 import { DmCampaignStore } from './dm-campaign.store';
 import { DmLayoutStore, type SidebarSectionId } from './dm-layout.store';
@@ -42,6 +43,7 @@ import { SidebarSection } from './sidebar-section';
   imports: [
     ActorList,
     Button,
+    DmAiPanel,
     RouterLink,
     SceneList,
     SessionCard,
@@ -202,30 +204,6 @@ export class DmLeftSidebar {
     }
     event.dataTransfer.setData('application/x-dnd-vtt-actor', actor.id);
     event.dataTransfer.effectAllowed = 'copy';
-  }
-
-  public async analyzeStatblock(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null) {
-      return;
-    }
-    await this.aux.analyze(campaign.id);
-  }
-
-  public async createParsedMonster(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null) {
-      return;
-    }
-    await this.aux.createMonster(campaign.id);
-  }
-
-  public setAiText(event: Event): void {
-    this.aux.setText((event.target as HTMLTextAreaElement).value);
-  }
-
-  public setAiName(event: Event): void {
-    this.aux.setName((event.target as HTMLInputElement).value);
   }
 }
 

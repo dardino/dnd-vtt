@@ -1,0 +1,32 @@
+@use '../../../styles/mixins' as mx;
+@use './form-dialog.shared';
+
+:host {
+  display: contents;
+}
+
+.ai-preview {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  @include mx.bordered(var(--radius-md), var(--color-bg));
+}
+
+.dock-button {
+  padding: var(--space-1) var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+
+  @include mx.hover {
+    &:hover:not(:disabled) {
+      background: var(--color-bg-hover);
+    }
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}

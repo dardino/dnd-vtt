@@ -235,44 +235,7 @@
         [open]="layout.sections().ai"
         (toggled)="toggleSection('ai')"
       >
-        <p class="muted">{{ aux.aiMessage() }}</p>
-        @if (!aux.aiEnabled()) {
-          <p class="muted">
-            Il provider IA non è configurato: puoi comunque importare uno statblock
-            incollando il testo e usando il parser locale.
-          </p>
-        }
-        <label class="field">
-          <span>Statblock da incollare</span>
-          <textarea
-            rows="6"
-            [value]="aux.aiText()"
-            (input)="setAiText($event)"
-            placeholder="Nome&#10;Type: Humanoid&#10;Armor Class 13&#10;Hit Points 22&#10;Speed 30 ft.&#10;STR 12 DEX 14 CON 12 INT 10 WIS 10 CHA 8&#10;Challenge 1/2"
-          ></textarea>
-        </label>
-        <button
-          type="button"
-          class="dock-button"
-          [disabled]="aux.aiBusy() || aux.aiText().trim() === ''"
-          (click)="analyzeStatblock()"
-        >Analizza statblock</button>
-        @if (aux.aiPreview(); as preview) {
-          <div class="ai-preview">
-            <span class="eyebrow">Anteprima</span>
-            <p>{{ preview.creatureType }} · CR {{ preview.cr }} · CA {{ preview.ac }} · PF {{ preview.hp.current }}</p>
-            <label class="field">
-              <span>Nome attore</span>
-              <input type="text" [value]="aux.aiName()" (input)="setAiName($event)" />
-            </label>
-            <button
-              type="button"
-              class="dock-button"
-              [disabled]="aux.aiBusy()"
-              (click)="createParsedMonster()"
-            >Crea mostro</button>
-          </div>
-        }
+        <app-dm-ai-panel />
       </app-sidebar-section>
     }
   }

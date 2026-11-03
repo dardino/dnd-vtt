@@ -413,19 +413,10 @@ describe('DmLeftSidebar', () => {
     expect(root.querySelector<HTMLButtonElement>('app-actor-list .icon-button')?.disabled).toBe(true);
   });
 
-  it('analizza lo statblock con la campagna attiva', () => {
+  it('delega la sezione Chat IA al pannello dedicato', () => {
     const { root } = create();
 
-    const textarea = root.querySelector<HTMLTextAreaElement>('#sidebar-ai textarea');
-    if (textarea !== null) {
-      textarea.value = 'Nuovo goblin';
-      textarea.dispatchEvent(new Event('input'));
-    }
-    expect(setText).toHaveBeenCalledWith('Nuovo goblin');
-
-    const analyzeButton = [...root.querySelectorAll<HTMLButtonElement>('#sidebar-ai button')]
-      .find((button) => button.textContent?.includes('Analizza statblock'));
-    analyzeButton?.click();
-    expect(analyze).toHaveBeenCalledWith(CAMPAIGN_ID);
+    const section = root.querySelector('#sidebar-ai');
+    expect(section?.querySelector('app-dm-ai-panel')).not.toBeNull();
   });
 });

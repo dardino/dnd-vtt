@@ -1,0 +1,52 @@
+<p class="muted">{{ aiMessage() }}</p>
+@if (!aiEnabled()) {
+  <p class="muted">
+    Il provider IA non è configurato: puoi comunque importare uno statblock
+    incollando il testo e usando il parser locale.
+  </p>
+}
+@let textError = form.text().touched() ? form.text().errors()[0] : undefined;
+<label class="field">
+  <span>Statblock da incollare</span>
+  <textarea
+    rows="6"
+    [formField]="form.text"
+    [attr.aria-invalid]="form.text().touched() ? form.text().invalid() : null"
+    [attr.aria-describedby]="textError ? 'ai-text-error' : null"
+    placeholder="Nome&#10;Type: Humanoid&#10;Armor Class 13&#10;Hit Points 22&#10;Speed 30 ft.&#10;STR 12 DEX 14 CON 12 INT 10 WIS 10 CHA 8&#10;Challenge 1/2"
+  ></textarea>
+</label>
+@if (textError; as error) {
+  <p id="ai-text-error" class="field-error" role="alert">{{ error.message }}</p>
+}
+<button
+  type="button"
+  class="dock-button"
+  [disabled]="aiBusy() || form.text().value().trim() === ''"
+  (click)="analyze()"
+>Analizza statblock</button>
+@if (aiPreview(); as preview) {
+  <div class="ai-preview">
+    <span class="eyebrow">Anteprima</span>
+    <p>{{ preview.creatureType }} · CR {{ preview.cr }} · CA {{ preview.ac }} · PF {{ preview.hp.current }}</p>
+    @let nameError = form.name().touched() ? form.name().errors()[0] : undefined;
+    <label class="field">
+      <span>Nome attore</span>
+      <input
+        type="text"
+        [formField]="form.name"
+        [attr.aria-invalid]="form.name().touched() ? form.name().invalid() : null"
+        [attr.aria-describedby]="nameError ? 'ai-name-error' : null"
+      />
+    </label>
+    @if (nameError; as error) {
+      <p id="ai-name-error" class="field-error" role="alert">{{ error.message }}</p>
+    }
+    <button
+      type="button"
+      class="dock-button"
+      [disabled]="aiBusy()"
+      (click)="createMonster()"
+    >Crea mostro</button>
+  </div>
+}
