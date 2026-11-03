@@ -1,0 +1,18 @@
+<app-dialog
+  [open]="open()"
+  [title]="title()"
+  (closed)="requestDismiss()"
+>
+  <p class="muted">
+    @if (overrideActive()) {
+      L’operazione applica un override temporaneo alla visione automatica: le aree manuali restano salvate e
+      tornano con “Vista automatica”. Puoi annullarla dal dock Azioni.
+    } @else {
+      L’operazione sostituisce la copertura corrente con uno stato uniforme. Puoi annullarla dal dock Azioni.
+    }
+  </p>
+  <div dialog-actions>
+    <app-button (pressed)="requestDismiss()">Annulla</app-button>
+    <app-button variant="primary" (pressed)="requestConfirm()">Conferma</app-button>
+  </div>
+</app-dialog>

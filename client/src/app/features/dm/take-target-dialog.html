@@ -1,0 +1,23 @@
+<app-dialog
+  [open]="open()"
+  title="Manda in onda su…"
+  (closed)="requestDismiss()"
+>
+  <p class="muted">Scegli lo schermo che deve ricevere la scena attiva.</p>
+  <ul class="screen-list">
+    @for (summary of screens(); track summary.display.id) {
+      <li>
+        <button type="button" class="screen-row" (click)="requestTake(summary)">
+          <span class="screen-row__head">
+            <strong>{{ summary.display.code }}</strong>
+            <span class="badge">{{ summary.display.label }}</span>
+          </span>
+          <span class="muted">{{ projectionLabel()(summary) }}</span>
+        </button>
+      </li>
+    }
+  </ul>
+  <div dialog-actions>
+    <app-button (pressed)="requestDismiss()">Annulla</app-button>
+  </div>
+</app-dialog>

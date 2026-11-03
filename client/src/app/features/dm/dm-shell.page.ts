@@ -74,7 +74,9 @@ import {
 } from './create-campaign-dialog';
 import { DmDock, type DockTab } from './dm-dock';
 import { DmStatusbar } from './dm-statusbar';
+import { FogConfirmDialog } from './fog-confirm-dialog';
 import { LoginDialog } from './login-dialog';
+import { MapSettingsDialog } from './map-settings-dialog';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
 import { SceneToolbar } from './scene-toolbar';
@@ -83,6 +85,7 @@ import { ScreenList } from './screen-list';
 import { ScreenPreviewComponent } from './screen-preview.component';
 import { SessionCard } from './session-card';
 import { SidebarSection } from './sidebar-section';
+import { TakeTargetDialog } from './take-target-dialog';
 import { TokenList } from './token-list';
 import {
   SceneCanvasComponent,
@@ -152,7 +155,9 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     Dialog,
     DmDock,
     DmStatusbar,
+    FogConfirmDialog,
     LoginDialog,
+    MapSettingsDialog,
     RouterLink,
     SceneCanvasComponent,
     SceneList,
@@ -162,6 +167,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     ScreenPreviewComponent,
     SessionCard,
     SidebarSection,
+    TakeTargetDialog,
     TokenList,
   ],
   templateUrl: './dm-shell.page.html',
@@ -1125,25 +1131,12 @@ export class DmShellPage implements OnInit {
     this.sceneTools.setFogSnap((event.target as HTMLInputElement).checked);
   }
 
-  public setBrushCells(event: Event): void {
-    this.sceneTools.setBrushCells(Number((event.target as HTMLInputElement).value));
-  }
-
-  public setPencilTenths(event: Event): void {
-    this.sceneTools.setPencilTenths(Number((event.target as HTMLInputElement).value));
-  }
-
   public openSettings(): void {
     this.settingsOpen.set(true);
   }
 
   public closeSettings(): void {
     this.settingsOpen.set(false);
-  }
-
-  public setMeasurementUnit(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    this.units.set(value === 'metric' ? 'metric' : 'imperial');
   }
 
   public async clearHistory(): Promise<void> {
