@@ -67,6 +67,11 @@
       <div class="wizard__content">
         @switch (store.step()) {
           @case (0) {
+            @let nameError = identityForm.name().touched() ? identityForm.name().errors()[0] : undefined;
+            @let alignmentError = identityForm.alignment().touched()
+              ? identityForm.alignment().errors()[0]
+              : undefined;
+
             <div class="panel-grid">
               <section class="panel surface">
                 <h2>Identità</h2>
@@ -75,11 +80,15 @@
                     <span>Nome del personaggio</span>
                     <input
                       class="input"
-                      [value]="store.name()"
-                      (input)="store.setName(asText($event))"
+                      [formField]="identityForm.name"
                       placeholder="Es. Kaelen Ombraverde"
+                      [attr.aria-invalid]="identityForm.name().touched() ? identityForm.name().invalid() : null"
+                      [attr.aria-describedby]="nameError ? 'character-name-error' : null"
                     />
                   </label>
+                  @if (nameError; as error) {
+                    <p id="character-name-error" class="state--error span-2" role="alert">{{ error.message }}</p>
+                  }
 
                   <label class="field">
                     <span>Classe</span>
@@ -140,11 +149,15 @@
                     <span>Allineamento</span>
                     <input
                       class="input"
-                      [value]="store.alignment()"
-                      (input)="store.setAlignment(asText($event))"
+                      [formField]="identityForm.alignment"
                       placeholder="Es. Neutrale buono"
+                      [attr.aria-invalid]="identityForm.alignment().touched() ? identityForm.alignment().invalid() : null"
+                      [attr.aria-describedby]="alignmentError ? 'character-alignment-error' : null"
                     />
                   </label>
+                  @if (alignmentError; as error) {
+                    <p id="character-alignment-error" class="state--error" role="alert">{{ error.message }}</p>
+                  }
                 </div>
               </section>
 
@@ -499,22 +512,52 @@
           }
 
           @case (5) {
+            @let nameError = identityForm.name().touched() ? identityForm.name().errors()[0] : undefined;
+            @let alignmentError = identityForm.alignment().touched()
+              ? identityForm.alignment().errors()[0]
+              : undefined;
+            @let notesError = identityForm.notes().touched() ? identityForm.notes().errors()[0] : undefined;
+
             <div class="panel-grid">
               <section class="panel surface">
                 <h2>Dettagli</h2>
                 <div class="form-grid">
                   <label class="field span-2">
                     <span>Nome</span>
-                    <input class="input" [value]="store.name()" (input)="store.setName(asText($event))" />
+                    <input
+                      class="input"
+                      [formField]="identityForm.name"
+                      [attr.aria-invalid]="identityForm.name().touched() ? identityForm.name().invalid() : null"
+                      [attr.aria-describedby]="nameError ? 'character-name-error' : null"
+                    />
                   </label>
+                  @if (nameError; as error) {
+                    <p id="character-name-error" class="state--error span-2" role="alert">{{ error.message }}</p>
+                  }
                   <label class="field">
                     <span>Allineamento</span>
-                    <input class="input" [value]="store.alignment()" (input)="store.setAlignment(asText($event))" />
+                    <input
+                      class="input"
+                      [formField]="identityForm.alignment"
+                      [attr.aria-invalid]="identityForm.alignment().touched() ? identityForm.alignment().invalid() : null"
+                      [attr.aria-describedby]="alignmentError ? 'character-alignment-error' : null"
+                    />
                   </label>
+                  @if (alignmentError; as error) {
+                    <p id="character-alignment-error" class="state--error" role="alert">{{ error.message }}</p>
+                  }
                   <label class="field span-2">
                     <span>Note del master</span>
-                    <textarea class="textarea" [value]="store.notes()" (input)="store.setNotes(asText($event))"></textarea>
+                    <textarea
+                      class="textarea"
+                      [formField]="identityForm.notes"
+                      [attr.aria-invalid]="identityForm.notes().touched() ? identityForm.notes().invalid() : null"
+                      [attr.aria-describedby]="notesError ? 'character-notes-error' : null"
+                    ></textarea>
                   </label>
+                  @if (notesError; as error) {
+                    <p id="character-notes-error" class="state--error span-2" role="alert">{{ error.message }}</p>
+                  }
                 </div>
               </section>
               <aside class="panel">
@@ -605,7 +648,7 @@
                   <button type="button" class="btn" [disabled]="store.checking()" (click)="verifyOnServer()">
                     {{ store.checking() ? 'Verifica…' : 'Verifica sul server' }}
                   </button>
-                  <button type="button" class="btn btn--primary" [disabled]="!canFinish() || saving()" (click)="save()">
+                  <button type="button" class="btn btn--primary" [disabled]="!canSave() || saving()" (click)="save()">
                     {{ saving() ? 'Salvataggio…' : 'Crea personaggio' }}
                   </button>
                 </div>
@@ -645,7 +688,7 @@
         @if (store.step() < steps.length - 1) {
           <button type="button" class="btn btn--primary" (click)="store.next()">Avanti</button>
         } @else {
-          <button type="button" class="btn btn--primary" [disabled]="!canFinish() || saving()" (click)="save()">
+          <button type="button" class="btn btn--primary" [disabled]="!canSave() || saving()" (click)="save()">
             {{ saving() ? 'Salvataggio…' : 'Crea personaggio' }}
           </button>
         }

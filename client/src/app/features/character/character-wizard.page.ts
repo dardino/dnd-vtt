@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, input, signal, type OnInit } from '@angular/core';
+import { FormField } from '@angular/forms/signals';
 import { Router } from '@angular/router';
 import {
   POINT_BUY_BUDGET,
@@ -27,6 +28,10 @@ import { MeasurementService } from '../../core/measurement.service';
 import { httpMessage, serverMessage } from '../../core/http-error';
 import { SrdCatalogService } from '../../core/srd-catalog.service';
 import {
+  createCharacterIdentityForm,
+  syncCharacterIdentity,
+} from './character-identity-form';
+import {
   CharacterWizardStore,
   WIZARD_STEPS,
 } from './character-wizard.store';
@@ -53,6 +58,7 @@ const STEP_ORDER: readonly BuildStep[] = [
 
 @Component({
   selector: 'app-character-wizard',
+  imports: [FormField],
   templateUrl: './character-wizard.page.html',
   styleUrl: './character-wizard.page.scss',
 })
@@ -76,6 +82,8 @@ export class CharacterWizardPage implements OnInit {
   public readonly saveError = signal<string | null>(null);
   public readonly rolling = signal(false);
   public readonly rollError = signal<string | null>(null);
+  /** Form dell'identità, sincronizzato con lo store (vedi `syncCharacterIdentity`). */
+  public readonly identityForm = createCharacterIdentityForm();
   private restored = false;
 
   public readonly catalog = this.catalogService.catalog;
@@ -210,10 +218,15 @@ export class CharacterWizardPage implements OnInit {
   public readonly hasClassAndBackground = computed(() =>
     this.store.build().classId !== '' && this.store.build().backgroundId !== '');
 
-  public readonly canFinish = computed(() =>
-    (this.validation()?.ok ?? false) && this.store.name().trim().length > 0);
+  /** Il salvataggio richiede build valida, form identità valido e nome non vuoto. */
+  public readonly canSave = computed(() =>
+    (this.validation()?.ok ?? false)
+    && this.identityForm().valid()
+    && this.store.name().trim().length > 0);
 
   public constructor() {
+    syncCharacterIdentity(this.identityForm, this.store);
+
     effect(() => {
       if (!this.restored) {
         return;
@@ -348,7 +361,7 @@ export class CharacterWizardPage implements OnInit {
   }
 
   public async save(): Promise<void> {
-    if (!this.canFinish() || this.saving()) {
+    if (!this.canSave() || this.saving()) {
       return;
     }
     this.saving.set(true);

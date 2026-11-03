@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B4 (resto), B5, S7 e Pi 1. R1 è completato: il page è a 378 righe TS, 264 HTML e 237 SCSS, con UI, store e controller estratti. Completati S0-S9 (tranne verifica TLS S7), A1-A4, R1-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4d e S3. Suite E2E completa verde (39/39).
+**Blocco attivo:** B4 (resto), B5, S7 e Pi 1. R1 è completato: il page è a 378 righe TS, 264 HTML e 237 SCSS, con UI, store e controller estratti. Completati S0-S9 (tranne verifica TLS S7), A1-A4, R1-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4e e S3. Suite E2E completa verde (39/39).
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -433,7 +433,8 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - [x] **B4b — Note della scheda** — ✅ 3 novembre 2026: `form()` con `maxLength` 20000, textarea con `[formField]`, contatore caratteri, `aria-invalid`/`aria-describedby` dopo touched; `saveNotes()` mantiene `patchSheet`/`patchActor` esistenti. Test su valore iniziale, modifica, limite, dirty/touched e a11y.
   - [x] **B4c — Dialog level-up** — ✅ 3 novembre 2026: `levelUpModel` + `form()` con validazione `hpRoll` (min 1, max dado quando `hpMethod === 'roll'`) e sottoclasse obbligatoria quando serve; `FieldTree` passato al dialog, `[formField]` su metodo/tiro/sottoclasse/talento/ASI, `reset()` all'apertura e rimozione di `setLevelUpForm`/`formChange`. Test su valore iniziale, cambio metodo/tiro, dirty/touched, validazione, preview/confirm e a11y.
   - [x] **B4d — Actor wizard** — ✅ 3 novembre 2026: modello unico `ActorWizardFormModel` con `form()`; `[formField]` su identità, taglia, HP/CA/velocità, lingue, note, caratteristiche e sensi; validazione nome/hp/ac/speed, `reset()` in init/import SRD, conversione unità mantenuta; liste tratti/azioni/reazioni ancora signal. Test su nome vuoto/blank, hp/ac/speed, payload, import e a11y; E2E fase 3b 3/3.
-  - **Restano:** inspector editor mappa, `character-wizard`, form in `DmShellPage` (impostazioni/credenziali/AI).
+  - [x] **B4e — Character wizard** — ✅ 3 novembre 2026: `character-identity-form.ts` con modello `{ name, alignment, notes }`, `form()` required/max 120/max 120/max 20000 e `syncCharacterIdentity` (effect guardati form→store e store→form con letture `untracked`, così reset/restore non si sovrascrivono). Step identità e dettagli usano `[formField]` con `aria-invalid`/`aria-describedby` dopo touched ed errori `role="alert"`; `canSave` unisce build valida, form valido e nome non vuoto, il salvataggio resta sullo store. Test su nome vuoto/limiti, dirty/touched, sync su restore/reset e a11y; E2E fase 3b e 2 (12/12).
+  - **Restano:** inspector editor mappa, form in `DmShellPage` (impostazioni/credenziali/AI).
 
 - [ ] **B5 — Pulizia finale** · S
   - **Proposta:** rimuovere stato form manuale e handler ridondanti; aggiornare `PLAN.md` allo stato "adottato".
@@ -556,7 +557,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 5. **SR3-SR7 e C1-C5/C7**: completati.
 6. **C6**: chiuso — container query non adottate, requisito rimosso dal piano.
 7. **S3, S7**: S3 completato (revoca per-device); S7 richiede verifica TLS/proxy reale.
-8. **B1-B5**: B1-B3 chiusi; B4 ha B4a-B4d (dialog mappa, note, level-up, actor wizard), restano inspector mappa, character wizard e form DmShell; B5 dopo B4.
+8. **B1-B5**: B1-B3 chiusi; B4 ha B4a-B4e (dialog mappa, note, level-up, actor wizard, character wizard), restano inspector mappa e form DmShell; B5 dopo B4.
 9. **Pi 1**: validazione display in kiosk.
 
 ---
