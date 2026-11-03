@@ -183,7 +183,10 @@ export const SceneTokensStore = signalStore(
         await spawnActorToken(scene, actor, scene.widthPx / 2, scene.heightPx / 2);
       },
 
-      async onActorDropped(scene: Scene, event: ActorDropEvent): Promise<void> {
+      async onActorDropped(scene: Scene | null, event: ActorDropEvent): Promise<void> {
+        if (scene === null) {
+          return;
+        }
         const actor = shell.party().find((entry) => entry.id === event.actorId);
         if (actor === undefined) {
           return;
@@ -193,7 +196,10 @@ export const SceneTokensStore = signalStore(
 
       spawnActorToken,
 
-      async rollInitiative(scene: Scene): Promise<void> {
+      async rollInitiative(scene: Scene | null): Promise<void> {
+        if (scene === null) {
+          return;
+        }
         const campaign = shell.activeCampaign();
         if (campaign === null) {
           return;
@@ -262,10 +268,13 @@ export const SceneTokensStore = signalStore(
       },
 
       async updateInitiativeValue(
-        scene: Scene,
+        scene: Scene | null,
         entryId: string,
         event: Event,
       ): Promise<void> {
+        if (scene === null) {
+          return;
+        }
         const initiative = store.initiative();
         const value = Number((event.target as HTMLInputElement).value);
         if (initiative === null || !Number.isFinite(value)) {
@@ -282,7 +291,10 @@ export const SceneTokensStore = signalStore(
         );
       },
 
-      async sortInitiative(scene: Scene): Promise<void> {
+      async sortInitiative(scene: Scene | null): Promise<void> {
+        if (scene === null) {
+          return;
+        }
         const initiative = store.initiative();
         if (initiative === null) {
           return;
@@ -296,11 +308,17 @@ export const SceneTokensStore = signalStore(
         );
       },
 
-      async nextTurn(scene: Scene): Promise<void> {
+      async nextTurn(scene: Scene | null): Promise<void> {
+        if (scene === null) {
+          return;
+        }
         await send(scene.id, { type: 'initiative.next' });
       },
 
-      async endInitiative(scene: Scene): Promise<void> {
+      async endInitiative(scene: Scene | null): Promise<void> {
+        if (scene === null) {
+          return;
+        }
         const initiative = store.initiative();
         if (initiative === null) {
           return;

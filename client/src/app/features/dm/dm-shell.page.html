@@ -22,12 +22,12 @@
           class="dm-link-button"
           [routerLink]="['/dm/campaigns', shell.activeCampaign()?.id, 'actors', 'new', 'pc']"
         >Crea personaggio</a>
-        <app-button variant="ghost" [disabled]="regia.busy()" (pressed)="openScreen()">Apri schermo</app-button>
-        <app-button [disabled]="regia.busy() || activeScene() === null" (pressed)="takeScene()">Manda in onda</app-button>
+        <app-button variant="ghost" [disabled]="regia.busy()" (pressed)="screens.openScreen()">Apri schermo</app-button>
+        <app-button [disabled]="regia.busy() || activeScene() === null" (pressed)="screens.takeScene()">Manda in onda</app-button>
         <app-button
           variant="ghost"
           [disabled]="regia.busy()"
-          (pressed)="toggleBlackout()"
+          (pressed)="screens.toggleBlackout()"
         >{{ blackout() ? 'Riacendi schermo' : 'Blackout' }}</app-button>
         <app-button variant="ghost" (pressed)="openChoose()">Cambia campagna</app-button>
       }
@@ -48,7 +48,7 @@
     <main class="dm-main">
       @switch (mode()) {
         @case ('ready') {
-          @if (shell.activeCampaign(); as campaign) {
+          @if (shell.activeCampaign() !== null) {
             <div class="dm-scene" aria-label="Vista principale">
               <div class="dm-scene__workspace">
                 <app-scene-toolbar
@@ -56,8 +56,8 @@
                   [canRedo]="canRedo()"
                   (openDice)="openDice()"
                   (exportPng)="exportPng()"
-                  (undo)="undoLast()"
-                  (redo)="redoLastBatch()"
+                  (undo)="fog.undoLast(campaign.activeScene())"
+                  (redo)="fog.redoLastBatch(campaign.activeScene())"
                   (settings)="openSettings()"
                   (zoomIn)="zoomIn()"
                   (zoomOut)="zoomOut()"
@@ -82,12 +82,12 @@
                     [actorPortraits]="actorPortraits()"
                     [vision]="visionGrid()"
                     [doors]="dmDoors()"
-                    (tokenMoved)="onTokenMoved($event)"
-                    (tokenSelected)="onTokenSelected($event)"
-                    (actorDropped)="onActorDropped($event)"
+                    (tokenMoved)="tokensStore.onTokenMoved(campaign.activeScene()?.id ?? null, $event)"
+                    (tokenSelected)="tokensStore.select($event)"
+                    (actorDropped)="tokensStore.onActorDropped(campaign.activeScene(), $event)"
                     (measured)="onMeasured($event)"
-                    (fogApplied)="onFogApplied($event)"
-                    (drawingAdded)="onDrawingAdded($event)"
+                    (fogApplied)="fog.onFogApplied(campaign.activeScene()?.id ?? null, $event)"
+                    (drawingAdded)="fog.onDrawingAdded(campaign.activeScene()?.id ?? null, $event)"
                     (cameraChanged)="onCamera($event)"
                   />
                 } @else if (sceneStore.loading()) {
@@ -96,7 +96,7 @@
                   <div class="scene-empty">
                     <h2>Nessuna scena attiva</h2>
                     <p class="muted">Avvia una mappa dall’editor per iniziare a preparare il tavolo.</p>
-                    <button type="button" class="upload-button" (click)="openMapPicker()">Avvia da mappa</button>
+                    <button type="button" class="upload-button" (click)="campaign.openMapPicker()">Avvia da mappa</button>
                   </div>
                 }
               </div>
@@ -109,14 +109,14 @@
                 [tokenHp]="tokenHp"
                 (tabChange)="setDockTab($event)"
                 (toggle)="toggleDock()"
-                (rollInitiative)="rollInitiative()"
-                (nextTurn)="nextInitiativeTurn()"
-                (sort)="sortInitiative()"
-                (end)="endInitiative()"
-                (updateValue)="updateInitiativeValue($event.id, $event.event)"
+                (rollInitiative)="tokensStore.rollInitiative(campaign.activeScene())"
+                (nextTurn)="tokensStore.nextTurn(campaign.activeScene())"
+                (sort)="tokensStore.sortInitiative(campaign.activeScene())"
+                (end)="tokensStore.endInitiative(campaign.activeScene())"
+                (updateValue)="tokensStore.updateInitiativeValue(campaign.activeScene(), $event.id, $event.event)"
                 (openDice)="openDice()"
-                (redoBatch)="redoLastBatch()"
-                (undoThrough)="undoThrough($event)"
+                (redoBatch)="fog.redoLastBatch(campaign.activeScene())"
+                (undoThrough)="fog.undoThrough(campaign.activeScene(), $event)"
               />
             </div>
           }
@@ -177,7 +177,7 @@
   [open]="mode() === 'create'"
   [busy]="busy()"
   [dismissible]="hasCampaigns()"
-  (create)="createCampaign($event)"
+  (create)="campaign.createCampaign($event)"
   (closed)="closeCreate()"
 />
 
@@ -190,11 +190,11 @@
   (closed)="closeChoose()"
 />
 
-@if (shell.activeCampaign(); as campaign) {
+@if (shell.activeCampaign(); as activeCampaign) {
   @defer (when diceOpen(); prefetch on idle) {
     <app-dice-overlay
       [open]="diceOpen()"
-      [campaignId]="campaign.id"
+      [campaignId]="activeCampaign.id"
       [sceneId]="activeScene()?.id ?? null"
       [tokenId]="selectedTokenId()"
       (closed)="diceOpen.set(false)"
@@ -211,8 +211,8 @@
   [open]="fogConfirm() !== null"
   [mode]="fogConfirm()"
   [overrideActive]="fogOverrideActive()"
-  (confirm)="confirmFogChange()"
-  (dismiss)="cancelFogChange()"
+  (confirm)="fog.confirm(campaign.activeScene())"
+  (dismiss)="fog.cancel()"
 />
 
 <app-map-settings-dialog
@@ -234,7 +234,7 @@
   [open]="takeTargetOpen()"
   [screens]="regia.screens()"
   [projectionLabel]="regia.projectionLabel"
-  (take)="takeSceneTo($event)"
+  (take)="screens.takeSceneTo($event)"
   (dismiss)="takeTargetOpen.set(false)"
 />
 
@@ -242,9 +242,9 @@
   [open]="mapPickerOpen()"
   [maps]="maps()"
   [loading]="mapsLoading()"
-  (choose)="chooseMap($event)"
-  (create)="closeMapPicker()"
-  (closed)="closeMapPicker()"
+  (choose)="campaign.chooseMap($event)"
+  (create)="campaign.closeMapPicker()"
+  (closed)="campaign.closeMapPicker()"
 />
 
 <app-prepare-scene-dialog
@@ -256,9 +256,9 @@
   [startOptions]="startOptions()"
   [busy]="prepareBusy()"
   (nameChange)="prepareName.set($event)"
-  (assignmentChange)="applyAssignment($event)"
-  (start)="startPreparedMap()"
-  (dismiss)="closePrepare()"
+  (assignmentChange)="campaign.applyAssignment($event)"
+  (start)="campaign.startPreparedMap()"
+  (dismiss)="campaign.closePrepare()"
 />
 
 <app-screen-viewer-dialog />

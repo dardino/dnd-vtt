@@ -14,9 +14,6 @@ import type { Subscription } from 'rxjs';
 import {
   type Actor,
   type DiceRoll,
-  type Drawing,
-  type FogOp,
-  type MapSummary,
   type MeasureResult,
 } from '@dnd-vtt/shared';
 import { ActionStore } from '../../core/action.store';
@@ -30,10 +27,7 @@ import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { CampaignShellStore } from './campaign-shell.store';
 import { CharacterSlots } from './character-slots';
 import { ChooseCampaignDialog } from './choose-campaign-dialog';
-import {
-  CreateCampaignDialog,
-  type CreateCampaignValues,
-} from './create-campaign-dialog';
+import { CreateCampaignDialog } from './create-campaign-dialog';
 import { actorSubtitle, hpRatio } from './dm-actor';
 import { DmCampaignStore } from './dm-campaign.store';
 import { DmCanvasController } from './dm-canvas.controller';
@@ -51,22 +45,15 @@ import { FogConfirmDialog } from './fog-confirm-dialog';
 import { LoginDialog } from './login-dialog';
 import { MapPickerDialog } from './map-picker-dialog';
 import { MapSettingsDialog } from './map-settings-dialog';
-import {
-  PrepareSceneDialog,
-  type PrepareSceneAssignment,
-} from './prepare-scene-dialog';
-import { RegiaStore, type ScreenSummary } from './regia.store';
+import { PrepareSceneDialog } from './prepare-scene-dialog';
+import { RegiaStore } from './regia.store';
 import { SceneFogStore } from './scene-fog.store';
 import { SceneToolbar } from './scene-toolbar';
 import { SceneTokensStore } from './scene-tokens.store';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenViewerDialog } from './screen-viewer-dialog';
 import { TakeTargetDialog } from './take-target-dialog';
-import {
-  SceneCanvasComponent,
-  type ActorDropEvent,
-  type TokenMoveEvent,
-} from '../scene/scene-canvas.component';
+import { SceneCanvasComponent } from '../scene/scene-canvas.component';
 
 @Component({
   selector: 'app-dm-shell',
@@ -228,8 +215,8 @@ export class DmShellPage implements OnInit {
     this.screens.reset();
     this.sceneTools.resetVolatile();
     this.keyboard.attach({
-      undo: () => this.undoLast(),
-      redo: () => this.redoLastBatch(),
+      undo: () => void this.fog.undoLast(this.activeScene()),
+      redo: () => void this.fog.redoLastBatch(this.activeScene()),
       canUndo: () => this.canUndo(),
     });
     this.presenceSubscription = this.realtime.presence$.subscribe((presence) => {
@@ -264,34 +251,6 @@ export class DmShellPage implements OnInit {
     } finally {
       this.ui.setBusy(false);
     }
-  }
-
-  public async createCampaign(values: CreateCampaignValues): Promise<void> {
-    await this.campaign.createCampaign(values);
-  }
-
-  public async openMapPicker(): Promise<void> {
-    await this.campaign.openMapPicker();
-  }
-
-  public closeMapPicker(): void {
-    this.campaign.closeMapPicker();
-  }
-
-  public async chooseMap(map: MapSummary): Promise<void> {
-    await this.campaign.chooseMap(map);
-  }
-
-  public closePrepare(): void {
-    this.campaign.closePrepare();
-  }
-
-  public applyAssignment(change: PrepareSceneAssignment): void {
-    this.campaign.applyAssignment(change);
-  }
-
-  public async startPreparedMap(): Promise<void> {
-    await this.campaign.startPreparedMap();
   }
 
   public zoomIn(): void {
@@ -337,75 +296,7 @@ export class DmShellPage implements OnInit {
     this.ui.setStatusMessage(`Tiro: ${roll.total} (${roll.formula})`);
   }
 
-  public async rollInitiative(): Promise<void> {
-    const scene = this.activeScene();
-    if (scene === null) {
-      return;
-    }
-    await this.tokensStore.rollInitiative(scene);
-  }
-
-  public async updateInitiativeValue(entryId: string, event: Event): Promise<void> {
-    const scene = this.activeScene();
-    if (scene === null) {
-      return;
-    }
-    await this.tokensStore.updateInitiativeValue(scene, entryId, event);
-  }
-
-  public async sortInitiative(): Promise<void> {
-    const scene = this.activeScene();
-    if (scene === null) {
-      return;
-    }
-    await this.tokensStore.sortInitiative(scene);
-  }
-
-  public async nextInitiativeTurn(): Promise<void> {
-    const scene = this.activeScene();
-    if (scene === null) {
-      return;
-    }
-    await this.tokensStore.nextTurn(scene);
-  }
-
-  public async endInitiative(): Promise<void> {
-    const scene = this.activeScene();
-    if (scene === null) {
-      return;
-    }
-    await this.tokensStore.endInitiative(scene);
-  }
-
   public readonly tokenHp = this.tokensStore.tokenHp;
-
-  public async undoLast(): Promise<void> {
-    await this.fog.undoLast(this.activeScene());
-  }
-
-  public async undoThrough(entryId: string): Promise<void> {
-    await this.fog.undoThrough(this.activeScene(), entryId);
-  }
-
-  public async redoLastBatch(): Promise<void> {
-    await this.fog.redoLastBatch(this.activeScene());
-  }
-
-  public async onTokenMoved(event: TokenMoveEvent): Promise<void> {
-    await this.tokensStore.onTokenMoved(this.activeScene()?.id ?? null, event);
-  }
-
-  public async onActorDropped(event: ActorDropEvent): Promise<void> {
-    const scene = this.activeScene();
-    if (scene === null) {
-      return;
-    }
-    await this.tokensStore.onActorDropped(scene, event);
-  }
-
-  public onTokenSelected(tokenId: string | null): void {
-    this.tokensStore.select(tokenId);
-  }
 
   public openSettings(): void {
     this.settingsOpen.set(true);
@@ -427,40 +318,8 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public async onFogApplied(op: FogOp): Promise<void> {
-    await this.fog.onFogApplied(this.activeScene()?.id ?? null, op);
-  }
-
-  public async onDrawingAdded(drawing: Drawing): Promise<void> {
-    await this.fog.onDrawingAdded(this.activeScene()?.id ?? null, drawing);
-  }
-
-  public async confirmFogChange(): Promise<void> {
-    await this.fog.confirm(this.activeScene());
-  }
-
-  public cancelFogChange(): void {
-    this.fog.cancel();
-  }
-
   public exportPng(): void {
     this.canvasController.exportPng();
-  }
-
-  public async openScreen(): Promise<void> {
-    await this.screens.openScreen();
-  }
-
-  public takeScene(): void {
-    this.screens.takeScene();
-  }
-
-  public async takeSceneTo(summary: ScreenSummary): Promise<void> {
-    await this.screens.takeSceneTo(summary);
-  }
-
-  public async toggleBlackout(): Promise<void> {
-    await this.screens.toggleBlackout();
   }
 
   public onActorDragStart(event: DragEvent, actor: Actor): void {
