@@ -2882,6 +2882,13 @@ Criteri di uscita invariati: B1 = API confermate e PoC verde su `dice-overlay`; 
 - Dopo `@defer`: init 308.95 kB (+9 kB di runtime defer), ma le route si alleggeriscono: dm-shell 191 → 123 kB, actor-sheet 71 → 54.65 kB; dado (68.55 kB), pannello incantesimi (4.93 kB) e dialog livello (8.61 kB) diventano chunk separati.
 - Nessun warning di budget; E2E mirati (fase 3b, 5, 7, 8) e axe 4/4 verdi.
 
+### Adozione Signal Forms (B4/B5)
+
+- **Pattern unico:** modello in un `signal`, `form(model, schema)` con `required`/`min`/`max`/`maxLength`/`pattern`/`validate`, binding `[formField]`, submit con `submit()` e stato `touched`/`dirty` per l'accessibilità (`aria-invalid`/`aria-describedby` solo dopo il blur).
+- **Migrati:** dado (formula, modificatore, modo, visibilità), dialog nuova mappa, note scheda, level-up, actor wizard, identità character wizard, login/creazione campagna, inspector mappa (proprietà, griglia, terreno) e pannello AI.
+- **Form con stato esterno:** identity del character wizard e AI sincronizzano `form()` con lo store tramite effect guardati; l'inspector mappa usa commit espliciti verso i comandi history, con effect `doc → form` per undo/load.
+- **Eccezioni deliberate:** liste dinamiche di tratti/azioni/reazioni dell'actor wizard, selezione transiente wall/light/spawn dell'editor mappa e controlli della scheda giocatore restano signal/handler, perché non sono form con submit o sono oggetti transitori.
+
 ### Allineamento piano ↔ codice
 
 - **`PUT /scenes/:id/state`**: rimosso con A2/D3. Non esiste una route di scrittura full-document; lo stato avanza solo per azioni, la recovery usa `GET /scenes/:id/snapshot`. Le menzioni nel piano sono state annotate o riscritte.

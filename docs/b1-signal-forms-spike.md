@@ -32,7 +32,7 @@ Entrypoint: `@angular/forms/signals` → `types/signals.d.ts`, tutte le API marc
   riusa `parseFormula` da `@dnd-vtt/shared`: la validazione di dominio non è duplicata nel client.
 - Submit tramite `submit(form, { action })`: se la formula è invalida l'azione non parte, il campo
   espone `aria-invalid`/`aria-describedby` e il messaggio tradotto da `DiceFormulaError`.
-- Modificatore, modo e visibilità restano signal semplici: nessuna riscrittura dell'overlay.
+- Modificatore, modo e visibilità sono stati poi inclusi nello stesso modello in **B5**, quindi l'overlay non ha più handler manuali.
 - Test: `dice-overlay.component.spec.ts` (caso invalido blocca `DiceStore.roll`, caso valido invia
   `2d6+3`) e `b1-spike.spec.ts` (`validateStandardSchema`, `resource()` con cambio `params`,
   rendering esplicito di un blocco `@defer`).

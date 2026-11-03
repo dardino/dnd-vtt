@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B5, S7 e Pi 1. B4 è completato (B1, B4a-B4f); B5 è in corso con B5b (pannello AI). Restano input non-form wall/light/spawn transient. Completati S0-S9 (tranne verifica TLS S7), A1-A4, R1-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7 e B1-B4. Suite E2E completa verde (39/39).
+**Blocco attivo:** S7 e Pi 1. B4 e B5 sono completati; restano solo verifiche esterne (TLS/proxy reale e hardware Pi). Completati S0-S9 (tranne verifica TLS S7), A1-A4, R1-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7 e B1-B5. Suite E2E completa verde (39/39).
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -437,10 +437,12 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - [x] **B4f - Inspector editor mappa** - ✅ 3 novembre 2026: `map-properties.form.ts` con `form()` per nome/note/fogBase/griglia/terreno, validatori (nome, note, cella 16–400, piedi ≥ 0.5, vista ≥ 1 e ≤ max, offset finiti), `[formField]` sui campi live, commit a comandi history al `change`, `effect` doc→form per undo/load, vision disabilitata fuori dalla griglia quadrata, errori `role="alert"` e `.field-error` a tutta larghezza. Wall/light/spawn restano a handler transiente. Test su validatori e commit/undo; E2E fase 4/6/9 (15/15).
   - **Stato:** completato con B1 (dado), B4a (nuova mappa), B4b (note), B4c (level-up), B4d (actor wizard), B4e (identità character wizard) e B4f (inspector mappa). Restano fuori solo input non-form: wall/light/spawn transient e selettori di stato (il testo AI è passato a Signal Forms in B5b).
 
-- [ ] **B5 — Pulizia finale** · S
+- [x] **B5 — Pulizia finale** · S — ✅ 3 novembre 2026
   - **Proposta:** rimuovere stato form manuale e handler ridondanti; aggiornare `PLAN.md` allo stato "adottato".
   - **Fatto quando:** non restano form legacy nei componenti migrati.
+  - [x] **B5a — Dado completo** — ✅ 3 novembre 2026: modello `{ formula, modifier, mode, visibility }`, validazione (formula, intero, enum), `[formField]` su tutti i controlli, roll dal form; rimossi signal e setter manuali. Test su submit, modificatore invalido, dirty/touched e a11y; E2E fase 5 (2/2).
   - [x] **B5b — `DmAiPanel` con Signal Forms** — ✅ 3 novembre 2026: estratto `dm-ai-panel.ts/html/scss` con modello `{ text, name }` (`maxLength` 20000/120) e `[formField]`; sync bidirezionale guardata con `DmAuxStore` (`setText`/`setName` form→store, reset del testo pulito da `createMonster` store→form), `aria-invalid`/`aria-describedby` dopo touched ed errori `role="alert"`. `dm-left-sidebar` usa `<app-dm-ai-panel />` e perde `analyzeStatblock`/`createParsedMonster`/`setAiText`/`setAiName`. Spec dedicata su sync, pulsante disabilitato, limiti e a11y; E2E fase 2/7 verdi (13/13).
+  - [x] **B5c — Documentazione e chiusura** — ✅ 3 novembre 2026: `PLAN.md` ha la sezione "Adozione Signal Forms" con pattern, form migrati ed eccezioni deliberate (liste dinamiche, wall/light/spawn transient, controlli scheda giocatore); `docs/b1-signal-forms-spike.md` non parla più di controlli "signal semplici"; nessun handler form legacy residuo nei componenti B4/B5.
 
 ## 9. Distribuzione (D9) — **Docker scelto**
 
@@ -559,7 +561,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 5. **SR3-SR7 e C1-C5/C7**: completati.
 6. **C6**: chiuso — container query non adottate, requisito rimosso dal piano.
 7. **S3, S7**: S3 completato (revoca per-device); S7 richiede verifica TLS/proxy reale.
-8. **B1-B5**: B1-B4 completati; resta B5 (pulizia finale).
+8. **B1-B5**: completati.
 9. **Pi 1**: validazione display in kiosk.
 
 ---
