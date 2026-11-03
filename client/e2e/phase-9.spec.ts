@@ -9,6 +9,7 @@ import { campaignId } from './fixtures.js';
 
 const CAMPAIGN_NAME = 'E2E Mappe e visione';
 const CELL = 70;
+const MAP_SIZE = 1400;
 
 const campaignFixture = { name: CAMPAIGN_NAME, description: 'Mappe e visione' } as const;
 
@@ -79,7 +80,7 @@ const createMap = async (
   pc: string,
 ): Promise<{ mapId: string; sceneId: string }> => {
   const png = await sharp({
-    create: { width: 1400, height: 1400, channels: 3, background: '#242424' },
+    create: { width: MAP_SIZE, height: MAP_SIZE, channels: 3, background: '#242424' },
   }).png().toBuffer();
   const assetResponse = await request.post('/api/v1/assets', {
     multipart: { file: { name: 'visione.png', mimeType: 'image/png', buffer: png } },
@@ -87,11 +88,16 @@ const createMap = async (
   expect(assetResponse.status()).toBe(201);
   const asset = await assetResponse.json() as { id: string };
   const mapResponse = await request.post(`/api/v1/campaigns/${campaign}/maps`, {
-    data: { name: 'Mappa visione', imageAssetId: asset.id },
+    data: {
+      name: 'Mappa visione',
+      imageAssetId: asset.id,
+      widthPx: MAP_SIZE,
+      heightPx: MAP_SIZE,
+    },
   });
   expect(mapResponse.status()).toBe(201);
   const map = await mapResponse.json() as { id: string; version: number };
-  const document: MapDocument = emptyMapDocument('Mappa visione', asset.id, 1400, 1400);
+  const document: MapDocument = emptyMapDocument('Mappa visione', asset.id, MAP_SIZE, MAP_SIZE);
   document.grid = {
     type: 'square',
     cellSizePx: CELL,

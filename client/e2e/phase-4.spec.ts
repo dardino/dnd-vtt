@@ -222,9 +222,18 @@ test('carica una mappa 8k, trascina un token e calcola la misura condivisa', asy
   await expect(page.locator('.scene-canvas__measure')).toContainText(`${measured.feet} ft`);
 });
 
-test('l’editor sostituisce lo sfondo della mappa', async ({ page, request }) => {
+test('l’editor sostituisce lo sfondo mantenendo le dimensioni della mappa', async ({ page, request }) => {
   test.setTimeout(60_000);
   const id = await campaignId(request, { description: 'Mappa di prova' });
+  const mapsBefore = await request.get(`/api/v1/campaigns/${id}/maps`);
+  const before = (await mapsBefore.json() as {
+    items: { id: string; name: string; widthPx: number; heightPx: number }[];
+  }).items.find((entry) => entry.name === 'mappa-8k');
+  expect(before).toBeDefined();
+  const expectedSize = `${before?.widthPx} × ${before?.heightPx} px`;
+  const beforeMap = await request.get(`/api/v1/maps/${before?.id}`);
+  const beforeAssetId = (await beforeMap.json() as { imageAssetId: string | null }).imageAssetId;
+
   await page.goto('/maps');
   const card = page.locator('.map-card', { hasText: 'mappa-8k' });
   await expect(card).toBeVisible({ timeout: 15_000 });
@@ -235,15 +244,24 @@ test('l’editor sostituisce lo sfondo della mappa', async ({ page, request }) =
   await page.getByRole('button', { name: 'Sfondo' }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles(await replacementMapFile());
+  // Attende che l'upload asincrono abbia applicato il comando di sostituzione.
+  await expect(page.locator('.editor__title .badge')).toHaveText('modifiche non salvate');
 
-  await expect(page.locator('.editor__status')).toContainText('1024 × 512 px');
+  // SR1/SR5: le dimensioni sono immutabili; il server ridimensiona lo sfondo.
+  await expect(page.locator('.editor__status')).toContainText(expectedSize);
   await page.getByRole('button', { name: 'Salva' }).click();
   await expect(page.locator('.editor__title .badge')).toHaveText('salvata', { timeout: 10_000 });
-  await expect(page.locator('.editor__status')).toContainText('1024 × 512 px');
+  await expect(page.locator('.editor__status')).toContainText(expectedSize);
 
   const maps = await request.get(`/api/v1/campaigns/${id}/maps`);
   const items = (await maps.json() as { items: { name: string; widthPx: number; heightPx: number }[] }).items;
-  expect(items.find((entry) => entry.name === 'mappa-8k')).toMatchObject({ widthPx: 1024, heightPx: 512 });
+  expect(items.find((entry) => entry.name === 'mappa-8k')).toMatchObject({
+    widthPx: before?.widthPx,
+    heightPx: before?.heightPx,
+  });
+  const afterMap = await request.get(`/api/v1/maps/${before?.id}`);
+  expect((await afterMap.json() as { imageAssetId: string | null }).imageAssetId)
+    .not.toBe(beforeAssetId);
 });
 
 test('due console convergono senza conflitti', async ({ page, context, request }) => {

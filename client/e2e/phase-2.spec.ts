@@ -89,21 +89,16 @@ test('cambia campagna e riapre la scelta', async ({ page }) => {
 test('la console usa un layout a tre colonne e riempie l altezza', async ({ page }) => {
   await openCampaign(page);
   const layout = page.locator('.dm-layout');
-  await expect.poll(async () => layout.evaluate((element) =>
-    getComputedStyle(element).gridTemplateColumns
-      .split(' ')
-      .filter((entry) => entry !== '').length)).toBe(3);
-  const metrics = await layout.evaluate((element) => {
+  await expect(layout).toBeVisible();
+  // Un'unica poll verifica colonne e altezza: campionarle in due momenti
+  // diversi rende il test flaky durante il primo layout.
+  await expect.poll(async () => layout.evaluate((element) => {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
-    return {
-      columns: style.gridTemplateColumns.split(' ').filter((entry) => entry !== '').length,
-      bottom: rect.bottom,
-      viewport: window.innerHeight,
-    };
-  });
-  expect(metrics.columns).toBe(3);
-  expect(metrics.bottom).toBeGreaterThanOrEqual(metrics.viewport - 80);
+    const columns = style.gridTemplateColumns.split(' ')
+      .filter((entry) => entry !== '').length;
+    return columns === 3 && rect.bottom >= window.innerHeight - 80;
+  })).toBe(true);
 
   const slotsWidth = await page.locator('.slots').evaluate((element) =>
     element.getBoundingClientRect().width);

@@ -149,19 +149,29 @@ export const createScene = async (
 };
 
 /**
- * Restituisce la scena attiva della campagna, creandone una se necessario.
+ * Restituisce la scena attiva con il nome richiesto, creandola se non esiste.
+ * Riusare una scena con nome diverso renderebbe i test dipendenti l'uno dall'altro.
  */
 export const ensureScene = async (
   request: APIRequestContext,
   id: string,
   options: SceneFixtureOptions = {},
 ): Promise<string> => {
+  const name = options.name ?? 'Arena';
   const campaign = await request.get(`/api/v1/campaigns/${id}`);
   const activeSceneId = (await campaign.json() as { activeSceneId: string | null }).activeSceneId;
-  if (activeSceneId !== null) {
-    return activeSceneId;
+  const scenesResponse = await request.get(`/api/v1/campaigns/${id}/scenes?limit=200`);
+  const scenes = (await scenesResponse.json() as { items: { id: string; name: string }[] }).items;
+  const active = scenes.find((scene) => scene.id === activeSceneId);
+  if (active !== undefined && active.name === name) {
+    return active.id;
   }
-  const sceneId = await createScene(request, id, options);
+  const existing = scenes.find((scene) => scene.name === name);
+  if (existing !== undefined) {
+    await request.patch(`/api/v1/campaigns/${id}`, { data: { activeSceneId: existing.id } });
+    return existing.id;
+  }
+  const sceneId = await createScene(request, id, { ...options, name });
   await request.patch(`/api/v1/campaigns/${id}`, { data: { activeSceneId: sceneId } });
   return sceneId;
 };

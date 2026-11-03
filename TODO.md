@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B4 (resto), B5, R1, S7 e Pi 1. R1 resta parziale (componenti/template DmShell). Completati S0-S9 (tranne verifica TLS S7), A1-A4, R2-R3, P1-P7, Q1-Q5, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4d e S3.
+**Blocco attivo:** B4 (resto), B5, R1, S7 e Pi 1. R1 resta parziale (componenti/template DmShell). Completati S0-S9 (tranne verifica TLS S7), A1-A4, R2-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4d e S3. Suite E2E completa verde (39/39).
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -167,6 +167,17 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
     `.campaign-card__meta` (`--color-text-muted`), nomi accessibili di brand e accordion senza `aria-label`
     disallineato dal testo visibile, e toolbar scena con `flex: 0 0 auto` per non schiacciare i target
     sotto 24px. Test eseguito con `npx playwright test e2e/phase-99-accessibility.spec.ts` (4/4).
+
+- [x] **Q6 — Triage E2E preesistenti** · M — ✅ 3 novembre 2026
+  - **Problema:** la suite completa aveva 6 fallimenti storici (`phase-4`, `phase-6`, `phase-9`) che
+    mascheravano eventuali regressioni.
+  - **Esito:** `ensureScene` in `client/e2e/fixtures.ts` ora seleziona/crea la scena **con il nome
+    richiesto** invece di riusare la scena attiva di un altro test (era la causa dei fallimenti
+    `phase-6`: una scena esagonale/visione disattivata ereditata da `phase-4`). `phase-4` verifica che
+    la sostituzione sfondo mantenga le dimensioni (SR1/SR5), non più che le cambi a 1024×512, e attende
+    il comando di sostituzione prima di salvare; `phase-9` crea la mappa 1400×1400 coerente con il
+    documento, evitando il 400 "dimensioni immutabili"; `phase-2` campiona colonne e altezza nella stessa
+    poll (era flaky). Suite completa: **39/39 verde** per due esecuzioni consecutive (`npx playwright test`).
 
 ## 4. Sicurezza (P1) — **attiva (D7): tutti i livelli**
 
