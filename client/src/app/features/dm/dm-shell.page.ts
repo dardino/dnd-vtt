@@ -66,6 +66,7 @@ import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
 import { AuthSessionsPanel } from './auth-sessions-panel';
+import { DmDock, type DockTab } from './dm-dock';
 import { DmStatusbar } from './dm-statusbar';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
@@ -138,6 +139,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     ActorList,
     Button,
     Dialog,
+    DmDock,
     DmStatusbar,
     RouterLink,
     SceneCanvasComponent,
@@ -220,7 +222,7 @@ export class DmShellPage implements OnInit {
   public readonly leftOpen = signal(true);
   public readonly rightOpen = signal(true);
   public readonly dockOpen = signal(true);
-  public readonly dockTab = signal<'initiative' | 'dice' | 'actions'>('initiative');
+  public readonly dockTab = signal<DockTab>('initiative');
   public readonly diceOpen = signal(false);
   public readonly sections = signal<Record<SidebarSectionId, boolean>>({ ...DEFAULT_SECTIONS });
   public readonly sessionSeconds = signal(0);
@@ -797,7 +799,7 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public setDockTab(tab: 'initiative' | 'dice' | 'actions'): void {
+  public setDockTab(tab: DockTab): void {
     this.dockTab.set(tab);
     this.dockOpen.set(true);
     const campaign = this.shell.activeCampaign();
@@ -920,10 +922,10 @@ export class DmShellPage implements OnInit {
     await this.sendAction({ type: 'token.hp', tokenId: token.id, delta });
   }
 
-  public tokenHp(tokenId: string): string {
+  public readonly tokenHp = (tokenId: string): string => {
     const token = this.tokens().find((entry) => entry.id === tokenId);
     return token === undefined ? '—' : `${token.hp.current}/${token.hp.max}`;
-  }
+  };
 
   public async undoLast(): Promise<void> {
     const campaign = this.shell.activeCampaign();

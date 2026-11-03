@@ -1,0 +1,7 @@
+// Gruppo di pulsanti usato dal dock ma anche dai pannelli campagna, fog e AI
+// della console DM: vive fuori dai componenti perché ogni host lo importa.
+.initiative__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}

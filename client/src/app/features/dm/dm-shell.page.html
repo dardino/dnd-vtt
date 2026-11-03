@@ -360,115 +360,22 @@
               </div>
               </div>
 
-              <section class="dock" [class.dock--collapsed]="!dockOpen()" aria-label="Dock">
-                <div class="dock__bar">
-                  <button
-                    type="button"
-                    class="dock__tab"
-                    [class.is-active]="dockTab() === 'initiative'"
-                    (click)="setDockTab('initiative')"
-                  >Iniziativa</button>
-                  <button
-                    type="button"
-                    class="dock__tab"
-                    [class.is-active]="dockTab() === 'dice'"
-                    (click)="setDockTab('dice')"
-                  >Log dadi</button>
-                  <button
-                    type="button"
-                    class="dock__tab"
-                    [class.is-active]="dockTab() === 'actions'"
-                    (click)="setDockTab('actions')"
-                  >Azioni ({{ actions.history().length }})</button>
-                  <span class="dock__hint muted">
-                    @if (initiative(); as init) {
-                      @if (init.active) { Round {{ init.round }} · turno {{ init.turnIndex + 1 }}/{{ init.entries.length }} }
-                    }
-                  </span>
-                  <button type="button" class="panel-toggle" (click)="toggleDock()">
-                    {{ dockOpen() ? 'Riduci' : 'Espandi' }}
-                  </button>
-                </div>
-                @if (dockOpen()) {
-                  @switch (dockTab()) {
-                    @case ('initiative') {
-                      <div class="initiative">
-                        <div class="initiative__actions">
-                          <button type="button" class="dock-button" (click)="rollInitiative()">Tira iniziativa</button>
-                          @if (initiative()?.active) {
-                            <button type="button" class="dock-button" (click)="nextInitiativeTurn()">Prossimo turno</button>
-                            <button type="button" class="dock-button" (click)="sortInitiative()">Ordina</button>
-                            <button type="button" class="dock-button" (click)="endInitiative()">Termina</button>
-                          }
-                        </div>
-                        @if (initiative()?.entries?.length) {
-                          <ol class="initiative__list">
-                            @for (entry of initiative()?.entries; track entry.id; let index = $index) {
-                              <li class="initiative__row" [class.is-current]="initiative()?.active && index === initiative()?.turnIndex">
-                                <span class="initiative__label">{{ entry.label }}</span>
-                                <input
-                                  type="number"
-                                  class="initiative__value"
-                                  [value]="entry.value"
-                                  (change)="updateInitiativeValue(entry.id, $event)"
-                                  aria-label="Iniziativa di {{ entry.label }}"
-                                />
-                                <span class="muted">des {{ entry.tiebreak }}</span>
-                                <span class="initiative__hp">{{ tokenHp(entry.tokenId) }}</span>
-                              </li>
-                            }
-                          </ol>
-                        } @else {
-                          <p class="muted">Nessuna iniziativa: tira per i token in mappa.</p>
-                        }
-                      </div>
-                    }
-                    @case ('dice') {
-                      <div class="dice-log">
-                        <div class="initiative__actions">
-                          <button type="button" class="dock-button" (click)="openDice()">Tira dadi</button>
-                        </div>
-                        <ul class="action-history">
-                          @for (roll of dice.rolls(); track roll.id) {
-                            <li>
-                              <span class="action-history__label">{{ roll.formula }} → {{ roll.total }}</span>
-                              <span class="muted">{{ roll.origin }} · {{ roll.visibility }}</span>
-                            </li>
-                          } @empty {
-                            <li class="muted">Nessun tiro registrato.</li>
-                          }
-                        </ul>
-                      </div>
-                    }
-                    @case ('actions') {
-                      <div class="actions-dock">
-                        <div class="initiative__actions">
-                          <button type="button" class="dock-button" [disabled]="undoneActions() === 0" (click)="redoLastBatch()">
-                            Ripeti ultimo batch
-                          </button>
-                        </div>
-                        <ul class="action-history">
-                          @for (entry of actions.history(); track entry.id) {
-                            <li>
-                              <span class="action-history__label">{{ entry.label }}</span>
-                              <span class="muted">{{ entry.origin }} · v{{ entry.stateVersion }}</span>
-                              @if (entry.status === 'applied') {
-                                <button type="button" class="dock-button" (click)="undoThrough(entry.id)">
-                                  Annulla fino a qui
-                                </button>
-                              } @else {
-                                <span class="badge">annullata</span>
-                              }
-                            </li>
-                          } @empty {
-                            <li class="muted">Nessuna azione registrata.</li>
-                          }
-                        </ul>
-                      </div>
-                    }
-                  }
-                }
-              </section>
+              <app-dm-dock
+                [open]="dockOpen()"
+                [tab]="dockTab()"
+                [initiative]="initiative()"
+                [tokenHp]="tokenHp"
+                (tabChange)="setDockTab($event)"
+                (toggle)="toggleDock()"
+                (rollInitiative)="rollInitiative()"
+                (nextTurn)="nextInitiativeTurn()"
+                (sort)="sortInitiative()"
+                (end)="endInitiative()"
+                (updateValue)="updateInitiativeValue($event.id, $event.event)"
+                (openDice)="openDice()"
+                (redoBatch)="redoLastBatch()"
+                (undoThrough)="undoThrough($event)"
+              />
             </div>
           }
         }
