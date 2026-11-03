@@ -1,0 +1,41 @@
+<div class="scene-actions">
+  <app-button variant="primary" [disabled]="busy()" (pressed)="openMapPicker.emit()">
+    Avvia da mappa
+  </app-button>
+  <a class="btn" routerLink="/maps">Crea mappa</a>
+</div>
+@if (scenes().length === 0) {
+  <p class="muted">Nessuna scena: crea una mappa nell’editor e avviala da qui.</p>
+} @else {
+  <ul class="scene-list">
+    @for (scene of scenes(); track scene.id) {
+      <li class="scene-list__item" [class.is-active]="scene.id === activeSceneId()">
+        <span class="scene-list__info">
+          <span>{{ scene.name }}</span>
+          <span class="muted">{{ scene.widthPx }} × {{ scene.heightPx }}</span>
+        </span>
+        <span class="scene-list__actions">
+          @if (scene.id === activeSceneId()) {
+            <span class="badge">attiva</span>
+          } @else {
+            <button
+              type="button"
+              class="icon-button"
+              [attr.aria-label]="'Attiva scena ' + scene.name"
+              title="Attiva scena"
+              (click)="selectScene.emit(scene)"
+            >▶</button>
+          }
+          @if (scene.mapId; as mapId) {
+            <a
+              class="icon-button"
+              [routerLink]="['/maps', mapId]"
+              [attr.aria-label]="'Modifica mappa di ' + scene.name"
+              title="Modifica mappa"
+            >✎</a>
+          }
+        </span>
+      </li>
+    }
+  </ul>
+}

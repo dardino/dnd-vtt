@@ -66,6 +66,7 @@ import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { CampaignShellStore } from './campaign-shell.store';
 import { AuthSessionsPanel } from './auth-sessions-panel';
 import { RegiaStore, type ScreenSummary } from './regia.store';
+import { SceneList } from './scene-list';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenPreviewComponent } from './screen-preview.component';
 import { SidebarSection } from './sidebar-section';
@@ -134,6 +135,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     Dialog,
     RouterLink,
     SceneCanvasComponent,
+    SceneList,
     DiceOverlayComponent,
     ScreenPreviewComponent,
     SidebarSection,
