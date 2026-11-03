@@ -3,9 +3,11 @@ import {
   Component,
   type OnInit,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
+import { FormField, form, maxLength, required, submit, validate } from '@angular/forms/signals';
 import { Router, RouterLink } from '@angular/router';
 import {
   SCENE_PRESETS,
@@ -27,6 +29,15 @@ interface PresetOption {
   label: string;
 }
 
+interface CreateMapFormModel {
+  name: string;
+  preset: ResolutionPreset;
+  orientation: Orientation;
+}
+
+/** Stesso limite di `createMapSchema.name` in `@dnd-vtt/shared`. */
+const NAME_MAX_LENGTH = 120;
+
 const presetLabels: Record<ResolutionPreset, string> = {
   '720p': '720p',
   '1080p': '1080p',
@@ -40,7 +51,7 @@ const presetLabels: Record<ResolutionPreset, string> = {
 
 @Component({
   selector: 'app-maps-page',
-  imports: [Button, Dialog, RouterLink],
+  imports: [Button, Dialog, FormField, RouterLink],
   templateUrl: './maps.page.html',
   styleUrl: './maps.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -61,9 +72,39 @@ export class MapsPage implements OnInit {
 
   public readonly createOpen = signal(false);
   public readonly createError = signal<string | null>(null);
-  public readonly draftName = signal('');
-  public readonly draftPreset = signal<ResolutionPreset>('1080p');
-  public readonly draftOrientation = signal<Orientation>('landscape');
+
+  private readonly createModel = signal<CreateMapFormModel>({
+    name: 'Nuova mappa',
+    preset: '1080p',
+    orientation: 'landscape',
+  });
+
+  public readonly createForm = form(this.createModel, (path) => {
+    required(path.name, { message: 'Inserisci un nome per la mappa.' });
+    maxLength(path.name, NAME_MAX_LENGTH, {
+      message: `Il nome non può superare ${NAME_MAX_LENGTH} caratteri.`,
+    });
+    validate(path.name, ({ value }) => value() === '' || value().trim().length > 0
+      ? null
+      : { kind: 'blank', message: 'Inserisci un nome per la mappa.' });
+    validate(path.preset, ({ value }) => Object.hasOwn(SCENE_PRESETS, value())
+      ? null
+      : { kind: 'preset', message: 'Scegli un preset valido.' });
+    validate(path.orientation, ({ value, valueOf }) => {
+      if (value() !== 'portrait') {
+        return null;
+      }
+      const preset = SCENE_PRESETS[valueOf(path.preset)];
+      return preset?.portrait === null
+        ? { kind: 'orientation', message: 'I preset ultrawide esistono solo in orizzontale.' }
+        : null;
+    });
+  });
+
+  // Alias scrivibili dei campi: i test e i chiamanti esistenti continuano a usare i signal.
+  public readonly draftName = this.createForm.name().value;
+  public readonly draftPreset = this.createForm.preset().value;
+  public readonly draftOrientation = this.createForm.orientation().value;
 
   public readonly presets: readonly PresetOption[] = (
     Object.keys(SCENE_PRESETS) as ResolutionPreset[]
@@ -76,6 +117,15 @@ export class MapsPage implements OnInit {
   public readonly createResolution = computed(() =>
     sceneDimensions(this.draftPreset(), this.draftOrientation()),
   );
+
+  public constructor() {
+    // Anche un cambio preset via `[formField]` deve riallineare l'orientamento.
+    effect(() => {
+      if (this.portraitUnavailable() && this.draftOrientation() === 'portrait') {
+        this.draftOrientation.set('landscape');
+      }
+    });
+  }
 
   public ngOnInit(): void {
     void this.load();
@@ -126,37 +176,20 @@ export class MapsPage implements OnInit {
     if (this.campaign() === null) {
       return;
     }
-    this.draftName.set('Nuova mappa');
-    this.draftPreset.set('1080p');
-    this.draftOrientation.set('landscape');
+    this.createForm().reset({
+      name: 'Nuova mappa',
+      preset: '1080p',
+      orientation: 'landscape',
+    });
     this.createError.set(null);
     this.error.set(null);
     this.createOpen.set(true);
-  }
-
-  public onNameInput(event: Event): void {
-    this.draftName.set((event.target as HTMLInputElement).value);
-  }
-
-  public onPresetChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    const preset = this.presets.find((entry) => entry.value === value);
-    if (preset !== undefined) {
-      this.setPreset(preset.value);
-    }
   }
 
   public setPreset(preset: ResolutionPreset): void {
     this.draftPreset.set(preset);
     if (SCENE_PRESETS[preset].portrait === null) {
       this.draftOrientation.set('landscape');
-    }
-  }
-
-  public onOrientationChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value;
-    if (value === 'landscape' || value === 'portrait') {
-      this.setOrientation(value);
     }
   }
 
@@ -172,17 +205,21 @@ export class MapsPage implements OnInit {
     if (campaign === null || this.busy()) {
       return;
     }
-    const name = this.draftName().trim() || 'Nuova mappa';
     this.busy.set(true);
     this.createError.set(null);
     try {
-      const map = await this.mapsApi.create(campaign.id, {
-        name,
-        preset: this.draftPreset(),
-        orientation: this.draftOrientation(),
+      await submit(this.createForm, {
+        action: async () => {
+          const map = await this.mapsApi.create(campaign.id, {
+            name: this.draftName().trim(),
+            preset: this.draftPreset(),
+            orientation: this.draftOrientation(),
+          });
+          this.createOpen.set(false);
+          await this.router.navigate(['/maps', map.id]);
+          return undefined;
+        },
       });
-      this.createOpen.set(false);
-      await this.router.navigate(['/maps', map.id]);
     } catch (error) {
       // L'errore resta nel dialog: il backdrop coprirebbe il banner della pagina.
       this.createError.set(messageFor(error));

@@ -85,35 +85,58 @@
   (closed)="createOpen.set(false)"
 >
   <div class="create-dialog">
+    @let nameError = createForm.name().touched() ? createForm.name().errors()[0] : undefined;
+    @let presetError = createForm.preset().touched() ? createForm.preset().errors()[0] : undefined;
+    @let orientationError = createForm.orientation().touched()
+      ? createForm.orientation().errors()[0]
+      : undefined;
+
     <label class="field">
       <span>Nome</span>
       <input
         class="input"
         type="text"
-        maxlength="120"
-        [value]="draftName()"
-        (input)="onNameInput($event)"
+        [formField]="createForm.name"
+        [attr.aria-invalid]="createForm.name().touched() ? createForm.name().invalid() : null"
+        [attr.aria-describedby]="nameError ? 'map-name-error' : null"
       />
     </label>
+    @if (nameError; as error) {
+      <p id="map-name-error" class="field-error" role="alert">{{ error.message }}</p>
+    }
     <label class="field">
       <span>Preset</span>
-      <select class="select" [value]="draftPreset()" (change)="onPresetChange($event)">
+      <select
+        class="select"
+        [formField]="createForm.preset"
+        [attr.aria-invalid]="createForm.preset().touched() ? createForm.preset().invalid() : null"
+        [attr.aria-describedby]="presetError ? 'map-preset-error' : null"
+      >
         @for (preset of presets; track preset.value) {
           <option [value]="preset.value">{{ preset.label }}</option>
         }
       </select>
     </label>
+    @if (presetError; as error) {
+      <p id="map-preset-error" class="field-error" role="alert">{{ error.message }}</p>
+    }
     <label class="field">
       <span>Orientamento</span>
       <select
         class="select"
-        [value]="draftOrientation()"
-        (change)="onOrientationChange($event)"
+        [formField]="createForm.orientation"
+        [attr.aria-invalid]="
+          createForm.orientation().touched() ? createForm.orientation().invalid() : null
+        "
+        [attr.aria-describedby]="orientationError ? 'map-orientation-error' : null"
       >
         <option value="landscape">Orizzontale</option>
         <option value="portrait" [disabled]="portraitUnavailable()">Verticale</option>
       </select>
     </label>
+    @if (orientationError; as error) {
+      <p id="map-orientation-error" class="field-error" role="alert">{{ error.message }}</p>
+    }
     @if (portraitUnavailable()) {
       <p class="muted create-dialog__hint">
         I preset ultrawide esistono solo in orizzontale: l'orientamento è forzato.
