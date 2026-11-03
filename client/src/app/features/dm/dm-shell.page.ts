@@ -73,7 +73,9 @@ import {
 } from './create-campaign-dialog';
 import { DmDock, type DockTab } from './dm-dock';
 import { DmLayoutStore, type SidebarSectionId } from './dm-layout.store';
+import { DmSessionStore } from './dm-session.store';
 import { DmStatusbar } from './dm-statusbar';
+import { DmUiStore } from './dm-ui.store';
 import { FogConfirmDialog } from './fog-confirm-dialog';
 import { LoginDialog } from './login-dialog';
 import { MapPickerDialog } from './map-picker-dialog';
@@ -180,6 +182,8 @@ export class DmShellPage implements OnInit {
   public readonly regia = inject(RegiaStore);
   public readonly shell = inject(CampaignShellStore);
   public readonly layout = inject(DmLayoutStore);
+  public readonly ui = inject(DmUiStore);
+  public readonly session = inject(DmSessionStore);
   private readonly sceneActions = inject(SceneActionService);
   private readonly mapsApi = inject(MapService);
   private readonly ai = inject(AiService);
@@ -187,7 +191,6 @@ export class DmShellPage implements OnInit {
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
   private readonly importInput = viewChild<ElementRef<HTMLInputElement>>('importInput');
-  private sessionTimer: ReturnType<typeof setInterval> | null = null;
   private presenceSubscription: Subscription | null = null;
 
   public readonly campaignId = input<string>();
@@ -199,9 +202,9 @@ export class DmShellPage implements OnInit {
   );
 
   public readonly mapImage = signal<SceneMapImage | null>(null);
-  public readonly notice = signal<string | null>(null);
-  public readonly statusMessage = signal('Console pronta.');
-  public readonly busy = signal(false);
+  public readonly notice = this.ui.notice;
+  public readonly statusMessage = this.ui.statusMessage;
+  public readonly busy = this.ui.busy;
 
   public readonly settingsOpen = signal(false);
   public readonly newSceneFog = signal<'hidden' | 'revealed'>('hidden');
@@ -218,22 +221,21 @@ export class DmShellPage implements OnInit {
   public readonly prepareName = signal('');
   public readonly prepareAssignments = signal<Record<string, string>>({});
   public readonly prepareBusy = signal(false);
-  public readonly sessionBusy = signal(false);
+  public readonly sessionBusy = this.session.sessionBusy;
   public readonly aiEnabled = signal(false);
   public readonly aiMessage = signal('Chat IA non configurata.');
   public readonly aiText = signal('');
   public readonly aiBusy = signal(false);
   public readonly aiPreview = signal<MonsterStatblock | null>(null);
   public readonly aiName = signal('Mostro importato');
-  public readonly zoom = signal(1);
-  public readonly selectedTokenId = signal<string | null>(null);
+  public readonly zoom = this.ui.zoom;
+  public readonly selectedTokenId = this.ui.selectedTokenId;
   public readonly leftOpen = this.layout.leftOpen;
   public readonly rightOpen = this.layout.rightOpen;
   public readonly dockOpen = this.layout.dockOpen;
   public readonly dockTab = this.layout.dockTab;
   public readonly diceOpen = signal(false);
   public readonly sections = this.layout.sections;
-  public readonly sessionSeconds = signal(0);
 
   public readonly includePrivateNotes = signal(false);
 
@@ -384,13 +386,7 @@ export class DmShellPage implements OnInit {
     return measure === null ? '—' : this.units.formatDistance(measure.feet);
   });
 
-  public readonly sessionLabel = computed(() => {
-    const total = this.sessionSeconds();
-    const hours = Math.floor(total / 3600);
-    const minutes = Math.floor((total % 3600) / 60);
-    const seconds = total % 60;
-    return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
-  });
+  public readonly sessionLabel = this.session.sessionLabel;
 
   private readonly onKeydown = (event: KeyboardEvent): void => {
     if (!(event.ctrlKey || event.metaKey) || event.altKey) {
@@ -428,7 +424,8 @@ export class DmShellPage implements OnInit {
     });
     this.destroyRef.onDestroy(() => {
       window.removeEventListener('keydown', this.onKeydown);
-      this.stopSessionTimer();
+      this.session.stopTimer();
+      this.ui.reset();
       this.regia.dispose();
       this.presenceSubscription?.unsubscribe();
       this.presenceSubscription = null;
@@ -458,7 +455,7 @@ export class DmShellPage implements OnInit {
       : campaigns.find((campaign) => campaign.id === requested);
     if (requested !== undefined && fromRoute === undefined) {
       this.lastCampaign.clear();
-      this.notice.set('La campagna richiesta non esiste più.');
+      this.ui.setNotice('La campagna richiesta non esiste più.');
     }
     const remembered = this.lastCampaign.read();
     const target = fromRoute ?? campaigns.find((campaign) => campaign.id === remembered);
@@ -470,13 +467,13 @@ export class DmShellPage implements OnInit {
   }
 
   public async enterCampaign(id: string): Promise<void> {
-    this.busy.set(true);
+    this.ui.setBusy(true);
     try {
       const campaign = await this.shell.selectCampaign(id);
       this.sceneTools.resetVolatile();
       this.newSceneFog.set(campaign.fogDefault);
       this.lastCampaign.write(campaign.id);
-      this.notice.set(null);
+      this.ui.setNotice(null);
       this.layout.restore(campaign.id);
       const scenes = await this.shell.loadScenes(campaign.id);
       await this.shell.loadActors(campaign.id);
@@ -489,15 +486,7 @@ export class DmShellPage implements OnInit {
       this.aiEnabled.set(ai.enabled);
       this.aiMessage.set(ai.message);
       const active = this.shell.activeSession();
-      if (active !== null) {
-        this.sessionSeconds.set(Math.max(0, Math.floor(
-          (Date.now() - Date.parse(active.startedAt)) / 1000,
-        )));
-        this.startSessionTimer(false);
-      } else {
-        this.sessionSeconds.set(0);
-        this.stopSessionTimer();
-      }
+      this.session.sync(active);
       const target = scenes.find((scene) => scene.id === campaign.activeSceneId) ?? scenes[0];
       if (target !== undefined) {
         if (campaign.activeSceneId !== target.id) {
@@ -516,16 +505,16 @@ export class DmShellPage implements OnInit {
       this.mode.set('ready');
     } catch (error) {
       this.lastCampaign.clear();
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
       this.mode.set(this.shell.campaigns().length === 0 ? 'create' : 'choose');
     } finally {
-      this.busy.set(false);
+      this.ui.setBusy(false);
     }
   }
 
   private async loadScene(scene: Scene): Promise<void> {
     this.activeScene.set(scene);
-    this.selectedTokenId.set(null);
+    this.ui.setSelectedTokenId(null);
     this.sceneTools.setMeasure(null);
     this.sceneStore.clear();
     await this.sceneStore.load(scene.id);
@@ -556,19 +545,19 @@ export class DmShellPage implements OnInit {
       });
     } catch {
       this.mapImage.set(null);
-      this.notice.set('La mappa della scena non è disponibile.');
+      this.ui.setNotice('La mappa della scena non è disponibile.');
     }
   }
 
   public async login(password: string): Promise<void> {
-    this.busy.set(true);
+    this.ui.setBusy(true);
     try {
       const ok = await this.auth.login(password);
       if (ok) {
         await this.openCampaign();
       }
     } finally {
-      this.busy.set(false);
+      this.ui.setBusy(false);
     }
   }
 
@@ -577,7 +566,7 @@ export class DmShellPage implements OnInit {
     if (name === '') {
       return;
     }
-    this.busy.set(true);
+    this.ui.setBusy(true);
     try {
       const created = await this.campaignsApi.create({
         name,
@@ -588,9 +577,9 @@ export class DmShellPage implements OnInit {
       this.shell.addCampaign(created);
       await this.enterCampaign(created.id);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     } finally {
-      this.busy.set(false);
+      this.ui.setBusy(false);
     }
   }
 
@@ -599,7 +588,7 @@ export class DmShellPage implements OnInit {
     if (campaign === null) {
       return;
     }
-    this.busy.set(true);
+    this.ui.setBusy(true);
     try {
       const scene = await this.campaignsApi.createScene(campaign.id, {
         name: `Scena ${this.shell.scenes().length + 1}`,
@@ -610,12 +599,12 @@ export class DmShellPage implements OnInit {
       this.shell.prependScene(scene);
       const refreshed = await this.campaignsApi.patch(campaign.id, { activeSceneId: scene.id });
       this.shell.setActiveCampaign(refreshed);
-      this.statusMessage.set(`Scena creata: ${scene.name}`);
+      this.ui.setStatusMessage(`Scena creata: ${scene.name}`);
       await this.loadScene(scene);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     } finally {
-      this.busy.set(false);
+      this.ui.setBusy(false);
     }
   }
 
@@ -624,13 +613,13 @@ export class DmShellPage implements OnInit {
     if (campaign === null || scene.id === this.activeScene()?.id) {
       return;
     }
-    this.statusMessage.set(`Scena: ${scene.name}`);
+    this.ui.setStatusMessage(`Scena: ${scene.name}`);
     try {
       const updated = await this.campaignsApi.patch(campaign.id, { activeSceneId: scene.id });
       this.shell.setActiveCampaign(updated);
       await this.loadScene(scene);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     }
   }
 
@@ -644,7 +633,7 @@ export class DmShellPage implements OnInit {
     try {
       this.maps.set(await this.mapsApi.list(campaign.id));
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     } finally {
       this.mapsLoading.set(false);
     }
@@ -674,9 +663,9 @@ export class DmShellPage implements OnInit {
       });
       this.prepareAssignments.set(assignments);
       this.mapPickerOpen.set(false);
-      this.notice.set(null);
+      this.ui.setNotice(null);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     }
   }
 
@@ -723,9 +712,9 @@ export class DmShellPage implements OnInit {
       if (scene !== undefined) {
         await this.loadScene(scene);
       }
-      this.statusMessage.set(`Scena avviata: ${map.name}`);
+      this.ui.setStatusMessage(`Scena avviata: ${map.name}`);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     } finally {
       this.prepareBusy.set(false);
     }
@@ -762,9 +751,9 @@ export class DmShellPage implements OnInit {
     try {
       const updated = await this.campaignsApi.patch(campaign.id, { advancementMode: mode });
       this.shell.setActiveCampaign(updated);
-      this.statusMessage.set(`Avanzamento: ${mode === 'xp' ? 'XP' : 'milestone'}`);
+      this.ui.setStatusMessage(`Avanzamento: ${mode === 'xp' ? 'XP' : 'milestone'}`);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     }
   }
 
@@ -781,13 +770,13 @@ export class DmShellPage implements OnInit {
   }
 
   public onCamera(camera: { scale: number }): void {
-    this.zoom.set(camera.scale);
+    this.ui.setZoom(camera.scale);
   }
 
   public onMeasured(measure: MeasureResult | null): void {
     this.sceneTools.setMeasure(measure);
     if (measure !== null) {
-      this.statusMessage.set(
+      this.ui.setStatusMessage(
         `Misura: ${this.units.formatDistance(measure.feet)} (${measure.cells} celle)`,
       );
     }
@@ -820,7 +809,7 @@ export class DmShellPage implements OnInit {
   }
 
   public onDiceRolled(roll: DiceRoll): void {
-    this.statusMessage.set(`Tiro: ${roll.total} (${roll.formula})`);
+    this.ui.setStatusMessage(`Tiro: ${roll.total} (${roll.formula})`);
   }
 
   public async rollInitiative(): Promise<void> {
@@ -852,11 +841,11 @@ export class DmShellPage implements OnInit {
       });
     }
     if (entries.length === 0) {
-      this.statusMessage.set('Nessun token in mappa per l’iniziativa.');
+      this.ui.setStatusMessage('Nessun token in mappa per l’iniziativa.');
       return;
     }
     await this.setInitiative(sortInitiativeEntries(entries), true, 1, 0);
-    this.statusMessage.set('Iniziativa tirata dal server.');
+    this.ui.setStatusMessage('Iniziativa tirata dal server.');
   }
 
   public async addTokenToInitiative(token: TokenState): Promise<void> {
@@ -915,11 +904,11 @@ export class DmShellPage implements OnInit {
       return;
     }
     await this.setInitiative(initiative.entries, false, 0, 0);
-    this.statusMessage.set('Iniziativa terminata.');
+    this.ui.setStatusMessage('Iniziativa terminata.');
   }
 
   public async changeTokenHp(token: TokenState, delta: number): Promise<void> {
-    this.statusMessage.set(`${token.label}: ${delta > 0 ? '+' : ''}${delta} PF`);
+    this.ui.setStatusMessage(`${token.label}: ${delta > 0 ? '+' : ''}${delta} PF`);
     await this.sendAction({ type: 'token.hp', tokenId: token.id, delta });
   }
 
@@ -951,9 +940,9 @@ export class DmShellPage implements OnInit {
       const result = await this.sceneActions.undo(campaign.id, entryId);
       await this.sceneStore.load(scene.id);
       await this.actions.refreshHistory(campaign.id);
-      this.statusMessage.set(`${result.undone} azioni annullate.`);
+      this.ui.setStatusMessage(`${result.undone} azioni annullate.`);
     } catch {
-      this.statusMessage.set('Annullamento non riuscito.');
+      this.ui.setStatusMessage('Annullamento non riuscito.');
     }
   }
 
@@ -967,9 +956,9 @@ export class DmShellPage implements OnInit {
       const result = await this.sceneActions.redo(campaign.id);
       await this.sceneStore.load(scene.id);
       await this.actions.refreshHistory(campaign.id);
-      this.statusMessage.set(`${result.redone} azioni ripristinate.`);
+      this.ui.setStatusMessage(`${result.redone} azioni ripristinate.`);
     } catch {
-      this.statusMessage.set('Nessuna azione da ripetere.');
+      this.ui.setStatusMessage('Nessuna azione da ripetere.');
     }
   }
 
@@ -991,7 +980,7 @@ export class DmShellPage implements OnInit {
   }
 
   public async onTokenMoved(event: TokenMoveEvent): Promise<void> {
-    this.statusMessage.set(`Token spostato in (${event.x}, ${event.y})`);
+    this.ui.setStatusMessage(`Token spostato in (${event.x}, ${event.y})`);
     await this.sendAction({
       type: 'token.move',
       tokenId: event.tokenId,
@@ -1026,9 +1015,9 @@ export class DmShellPage implements OnInit {
     if (actor.kind === 'pc') {
       const existing = this.tokens().find((token) => token.actorId === actor.id);
       if (existing !== undefined) {
-        this.selectedTokenId.set(existing.id);
+        this.ui.setSelectedTokenId(existing.id);
         this.canvas()?.focusToken(existing.id);
-        this.statusMessage.set(`${actor.name} è già in mappa.`);
+        this.ui.setStatusMessage(`${actor.name} è già in mappa.`);
         return;
       }
     }
@@ -1049,17 +1038,17 @@ export class DmShellPage implements OnInit {
       visible: true,
       owner: 'dm',
     };
-    this.selectedTokenId.set(token.id);
-    this.statusMessage.set(`Token aggiunto: ${actor.name}`);
+    this.ui.setSelectedTokenId(token.id);
+    this.ui.setStatusMessage(`Token aggiunto: ${actor.name}`);
     await this.sendAction({ type: 'token.add', token });
   }
 
   public onTokenSelected(tokenId: string | null): void {
-    this.selectedTokenId.set(tokenId);
+    this.ui.setSelectedTokenId(tokenId);
   }
 
   public async toggleTokenVisibility(token: TokenState): Promise<void> {
-    this.statusMessage.set(`${token.label}: ${token.visible ? 'nascosto' : 'visibile'}`);
+    this.ui.setStatusMessage(`${token.label}: ${token.visible ? 'nascosto' : 'visibile'}`);
     await this.sendAction({
       type: 'token.update',
       tokenId: token.id,
@@ -1068,21 +1057,21 @@ export class DmShellPage implements OnInit {
   }
 
   public async removeToken(token: TokenState): Promise<void> {
-    this.statusMessage.set(`${token.label}: rimosso`);
+    this.ui.setStatusMessage(`${token.label}: rimosso`);
     const applied = await this.sendAction({ type: 'token.remove', tokenId: token.id });
     if (applied !== null && this.selectedTokenId() === token.id) {
-      this.selectedTokenId.set(null);
+      this.ui.setSelectedTokenId(null);
     }
   }
 
   public centerToken(token: TokenState): void {
-    this.selectedTokenId.set(token.id);
+    this.ui.setSelectedTokenId(token.id);
     this.canvas()?.focusToken(token.id);
   }
 
   public async changeGridType(event: Event): Promise<void> {
     if (this.activeScene()?.mapId) {
-      this.notice.set('Griglia bloccata: modificala dall’editor della mappa.');
+      this.ui.setNotice('Griglia bloccata: modificala dall’editor della mappa.');
       return;
     }
     const value = (event.target as HTMLSelectElement).value;
@@ -1091,12 +1080,12 @@ export class DmShellPage implements OnInit {
       return;
     }
     await this.sendAction({ type: 'grid.update', grid: { ...grid, type: value } });
-    this.statusMessage.set(value === 'hex' ? 'Griglia esagonale odd-r' : 'Griglia quadrata');
+    this.ui.setStatusMessage(value === 'hex' ? 'Griglia esagonale odd-r' : 'Griglia quadrata');
   }
 
   public async changeGridSize(event: Event): Promise<void> {
     if (this.activeScene()?.mapId) {
-      this.notice.set('Griglia bloccata: modificala dall’editor della mappa.');
+      this.ui.setNotice('Griglia bloccata: modificala dall’editor della mappa.');
       return;
     }
     const value = Number((event.target as HTMLInputElement).value);
@@ -1106,7 +1095,7 @@ export class DmShellPage implements OnInit {
     }
     const cellSizePx = Math.max(16, Math.min(400, Math.round(value)));
     await this.sendAction({ type: 'grid.update', grid: { ...grid, cellSizePx } });
-    this.statusMessage.set(`Cella: ${cellSizePx} px`);
+    this.ui.setStatusMessage(`Cella: ${cellSizePx} px`);
   }
 
   public setNewSceneFog(event: Event): void {
@@ -1141,9 +1130,9 @@ export class DmShellPage implements OnInit {
       const result = await this.sceneActions.clearHistory(campaign.id);
       await this.actions.refreshHistory(campaign.id);
       this.settingsOpen.set(false);
-      this.statusMessage.set(`History svuotata: ${result.cleared} azioni rimosse.`);
+      this.ui.setStatusMessage(`History svuotata: ${result.cleared} azioni rimosse.`);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     }
   }
 
@@ -1158,20 +1147,20 @@ export class DmShellPage implements OnInit {
       await this.sceneStore.load(scene.id);
       await this.actions.refreshHistory(campaign.id);
       this.settingsOpen.set(false);
-      this.statusMessage.set(`FOG ripristinata: ${result.cleared} azioni fog rimosse.`);
+      this.ui.setStatusMessage(`FOG ripristinata: ${result.cleared} azioni fog rimosse.`);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     }
   }
 
   public async onFogApplied(op: FogOp): Promise<void> {
     await this.sendAction({ type: 'fog.apply', op });
-    this.statusMessage.set(op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta');
+    this.ui.setStatusMessage(op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta');
   }
 
   public async onDrawingAdded(drawing: Drawing): Promise<void> {
     await this.sendAction({ type: 'drawing.add', drawing });
-    this.statusMessage.set('Disegno aggiunto');
+    this.ui.setStatusMessage('Disegno aggiunto');
   }
 
   public revealAll(): void {
@@ -1190,21 +1179,21 @@ export class DmShellPage implements OnInit {
     }
     if (this.fogOverrideActive()) {
       await this.sendAction({ type: 'fog.override', override: mode });
-      this.statusMessage.set(mode === 'reveal' ? 'Fog: rivela tutto' : 'Fog: nascondi tutto');
+      this.ui.setStatusMessage(mode === 'reveal' ? 'Fog: rivela tutto' : 'Fog: nascondi tutto');
       return;
     }
     if (mode === 'reveal') {
       await this.sendAction({ type: 'fog.replace', base: 'revealed', ops: [] });
-      this.statusMessage.set('Fog: tutta la mappa rivelata');
+      this.ui.setStatusMessage('Fog: tutta la mappa rivelata');
     } else {
       await this.sendAction({ type: 'fog.replace', base: 'hidden', ops: [] });
-      this.statusMessage.set('Fog: tutta la mappa nascosta');
+      this.ui.setStatusMessage('Fog: tutta la mappa nascosta');
     }
   }
 
   public async clearFogOverride(): Promise<void> {
     await this.sendAction({ type: 'fog.override', override: 'none' });
-    this.statusMessage.set('Fog: torna alla visione automatica');
+    this.ui.setStatusMessage('Fog: torna alla visione automatica');
   }
 
   public cancelFogChange(): void {
@@ -1223,16 +1212,16 @@ export class DmShellPage implements OnInit {
     try {
       const display = await this.regia.createDisplay(campaign.id);
       window.open(`/display/${display.code}`, '_blank');
-      this.statusMessage.set(`Schermo aperto: ${display.code}`);
+      this.ui.setStatusMessage(`Schermo aperto: ${display.code}`);
     } catch (error) {
-      this.statusMessage.set(messageFor(error));
+      this.ui.setStatusMessage(messageFor(error));
     }
   }
 
   public takeScene(): void {
     const online = this.regia.screens();
     if (online.length === 0) {
-      this.notice.set('Nessuno schermo online: apri uno schermo prima di mandare in onda.');
+      this.ui.setNotice('Nessuno schermo online: apri uno schermo prima di mandare in onda.');
       return;
     }
     if (online.length === 1 && online[0] !== undefined) {
@@ -1257,9 +1246,9 @@ export class DmShellPage implements OnInit {
         summary,
         startView,
       );
-      this.statusMessage.set(`In onda su ${display.code}: ${scene.name}`);
+      this.ui.setStatusMessage(`In onda su ${display.code}: ${scene.name}`);
     } catch (error) {
-      this.statusMessage.set(messageFor(error));
+      this.ui.setStatusMessage(messageFor(error));
     }
   }
 
@@ -1274,9 +1263,9 @@ export class DmShellPage implements OnInit {
         blackout: !state.blackout,
         updatedAt: new Date().toISOString(),
       }));
-      this.statusMessage.set(updated.state.blackout ? 'Schermo in blackout' : 'Schermo riacceso');
+      this.ui.setStatusMessage(updated.state.blackout ? 'Schermo in blackout' : 'Schermo riacceso');
     } catch (error) {
-      this.statusMessage.set(messageFor(error));
+      this.ui.setStatusMessage(messageFor(error));
     }
   }
 
@@ -1293,7 +1282,7 @@ export class DmShellPage implements OnInit {
     if (token !== undefined) {
       this.centerToken(token);
     } else {
-      this.statusMessage.set(`${actor.name}: trascina lo slot sulla mappa per schierarlo.`);
+      this.ui.setStatusMessage(`${actor.name}: trascina lo slot sulla mappa per schierarlo.`);
     }
   }
 
@@ -1346,7 +1335,7 @@ export class DmShellPage implements OnInit {
 
   public async syncNow(): Promise<void> {
     await this.actions.syncNow();
-    this.statusMessage.set('Stato riallineato dal server.');
+    this.ui.setStatusMessage('Stato riallineato dal server.');
   }
 
   public async analyzeStatblock(): Promise<void> {
@@ -1359,9 +1348,9 @@ export class DmShellPage implements OnInit {
     try {
       const result = await this.ai.parseStatblock(campaign.id, text);
       this.aiPreview.set(result.statblock);
-      this.statusMessage.set('Statblock analizzato: controlla e crea il mostro.');
+      this.ui.setStatusMessage('Statblock analizzato: controlla e crea il mostro.');
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     } finally {
       this.aiBusy.set(false);
     }
@@ -1384,9 +1373,9 @@ export class DmShellPage implements OnInit {
       this.shell.addActor(actor);
       this.aiPreview.set(null);
       this.aiText.set('');
-      this.statusMessage.set(`Creato: ${actor.name}`);
+      this.ui.setStatusMessage(`Creato: ${actor.name}`);
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     } finally {
       this.aiBusy.set(false);
     }
@@ -1398,41 +1387,6 @@ export class DmShellPage implements OnInit {
 
   public setAiName(event: Event): void {
     this.aiName.set((event.target as HTMLInputElement).value);
-  }
-
-  public async startSession(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null || this.sessionBusy()) {
-      return;
-    }
-    this.sessionBusy.set(true);
-    try {
-      const session = await this.shell.startSession(campaign.id);
-      this.sessionSeconds.set(0);
-      this.startSessionTimer(false);
-      this.statusMessage.set(`Sessione ${session.number} avviata`);
-    } catch (error) {
-      this.notice.set(messageFor(error));
-    } finally {
-      this.sessionBusy.set(false);
-    }
-  }
-
-  public async stopSession(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null || this.sessionBusy()) {
-      return;
-    }
-    this.sessionBusy.set(true);
-    try {
-      const session = await this.shell.stopSession(campaign.id);
-      this.stopSessionTimer();
-      this.statusMessage.set(`Sessione ${session.number} terminata`);
-    } catch (error) {
-      this.notice.set(messageFor(error));
-    } finally {
-      this.sessionBusy.set(false);
-    }
   }
 
   public async exportCampaign(): Promise<void> {
@@ -1449,9 +1403,9 @@ export class DmShellPage implements OnInit {
       anchor.download = `${campaign.name.replaceAll(/[^\w-]+/g, '-')}.json`;
       anchor.click();
       URL.revokeObjectURL(url);
-      this.statusMessage.set('Campagna esportata');
+      this.ui.setStatusMessage('Campagna esportata');
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     }
   }
 
@@ -1471,21 +1425,21 @@ export class DmShellPage implements OnInit {
       const result = await this.campaignsApi.importCampaign(bundle);
       this.shell.addCampaign(result.campaign);
       await this.enterCampaign(result.campaign.id);
-      this.statusMessage.set(
+      this.ui.setStatusMessage(
         `Importata: ${result.imported.scenes} scene, ${result.imported.actors} attori`,
       );
     } catch (error) {
-      this.notice.set(messageFor(error));
+      this.ui.setNotice(messageFor(error));
     }
   }
 
   public openCreate(): void {
-    this.notice.set(null);
+    this.ui.setNotice(null);
     this.mode.set('create');
   }
 
   public openChoose(): void {
-    this.notice.set(null);
+    this.ui.setNotice(null);
     this.realtime.disconnect();
     this.regia.setConnectedDisplays(0);
     this.regia.closeScreenDialog();
@@ -1516,23 +1470,6 @@ export class DmShellPage implements OnInit {
       return null;
     }
     return this.actions.send(scene.id, action);
-  }
-
-  private startSessionTimer(reset = true): void {
-    this.stopSessionTimer();
-    if (reset) {
-      this.sessionSeconds.set(0);
-    }
-    this.sessionTimer = setInterval(() => {
-      this.sessionSeconds.update((value) => value + 1);
-    }, 1000);
-  }
-
-  private stopSessionTimer(): void {
-    if (this.sessionTimer !== null) {
-      clearInterval(this.sessionTimer);
-      this.sessionTimer = null;
-    }
   }
 }
 

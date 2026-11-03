@@ -80,8 +80,8 @@
               [session]="shell.activeSession()"
               [label]="sessionLabel()"
               [busy]="sessionBusy()"
-              (start)="startSession()"
-              (stop)="stopSession()"
+              (start)="session.start(campaign.id)"
+              (stop)="session.stop(campaign.id)"
             />
             <input #importInput id="import-campaign-file" class="file-input" type="file" accept="application/json,.json" (change)="importCampaign($event)" />
             <label class="check">
