@@ -3,7 +3,13 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import sharp from 'sharp';
 import type { Metadata } from 'sharp';
-import { TILE_SIZE_PX, isTiledMap, tileLevels, type Asset } from '@dnd-vtt/shared';
+import {
+  TILE_SIZE_PX,
+  isTiledMap,
+  tileLevels,
+  type Asset,
+  type ImageMime,
+} from '@dnd-vtt/shared';
 import type { AppEnv } from '../config/env.js';
 import type { AppDatabase } from '../db/client.js';
 import {
@@ -16,7 +22,11 @@ import { AppError } from '../errors.js';
 
 const SHARP_OPTIONS = { limitInputPixels: 100_000_000, failOn: 'error' as const };
 const FORMAT_EXTENSION = { png: 'png', jpeg: 'jpg', webp: 'webp' } as const;
-const FORMAT_MIME = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' } as const;
+const FORMAT_MIME = {
+  png: 'image/png',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+} as const satisfies Record<'png' | 'jpeg' | 'webp', ImageMime>;
 const THUMB_WIDTH = 320;
 const PREVIEW_MAX = 2048;
 

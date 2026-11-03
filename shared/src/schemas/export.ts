@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { actorSchema } from './actor.js';
+import { imageMimeSchema } from './common.js';
 import { campaignSchema } from './campaign.js';
 import { mapSchema } from './map.js';
 import { programStateSchema } from './program.js';
@@ -8,7 +9,7 @@ import { sessionSchema } from './session.js';
 
 export const exportAssetSchema = z.strictObject({
   id: z.string().uuid(),
-  mime: z.enum(['image/png', 'image/jpeg', 'image/webp']),
+  mime: imageMimeSchema,
   data: z.string().min(1),
 });
 export type ExportAsset = z.infer<typeof exportAssetSchema>;

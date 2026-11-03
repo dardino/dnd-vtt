@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { conditionSchema, currencySchema } from './common.js';
+import { conditionSchema, currencySchema, paginatedSchema } from './common.js';
 import { pcBuildSchema } from './build.js';
 import {
   abilityIncreaseSchema,
@@ -88,10 +88,7 @@ export const updateActorSchema = z
   .refine((patch) => Object.keys(patch).length > 0, { message: 'nessun campo da aggiornare' });
 export type UpdateActor = z.infer<typeof updateActorSchema>;
 
-export const actorListSchema = z.strictObject({
-  items: z.array(actorSchema),
-  nextCursor: z.string().nullable(),
-});
+export const actorListSchema = paginatedSchema(actorSchema);
 export type ActorList = z.infer<typeof actorListSchema>;
 
 export const createPcSchema = z.strictObject({

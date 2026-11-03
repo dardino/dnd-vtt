@@ -1,9 +1,10 @@
 import { z } from 'zod';
+import { imageMimeSchema } from './common.js';
 
 export const assetSchema = z.strictObject({
   id: z.string().uuid(),
   hash: z.string().regex(/^[a-f0-9]{64}$/),
-  mime: z.enum(['image/png', 'image/jpeg', 'image/webp']),
+  mime: imageMimeSchema,
   bytes: z.number().int().positive(),
   width: z.number().int().positive(),
   height: z.number().int().positive(),

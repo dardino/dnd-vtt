@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { conditionSchema } from './common.js';
+import { conditionSchema, paginatedSchema, viewSchema } from './common.js';
 import {
   backgroundTransformSchema, defaultBackgroundTransform, orientationSchema, resolutionPresetSchema,
 } from './scene-size.js';
@@ -227,7 +227,7 @@ export const sceneStateSchema = z.strictObject({
   fog: fogStateSchema,
   terrain: terrainSchema.default(defaultTerrain),
   showDoorIcons: z.boolean().default(true),
-  startView: z.strictObject({ x: z.number(), y: z.number(), zoom: z.number().positive() }).optional(),
+  startView: viewSchema.optional(),
   tokens: z.array(tokenStateSchema),
   loot: z.array(lootEntrySchema),
   drawings: z.array(drawingSchema),
@@ -365,10 +365,7 @@ export const updateSceneSchema = z
   .refine((patch) => Object.keys(patch).length > 0, { message: 'nessun campo da aggiornare' });
 export type UpdateScene = z.infer<typeof updateSceneSchema>;
 
-export const sceneListSchema = z.strictObject({
-  items: z.array(sceneSchema),
-  nextCursor: z.string().nullable(),
-});
+export const sceneListSchema = paginatedSchema(sceneSchema);
 export type SceneList = z.infer<typeof sceneListSchema>;
 
 export const sceneSnapshotSchema = z.strictObject({

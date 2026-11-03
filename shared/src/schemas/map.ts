@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { viewSchema } from './common.js';
 import { defaultGridConfig, gridConfigSchema, terrainSchema, tokenLightSchema } from './scene.js';
 import {
   backgroundTransformSchema,
@@ -70,11 +71,7 @@ export const sceneDimensions = (
   return entry.landscape;
 };
 
-export const mapViewSchema = z.strictObject({
-  x: z.number(),
-  y: z.number(),
-  zoom: z.number().positive(),
-});
+export const mapViewSchema = viewSchema;
 export type MapView = z.infer<typeof mapViewSchema>;
 
 export const spawnSourceSchema = z.discriminatedUnion('type', [
@@ -115,7 +112,7 @@ export const mapDocumentSchema = z.strictObject({
   terrain: terrainSchema,
   spawns: z.array(mapSpawnSchema).max(500).default([]),
   playerStarts: z.array(playerStartSchema).max(12).default([]),
-  startView: mapViewSchema.optional(),
+  startView: viewSchema.optional(),
   fogBase: z.enum(['hidden', 'revealed']).default('hidden'),
   showDoorIcons: z.boolean().default(true),
   notes: z.string().default(''),

@@ -4,7 +4,8 @@ export const abilitySchema = z.enum(['str', 'dex', 'con', 'int', 'wis', 'cha']);
 export type Ability = z.infer<typeof abilitySchema>;
 export const abilities: readonly Ability[] = abilitySchema.options;
 
-export const skillSchema = z.enum([
+/** Ordine canonico delle skill, condiviso da schemi, derivazioni e UI. */
+export const skillsTuple = [
   'acrobatics',
   'animalHandling',
   'arcana',
@@ -23,9 +24,49 @@ export const skillSchema = z.enum([
   'sleightOfHand',
   'stealth',
   'survival',
-]);
+] as const;
+
+export const skillSchema = z.enum(skillsTuple);
 export type Skill = z.infer<typeof skillSchema>;
-export const skills: readonly Skill[] = skillSchema.options;
+export const skills: readonly Skill[] = skillsTuple;
+
+const skillBonus = z.number().int().optional();
+
+/** Bonus per skill derivati dalla lista canonica, senza 18 campi ripetuti. */
+export const skillBonusesSchema = z.strictObject(
+  Object.fromEntries(skillsTuple.map((skill) => [skill, skillBonus])) as {
+    [K in Skill]: typeof skillBonus;
+  },
+);
+export type SkillBonuses = z.infer<typeof skillBonusesSchema>;
+
+const skillValue = z.number().int();
+
+/** Valori skill obbligatori (schede derivate) generati dalla stessa lista. */
+export const skillValuesSchema = z.strictObject(
+  Object.fromEntries(skillsTuple.map((skill) => [skill, skillValue])) as {
+    [K in Skill]: typeof skillValue;
+  },
+);
+export type SkillValues = z.infer<typeof skillValuesSchema>;
+
+/** Vista condivisa da mappe, scene e display: centro e zoom. */
+export const viewSchema = z.strictObject({
+  x: z.number(),
+  y: z.number(),
+  zoom: z.number().positive(),
+});
+export type View = z.infer<typeof viewSchema>;
+
+/** Envelope comune alle liste paginate a cursore. */
+export const paginatedSchema = <T extends z.ZodType>(item: T) =>
+  z.strictObject({
+    items: z.array(item),
+    nextCursor: z.string().nullable(),
+  });
+
+export const imageMimeSchema = z.enum(['image/png', 'image/jpeg', 'image/webp']);
+export type ImageMime = z.infer<typeof imageMimeSchema>;
 
 export const sizeSchema = z.enum(['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan']);
 export type Size = z.infer<typeof sizeSchema>;

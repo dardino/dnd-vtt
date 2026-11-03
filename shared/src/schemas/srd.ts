@@ -3,6 +3,7 @@ import {
   abilitySchema,
   armorCategorySchema,
   sizeSchema,
+  skillBonusesSchema,
   skillSchema,
   weaponCategorySchema,
 } from './common.js';
@@ -218,28 +219,7 @@ export const srdMonsterSchema = z.strictObject({
       cha: z.number().int().optional(),
     })
     .optional(),
-  skills: z
-    .strictObject({
-      acrobatics: z.number().int().optional(),
-      animalHandling: z.number().int().optional(),
-      arcana: z.number().int().optional(),
-      athletics: z.number().int().optional(),
-      deception: z.number().int().optional(),
-      history: z.number().int().optional(),
-      insight: z.number().int().optional(),
-      intimidation: z.number().int().optional(),
-      investigation: z.number().int().optional(),
-      medicine: z.number().int().optional(),
-      nature: z.number().int().optional(),
-      perception: z.number().int().optional(),
-      performance: z.number().int().optional(),
-      persuasion: z.number().int().optional(),
-      religion: z.number().int().optional(),
-      sleightOfHand: z.number().int().optional(),
-      stealth: z.number().int().optional(),
-      survival: z.number().int().optional(),
-    })
-    .optional(),
+  skills: skillBonusesSchema.optional(),
   damageResistances: z.array(z.string()),
   damageImmunities: z.array(z.string()),
   damageVulnerabilities: z.array(z.string()),

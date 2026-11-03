@@ -1,4 +1,4 @@
-import type { Campaign, CreateCampaign, UpdateCampaign } from '@dnd-vtt/shared';
+import type { Campaign, CampaignList, CreateCampaign, UpdateCampaign } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
 import type { Cursor } from '../db/cursor.js';
 import {
@@ -18,8 +18,7 @@ export interface PageParams {
 export const listCampaignPage = (
   db: AppDatabase,
   page: PageParams,
-): { items: Campaign[]; nextCursor: string | null } =>
-  listCampaigns(db, page);
+): CampaignList => listCampaigns(db, page);
 
 export const requireCampaign = (db: AppDatabase, id: string): Campaign => {
   const campaign = getCampaign(db, id);

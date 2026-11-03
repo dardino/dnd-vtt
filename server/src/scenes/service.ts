@@ -1,4 +1,4 @@
-import type { CreateScene, Scene, SceneSnapshot, UpdateScene } from '@dnd-vtt/shared';
+import type { CreateScene, Scene, SceneList, SceneSnapshot, UpdateScene } from '@dnd-vtt/shared';
 import { createDefaultSceneState, sceneStateSchema } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
 import type { Cursor } from '../db/cursor.js';
@@ -22,7 +22,7 @@ export const listCampaignScenes = (
   db: AppDatabase,
   campaignId: string,
   page: ScenePageParams,
-): { items: Scene[]; nextCursor: string | null } => listScenes(db, campaignId, page);
+): SceneList => listScenes(db, campaignId, page);
 
 export const createScene = (db: AppDatabase, campaignId: string, input: CreateScene): Scene =>
   db.transaction((tx) => {

@@ -3,10 +3,12 @@ import { Injectable, inject } from '@angular/core';
 import type {
   Campaign,
   CampaignExport,
+  CampaignList,
   CreateCampaign,
   CreateScene,
   ImportResult,
   Scene,
+  SceneList,
   SceneSnapshot,
   Session,
   UpdateCampaign,
@@ -14,23 +16,13 @@ import type {
 } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
 
-export interface CampaignPage {
-  items: Campaign[];
-  nextCursor: string | null;
-}
-
-export interface ScenePage {
-  items: Scene[];
-  nextCursor: string | null;
-}
-
 @Injectable({ providedIn: 'root' })
 export class CampaignService {
   private readonly http = inject(HttpClient);
 
   public async list(limit = 200): Promise<Campaign[]> {
     const page = await firstValueFrom(
-      this.http.get<CampaignPage>(`/api/v1/campaigns?limit=${limit}`),
+      this.http.get<CampaignList>(`/api/v1/campaigns?limit=${limit}`),
     );
     return page.items;
   }
@@ -45,7 +37,7 @@ export class CampaignService {
 
   public async listScenes(campaignId: string): Promise<Scene[]> {
     const page = await firstValueFrom(
-      this.http.get<ScenePage>(`/api/v1/campaigns/${campaignId}/scenes?limit=200`),
+      this.http.get<SceneList>(`/api/v1/campaigns/${campaignId}/scenes?limit=200`),
     );
     return page.items;
   }

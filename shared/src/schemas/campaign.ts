@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paginatedSchema } from './common.js';
 
 export const advancementModeSchema = z.enum(['milestone', 'xp']);
 export type AdvancementMode = z.infer<typeof advancementModeSchema>;
@@ -42,8 +43,5 @@ export const updateCampaignSchema = z
   .refine((patch) => Object.keys(patch).length > 0, { message: 'nessun campo da aggiornare' });
 export type UpdateCampaign = z.infer<typeof updateCampaignSchema>;
 
-export const campaignListSchema = z.strictObject({
-  items: z.array(campaignSchema),
-  nextCursor: z.string().nullable(),
-});
+export const campaignListSchema = paginatedSchema(campaignSchema);
 export type CampaignList = z.infer<typeof campaignListSchema>;

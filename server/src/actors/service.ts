@@ -1,4 +1,4 @@
-import type { Actor, ActorKind, CreateActor, UpdateActor } from '@dnd-vtt/shared';
+import type { Actor, ActorKind, ActorList, CreateActor, UpdateActor } from '@dnd-vtt/shared';
 import { actorStatblockSchema } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
 import type { Cursor } from '../db/cursor.js';
@@ -23,7 +23,7 @@ export interface ActorPageParams {
 export const listActorPage = (
   db: AppDatabase,
   page: ActorPageParams,
-): { items: Actor[]; nextCursor: string | null } => {
+): ActorList => {
   const { limit, cursor, ...filters } = page;
   return listActors(db, filters, { limit, cursor });
 };

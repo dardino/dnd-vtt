@@ -1,15 +1,11 @@
 import { z } from 'zod';
 import { actorPortraitSchema } from './actor.js';
-import { conditionNameSchema } from './common.js';
+import { conditionNameSchema, viewSchema } from './common.js';
 import { diceRollSchema } from './dice.js';
 import { fogStateSchema, gridConfigSchema, initiativeEntrySchema, publicDoorSchema, visionGridSchema } from './scene.js';
 import { backgroundTransformSchema, defaultBackgroundTransform } from './scene-size.js';
 
-export const viewportSchema = z.strictObject({
-  x: z.number(),
-  y: z.number(),
-  zoom: z.number().positive(),
-});
+export const viewportSchema = viewSchema;
 export type Viewport = z.infer<typeof viewportSchema>;
 
 export const layerFrameSchema = z.strictObject({
