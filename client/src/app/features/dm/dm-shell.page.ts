@@ -72,6 +72,7 @@ import {
   type CreateCampaignValues,
 } from './create-campaign-dialog';
 import { DmDock, type DockTab } from './dm-dock';
+import { DmLayoutStore, type SidebarSectionId } from './dm-layout.store';
 import { DmStatusbar } from './dm-statusbar';
 import { FogConfirmDialog } from './fog-confirm-dialog';
 import { LoginDialog } from './login-dialog';
@@ -100,20 +101,6 @@ import {
 } from '../scene/scene-canvas.component';
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
-type SidebarSectionId = 'campaign' | 'scenes' | 'grid' | 'fog' | 'scenography' | 'actors' | 'ai' | 'screens' | 'devices' | 'tokens';
-
-const DEFAULT_SECTIONS: Record<SidebarSectionId, boolean> = {
-  campaign: true,
-  scenes: true,
-  grid: true,
-  fog: true,
-  scenography: true,
-  actors: true,
-  ai: true,
-  screens: true,
-  devices: true,
-  tokens: true,
-};
 
 const toMapDocument = (map: {
   name: string;
@@ -144,8 +131,6 @@ const toMapDocument = (map: {
   showDoorIcons: map.showDoorIcons,
   notes: map.notes,
 });
-
-const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
 
 @Component({
   selector: 'app-dm-shell',
@@ -194,6 +179,7 @@ export class DmShellPage implements OnInit {
   public readonly sceneTools = inject(SceneToolsStore);
   public readonly regia = inject(RegiaStore);
   public readonly shell = inject(CampaignShellStore);
+  public readonly layout = inject(DmLayoutStore);
   private readonly sceneActions = inject(SceneActionService);
   private readonly mapsApi = inject(MapService);
   private readonly ai = inject(AiService);
@@ -241,12 +227,12 @@ export class DmShellPage implements OnInit {
   public readonly aiName = signal('Mostro importato');
   public readonly zoom = signal(1);
   public readonly selectedTokenId = signal<string | null>(null);
-  public readonly leftOpen = signal(true);
-  public readonly rightOpen = signal(true);
-  public readonly dockOpen = signal(true);
-  public readonly dockTab = signal<DockTab>('initiative');
+  public readonly leftOpen = this.layout.leftOpen;
+  public readonly rightOpen = this.layout.rightOpen;
+  public readonly dockOpen = this.layout.dockOpen;
+  public readonly dockTab = this.layout.dockTab;
   public readonly diceOpen = signal(false);
-  public readonly sections = signal<Record<SidebarSectionId, boolean>>({ ...DEFAULT_SECTIONS });
+  public readonly sections = this.layout.sections;
   public readonly sessionSeconds = signal(0);
 
   public readonly includePrivateNotes = signal(false);
@@ -491,7 +477,7 @@ export class DmShellPage implements OnInit {
       this.newSceneFog.set(campaign.fogDefault);
       this.lastCampaign.write(campaign.id);
       this.notice.set(null);
-      this.restorePanels(campaign.id);
+      this.layout.restore(campaign.id);
       const scenes = await this.shell.loadScenes(campaign.id);
       await this.shell.loadActors(campaign.id);
       await this.regia.loadScreens(campaign.id);
@@ -546,7 +532,7 @@ export class DmShellPage implements OnInit {
     const campaign = this.shell.activeCampaign();
     if (campaign !== null) {
       this.actions.start(campaign.id, scene.id);
-      this.restorePanels(campaign.id);
+      this.layout.restore(campaign.id);
     }
     await this.loadMapAsset(scene);
   }
@@ -807,9 +793,16 @@ export class DmShellPage implements OnInit {
     }
   }
 
+  private persistLayout(): void {
+    const campaign = this.shell.activeCampaign();
+    if (campaign !== null) {
+      this.layout.persist(campaign.id);
+    }
+  }
+
   public setDockTab(tab: DockTab): void {
-    this.dockTab.set(tab);
-    this.dockOpen.set(true);
+    this.layout.setDockTab(tab);
+    this.persistLayout();
     const campaign = this.shell.activeCampaign();
     if (campaign === null) {
       return;
@@ -1322,14 +1315,13 @@ export class DmShellPage implements OnInit {
   }
 
   public toggleLeft(): void {
-    this.leftOpen.update((value) => !value);
-    this.persistPanels();
+    this.layout.toggleLeft();
+    this.persistLayout();
   }
 
   public toggleSection(section: SidebarSectionId): void {
-    const opening = !this.sections()[section];
-    this.sections.update((current) => ({ ...current, [section]: !current[section] }));
-    this.persistPanels();
+    const opening = this.layout.toggleSection(section);
+    this.persistLayout();
     if (opening && section === 'screens') {
       const campaign = this.shell.activeCampaign();
       if (campaign !== null) {
@@ -1339,17 +1331,17 @@ export class DmShellPage implements OnInit {
   }
 
   public isSectionOpen(section: SidebarSectionId): boolean {
-    return this.sections()[section];
+    return this.layout.sections()[section];
   }
 
   public toggleRight(): void {
-    this.rightOpen.update((value) => !value);
-    this.persistPanels();
+    this.layout.toggleRight();
+    this.persistLayout();
   }
 
   public toggleDock(): void {
-    this.dockOpen.update((value) => !value);
-    this.persistPanels();
+    this.layout.toggleDock();
+    this.persistLayout();
   }
 
   public async syncNow(): Promise<void> {
@@ -1524,63 +1516,6 @@ export class DmShellPage implements OnInit {
       return null;
     }
     return this.actions.send(scene.id, action);
-  }
-
-  private restorePanels(campaignId: string): void {
-    this.leftOpen.set(true);
-    this.rightOpen.set(true);
-    this.dockOpen.set(true);
-    this.sections.set({ ...DEFAULT_SECTIONS });
-    let stored: string | null;
-    try {
-      stored = localStorage.getItem(`${PANEL_STORAGE_PREFIX}${campaignId}`);
-    } catch {
-      return;
-    }
-    if (stored === null) {
-      return;
-    }
-    try {
-      const parsed = JSON.parse(stored) as {
-        left?: boolean;
-        right?: boolean;
-        dock?: boolean;
-        sections?: Record<string, unknown>;
-      };
-      this.leftOpen.set(parsed.left ?? true);
-      this.rightOpen.set(parsed.right ?? true);
-      this.dockOpen.set(parsed.dock ?? true);
-      const sections = { ...DEFAULT_SECTIONS };
-      for (const key of Object.keys(DEFAULT_SECTIONS) as SidebarSectionId[]) {
-        const value = parsed.sections?.[key];
-        if (typeof value === 'boolean') {
-          sections[key] = value;
-        }
-      }
-      this.sections.set(sections);
-    } catch {
-      // Preferenza corrotta: si torna ai pannelli aperti senza bloccare la console.
-    }
-  }
-
-  private persistPanels(): void {
-    const campaign = this.shell.activeCampaign();
-    if (campaign === null) {
-      return;
-    }
-    try {
-      localStorage.setItem(
-        `${PANEL_STORAGE_PREFIX}${campaign.id}`,
-        JSON.stringify({
-          left: this.leftOpen(),
-          right: this.rightOpen(),
-          dock: this.dockOpen(),
-          sections: this.sections(),
-        }),
-      );
-    } catch {
-      // localStorage può essere disabilitato: i pannelli restano validi per la sessione.
-    }
   }
 
   private startSessionTimer(reset = true): void {

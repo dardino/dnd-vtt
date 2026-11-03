@@ -3,7 +3,8 @@ import type { InitiativeState } from '@dnd-vtt/shared';
 import { ActionStore } from '../../core/action.store';
 import { DiceStore } from '../../core/dice.store';
 
-export type DockTab = 'initiative' | 'dice' | 'actions';
+export const DOCK_TABS = ['initiative', 'dice', 'actions'] as const;
+export type DockTab = (typeof DOCK_TABS)[number];
 
 export interface DockValueChange {
   id: string;
