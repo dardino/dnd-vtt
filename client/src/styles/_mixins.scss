@@ -149,7 +149,8 @@
 }
 
 @mixin eyebrow {
-  color: var(--color-text-faint);
+  // `--color-text-faint` non raggiunge 4.5:1 sui fondi elevati (WCAG 1.4.3).
+  color: var(--color-text-muted);
   font-size: var(--text-xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;

@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** modello risoluzione/sfondo (SR3–SR7). Completati S0–S9 (tranne revoca S3 e verifica TLS S7), A1–A4 (A4 con mappature locali residue), R1–R3 (R1 solo store), P1–P7, Q1–Q4, T1–T3 e R0.
+**Blocco attivo:** modello risoluzione/sfondo (SR3–SR7). Completati S0–S9 (tranne revoca S3 e verifica TLS S7), A1–A4 (A4 con mappature locali residue), R1–R3 (R1 solo store), P1–P7, Q1-Q5, T1-T3 e R0.
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -156,9 +156,17 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
     (contracts, realtime, realtime-actions, services, build, phase-7) e mantenute le dimensioni 800×600 in
     `phase6.spec.ts`. ~960 righe duplicate rimosse dalle spec, ~450 al netto delle fixture condivise.
 
-- [ ] **Q5 — Accessibilità automatica** · S
+- [x] **Q5 - Accessibilità automatica** · S
   - **Proposta:** `@axe-core/playwright` sulle route principali; controlli su dialog, toolbar e fallback canvas.
   - **Fatto quando:** nessuna violazione critical/serious.
+  - **Esito:** `client/e2e/phase-99-accessibility.spec.ts` (nome scelto per girare dopo `phase-9` e non
+    dipendere dal DB vuoto) scansiona `/dm`, `/dm` con dialog "Scegli campagna", `/maps` e
+    `/display/:code` con `AxeBuilder` sui tag WCAG 2.0/2.1/2.2 A/AA e fallisce su `serious`/`critical`
+    (nessuna esclusione: i canvas hanno già `role="img"` e `aria-label`). Nota: axe-core 4.14 non espone
+    `wcag22a`; i criteri 2.2 A sono coperti da `wcag22aa`. Violazioni corrette: contrasto di `.eyebrow` e
+    `.campaign-card__meta` (`--color-text-muted`), nomi accessibili di brand e accordion senza `aria-label`
+    disallineato dal testo visibile, e toolbar scena con `flex: 0 0 auto` per non schiacciare i target
+    sotto 24px. Test eseguito con `npx playwright test e2e/phase-99-accessibility.spec.ts` (4/4).
 
 ## 4. Sicurezza (P1) — **attiva (D7): tutti i livelli**
 
@@ -500,9 +508,9 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 1. **S0, D9, A1-A4**: completati (A4 con mappature locali residue).
 2. **R1-R3**: R2/R3 completi; R1 ha gli store ma restano componenti/template di `DmShellPage`.
 3. **P1/P2/P3/P5/P6/P7/P4**: completati (P4 con rendering per-layer).
-4. **Q1-Q4, T1, R0**: completati.
+4. **Q1-Q5, T1, R0**: completati.
 5. **SR3-SR7 e C1-C5/C7**: completati.
-6. **A5, Q5, C6**: regole shared residue, a11y, container query.
+6. **A5, C6**: regole shared residue, container query.
 7. **S3, S7**: revoca sessione per-device e verifica TLS/proxy reale.
 8. **B1-B5**: Signal Forms, `resource()`, `@defer`.
 9. **Pi 1**: validazione display in kiosk.
