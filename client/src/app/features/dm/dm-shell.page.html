@@ -553,127 +553,27 @@
   (dismiss)="takeTargetOpen.set(false)"
 />
 
-<app-dialog
+<app-map-picker-dialog
   [open]="mapPickerOpen()"
-  title="Avvia da mappa"
+  [maps]="maps()"
+  [loading]="mapsLoading()"
+  (choose)="chooseMap($event)"
+  (create)="closeMapPicker()"
   (closed)="closeMapPicker()"
->
-  <p class="muted">Scegli una mappa creata nell’editor. I mostri e le luci vengono istanziati nella nuova scena.</p>
-  @if (mapsLoading()) {
-    <p class="muted">Caricamento mappe…</p>
-  } @else if (maps().length === 0) {
-    <p class="muted">Nessuna mappa disponibile. Creala prima nell’editor.</p>
-  } @else {
-    <ul class="screen-list">
-      @for (map of maps(); track map.id) {
-        <li>
-          <button type="button" class="screen-row" (click)="chooseMap(map)">
-            <span class="screen-row__head">
-              <strong>{{ map.name }}</strong>
-              <span class="badge">{{ map.grid.type === 'hex' ? 'esagonale' : 'quadrata' }}</span>
-            </span>
-            <span class="muted">
-              {{ map.widthPx }} × {{ map.heightPx }} px ·
-              {{ map.walls }} muri · {{ map.lights }} luci ·
-              {{ map.spawns }} spawn · {{ map.playerStarts }} partenze
-            </span>
-          </button>
-        </li>
-      }
-    </ul>
-  }
-  <div dialog-actions>
-    <a class="btn" routerLink="/maps" (click)="closeMapPicker()">Crea mappa</a>
-    <app-button (pressed)="closeMapPicker()">
-      {{ maps().length === 0 && !mapsLoading() ? 'Chiudi' : 'Annulla' }}
-    </app-button>
-  </div>
-</app-dialog>
+/>
 
-<app-dialog
+<app-prepare-scene-dialog
   [open]="prepareMap() !== null"
-  title="Prepara scena"
-  (closed)="closePrepare()"
->
-  @if (prepareMap(); as map) {
-    <p class="muted">
-      {{ map.name }} · {{ map.widthPx }} × {{ map.heightPx }} px
-    </p>
-    <label class="field">
-      <span>Nome scena</span>
-      <input type="text" [value]="prepareName()" (input)="setPrepareName($event)" />
-    </label>
-    @if (startOptions().length === 0) {
-      <p class="notice">
-        La mappa non ha punti di partenza: i PG non verranno piazzati automaticamente.
-        Potrai trascinarli dalla console.
-      </p>
-    } @else {
-      <div class="prepare-list">
-        @for (actor of partyPcs(); track actor.id) {
-          <label class="field">
-            <span>{{ actor.name }}</span>
-            <select
-              [value]="prepareAssignments()[actor.id] ?? ''"
-              (change)="setAssignment(actor.id, $event)"
-            >
-              <option value="">Posiziona a mano</option>
-              @for (start of startOptions(); track start.id) {
-                <option [value]="start.id">
-                  {{ start.label ?? 'Partenza' }} ({{ start.x }}, {{ start.y }})
-                </option>
-              }
-            </select>
-          </label>
-        }
-      </div>
-    }
-  }
-  <div dialog-actions>
-    <app-button (pressed)="closePrepare()">Annulla</app-button>
-    <app-button variant="primary" [disabled]="prepareBusy()" (pressed)="startPreparedMap()">
-      {{ prepareBusy() ? 'Avvio…' : 'Avvia scena' }}
-    </app-button>
-  </div>
-</app-dialog>
+  [map]="prepareMap()"
+  [name]="prepareName()"
+  [assignments]="prepareAssignments()"
+  [partyPcs]="partyPcs()"
+  [startOptions]="startOptions()"
+  [busy]="prepareBusy()"
+  (nameChange)="prepareName.set($event)"
+  (assignmentChange)="applyAssignment($event)"
+  (start)="startPreparedMap()"
+  (dismiss)="closePrepare()"
+/>
 
-<app-dialog
-  [open]="regia.screenDialog() !== null"
-  [title]="'Schermo ' + (regia.screenDialog()?.display?.code ?? '')"
-  (closed)="regia.closeScreenDialog()"
->
-  @if (regia.screenDialog(); as summary) {
-    <p class="muted">
-      {{ regia.projectionLabel(summary) }} · {{ regia.lastSeen(summary) }}
-    </p>
-    <div
-      class="screen-viewer"
-      [style.aspect-ratio]="regia.screenAspect()"
-      [attr.data-zoom]="regia.screenViewport()?.zoom ?? 1"
-      (wheel)="zoomScreen($event)"
-      (pointerdown)="startScreenPan($event)"
-      (pointermove)="moveScreenPan($event)"
-      (pointerup)="endScreenPan()"
-      (pointercancel)="endScreenPan()"
-    >
-      <div class="screen-viewer__stage">
-        @if (summary.state; as state) {
-          @defer (on immediate) {
-            <app-screen-preview [state]="state" />
-          } @placeholder {
-            <p class="muted">Caricamento anteprima…</p>
-          }
-        } @else {
-          <p class="muted">Proiezione non disponibile.</p>
-        }
-      </div>
-    </div>
-    <div class="inline-controls">
-      <span class="muted">Zoom {{ regia.screenZoomLabel() }}%</span>
-      <app-button variant="ghost" (pressed)="resetScreenView()">Reimposta vista</app-button>
-    </div>
-  }
-  <div dialog-actions>
-    <app-button (pressed)="regia.closeScreenDialog()">Chiudi anteprima</app-button>
-  </div>
-</app-dialog>
+<app-screen-viewer-dialog />

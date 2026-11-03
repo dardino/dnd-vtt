@@ -1,0 +1,40 @@
+<app-dialog
+  [open]="open()"
+  [title]="title()"
+  (closed)="close()"
+>
+  @if (regia.screenDialog(); as summary) {
+    <p class="muted">
+      {{ regia.projectionLabel(summary) }} · {{ regia.lastSeen(summary) }}
+    </p>
+    <div
+      class="screen-viewer"
+      [style.aspect-ratio]="regia.screenAspect()"
+      [attr.data-zoom]="regia.screenViewport()?.zoom ?? 1"
+      (wheel)="zoomScreen($event)"
+      (pointerdown)="startScreenPan($event)"
+      (pointermove)="moveScreenPan($event)"
+      (pointerup)="endScreenPan()"
+      (pointercancel)="endScreenPan()"
+    >
+      <div class="screen-viewer__stage">
+        @if (summary.state; as state) {
+          @defer (on immediate) {
+            <app-screen-preview [state]="state" />
+          } @placeholder {
+            <p class="muted">Caricamento anteprima…</p>
+          }
+        } @else {
+          <p class="muted">Proiezione non disponibile.</p>
+        }
+      </div>
+    </div>
+    <div class="inline-controls">
+      <span class="muted">Zoom {{ regia.screenZoomLabel() }}%</span>
+      <app-button variant="ghost" (pressed)="resetScreenView()">Reimposta vista</app-button>
+    </div>
+  }
+  <div dialog-actions>
+    <app-button (pressed)="close()">Chiudi anteprima</app-button>
+  </div>
+</app-dialog>

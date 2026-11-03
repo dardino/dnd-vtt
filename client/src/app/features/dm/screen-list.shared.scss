@@ -36,3 +36,8 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
 }
+
+.badge {
+  @include mx.pill(var(--color-accent), var(--color-accent));
+  color: var(--color-accent-contrast);
+}

@@ -1,0 +1,46 @@
+<app-dialog
+  [open]="open()"
+  title="Prepara scena"
+  (closed)="requestDismiss()"
+>
+  @if (map(); as map) {
+    <p class="muted">
+      {{ map.name }} · {{ map.widthPx }} × {{ map.heightPx }} px
+    </p>
+    <label class="field">
+      <span>Nome scena</span>
+      <input type="text" [value]="name()" (input)="requestNameChange($event)" />
+    </label>
+    @if (startOptions().length === 0) {
+      <p class="notice">
+        La mappa non ha punti di partenza: i PG non verranno piazzati automaticamente.
+        Potrai trascinarli dalla console.
+      </p>
+    } @else {
+      <div class="prepare-list">
+        @for (actor of partyPcs(); track actor.id) {
+          <label class="field">
+            <span>{{ actor.name }}</span>
+            <select
+              [value]="assignments()[actor.id] ?? ''"
+              (change)="requestAssignment(actor.id, $event)"
+            >
+              <option value="">Posiziona a mano</option>
+              @for (start of startOptions(); track start.id) {
+                <option [value]="start.id">
+                  {{ start.label ?? 'Partenza' }} ({{ start.x }}, {{ start.y }})
+                </option>
+              }
+            </select>
+          </label>
+        }
+      </div>
+    }
+  }
+  <div dialog-actions>
+    <app-button (pressed)="requestDismiss()">Annulla</app-button>
+    <app-button variant="primary" [disabled]="busy()" (pressed)="requestStart()">
+      {{ busy() ? 'Avvio…' : 'Avvia scena' }}
+    </app-button>
+  </div>
+</app-dialog>

@@ -1,0 +1,36 @@
+<app-dialog
+  [open]="open()"
+  title="Avvia da mappa"
+  (closed)="requestClose()"
+>
+  <p class="muted">Scegli una mappa creata nell’editor. I mostri e le luci vengono istanziati nella nuova scena.</p>
+  @if (loading()) {
+    <p class="muted">Caricamento mappe…</p>
+  } @else if (maps().length === 0) {
+    <p class="muted">Nessuna mappa disponibile. Creala prima nell’editor.</p>
+  } @else {
+    <ul class="screen-list">
+      @for (map of maps(); track map.id) {
+        <li>
+          <button type="button" class="screen-row" (click)="requestChoose(map)">
+            <span class="screen-row__head">
+              <strong>{{ map.name }}</strong>
+              <span class="badge">{{ map.grid.type === 'hex' ? 'esagonale' : 'quadrata' }}</span>
+            </span>
+            <span class="muted">
+              {{ map.widthPx }} × {{ map.heightPx }} px ·
+              {{ map.walls }} muri · {{ map.lights }} luci ·
+              {{ map.spawns }} spawn · {{ map.playerStarts }} partenze
+            </span>
+          </button>
+        </li>
+      }
+    </ul>
+  }
+  <div dialog-actions>
+    <a class="btn" routerLink="/maps" (click)="requestCreate()">Crea mappa</a>
+    <app-button (pressed)="requestClose()">
+      {{ maps().length === 0 && !loading() ? 'Chiudi' : 'Annulla' }}
+    </app-button>
+  </div>
+</app-dialog>

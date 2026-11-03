@@ -61,7 +61,6 @@ import { RealtimeService } from '../../core/realtime.service';
 import { SceneActionService } from '../../core/scene-action.service';
 import { SceneStore } from '../../core/scene.store';
 import { Button } from '../../components/button/button';
-import { Dialog } from '../../components/dialog/dialog';
 import { DiceOverlayComponent } from '../dice/dice-overlay.component';
 import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
@@ -76,13 +75,18 @@ import { DmDock, type DockTab } from './dm-dock';
 import { DmStatusbar } from './dm-statusbar';
 import { FogConfirmDialog } from './fog-confirm-dialog';
 import { LoginDialog } from './login-dialog';
+import { MapPickerDialog } from './map-picker-dialog';
 import { MapSettingsDialog } from './map-settings-dialog';
+import {
+  PrepareSceneDialog,
+  type PrepareSceneAssignment,
+} from './prepare-scene-dialog';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
 import { SceneToolbar } from './scene-toolbar';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenList } from './screen-list';
-import { ScreenPreviewComponent } from './screen-preview.component';
+import { ScreenViewerDialog } from './screen-viewer-dialog';
 import { SessionCard } from './session-card';
 import { SidebarSection } from './sidebar-section';
 import { TakeTargetDialog } from './take-target-dialog';
@@ -152,19 +156,20 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     CharacterSlots,
     ChooseCampaignDialog,
     CreateCampaignDialog,
-    Dialog,
     DmDock,
     DmStatusbar,
     FogConfirmDialog,
     LoginDialog,
+    MapPickerDialog,
     MapSettingsDialog,
+    PrepareSceneDialog,
     RouterLink,
     SceneCanvasComponent,
     SceneList,
     SceneToolbar,
     DiceOverlayComponent,
     ScreenList,
-    ScreenPreviewComponent,
+    ScreenViewerDialog,
     SessionCard,
     SidebarSection,
     TakeTargetDialog,
@@ -695,18 +700,13 @@ export class DmShellPage implements OnInit {
     this.prepareAssignments.set({});
   }
 
-  public setPrepareName(event: Event): void {
-    this.prepareName.set((event.target as HTMLInputElement).value);
-  }
-
-  public setAssignment(actorId: string, event: Event): void {
-    const startId = (event.target as HTMLSelectElement).value;
+  public applyAssignment(change: PrepareSceneAssignment): void {
     this.prepareAssignments.update((current) => {
       const next = { ...current };
-      if (startId === '') {
-        delete next[actorId];
+      if (change.startId === '') {
+        delete next[change.actorId];
       } else {
-        next[actorId] = startId;
+        next[change.actorId] = change.startId;
       }
       return next;
     });
@@ -1581,35 +1581,6 @@ export class DmShellPage implements OnInit {
     } catch {
       // localStorage può essere disabilitato: i pannelli restano validi per la sessione.
     }
-  }
-
-  public zoomScreen(event: WheelEvent): void {
-    event.preventDefault();
-    this.regia.zoomBy(event.deltaY < 0 ? 1.12 : 1 / 1.12);
-  }
-
-  public resetScreenView(): void {
-    this.regia.resetView();
-  }
-
-  public startScreenPan(event: PointerEvent): void {
-    if (this.regia.screenViewport() === null) {
-      return;
-    }
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-    this.regia.startPan(event.clientX, event.clientY);
-  }
-
-  public moveScreenPan(event: PointerEvent): void {
-    this.regia.movePan(
-      event.clientX,
-      event.clientY,
-      (event.currentTarget as HTMLElement).getBoundingClientRect(),
-    );
-  }
-
-  public endScreenPan(): void {
-    this.regia.endPan();
   }
 
   private startSessionTimer(reset = true): void {
