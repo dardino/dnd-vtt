@@ -1,0 +1,27 @@
+<section class="accordion">
+  <div class="accordion__head">
+    <button
+      type="button"
+      class="accordion__trigger"
+      [attr.aria-expanded]="open()"
+      [attr.aria-controls]="'sidebar-' + id()"
+      (click)="toggled.emit()"
+    >
+      <span class="accordion__label">{{ label() }}</span>
+      @if (count() !== null) {
+        <span class="accordion__count">{{ count() }}</span>
+      }
+      <span class="accordion__chevron" aria-hidden="true">{{ open() ? '▾' : '▸' }}</span>
+    </button>
+    @if (hasActions()) {
+      <div class="accordion__actions">
+        <ng-content select="[actions]" />
+      </div>
+    }
+  </div>
+  @if (open()) {
+    <div [id]="'sidebar-' + id()" class="accordion__body">
+      <ng-content />
+    </div>
+  }
+</section>

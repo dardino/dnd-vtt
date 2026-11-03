@@ -68,6 +68,7 @@ import { AuthSessionsPanel } from './auth-sessions-panel';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenPreviewComponent } from './screen-preview.component';
+import { SidebarSection } from './sidebar-section';
 import {
   SceneCanvasComponent,
   type ActorDropEvent,
@@ -79,9 +80,9 @@ import {
 
 type ShellMode = 'loading' | 'login' | 'create' | 'choose' | 'ready' | 'error';
 type CanvasTool = SceneTool;
-type SidebarSection = 'campaign' | 'scenes' | 'grid' | 'fog' | 'scenography' | 'actors' | 'ai' | 'screens' | 'devices' | 'tokens';
+type SidebarSectionId = 'campaign' | 'scenes' | 'grid' | 'fog' | 'scenography' | 'actors' | 'ai' | 'screens' | 'devices' | 'tokens';
 
-const DEFAULT_SECTIONS: Record<SidebarSection, boolean> = {
+const DEFAULT_SECTIONS: Record<SidebarSectionId, boolean> = {
   campaign: true,
   scenes: true,
   grid: true,
@@ -135,6 +136,7 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     SceneCanvasComponent,
     DiceOverlayComponent,
     ScreenPreviewComponent,
+    SidebarSection,
     AuthSessionsPanel,
   ],
   templateUrl: './dm-shell.page.html',
@@ -208,7 +210,7 @@ export class DmShellPage implements OnInit {
   public readonly dockOpen = signal(true);
   public readonly dockTab = signal<'initiative' | 'dice' | 'actions'>('initiative');
   public readonly diceOpen = signal(false);
-  public readonly sections = signal<Record<SidebarSection, boolean>>({ ...DEFAULT_SECTIONS });
+  public readonly sections = signal<Record<SidebarSectionId, boolean>>({ ...DEFAULT_SECTIONS });
   public readonly sessionSeconds = signal(0);
 
   public readonly password = signal('');
@@ -1327,7 +1329,7 @@ export class DmShellPage implements OnInit {
     this.persistPanels();
   }
 
-  public toggleSection(section: SidebarSection): void {
+  public toggleSection(section: SidebarSectionId): void {
     const opening = !this.sections()[section];
     this.sections.update((current) => ({ ...current, [section]: !current[section] }));
     this.persistPanels();
@@ -1339,7 +1341,7 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public isSectionOpen(section: SidebarSection): boolean {
+  public isSectionOpen(section: SidebarSectionId): boolean {
     return this.sections()[section];
   }
 
@@ -1568,7 +1570,7 @@ export class DmShellPage implements OnInit {
       this.rightOpen.set(parsed.right ?? true);
       this.dockOpen.set(parsed.dock ?? true);
       const sections = { ...DEFAULT_SECTIONS };
-      for (const key of Object.keys(DEFAULT_SECTIONS) as SidebarSection[]) {
+      for (const key of Object.keys(DEFAULT_SECTIONS) as SidebarSectionId[]) {
         const value = parsed.sections?.[key];
         if (typeof value === 'boolean') {
           sections[key] = value;

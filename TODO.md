@@ -308,6 +308,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Proposta:** prima gli store (`CampaignShellStore`, `RegiaStore`, `SceneToolsStore`) senza cambiare il template; poi `SidebarSection`, `SceneList`, `ActorList`, `ScreenList`, `SessionCard`, `DmToolbar`, `DmStatusbar`; infine il template.
   - **Fatto quando:** tutti i file coinvolti scendono sotto 400 righe (obiettivo 350), test sugli store, E2E invariati.
   - **Stato (R1c, 1 novembre 2026):** `RegiaStore` estratto in `regia.store.ts` (+ `regia-viewport.ts` e `regia-summary.ts`), con test su program, display e viewport; `dm-shell.page.ts` scende a 1.498 righe effettive. Restano componenti e template.
+  - **Stato (R1a, 3 novembre 2026):** `SidebarSection` estratto (`sidebar-section.ts/html/scss` + spec); le 10 sezioni accordion della sidebar usano il componente, con `aria-controls`/`aria-expanded`, contatori e slot azioni invariati; stili `.accordion*` spostati dal page SCSS. Restano le liste (`SceneList`, `ActorList`, `ScreenList`, `SessionCard`) e toolbar/statusbar.
 
 - [x] **R2 — `SceneCanvasComponent`** · L
   - **Proposta:** `KonvaStageService`, `MapLayerRenderer`, `GridRenderer`, `FogRenderer`, `TokenRenderer`, `CanvasInputController`; la matematica resta in `shared`.

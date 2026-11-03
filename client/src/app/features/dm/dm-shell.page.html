@@ -55,85 +55,68 @@
         >{{ leftOpen() ? '‹' : '›' }}</button>
       </div>
       @if (leftOpen()) {
-        <section class="accordion" [class.is-open]="isSectionOpen('campaign')">
-          <button
-            type="button"
-            class="accordion__trigger"
-            [attr.aria-expanded]="isSectionOpen('campaign')"
-            aria-controls="sidebar-campaign"
-            (click)="toggleSection('campaign')"
-          >
-            <span class="accordion__label">Dati campagna</span>
-            <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('campaign') ? '▾' : '▸' }}</span>
-          </button>
-          @if (isSectionOpen('campaign')) {
-            <div id="sidebar-campaign" class="accordion__body">
-              @if (shell.activeCampaign(); as campaign) {
-                <h2>{{ campaign.name }}</h2>
-                <p class="muted">{{ campaign.description || 'Nessuna descrizione.' }}</p>
-                <dl class="dm-meta">
-                  <div><dt>Avanzamento</dt><dd>{{ campaign.advancementMode }}</dd></div>
-                  <div><dt>Scene</dt><dd>{{ shell.scenes().length }}</dd></div>
-                  <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
-                </dl>
-                <label class="field">
-                  <span>Modalità avanzamento</span>
-                  <select [value]="campaign.advancementMode" (change)="changeAdvancementMode($event)">
-                    <option value="milestone">Milestone</option>
-                    <option value="xp">Punti esperienza</option>
-                  </select>
-                </label>
-                <div class="session-card">
-                  @if (shell.activeSession(); as session) {
-                    <span class="eyebrow">Sessione {{ session.number }} in corso</span>
-                    <strong class="session-card__timer">{{ sessionLabel() }}</strong>
-                    <button type="button" class="dock-button" [disabled]="sessionBusy()" (click)="stopSession()">Termina</button>
-                  } @else {
-                    <span class="eyebrow">Sessione</span>
-                    <button type="button" class="dock-button" [disabled]="sessionBusy()" (click)="startSession()">Avvia sessione</button>
-                  }
-                </div>
-                <input #importInput id="import-campaign-file" class="file-input" type="file" accept="application/json,.json" (change)="importCampaign($event)" />
-                <label class="check">
-                  <input
-                    type="checkbox"
-                    [checked]="includePrivateNotes()"
-                    (change)="setIncludePrivateNotes($event)"
-                  />
-                  <span>Includi note private dei giocatori nell’export</span>
-                </label>
-                <div class="initiative__actions">
-                  <button type="button" class="dock-button" (click)="exportCampaign()">Esporta campagna</button>
-                  <button type="button" class="dock-button" (click)="openImportPicker()">Importa campagna</button>
-                </div>
+        <app-sidebar-section
+          id="campaign"
+          label="Dati campagna"
+          [open]="isSectionOpen('campaign')"
+          (toggled)="toggleSection('campaign')"
+        >
+          @if (shell.activeCampaign(); as campaign) {
+            <h2>{{ campaign.name }}</h2>
+            <p class="muted">{{ campaign.description || 'Nessuna descrizione.' }}</p>
+            <dl class="dm-meta">
+              <div><dt>Avanzamento</dt><dd>{{ campaign.advancementMode }}</dd></div>
+              <div><dt>Scene</dt><dd>{{ shell.scenes().length }}</dd></div>
+              <div><dt>Auto-approva</dt><dd>{{ campaign.autoApprove ? 'sì' : 'no' }}</dd></div>
+            </dl>
+            <label class="field">
+              <span>Modalità avanzamento</span>
+              <select [value]="campaign.advancementMode" (change)="changeAdvancementMode($event)">
+                <option value="milestone">Milestone</option>
+                <option value="xp">Punti esperienza</option>
+              </select>
+            </label>
+            <div class="session-card">
+              @if (shell.activeSession(); as session) {
+                <span class="eyebrow">Sessione {{ session.number }} in corso</span>
+                <strong class="session-card__timer">{{ sessionLabel() }}</strong>
+                <button type="button" class="dock-button" [disabled]="sessionBusy()" (click)="stopSession()">Termina</button>
               } @else {
-                <div class="skeleton skeleton--line"></div>
-                <div class="skeleton skeleton--line skeleton--short"></div>
-                <div class="skeleton skeleton--block"></div>
+                <span class="eyebrow">Sessione</span>
+                <button type="button" class="dock-button" [disabled]="sessionBusy()" (click)="startSession()">Avvia sessione</button>
               }
             </div>
+            <input #importInput id="import-campaign-file" class="file-input" type="file" accept="application/json,.json" (change)="importCampaign($event)" />
+            <label class="check">
+              <input
+                type="checkbox"
+                [checked]="includePrivateNotes()"
+                (change)="setIncludePrivateNotes($event)"
+              />
+              <span>Includi note private dei giocatori nell’export</span>
+            </label>
+            <div class="initiative__actions">
+              <button type="button" class="dock-button" (click)="exportCampaign()">Esporta campagna</button>
+              <button type="button" class="dock-button" (click)="openImportPicker()">Importa campagna</button>
+            </div>
+          } @else {
+            <div class="skeleton skeleton--line"></div>
+            <div class="skeleton skeleton--line skeleton--short"></div>
+            <div class="skeleton skeleton--block"></div>
           }
-        </section>
+        </app-sidebar-section>
 
         @if (mode() === 'ready') {
-          <section class="accordion" [class.is-open]="isSectionOpen('scenes')">
-            <div class="accordion__head">
-              <button
-                type="button"
-                class="accordion__trigger"
-                [attr.aria-expanded]="isSectionOpen('scenes')"
-                aria-controls="sidebar-scenes"
-                (click)="toggleSection('scenes')"
-              >
-                <span class="accordion__label">Scene</span>
-                <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('scenes') ? '▾' : '▸' }}</span>
-              </button>
-              <app-button variant="ghost" [disabled]="busy()" (pressed)="createScene()">
-                Crea scena
-              </app-button>
-            </div>
-            @if (isSectionOpen('scenes')) {
-              <div id="sidebar-scenes" class="accordion__body">
+          <app-sidebar-section
+            id="scenes"
+            label="Scene"
+            [open]="isSectionOpen('scenes')"
+            [hasActions]="true"
+            (toggled)="toggleSection('scenes')"
+          >
+            <app-button actions variant="ghost" [disabled]="busy()" (pressed)="createScene()">
+              Crea scena
+            </app-button>
                 <div class="scene-actions">
                   <app-button variant="primary" [disabled]="busy()" (pressed)="openMapPicker()">
                     Avvia da mappa
@@ -175,23 +158,14 @@
                     }
                   </ul>
                 }
-              </div>
-            }
-          </section>
+          </app-sidebar-section>
 
-          <section class="accordion" [class.is-open]="isSectionOpen('grid')">
-            <button
-              type="button"
-              class="accordion__trigger"
-              [attr.aria-expanded]="isSectionOpen('grid')"
-              aria-controls="sidebar-grid"
-              (click)="toggleSection('grid')"
-            >
-              <span class="accordion__label">Griglia</span>
-              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('grid') ? '▾' : '▸' }}</span>
-            </button>
-            @if (isSectionOpen('grid')) {
-              <div id="sidebar-grid" class="accordion__body">
+          <app-sidebar-section
+            id="grid"
+            label="Griglia"
+            [open]="isSectionOpen('grid')"
+            (toggled)="toggleSection('grid')"
+          >
                 @if (grid(); as gridConfig) {
                   @if (activeScene()?.mapId; as mapId) {
                     <p class="notice">
@@ -224,23 +198,14 @@
                   </label>
                   <p class="muted">Diagonale {{ gridConfig.diagonalRule }} · {{ units.formatDistance(gridConfig.feetPerCell) }} per cella</p>
                 }
-              </div>
-            }
-          </section>
+          </app-sidebar-section>
 
-          <section class="accordion" [class.is-open]="isSectionOpen('fog')">
-            <button
-              type="button"
-              class="accordion__trigger"
-              [attr.aria-expanded]="isSectionOpen('fog')"
-              aria-controls="sidebar-fog"
-              (click)="toggleSection('fog')"
-            >
-              <span class="accordion__label">Fog</span>
-              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('fog') ? '▾' : '▸' }}</span>
-            </button>
-            @if (isSectionOpen('fog')) {
-              <div id="sidebar-fog" class="accordion__body">
+          <app-sidebar-section
+            id="fog"
+            label="Fog"
+            [open]="isSectionOpen('fog')"
+            (toggled)="toggleSection('fog')"
+          >
                 <div class="field">
                   <span>Pennello</span>
                   <p class="muted">
@@ -262,23 +227,14 @@
                   <button type="button" class="dock-button" (click)="clearFogOverride()">Vista automatica</button>
                 </div>
                 <p class="muted">Strumenti Fog nella toolbar: pennello, gomma, rettangolo e lasso.</p>
-              </div>
-            }
-          </section>
+          </app-sidebar-section>
 
-          <section class="accordion" [class.is-open]="isSectionOpen('scenography')">
-            <button
-              type="button"
-              class="accordion__trigger"
-              [attr.aria-expanded]="isSectionOpen('scenography')"
-              aria-controls="sidebar-scenography"
-              (click)="toggleSection('scenography')"
-            >
-              <span class="accordion__label">Scenografia</span>
-              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('scenography') ? '▾' : '▸' }}</span>
-            </button>
-            @if (isSectionOpen('scenography')) {
-              <div id="sidebar-scenography" class="accordion__body">
+          <app-sidebar-section
+            id="scenography"
+            label="Scenografia"
+            [open]="isSectionOpen('scenography')"
+            (toggled)="toggleSection('scenography')"
+          >
                 @if (state(); as sceneState) {
                   <label class="check">
                     <input
@@ -315,23 +271,14 @@
                     </div>
                   }
                 }
-              </div>
-            }
-          </section>
+          </app-sidebar-section>
 
-          <section class="accordion" [class.is-open]="isSectionOpen('actors')">
-            <button
-              type="button"
-              class="accordion__trigger"
-              [attr.aria-expanded]="isSectionOpen('actors')"
-              aria-controls="sidebar-actors"
-              (click)="toggleSection('actors')"
-            >
-              <span class="accordion__label">Attori</span>
-              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('actors') ? '▾' : '▸' }}</span>
-            </button>
-            @if (isSectionOpen('actors')) {
-              <div id="sidebar-actors" class="accordion__body">
+          <app-sidebar-section
+            id="actors"
+            label="Attori"
+            [open]="isSectionOpen('actors')"
+            (toggled)="toggleSection('actors')"
+          >
                 <a class="dm-link-button" [routerLink]="['/dm/campaigns', shell.activeCampaign()?.id, 'actors', 'new', 'monster']">
                   Crea mostro o NPC
                 </a>
@@ -365,23 +312,14 @@
                   </ul>
                   <p class="muted">Trascina un attore sulla mappa oppure usa +. Ogni trascinamento crea una nuova istanza.</p>
                 }
-              </div>
-            }
-          </section>
+          </app-sidebar-section>
 
-          <section class="accordion" [class.is-open]="isSectionOpen('ai')">
-            <button
-              type="button"
-              class="accordion__trigger"
-              [attr.aria-expanded]="isSectionOpen('ai')"
-              aria-controls="sidebar-ai"
-              (click)="toggleSection('ai')"
-            >
-              <span class="accordion__label">Chat IA</span>
-              <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('ai') ? '▾' : '▸' }}</span>
-            </button>
-            @if (isSectionOpen('ai')) {
-              <div id="sidebar-ai" class="accordion__body">
+          <app-sidebar-section
+            id="ai"
+            label="Chat IA"
+            [open]="isSectionOpen('ai')"
+            (toggled)="toggleSection('ai')"
+          >
                 <p class="muted">{{ aiMessage() }}</p>
                 @if (!aiEnabled()) {
                   <p class="muted">
@@ -420,9 +358,7 @@
                     >Crea mostro</button>
                   </div>
                 }
-              </div>
-            }
-          </section>
+          </app-sidebar-section>
         }
       }
     </aside>
@@ -704,20 +640,13 @@
         >{{ rightOpen() ? '›' : '‹' }}</button>
       </div>
       @if (rightOpen()) {
-        <section class="accordion" [class.is-open]="isSectionOpen('tokens')">
-          <button
-            type="button"
-            class="accordion__trigger"
-            [attr.aria-expanded]="isSectionOpen('tokens')"
-            aria-controls="sidebar-tokens"
-            (click)="toggleSection('tokens')"
-          >
-            <span class="accordion__label">In mappa</span>
-            <span class="accordion__count">{{ tokens().length }}</span>
-            <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('tokens') ? '▾' : '▸' }}</span>
-          </button>
-          @if (isSectionOpen('tokens')) {
-            <div id="sidebar-tokens" class="accordion__body">
+        <app-sidebar-section
+          id="tokens"
+          label="In mappa"
+          [open]="isSectionOpen('tokens')"
+          [count]="tokens().length"
+          (toggled)="toggleSection('tokens')"
+        >
               @if (tokens().length === 0) {
                 <p class="muted">Nessun token. Trascina uno slot o un attore sulla mappa.</p>
               } @else {
@@ -758,24 +687,15 @@
                   }
                 </ul>
               }
-            </div>
-          }
-        </section>
+        </app-sidebar-section>
 
-        <section class="accordion" [class.is-open]="isSectionOpen('screens')">
-          <button
-            type="button"
-            class="accordion__trigger"
-            [attr.aria-expanded]="isSectionOpen('screens')"
-            aria-controls="sidebar-screens"
-            (click)="toggleSection('screens')"
-          >
-            <span class="accordion__label">Schermi</span>
-            <span class="accordion__count">{{ regia.screens().length }}</span>
-            <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('screens') ? '▾' : '▸' }}</span>
-          </button>
-          @if (isSectionOpen('screens')) {
-            <div id="sidebar-screens" class="accordion__body">
+        <app-sidebar-section
+          id="screens"
+          label="Schermi"
+          [open]="isSectionOpen('screens')"
+          [count]="regia.screens().length"
+          (toggled)="toggleSection('screens')"
+        >
               @if (regia.screens().length === 0) {
                 <p class="muted">Nessuno schermo online. Usa “Apri schermo”.</p>
               } @else {
@@ -797,31 +717,20 @@
                   }
                 </ul>
               }
-            </div>
-          }
-        </section>
+        </app-sidebar-section>
 
-        <section class="accordion" [class.is-open]="isSectionOpen('devices')">
-          <button
-            type="button"
-            class="accordion__trigger"
-            [attr.aria-expanded]="isSectionOpen('devices')"
-            aria-controls="sidebar-devices"
-            (click)="toggleSection('devices')"
-          >
-            <span class="accordion__label">Dispositivi</span>
-            <span class="accordion__chevron" aria-hidden="true">{{ isSectionOpen('devices') ? '▾' : '▸' }}</span>
-          </button>
-          @if (isSectionOpen('devices')) {
-            <div id="sidebar-devices" class="accordion__body">
+        <app-sidebar-section
+          id="devices"
+          label="Dispositivi"
+          [open]="isSectionOpen('devices')"
+          (toggled)="toggleSection('devices')"
+        >
               @defer (on idle) {
                 <app-auth-sessions-panel />
               } @placeholder {
                 <p class="muted">Caricamento dispositivi.</p>
               }
-            </div>
-          }
-        </section>
+        </app-sidebar-section>
       }
     </aside>
 
