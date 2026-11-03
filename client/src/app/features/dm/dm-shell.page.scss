@@ -1,5 +1,6 @@
 @use '../../../styles/layout' as layout;
 @use '../../../styles/mixins' as mx;
+@use './form-dialog.shared';
 @use './initiative-actions.shared';
 @use './screen-list.shared';
 
@@ -407,15 +408,6 @@
   transform-origin: center;
 }
 
-.field {
-  @include mx.field;
-}
-
-.field-error {
-  color: var(--color-danger);
-  font-size: var(--text-sm);
-}
-
 .dm-state {
   display: grid;
   gap: var(--space-3);
@@ -454,47 +446,6 @@
   &--block {
     height: 5rem;
   }
-}
-
-.form {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.campaign-list {
-  display: grid;
-  gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.campaign-card {
-  display: grid;
-  gap: var(--space-1);
-  width: 100%;
-  padding: var(--space-3);
-  border: var(--border-width) solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  text-align: left;
-
-  @include mx.hover {
-    &:hover {
-      background: var(--color-bg-hover);
-    }
-  }
-}
-
-.campaign-card__name {
-  font-weight: 600;
-}
-
-.campaign-card__meta {
-  color: var(--color-text-muted);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
 }
 
 @include mx.respond('xxl') {

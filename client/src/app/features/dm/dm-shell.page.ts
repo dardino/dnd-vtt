@@ -67,8 +67,14 @@ import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
 import { AuthSessionsPanel } from './auth-sessions-panel';
 import { CharacterSlots } from './character-slots';
+import { ChooseCampaignDialog } from './choose-campaign-dialog';
+import {
+  CreateCampaignDialog,
+  type CreateCampaignValues,
+} from './create-campaign-dialog';
 import { DmDock, type DockTab } from './dm-dock';
 import { DmStatusbar } from './dm-statusbar';
+import { LoginDialog } from './login-dialog';
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
 import { SceneToolbar } from './scene-toolbar';
@@ -141,9 +147,12 @@ const PANEL_STORAGE_PREFIX = 'dnd-vtt:panels:';
     AuthSessionsPanel,
     Button,
     CharacterSlots,
+    ChooseCampaignDialog,
+    CreateCampaignDialog,
     Dialog,
     DmDock,
     DmStatusbar,
+    LoginDialog,
     RouterLink,
     SceneCanvasComponent,
     SceneList,
@@ -229,11 +238,7 @@ export class DmShellPage implements OnInit {
   public readonly sections = signal<Record<SidebarSectionId, boolean>>({ ...DEFAULT_SECTIONS });
   public readonly sessionSeconds = signal(0);
 
-  public readonly password = signal('');
   public readonly includePrivateNotes = signal(false);
-  public readonly newName = signal('');
-  public readonly newDescription = signal('');
-  public readonly newAdvancement = signal<'milestone' | 'xp'>('milestone');
 
   public readonly loginError = computed(() => this.auth.error());
   public readonly hasCampaigns = computed(() => this.shell.campaigns().length > 0);
@@ -558,13 +563,11 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public async submitLogin(event: Event): Promise<void> {
-    event.preventDefault();
+  public async login(password: string): Promise<void> {
     this.busy.set(true);
     try {
-      const ok = await this.auth.login(this.password());
+      const ok = await this.auth.login(password);
       if (ok) {
-        this.password.set('');
         await this.openCampaign();
       }
     } finally {
@@ -572,9 +575,8 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public async submitCampaign(event: Event): Promise<void> {
-    event.preventDefault();
-    const name = this.newName().trim();
+  public async createCampaign(values: CreateCampaignValues): Promise<void> {
+    const name = values.name.trim();
     if (name === '') {
       return;
     }
@@ -582,13 +584,11 @@ export class DmShellPage implements OnInit {
     try {
       const created = await this.campaignsApi.create({
         name,
-        description: this.newDescription().trim(),
-        advancementMode: this.newAdvancement(),
+        description: values.description.trim(),
+        advancementMode: values.advancementMode,
         fogDefault: 'hidden',
       });
       this.shell.addCampaign(created);
-      this.newName.set('');
-      this.newDescription.set('');
       await this.enterCampaign(created.id);
     } catch (error) {
       this.notice.set(messageFor(error));
@@ -1521,24 +1521,8 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  public updatePassword(event: Event): void {
-    this.password.set(readValue(event));
-  }
-
   public setIncludePrivateNotes(event: Event): void {
     this.includePrivateNotes.set((event.target as HTMLInputElement).checked);
-  }
-
-  public updateNewName(event: Event): void {
-    this.newName.set(readValue(event));
-  }
-
-  public updateNewDescription(event: Event): void {
-    this.newDescription.set(readValue(event));
-  }
-
-  public updateNewAdvancement(event: Event): void {
-    this.newAdvancement.set(readValue(event) === 'xp' ? 'xp' : 'milestone');
   }
 
   private async sendAction(action: GameAction): Promise<AppliedAction | null> {
@@ -1652,9 +1636,6 @@ export class DmShellPage implements OnInit {
     }
   }
 }
-
-const readValue = (event: Event): string =>
-  (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value;
 
 const messageFor = (error: unknown): string => httpMessage(error, {
   fallback: 'Operazione non riuscita. Controlla il server e riprova.',

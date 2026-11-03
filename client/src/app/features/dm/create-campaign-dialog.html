@@ -1,0 +1,47 @@
+<app-dialog
+  [open]="open()"
+  title="Crea campagna"
+  [dismissible]="dismissible()"
+  (closed)="requestClose()"
+>
+  <form class="form" (submit)="requestSubmit($event)">
+    @let nameError = form.name().touched() ? form.name().errors()[0] : undefined;
+    @let descriptionError = form.description().touched() ? form.description().errors()[0] : undefined;
+    <label class="field">
+      <span>Nome</span>
+      <input
+        type="text"
+        [formField]="form.name"
+        [attr.aria-invalid]="form.name().touched() ? form.name().invalid() : null"
+        [attr.aria-describedby]="nameError ? 'campaign-name-error' : null"
+      />
+    </label>
+    @if (nameError; as error) {
+      <p id="campaign-name-error" class="field-error" role="alert">{{ error.message }}</p>
+    }
+    <label class="field">
+      <span>Ambientazione</span>
+      <textarea
+        rows="3"
+        [formField]="form.description"
+        [attr.aria-invalid]="form.description().touched() ? form.description().invalid() : null"
+        [attr.aria-describedby]="descriptionError ? 'campaign-description-error' : null"
+      ></textarea>
+    </label>
+    @if (descriptionError; as error) {
+      <p id="campaign-description-error" class="field-error" role="alert">{{ error.message }}</p>
+    }
+    <label class="field">
+      <span>Avanzamento</span>
+      <select [formField]="form.advancementMode">
+        <option value="milestone">Milestone</option>
+        <option value="xp">Punti esperienza</option>
+      </select>
+    </label>
+    <div dialog-actions>
+      <app-button type="submit" variant="primary" [disabled]="busy() || form().invalid()">
+        Crea campagna
+      </app-button>
+    </div>
+  </form>
+</app-dialog>

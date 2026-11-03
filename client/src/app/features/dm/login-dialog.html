@@ -1,0 +1,31 @@
+<app-dialog
+  [open]="open()"
+  title="Accesso alla console"
+  [dismissible]="false"
+>
+  <form class="form" (submit)="requestSubmit($event)">
+    <p class="muted">Il server richiede la password DM perché la console non è su loopback fidato.</p>
+    @let passwordError = form.password().touched() ? form.password().errors()[0] : undefined;
+    <label class="field">
+      <span>Password</span>
+      <input
+        type="password"
+        autocomplete="current-password"
+        [formField]="form.password"
+        [attr.aria-invalid]="form.password().touched() ? form.password().invalid() : null"
+        [attr.aria-describedby]="passwordError ? 'login-password-error' : null"
+      />
+    </label>
+    @if (passwordError; as error) {
+      <p id="login-password-error" class="field-error" role="alert">{{ error.message }}</p>
+    }
+    @if (error(); as message) {
+      <p class="field-error" role="alert">{{ message }}</p>
+    }
+    <div dialog-actions>
+      <app-button type="submit" variant="primary" [disabled]="busy() || form().invalid()">
+        Entra
+      </app-button>
+    </div>
+  </form>
+</app-dialog>

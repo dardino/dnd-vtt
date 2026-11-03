@@ -481,94 +481,29 @@
   </div>
 </section>
 
-<app-dialog
+<app-login-dialog
   [open]="mode() === 'login'"
-  title="Accesso alla console"
-  [dismissible]="false"
->
-  <form class="form" (submit)="submitLogin($event)">
-    <p class="muted">Il server richiede la password DM perché la console non è su loopback fidato.</p>
-    <label class="field">
-      <span>Password</span>
-      <input
-        type="password"
-        autocomplete="current-password"
-        [value]="password()"
-        (input)="updatePassword($event)"
-        [disabled]="busy()"
-      />
-    </label>
-    @if (loginError() !== null) {
-      <p class="field-error" role="alert">{{ loginError() }}</p>
-    }
-    <div dialog-actions>
-      <app-button type="submit" variant="primary" [disabled]="busy()">Entra</app-button>
-    </div>
-  </form>
-</app-dialog>
+  [error]="loginError()"
+  [busy]="busy()"
+  (login)="login($event)"
+/>
 
-<app-dialog
+<app-create-campaign-dialog
   [open]="mode() === 'create'"
-  title="Crea campagna"
+  [busy]="busy()"
   [dismissible]="hasCampaigns()"
+  (create)="createCampaign($event)"
   (closed)="closeCreate()"
->
-  <form class="form" (submit)="submitCampaign($event)">
-    <label class="field">
-      <span>Nome</span>
-      <input
-        type="text"
-        required
-        maxlength="120"
-        [value]="newName()"
-        (input)="updateNewName($event)"
-        [disabled]="busy()"
-      />
-    </label>
-    <label class="field">
-      <span>Ambientazione</span>
-      <textarea
-        rows="3"
-        maxlength="4000"
-        [value]="newDescription()"
-        (input)="updateNewDescription($event)"
-        [disabled]="busy()"
-      ></textarea>
-    </label>
-    <label class="field">
-      <span>Avanzamento</span>
-      <select [value]="newAdvancement()" (change)="updateNewAdvancement($event)" [disabled]="busy()">
-        <option value="milestone">Milestone</option>
-        <option value="xp">Punti esperienza</option>
-      </select>
-    </label>
-    <div dialog-actions>
-      <app-button type="submit" variant="primary" [disabled]="busy()">Crea campagna</app-button>
-    </div>
-  </form>
-</app-dialog>
+/>
 
-<app-dialog
+<app-choose-campaign-dialog
   [open]="mode() === 'choose'"
-  title="Scegli campagna"
+  [campaigns]="shell.campaigns()"
   [dismissible]="shell.activeCampaign() !== null"
+  (selectCampaign)="enterCampaign($event)"
+  (create)="openCreate()"
   (closed)="closeChoose()"
->
-  <ul class="campaign-list">
-    @for (campaign of shell.campaigns(); track campaign.id) {
-      <li>
-        <button type="button" class="campaign-card" (click)="enterCampaign(campaign.id)">
-          <span class="campaign-card__name">{{ campaign.name }}</span>
-          <span class="muted">{{ campaign.description || 'Nessuna descrizione' }}</span>
-          <span class="campaign-card__meta">{{ campaign.advancementMode }}</span>
-        </button>
-      </li>
-    }
-  </ul>
-  <div dialog-actions>
-    <app-button (pressed)="openCreate()">Nuova campagna</app-button>
-  </div>
-</app-dialog>
+/>
 
 @if (shell.activeCampaign(); as campaign) {
   @defer (when diceOpen(); prefetch on idle) {

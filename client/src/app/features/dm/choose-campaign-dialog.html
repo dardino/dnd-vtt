@@ -1,0 +1,21 @@
+<app-dialog
+  [open]="open()"
+  title="Scegli campagna"
+  [dismissible]="dismissible()"
+  (closed)="requestClose()"
+>
+  <ul class="campaign-list">
+    @for (campaign of campaigns(); track campaign.id) {
+      <li>
+        <button type="button" class="campaign-card" (click)="requestSelect(campaign.id)">
+          <span class="campaign-card__name">{{ campaign.name }}</span>
+          <span class="muted">{{ campaign.description || 'Nessuna descrizione' }}</span>
+          <span class="campaign-card__meta">{{ campaign.advancementMode }}</span>
+        </button>
+      </li>
+    }
+  </ul>
+  <div dialog-actions>
+    <app-button (pressed)="requestCreate()">Nuova campagna</app-button>
+  </div>
+</app-dialog>

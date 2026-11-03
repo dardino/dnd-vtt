@@ -1,0 +1,15 @@
+@use '../../../styles/mixins' as mx;
+
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.field {
+  @include mx.field;
+}
+
+.field-error {
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
