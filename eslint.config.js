@@ -115,9 +115,7 @@ export default tseslint.config(
     // Debito R0: ogni split rimuove il proprio file da questo elenco (vedi TODO.md).
     // Gli .scss non passano da ESLint: restano tracciati solo da `npm run files:report`.
     files: [
-      'client/src/app/features/dm/dm-shell.page.ts',
       'client/src/app/features/scene/scene-canvas.component.ts',
-      'client/src/app/features/dm/dm-shell.page.html',
       'client/src/app/features/maps/map-editor-canvas.component.ts',
       'client/src/app/features/actor/actor-sheet.page.ts',
       'shared/src/lib/sheet/validate.ts',

@@ -22,7 +22,7 @@ Derivata da `CODE_REVIEW.md` il 1 novembre 2026. Contiene **solo i punti ancora 
 | D8 | Ordine split god component | **`DmShellPage`** | deciso |
 | D9 | Distribuzione | **Docker Compose + sorgente; GHCR pubblico; server `linux/amd64`/`linux/arm64`; Pi 1 solo display** | deciso |
 
-**Blocco attivo:** B4 (resto), B5, R1 (alias/computed e markup residuo), S7 e Pi 1. R1 ha estratto UI, dialoghi, layout, UI/sessione, AI/transfer, token, fog, ciclo campagna, schermi e canvas controller; DmShellPage resta a 876 righe (579 HTML, 440 SCSS). Completati S0-S9 (tranne verifica TLS S7), A1-A4, R2-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4d e S3. Suite E2E completa verde (39/39).
+**Blocco attivo:** B4 (resto), B5, S7 e Pi 1. R1 è completato: il page è a 378 righe TS, 264 HTML e 237 SCSS, con UI, store e controller estratti. Completati S0-S9 (tranne verifica TLS S7), A1-A4, R1-R3, P1-P7, Q1-Q6, T1-T3, R0, SR1-SR7, C1-C7, B1-B3, B4a-B4d e S3. Suite E2E completa verde (39/39).
 
 **Policy nuova:** un file oltre **350–400 righe** va considerato candidato allo split. La soglia diventa operativa nella task **R0**.
 
@@ -330,6 +330,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Stato (R1t, 3 novembre 2026):** `DmRightSidebar` estratto (`dm-right-sidebar.ts/html/scss` + spec) con pannello "Scena", sezioni token/schermi/dispositivi (`@defer` on idle), `DmLayoutStore`/`RegiaStore`/`SceneTokensStore`/`DmUiStore` iniettati e `persistActive()`/`center(token)` aggiunti agli store; `.dm-panel`/`.panel-head`/`.panel-toggle` condivisi in `dm-panel.shared.scss`. `dm-shell.page.ts` perde alias/metodi del pannello destro (`toggleRight`, `centerToken`, `changeTokenHp`, visibilità/rimozione) e scende a 844 righe, `dm-shell.page.html` a 522, `.scss` a 357; `dm-right-sidebar.ts` 65, `.html` 62, `.scss` 20. `npm run check` verde; E2E `phase-2`/`phase-5`/`phase-7` verdi (15/15).
   - **Stato (R1u, 3 novembre 2026):** `DmLeftSidebar` estratto (`dm-left-sidebar.ts/html/scss` + spec) con campagna, scene, griglia, fog, scenografia, attori e AI; `changeAdvancementMode` in `DmCampaignStore`, helper `dm-actor.ts`, `skeleton.shared.scss`. `dm-shell.page.html` scende a 264 righe, `.scss` a 237, `.ts` a 635. E2E `phase-2`/`phase-3b`/`phase-5`/`phase-6` verdi (21/21).
   - **Stato (R1v, 3 novembre 2026):** `DmViewStore` (`dm-view.store.ts` + spec) estrae computed di vista (slots, doors, visionGrid, label, portraitFor, ecc.); `DmKeyboardController` (`dm-keyboard.controller.ts` + spec) sposta Ctrl/Cmd+Z/Y con attach/detach. `dm-shell.page.ts` scende a 519 righe; resta solo la facciata della pagina.
+  - **Stato (R1w, 3 novembre 2026):** rimossi i metodi delegati della pagina e il template chiama direttamente gli store (`campaign.*`, `tokensStore.*`, `fog.*`, `screens.*`) passando `campaign.activeScene()`; i metodi di `SceneTokensStore` che ricevevano `Scene` ora accettano `Scene | null` e fanno no-op come già faceva `SceneFogStore`. Restano i wrapper con logica extra (`enterCampaign`, `login`, `setDockTab`, `openSettings`/`closeSettings`, `clearHistory`/`resetFog` che chiudono il dialog, `selectActor`, `onActorDragStart`, `toggleDock`, `syncNow`, `openCreate`/`openChoose`/`close*`) e quelli del canvas. `dm-shell.page.ts` 378 righe (<400), HTML 264, SCSS 237. `npm run check` verde; E2E `phase-2`/`phase-4`/`phase-5`/`phase-6`/`phase-9` verdi (26/26).
 
 
 - [x] **R2 — `SceneCanvasComponent`** · L
@@ -549,7 +550,7 @@ Design: `docs/scene-resolution-background-design.md`. Passi 1–2 completati nel
 ## Sequenza consigliata
 
 1. **S0, D9, A1-A3**: completati; A4 ha toast/ErrorHandler ma restano mappature locali.
-2. **R1-R3**: R2/R3 completi; R1 ha gli store ma restano componenti/template di DmShellPage.
+2. **R1-R3**: completati (R1 chiuso con page sotto 400 righe);
 3. **P1/P2/P3/P5/P6/P7/P4**: completati (P4 con rendering per-layer).
 4. **Q1-Q5, T1-T3, R0**: completati (T3 con eventuali follow-up minori).
 5. **SR3-SR7 e C1-C5/C7**: completati.
