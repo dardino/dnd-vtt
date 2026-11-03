@@ -28,7 +28,6 @@ import {
   type Actor,
   type ActionLogEntry,
   type AppliedAction,
-  type CampaignExport,
   type DiceRoll,
   type Drawing,
   type FogOp,
@@ -38,7 +37,6 @@ import {
   type MapDocument,
   type MapSummary,
   type MeasureResult,
-  type MonsterStatblock,
   type PublicDoor,
   type Scene,
   type SceneState,
@@ -47,8 +45,6 @@ import {
   type VisionSource,
 } from '@dnd-vtt/shared';
 import { ActionStore } from '../../core/action.store';
-import { ActorService } from '../../core/actor.service';
-import { AiService } from '../../core/ai.service';
 import { AssetService } from '../../core/asset.service';
 import { AuthService } from '../../core/auth.service';
 import { CampaignService } from '../../core/campaign.service';
@@ -71,6 +67,7 @@ import {
   CreateCampaignDialog,
   type CreateCampaignValues,
 } from './create-campaign-dialog';
+import { DmAuxStore } from './dm-aux.store';
 import { DmDock, type DockTab } from './dm-dock';
 import { DmLayoutStore, type SidebarSectionId } from './dm-layout.store';
 import { DmSessionStore } from './dm-session.store';
@@ -169,7 +166,6 @@ const toMapDocument = (map: {
 export class DmShellPage implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly campaignsApi = inject(CampaignService);
-  private readonly actorsApi = inject(ActorService);
   private readonly assetsApi = inject(AssetService);
   private readonly lastCampaign = inject(LastCampaignService);
   private readonly router = inject(Router);
@@ -184,9 +180,9 @@ export class DmShellPage implements OnInit {
   public readonly layout = inject(DmLayoutStore);
   public readonly ui = inject(DmUiStore);
   public readonly session = inject(DmSessionStore);
+  public readonly aux = inject(DmAuxStore);
   private readonly sceneActions = inject(SceneActionService);
   private readonly mapsApi = inject(MapService);
-  private readonly ai = inject(AiService);
   private readonly realtime = inject(RealtimeService);
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
@@ -222,12 +218,12 @@ export class DmShellPage implements OnInit {
   public readonly prepareAssignments = signal<Record<string, string>>({});
   public readonly prepareBusy = signal(false);
   public readonly sessionBusy = this.session.sessionBusy;
-  public readonly aiEnabled = signal(false);
-  public readonly aiMessage = signal('Chat IA non configurata.');
-  public readonly aiText = signal('');
-  public readonly aiBusy = signal(false);
-  public readonly aiPreview = signal<MonsterStatblock | null>(null);
-  public readonly aiName = signal('Mostro importato');
+  public readonly aiEnabled = this.aux.aiEnabled;
+  public readonly aiMessage = this.aux.aiMessage;
+  public readonly aiText = this.aux.aiText;
+  public readonly aiBusy = this.aux.aiBusy;
+  public readonly aiPreview = this.aux.aiPreview;
+  public readonly aiName = this.aux.aiName;
   public readonly zoom = this.ui.zoom;
   public readonly selectedTokenId = this.ui.selectedTokenId;
   public readonly leftOpen = this.layout.leftOpen;
@@ -237,7 +233,7 @@ export class DmShellPage implements OnInit {
   public readonly diceOpen = signal(false);
   public readonly sections = this.layout.sections;
 
-  public readonly includePrivateNotes = signal(false);
+  public readonly includePrivateNotes = this.aux.includePrivateNotes;
 
   public readonly loginError = computed(() => this.auth.error());
   public readonly hasCampaigns = computed(() => this.shell.campaigns().length > 0);
@@ -482,9 +478,7 @@ export class DmShellPage implements OnInit {
       await this.regia.loadProgram(campaign.id);
       this.realtime.connectDm(campaign.id);
       await this.shell.loadSessions(campaign.id);
-      const ai = await this.ai.status();
-      this.aiEnabled.set(ai.enabled);
-      this.aiMessage.set(ai.message);
+      await this.aux.load();
       const active = this.shell.activeSession();
       this.session.sync(active);
       const target = scenes.find((scene) => scene.id === campaign.activeSceneId) ?? scenes[0];
@@ -1340,53 +1334,26 @@ export class DmShellPage implements OnInit {
 
   public async analyzeStatblock(): Promise<void> {
     const campaign = this.shell.activeCampaign();
-    const text = this.aiText().trim();
-    if (campaign === null || text === '' || this.aiBusy()) {
+    if (campaign === null) {
       return;
     }
-    this.aiBusy.set(true);
-    try {
-      const result = await this.ai.parseStatblock(campaign.id, text);
-      this.aiPreview.set(result.statblock);
-      this.ui.setStatusMessage('Statblock analizzato: controlla e crea il mostro.');
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    } finally {
-      this.aiBusy.set(false);
-    }
+    await this.aux.analyze(campaign.id);
   }
 
   public async createParsedMonster(): Promise<void> {
     const campaign = this.shell.activeCampaign();
-    const statblock = this.aiPreview();
-    if (campaign === null || statblock === null || this.aiBusy()) {
+    if (campaign === null) {
       return;
     }
-    this.aiBusy.set(true);
-    try {
-      const actor = await this.actorsApi.createActor({
-        campaignId: campaign.id,
-        kind: 'monster',
-        name: this.aiName().trim() === '' ? 'Mostro importato' : this.aiName().trim(),
-        statblock,
-      });
-      this.shell.addActor(actor);
-      this.aiPreview.set(null);
-      this.aiText.set('');
-      this.ui.setStatusMessage(`Creato: ${actor.name}`);
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    } finally {
-      this.aiBusy.set(false);
-    }
+    await this.aux.createMonster(campaign.id);
   }
 
   public setAiText(event: Event): void {
-    this.aiText.set((event.target as HTMLTextAreaElement).value);
+    this.aux.setText((event.target as HTMLTextAreaElement).value);
   }
 
   public setAiName(event: Event): void {
-    this.aiName.set((event.target as HTMLInputElement).value);
+    this.aux.setName((event.target as HTMLInputElement).value);
   }
 
   public async exportCampaign(): Promise<void> {
@@ -1394,19 +1361,7 @@ export class DmShellPage implements OnInit {
     if (campaign === null) {
       return;
     }
-    try {
-      const bundle = await this.campaignsApi.exportCampaign(campaign.id, this.includePrivateNotes());
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = `${campaign.name.replaceAll(/[^\w-]+/g, '-')}.json`;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      this.ui.setStatusMessage('Campagna esportata');
-    } catch (error) {
-      this.ui.setNotice(messageFor(error));
-    }
+    await this.aux.export(campaign.id);
   }
 
   public openImportPicker(): void {
@@ -1421,8 +1376,7 @@ export class DmShellPage implements OnInit {
       return;
     }
     try {
-      const bundle = JSON.parse(await file.text()) as CampaignExport;
-      const result = await this.campaignsApi.importCampaign(bundle);
+      const result = await this.aux.import(file);
       this.shell.addCampaign(result.campaign);
       await this.enterCampaign(result.campaign.id);
       this.ui.setStatusMessage(
@@ -1461,7 +1415,7 @@ export class DmShellPage implements OnInit {
   }
 
   public setIncludePrivateNotes(event: Event): void {
-    this.includePrivateNotes.set((event.target as HTMLInputElement).checked);
+    this.aux.setIncludePrivateNotes((event.target as HTMLInputElement).checked);
   }
 
   private async sendAction(action: GameAction): Promise<AppliedAction | null> {
