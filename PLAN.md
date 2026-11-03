@@ -2869,7 +2869,7 @@ D5 resta **B** (Signal Forms + `resource()` + `@defer`): questa sezione registra
 
 | Ambito | Previsto dal piano | Stato nel codice (3 novembre 2026) | Task |
 |---|---|---|---|
-| Signal Forms | stack e wizard di creazione | `@angular/forms` 22.2.4 è una dipendenza; `dice-overlay`, dialog "Nuova mappa", note della scheda, dialog level-up e actor wizard usano `form()`/`[formField]`/validazione. Restano inspector mappa, character wizard e form DmShell | B4 in corso |
+| Signal Forms | stack e wizard di creazione | `@angular/forms` 22.2.4 è una dipendenza; `dice-overlay`, dialog "Nuova mappa", note scheda, level-up, actor wizard, identità character wizard, login/creazione campagna e inspector mappa usano `form()`/`[formField]`/validazione | B4 chiuso |
 | `resource()` / `httpResource()` | letture legate ai signal | helper `readResource`; usato da `srd-catalog`, attori dell'editor mappe e `SceneStore.load` (params = scena, race scartate). `campaign`/`program` restano su `firstValueFrom` | B2 chiuso |
 | `@defer` | pannelli pesanti, editor mappa, tab scheda | `@defer` su dado e anteprima schermo, pannelli scheda e dialog livello, con `@placeholder` (nascosto dove serve) e `@loading` sul dado; prefetch `on idle` | B3 chiuso |
 
