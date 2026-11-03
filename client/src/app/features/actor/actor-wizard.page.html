@@ -2,7 +2,7 @@
   <header class="actor-wizard__header">
     <div>
       <a class="back" [routerLink]="['/dm/campaigns', campaignId()]">← Console</a>
-      <span class="eyebrow">Crea {{ actorKind() === 'npc' ? 'NPC' : 'mostro' }}</span>
+      <span class="eyebrow">Crea {{ form.actorKind().value() === 'npc' ? 'NPC' : 'mostro' }}</span>
       <h1>{{ step() + 1 }}. {{ steps[step()] }}</h1>
     </div>
     <ol class="step-dots" aria-label="Passi">
@@ -14,31 +14,42 @@
 
   @switch (step()) {
     @case (0) {
+      @let nameError = form.name().touched() ? form.name().errors()[0] : undefined;
+
       <div class="panel-grid">
         <section class="surface mini">
           <h2>Tipo di attore</h2>
           <div class="choice-row">
             <label class="check">
-              <input type="radio" name="kind" [checked]="actorKind() === 'monster'" (change)="setKind('monster')" />
+              <input type="radio" value="monster" [formField]="form.actorKind" />
               <span>Mostro</span>
             </label>
             <label class="check">
-              <input type="radio" name="kind" [checked]="actorKind() === 'npc'" (change)="setKind('npc')" />
+              <input type="radio" value="npc" [formField]="form.actorKind" />
               <span>NPC</span>
             </label>
           </div>
           <label class="field">
             <span>Nome</span>
-            <input type="text" [value]="name()" (input)="setText(name, $event)" placeholder="Goblin" />
+            <input
+              type="text"
+              [formField]="form.name"
+              placeholder="Goblin"
+              [attr.aria-invalid]="form.name().touched() ? form.name().invalid() : null"
+              [attr.aria-describedby]="nameError ? 'actor-name-error' : null"
+            />
           </label>
+          @if (nameError; as error) {
+            <p id="actor-name-error" class="state--error" role="alert">{{ error.message }}</p>
+          }
           <label class="field">
             <span>Tipo di creatura</span>
-            <input type="text" [value]="creatureType()" (input)="setText(creatureType, $event)" />
+            <input type="text" [formField]="form.creatureType" />
           </label>
-          @if (actorKind() === 'npc') {
+          @if (form.actorKind().value() === 'npc') {
             <label class="field">
               <span>Ruolo</span>
-              <input type="text" [value]="role()" (input)="setText(role, $event)" placeholder="Capitano delle guardie" />
+              <input type="text" [formField]="form.role" placeholder="Capitano delle guardie" />
             </label>
           }
         </section>
@@ -46,11 +57,11 @@
           <h2>Dati di gioco</h2>
           <label class="field">
             <span>Grado di sfida</span>
-            <input type="text" [value]="cr()" (input)="setText(cr, $event)" />
+            <input type="text" [formField]="form.cr" />
           </label>
           <label class="field">
             <span>Taglia</span>
-            <select [value]="size()" (change)="setSize($event)">
+            <select [formField]="form.size">
               @for (entry of sizes; track entry) {
                 <option [value]="entry">{{ sizeLabels[entry] }}</option>
               }
@@ -64,7 +75,13 @@
     @case (1) {
       <section class="surface mini">
         <h2>Importa dal catalogo SRD</h2>
-        <input type="search" class="search" [value]="search()" (input)="setText(search, $event)" placeholder="Cerca un mostro…" />
+        <input
+          type="search"
+          class="search"
+          [value]="search()"
+          (input)="setSearch($event)"
+          placeholder="Cerca un mostro…"
+        />
         @if (catalogService.loading()) {
           <p class="muted">Caricamento cataloghi…</p>
         } @else if (catalogService.error(); as error) {
@@ -86,6 +103,10 @@
     }
 
     @case (2) {
+      @let hpError = form.hpMax().touched() ? form.hpMax().errors()[0] : undefined;
+      @let acError = form.ac().touched() ? form.ac().errors()[0] : undefined;
+      @let speedError = form.speed().touched() ? form.speed().errors()[0] : undefined;
+
       <div class="panel-grid">
         <section class="surface mini">
           <h2>Caratteristiche</h2>
@@ -93,7 +114,10 @@
             @for (ability of abilityKeys; track ability) {
               <label class="field">
                 <span>{{ abilityLabels[ability] }}</span>
-                <input type="number" min="1" max="30" [value]="abilities()[ability]" (input)="setAbility(ability, $event)" />
+                <input
+                  type="number"
+                  [formField]="form.abilities[ability]"
+                />
               </label>
             }
           </div>
@@ -102,16 +126,40 @@
           <h2>Combattimento</h2>
           <label class="field">
             <span>Punti ferita massimi</span>
-            <input type="number" min="1" [value]="hpMax()" (input)="setNumber(hpMax, $event)" />
+            <input
+              type="number"
+              [formField]="form.hpMax"
+              [attr.aria-invalid]="form.hpMax().touched() ? form.hpMax().invalid() : null"
+              [attr.aria-describedby]="hpError ? 'actor-hp-max-error' : null"
+            />
           </label>
+          @if (hpError; as error) {
+            <p id="actor-hp-max-error" class="state--error" role="alert">{{ error.message }}</p>
+          }
           <label class="field">
             <span>Classe armatura</span>
-            <input type="number" min="0" [value]="ac()" (input)="setNumber(ac, $event)" />
+            <input
+              type="number"
+              [formField]="form.ac"
+              [attr.aria-invalid]="form.ac().touched() ? form.ac().invalid() : null"
+              [attr.aria-describedby]="acError ? 'actor-ac-error' : null"
+            />
           </label>
+          @if (acError; as error) {
+            <p id="actor-ac-error" class="state--error" role="alert">{{ error.message }}</p>
+          }
           <label class="field">
             <span>Velocità ({{ units.symbol() }})</span>
-            <input type="number" min="0" [value]="units.inputValue(speed())" (input)="setFeet(speed, $event)" />
+            <input
+              type="number"
+              [formField]="form.speed"
+              [attr.aria-invalid]="form.speed().touched() ? form.speed().invalid() : null"
+              [attr.aria-describedby]="speedError ? 'actor-speed-error' : null"
+            />
           </label>
+          @if (speedError; as error) {
+            <p id="actor-speed-error" class="state--error" role="alert">{{ error.message }}</p>
+          }
         </section>
       </div>
     }
@@ -122,26 +170,26 @@
           <h2>Sensi</h2>
           <label class="field">
             <span>Scurovisione ({{ units.symbol() }})</span>
-            <input type="number" min="0" [value]="units.inputValue(senses().darkvision)" (input)="setSense('darkvision', $event)" />
+            <input type="number" [formField]="form.senses.darkvision" />
           </label>
           <label class="field">
             <span>Vista cieca ({{ units.symbol() }})</span>
-            <input type="number" min="0" [value]="units.inputValue(senses().blindsight)" (input)="setSense('blindsight', $event)" />
+            <input type="number" [formField]="form.senses.blindsight" />
           </label>
           <label class="field">
             <span>Percezione tellurica ({{ units.symbol() }})</span>
-            <input type="number" min="0" [value]="units.inputValue(senses().tremorsense)" (input)="setSense('tremorsense', $event)" />
+            <input type="number" [formField]="form.senses.tremorsense" />
           </label>
           <label class="field">
             <span>Vista vera ({{ units.symbol() }})</span>
-            <input type="number" min="0" [value]="units.inputValue(senses().truesight)" (input)="setSense('truesight', $event)" />
+            <input type="number" [formField]="form.senses.truesight" />
           </label>
         </section>
         <section class="surface mini">
           <h2>Lingue</h2>
           <label class="field">
             <span>Lingue separate da virgola</span>
-            <input type="text" [value]="languages()" (input)="setText(languages, $event)" />
+            <input type="text" [formField]="form.languages" />
           </label>
         </section>
       </div>
@@ -179,18 +227,18 @@
         <section class="surface mini">
           <h2>Riepilogo</h2>
           <dl class="summary">
-            <div><dt>Nome</dt><dd>{{ name() || '—' }}</dd></div>
-            <div><dt>Tipo</dt><dd>{{ actorKind() === 'npc' ? 'NPC' : 'Mostro' }}</dd></div>
-            <div><dt>Creatura</dt><dd>{{ creatureType() }}</dd></div>
-            <div><dt>CR</dt><dd>{{ cr() }}</dd></div>
-            <div><dt>PF</dt><dd>{{ hpMax() }}</dd></div>
-            <div><dt>CA</dt><dd>{{ ac() }}</dd></div>
+            <div><dt>Nome</dt><dd>{{ form.name().value() || '—' }}</dd></div>
+            <div><dt>Tipo</dt><dd>{{ form.actorKind().value() === 'npc' ? 'NPC' : 'Mostro' }}</dd></div>
+            <div><dt>Creatura</dt><dd>{{ form.creatureType().value() }}</dd></div>
+            <div><dt>CR</dt><dd>{{ form.cr().value() }}</dd></div>
+            <div><dt>PF</dt><dd>{{ form.hpMax().value() }}</dd></div>
+            <div><dt>CA</dt><dd>{{ form.ac().value() }}</dd></div>
             <div><dt>Tratti</dt><dd>{{ traits().length }} · {{ actions().length }} azioni · {{ reactions().length }} reazioni</dd></div>
           </dl>
         </section>
         <section class="surface mini">
           <h2>Note del DM</h2>
-          <textarea rows="6" class="notes" [value]="notes()" (input)="setText(notes, $event)"></textarea>
+          <textarea rows="6" class="notes" [formField]="form.notes"></textarea>
           @if (saveError(); as error) {
             <p class="state--error" role="alert">{{ error }}</p>
           }
