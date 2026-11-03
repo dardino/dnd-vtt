@@ -26,6 +26,17 @@
   resize: vertical;
 }
 
+.counter {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+}
+
+.field-error {
+  margin-top: var(--space-2);
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;

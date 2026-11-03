@@ -298,10 +298,9 @@
       @case ('notes') {
         @defer (on immediate) {
           <app-actor-sheet-notes-panel
-            [notes]="notesDraft()"
+            [field]="notesForm.notes"
             [saving]="savingNotes()"
             [saved]="notesSaved()"
-            (notesChange)="setNotes($event)"
             (save)="saveNotes()"
           />
         } @placeholder {

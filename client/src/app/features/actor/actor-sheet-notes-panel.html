@@ -1,7 +1,19 @@
 <section class="surface mini">
-  <h2>Note del DM</h2>
+  <h2 id="dm-notes-title">Note del DM</h2>
   <p class="muted">Queste note non vengono mai inviate alla scheda giocatore.</p>
-  <textarea class="notes" rows="10" [value]="notes()" (input)="onInput($event)"></textarea>
+  @let noteError = fieldState().touched() ? fieldState().errors()[0] : undefined;
+  <textarea
+    class="notes"
+    rows="10"
+    aria-labelledby="dm-notes-title"
+    [formField]="field()"
+    [attr.aria-invalid]="fieldState().touched() ? fieldState().invalid() : null"
+    [attr.aria-describedby]="noteError ? 'dm-notes-counter dm-notes-error' : 'dm-notes-counter'"
+  ></textarea>
+  <p id="dm-notes-counter" class="counter muted">{{ counter() }}</p>
+  @if (noteError; as error) {
+    <p id="dm-notes-error" class="field-error" role="alert">{{ error.message }}</p>
+  }
   <div class="actions">
     <button type="button" class="btn btn--primary" [disabled]="saving()" (click)="onSave()">
       {{ saving() ? 'Salvataggio…' : 'Salva note' }}

@@ -2,10 +2,12 @@ import {
   Component,
   type OnInit,
   computed,
+  effect,
   inject,
   input,
   signal,
 } from '@angular/core';
+import { form, maxLength, submit } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 import {
   abilityModifier,
@@ -71,6 +73,13 @@ import {
 
 type SheetTab = 'combat' | 'abilities' | 'spells' | 'equipment' | 'features' | 'notes';
 
+interface NotesFormModel {
+  notes: string;
+}
+
+/** Stesso limite di `actorPatchSchema.dmNotes` in `@dnd-vtt/shared`. */
+const NOTES_MAX_LENGTH = 20000;
+
 @Component({
   selector: 'app-actor-sheet',
   imports: [
@@ -105,7 +114,15 @@ export class ActorSheetPage implements OnInit {
   public readonly loading = signal(true);
   public readonly error = signal<string | null>(null);
   public readonly tab = signal<SheetTab>('combat');
-  public readonly notesDraft = signal('');
+  private readonly notesModel = signal<NotesFormModel>({ notes: '' });
+  public readonly notesForm = form(this.notesModel, (path) => {
+    maxLength(path.notes, NOTES_MAX_LENGTH, {
+      message: `Le note non possono superare ${NOTES_MAX_LENGTH} caratteri.`,
+    });
+  });
+
+  /** Alias scrivibile del campo: test e metodi esistenti continuano a usare il signal. */
+  public readonly notesDraft = this.notesForm.notes().value;
   public readonly nameDraft = signal('');
   public readonly editMode = signal(false);
   public readonly portraitUrl = signal<string | null>(null);
@@ -136,6 +153,14 @@ export class ActorSheetPage implements OnInit {
   public readonly playerEditing = signal(true);
   public readonly playerLinkBusy = signal(false);
   public readonly playerLinkError = signal<string | null>(null);
+
+  public constructor() {
+    // Anche una modifica arrivata da `[formField]` invalida la conferma "Salvate.".
+    effect(() => {
+      this.notesDraft();
+      this.notesSaved.set(false);
+    });
+  }
 
   public readonly abilities = computed<
     { key: Ability; label: string; score: number; modifier: number }[]
@@ -312,11 +337,6 @@ export class ActorSheetPage implements OnInit {
     this.tab.set(tab);
   }
 
-  public setNotes(value: string): void {
-    this.notesDraft.set(value);
-    this.notesSaved.set(false);
-  }
-
   public async saveNotes(): Promise<void> {
     const current = this.view();
     if (current === null || this.savingNotes()) {
@@ -325,19 +345,24 @@ export class ActorSheetPage implements OnInit {
     this.savingNotes.set(true);
     this.notesSaved.set(false);
     try {
-      if (current.statblock.kind === 'pc') {
-        const updated = await this.actorsApi.patchSheet(this.actorId(), {
-          sheetVersion: current.sheetVersion,
-          patch: { dmNotes: this.notesDraft() },
-        });
-        this.view.set(updated);
-      } else {
-        const actor = await this.actorsApi.patchActor(this.actorId(), {
-          dmNotes: this.notesDraft(),
-        });
-        this.view.set({ ...current, actor });
-      }
-      this.notesSaved.set(true);
+      await submit(this.notesForm, {
+        action: async () => {
+          if (current.statblock.kind === 'pc') {
+            const updated = await this.actorsApi.patchSheet(this.actorId(), {
+              sheetVersion: current.sheetVersion,
+              patch: { dmNotes: this.notesDraft() },
+            });
+            this.view.set(updated);
+          } else {
+            const actor = await this.actorsApi.patchActor(this.actorId(), {
+              dmNotes: this.notesDraft(),
+            });
+            this.view.set({ ...current, actor });
+          }
+          this.notesSaved.set(true);
+          return undefined;
+        },
+      });
     } catch (error) {
       this.error.set(this.messageFor(error));
     } finally {
@@ -867,7 +892,7 @@ export class ActorSheetPage implements OnInit {
         this.tokenId.set(null);
       }
       this.view.set(view);
-      this.notesDraft.set(view.actor.dmNotes ?? '');
+      this.notesForm().reset({ notes: view.actor.dmNotes ?? '' });
       this.xpDraft.set(view.actor.xp);
       await this.syncPortrait();
       if (view.statblock.kind === 'pc') {

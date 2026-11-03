@@ -110,8 +110,8 @@ describe('ActorSheetPage', () => {
         provideRouter([]),
         { provide: ActorService, useValue: { getSheet, patchSheet } },
         { provide: AssetService, useValue: {} },
-        { provide: CampaignService, useValue: {} },
-        { provide: PlayerService, useValue: {} },
+        { provide: CampaignService, useValue: { get: () => Promise.resolve({ activeSceneId: null }) } },
+        { provide: PlayerService, useValue: { getLink: () => Promise.resolve(null) } },
         { provide: SceneActionService, useValue: {} },
         { provide: SrdCatalogService, useValue: {} },
       ],
@@ -148,6 +148,49 @@ describe('ActorSheetPage', () => {
 
     expect(page.error()).toBe('Attore non trovato.');
     expect(page.view()?.statblock.hp.current).toBe(10);
+  });
+
+  it('carica le note del DM nel form della scheda', async () => {
+    current = {
+      ...current,
+      actor: { ...current.actor, dmNotes: 'Il ponte è crollato.' },
+      dmNotes: 'Il ponte è crollato.',
+    };
+    const page = create();
+
+    page.ngOnInit();
+
+    await vi.waitFor(() => expect(page.notesDraft()).toBe('Il ponte è crollato.'));
+    expect(page.notesForm.notes().touched()).toBe(false);
+  });
+
+  it('salva le note tramite patchSheet e marca il campo touched', async () => {
+    const page = create();
+    page.notesDraft.set('Nuova nota');
+
+    await page.saveNotes();
+
+    expect(patchSheet).toHaveBeenCalledWith(ACTOR_ID, {
+      sheetVersion: 1,
+      patch: { dmNotes: 'Nuova nota' },
+    });
+    expect(page.notesForm.notes().touched()).toBe(true);
+    expect(page.notesSaved()).toBe(true);
+    expect(page.savingNotes()).toBe(false);
+  });
+
+  it('blocca il salvataggio delle note oltre 20000 caratteri', async () => {
+    const page = create();
+    page.notesDraft.set('x'.repeat(20001));
+
+    await page.saveNotes();
+
+    expect(patchSheet).not.toHaveBeenCalled();
+    expect(page.notesForm.notes().errors()[0]?.message).toBe(
+      'Le note non possono superare 20000 caratteri.',
+    );
+    expect(page.notesForm.notes().touched()).toBe(true);
+    expect(page.savingNotes()).toBe(false);
   });
 
   it('aggiunge una condizione assente con patch alla scheda', async () => {
