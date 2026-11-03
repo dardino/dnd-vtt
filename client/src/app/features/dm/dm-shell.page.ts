@@ -5,6 +5,7 @@ import {
   type ElementRef,
   type OnInit,
   computed,
+  effect,
   inject,
   input,
   signal,
@@ -13,27 +14,19 @@ import {
 import { Router, RouterLink } from '@angular/router';
 import type { Subscription } from 'rxjs';
 import {
-  abilityModifier,
   DEFAULT_ACTOR_PORTRAIT,
   defaultBackgroundTransform,
-  SIZE_CELLS,
   computeVisionGrid,
   fogBrushRadius,
   gridDrawingWidth,
   isTiledMap,
-  newId,
-  snapTokenCell,
-  sortInitiativeEntries,
   tokenCenterCell,
   type Actor,
   type ActionLogEntry,
-  type AppliedAction,
   type DiceRoll,
   type Drawing,
   type FogOp,
-  type GameAction,
   type GridConfig,
-  type InitiativeEntry,
   type MapDocument,
   type MapSummary,
   type MeasureResult,
@@ -84,6 +77,7 @@ import {
 import { RegiaStore, type ScreenSummary } from './regia.store';
 import { SceneList } from './scene-list';
 import { SceneToolbar } from './scene-toolbar';
+import { SceneTokensStore } from './scene-tokens.store';
 import { SceneToolsStore } from './scene-tools.store';
 import { ScreenList } from './screen-list';
 import { ScreenViewerDialog } from './screen-viewer-dialog';
@@ -175,6 +169,7 @@ export class DmShellPage implements OnInit {
   public readonly dice = inject(DiceStore);
   public readonly units = inject(MeasurementService);
   public readonly sceneTools = inject(SceneToolsStore);
+  public readonly tokensStore = inject(SceneTokensStore);
   public readonly regia = inject(RegiaStore);
   public readonly shell = inject(CampaignShellStore);
   public readonly layout = inject(DmLayoutStore);
@@ -187,6 +182,15 @@ export class DmShellPage implements OnInit {
 
   private readonly canvas = viewChild<SceneCanvasComponent>('canvas');
   private readonly importInput = viewChild<ElementRef<HTMLInputElement>>('importInput');
+  public readonly focusEffect = effect(() => {
+    const tokenId = this.tokensStore.focusRequest();
+    const canvas = this.canvas();
+    if (tokenId !== null && canvas !== undefined) {
+      canvas.focusToken(tokenId);
+      this.tokensStore.consumeFocus();
+    }
+  });
+
   private presenceSubscription: Subscription | null = null;
 
   public readonly campaignId = input<string>();
@@ -239,7 +243,7 @@ export class DmShellPage implements OnInit {
   public readonly hasCampaigns = computed(() => this.shell.campaigns().length > 0);
   public readonly snapshot = computed(() => this.sceneStore.snapshot());
   public readonly state = computed<SceneState | null>(() => this.sceneStore.snapshot()?.state ?? null);
-  public readonly tokens = computed<TokenState[]>(() => this.state()?.tokens ?? []);
+  public readonly tokens = this.tokensStore.tokens;
   public readonly grid = computed<GridConfig | null>(() => this.state()?.grid ?? null);
   public readonly sceneDoors = computed(() =>
     (this.state()?.terrain.walls ?? []).filter((wall) => wall.kind === 'door'));
@@ -304,7 +308,7 @@ export class DmShellPage implements OnInit {
     return this.tokens().find((token) => token.id === id) ?? null;
   });
 
-  public readonly initiative = computed(() => this.state()?.initiative ?? null);
+  public readonly initiative = this.tokensStore.initiative;
   public readonly undoneActions = computed(() =>
     this.actions.history().filter((entry) => entry.status === 'undone').length);
 
@@ -718,7 +722,7 @@ export class DmShellPage implements OnInit {
     if (wall.kind !== 'door') {
       return;
     }
-    await this.sendAction({
+    await this.tokensStore.send(this.activeScene()?.id ?? null, {
       type: 'terrain.door',
       wallId: wall.id,
       state: wall.door === 'open' ? 'closed' : 'open',
@@ -726,11 +730,14 @@ export class DmShellPage implements OnInit {
   }
 
   public async toggleLight(light: SceneState['terrain']['lights'][number]): Promise<void> {
-    await this.sendAction({ type: 'terrain.light', lightId: light.id, enabled: !light.enabled });
+    await this.tokensStore.send(
+      this.activeScene()?.id ?? null,
+      { type: 'terrain.light', lightId: light.id, enabled: !light.enabled },
+    );
   }
 
   public async toggleVision(event: Event): Promise<void> {
-    await this.sendAction({
+    await this.tokensStore.send(this.activeScene()?.id ?? null, {
       type: 'terrain.vision',
       enabled: (event.target as HTMLInputElement).checked,
     });
@@ -807,109 +814,50 @@ export class DmShellPage implements OnInit {
   }
 
   public async rollInitiative(): Promise<void> {
-    const campaign = this.shell.activeCampaign();
     const scene = this.activeScene();
-    if (campaign === null || scene === null) {
+    if (scene === null) {
       return;
     }
-    const entries: InitiativeEntry[] = [];
-    for (const token of this.tokens()) {
-      const actor = this.shell.party().find((entry) => entry.id === token.actorId);
-      const tiebreak = actor === undefined ? 0 : abilityModifier(actor.statblock.abilities.dex);
-      const formula = tiebreak === 0 ? '1d20' : `1d20${tiebreak > 0 ? '+' : ''}${tiebreak}`;
-      const roll = await this.dice.roll(campaign.id, {
-        formula,
-        mode: 'normal',
-        visibility: 'dm',
-        sceneId: scene.id,
-        tokenId: token.id,
-      });
-      entries.push({
-        id: newId(),
-        tokenId: token.id,
-        label: token.label,
-        value: roll?.total ?? 10 + tiebreak,
-        tiebreak,
-        hidden: !token.visible,
-        defeated: false,
-      });
-    }
-    if (entries.length === 0) {
-      this.ui.setStatusMessage('Nessun token in mappa per l’iniziativa.');
-      return;
-    }
-    await this.setInitiative(sortInitiativeEntries(entries), true, 1, 0);
-    this.ui.setStatusMessage('Iniziativa tirata dal server.');
-  }
-
-  public async addTokenToInitiative(token: TokenState): Promise<void> {
-    const initiative = this.initiative();
-    if (initiative === null || initiative.entries.some((entry) => entry.tokenId === token.id)) {
-      return;
-    }
-    const actor = this.shell.party().find((entry) => entry.id === token.actorId);
-    const tiebreak = actor === undefined ? 0 : abilityModifier(actor.statblock.abilities.dex);
-    const entries = sortInitiativeEntries([
-      ...initiative.entries,
-      {
-        id: newId(),
-        tokenId: token.id,
-        label: token.label,
-        value: 10 + tiebreak,
-        tiebreak,
-        hidden: !token.visible,
-        defeated: false,
-      },
-    ]);
-    await this.setInitiative(entries, initiative.active, initiative.round, initiative.turnIndex);
+    await this.tokensStore.rollInitiative(scene);
   }
 
   public async updateInitiativeValue(entryId: string, event: Event): Promise<void> {
-    const initiative = this.initiative();
-    const value = Number((event.target as HTMLInputElement).value);
-    if (initiative === null || !Number.isFinite(value)) {
+    const scene = this.activeScene();
+    if (scene === null) {
       return;
     }
-    const entries = initiative.entries.map((entry) =>
-      entry.id === entryId ? { ...entry, value: Math.trunc(value) } : entry);
-    await this.setInitiative(entries, initiative.active, initiative.round, initiative.turnIndex);
+    await this.tokensStore.updateInitiativeValue(scene, entryId, event);
   }
 
   public async sortInitiative(): Promise<void> {
-    const initiative = this.initiative();
-    if (initiative === null) {
+    const scene = this.activeScene();
+    if (scene === null) {
       return;
     }
-    await this.setInitiative(
-      sortInitiativeEntries(initiative.entries),
-      initiative.active,
-      initiative.round,
-      0,
-    );
+    await this.tokensStore.sortInitiative(scene);
   }
 
   public async nextInitiativeTurn(): Promise<void> {
-    await this.sendAction({ type: 'initiative.next' });
+    const scene = this.activeScene();
+    if (scene === null) {
+      return;
+    }
+    await this.tokensStore.nextTurn(scene);
   }
 
   public async endInitiative(): Promise<void> {
-    const initiative = this.initiative();
-    if (initiative === null) {
+    const scene = this.activeScene();
+    if (scene === null) {
       return;
     }
-    await this.setInitiative(initiative.entries, false, 0, 0);
-    this.ui.setStatusMessage('Iniziativa terminata.');
+    await this.tokensStore.endInitiative(scene);
   }
 
   public async changeTokenHp(token: TokenState, delta: number): Promise<void> {
-    this.ui.setStatusMessage(`${token.label}: ${delta > 0 ? '+' : ''}${delta} PF`);
-    await this.sendAction({ type: 'token.hp', tokenId: token.id, delta });
+    await this.tokensStore.changeTokenHp(this.activeScene()?.id ?? null, token, delta);
   }
 
-  public readonly tokenHp = (tokenId: string): string => {
-    const token = this.tokens().find((entry) => entry.id === tokenId);
-    return token === undefined ? '—' : `${token.hp.current}/${token.hp.max}`;
-  };
+  public readonly tokenHp = this.tokensStore.tokenHp;
 
   public async undoLast(): Promise<void> {
     const campaign = this.shell.activeCampaign();
@@ -956,40 +904,16 @@ export class DmShellPage implements OnInit {
     }
   }
 
-  private async setInitiative(
-    entries: InitiativeEntry[],
-    active: boolean,
-    round: number,
-    turnIndex: number,
-  ): Promise<void> {
-    await this.sendAction({
-      type: 'initiative.set',
-      initiative: {
-        active,
-        round,
-        turnIndex: Math.min(turnIndex, Math.max(0, entries.length - 1)),
-        entries,
-      },
-    });
-  }
-
   public async onTokenMoved(event: TokenMoveEvent): Promise<void> {
-    this.ui.setStatusMessage(`Token spostato in (${event.x}, ${event.y})`);
-    await this.sendAction({
-      type: 'token.move',
-      tokenId: event.tokenId,
-      x: event.x,
-      y: event.y,
-      ...(event.force === true ? { force: true } : {}),
-    });
+    await this.tokensStore.onTokenMoved(this.activeScene()?.id ?? null, event);
   }
 
   public async onActorDropped(event: ActorDropEvent): Promise<void> {
-    const actor = this.shell.party().find((entry) => entry.id === event.actorId);
-    if (actor === undefined) {
+    const scene = this.activeScene();
+    if (scene === null) {
       return;
     }
-    await this.spawnActorToken(actor, event.pointX, event.pointY);
+    await this.tokensStore.onActorDropped(scene, event);
   }
 
   public async addActorToMap(actor: Actor): Promise<void> {
@@ -997,70 +921,24 @@ export class DmShellPage implements OnInit {
     if (scene === null) {
       return;
     }
-    await this.spawnActorToken(actor, scene.widthPx / 2, scene.heightPx / 2);
-  }
-
-  private async spawnActorToken(actor: Actor, pointX: number, pointY: number): Promise<void> {
-    const scene = this.activeScene();
-    const grid = this.grid();
-    if (scene === null || grid === null) {
-      return;
-    }
-    if (actor.kind === 'pc') {
-      const existing = this.tokens().find((token) => token.actorId === actor.id);
-      if (existing !== undefined) {
-        this.ui.setSelectedTokenId(existing.id);
-        this.canvas()?.focusToken(existing.id);
-        this.ui.setStatusMessage(`${actor.name} è già in mappa.`);
-        return;
-      }
-    }
-    const size = SIZE_CELLS[actor.statblock.size];
-    const cell = snapTokenCell(grid, { x: pointX, y: pointY }, size);
-    const hp = actor.hp ?? { current: 1, max: 1, temp: 0 };
-    const token: TokenState = {
-      id: newId(),
-      actorId: actor.id,
-      label: actor.name,
-      x: cell.x,
-      y: cell.y,
-      size,
-      rotation: 0,
-      elevation: 0,
-      hp,
-      conditions: [...actor.statblock.conditions],
-      visible: true,
-      owner: 'dm',
-    };
-    this.ui.setSelectedTokenId(token.id);
-    this.ui.setStatusMessage(`Token aggiunto: ${actor.name}`);
-    await this.sendAction({ type: 'token.add', token });
+    await this.tokensStore.addActorToMap(scene, actor);
   }
 
   public onTokenSelected(tokenId: string | null): void {
-    this.ui.setSelectedTokenId(tokenId);
+    this.tokensStore.select(tokenId);
   }
 
   public async toggleTokenVisibility(token: TokenState): Promise<void> {
-    this.ui.setStatusMessage(`${token.label}: ${token.visible ? 'nascosto' : 'visibile'}`);
-    await this.sendAction({
-      type: 'token.update',
-      tokenId: token.id,
-      patch: { visible: !token.visible },
-    });
+    await this.tokensStore.toggleVisibility(this.activeScene()?.id ?? null, token);
   }
 
   public async removeToken(token: TokenState): Promise<void> {
-    this.ui.setStatusMessage(`${token.label}: rimosso`);
-    const applied = await this.sendAction({ type: 'token.remove', tokenId: token.id });
-    if (applied !== null && this.selectedTokenId() === token.id) {
-      this.ui.setSelectedTokenId(null);
-    }
+    await this.tokensStore.remove(this.activeScene()?.id ?? null, token);
   }
 
   public centerToken(token: TokenState): void {
-    this.ui.setSelectedTokenId(token.id);
-    this.canvas()?.focusToken(token.id);
+    this.tokensStore.select(token.id);
+    this.tokensStore.focusRequest.set(token.id);
   }
 
   public async changeGridType(event: Event): Promise<void> {
@@ -1073,7 +951,10 @@ export class DmShellPage implements OnInit {
     if (grid === null || (value !== 'square' && value !== 'hex')) {
       return;
     }
-    await this.sendAction({ type: 'grid.update', grid: { ...grid, type: value } });
+    await this.tokensStore.send(
+      this.activeScene()?.id ?? null,
+      { type: 'grid.update', grid: { ...grid, type: value } },
+    );
     this.ui.setStatusMessage(value === 'hex' ? 'Griglia esagonale odd-r' : 'Griglia quadrata');
   }
 
@@ -1088,7 +969,10 @@ export class DmShellPage implements OnInit {
       return;
     }
     const cellSizePx = Math.max(16, Math.min(400, Math.round(value)));
-    await this.sendAction({ type: 'grid.update', grid: { ...grid, cellSizePx } });
+    await this.tokensStore.send(
+      this.activeScene()?.id ?? null,
+      { type: 'grid.update', grid: { ...grid, cellSizePx } },
+    );
     this.ui.setStatusMessage(`Cella: ${cellSizePx} px`);
   }
 
@@ -1148,12 +1032,12 @@ export class DmShellPage implements OnInit {
   }
 
   public async onFogApplied(op: FogOp): Promise<void> {
-    await this.sendAction({ type: 'fog.apply', op });
+    await this.tokensStore.send(this.activeScene()?.id ?? null, { type: 'fog.apply', op });
     this.ui.setStatusMessage(op.op === 'reveal' ? 'Fog: area rivelata' : 'Fog: area nascosta');
   }
 
   public async onDrawingAdded(drawing: Drawing): Promise<void> {
-    await this.sendAction({ type: 'drawing.add', drawing });
+    await this.tokensStore.send(this.activeScene()?.id ?? null, { type: 'drawing.add', drawing });
     this.ui.setStatusMessage('Disegno aggiunto');
   }
 
@@ -1172,21 +1056,30 @@ export class DmShellPage implements OnInit {
       return;
     }
     if (this.fogOverrideActive()) {
-      await this.sendAction({ type: 'fog.override', override: mode });
+      await this.tokensStore.send(
+        this.activeScene()?.id ?? null,
+        { type: 'fog.override', override: mode },
+      );
       this.ui.setStatusMessage(mode === 'reveal' ? 'Fog: rivela tutto' : 'Fog: nascondi tutto');
       return;
     }
     if (mode === 'reveal') {
-      await this.sendAction({ type: 'fog.replace', base: 'revealed', ops: [] });
+      await this.tokensStore.send(
+        this.activeScene()?.id ?? null,
+        { type: 'fog.replace', base: 'revealed', ops: [] },
+      );
       this.ui.setStatusMessage('Fog: tutta la mappa rivelata');
     } else {
-      await this.sendAction({ type: 'fog.replace', base: 'hidden', ops: [] });
+      await this.tokensStore.send(
+        this.activeScene()?.id ?? null,
+        { type: 'fog.replace', base: 'hidden', ops: [] },
+      );
       this.ui.setStatusMessage('Fog: tutta la mappa nascosta');
     }
   }
 
   public async clearFogOverride(): Promise<void> {
-    await this.sendAction({ type: 'fog.override', override: 'none' });
+    await this.tokensStore.send(this.activeScene()?.id ?? null, { type: 'fog.override', override: 'none' });
     this.ui.setStatusMessage('Fog: torna alla visione automatica');
   }
 
@@ -1416,14 +1309,6 @@ export class DmShellPage implements OnInit {
 
   public setIncludePrivateNotes(event: Event): void {
     this.aux.setIncludePrivateNotes((event.target as HTMLInputElement).checked);
-  }
-
-  private async sendAction(action: GameAction): Promise<AppliedAction | null> {
-    const scene = this.activeScene();
-    if (scene === null) {
-      return null;
-    }
-    return this.actions.send(scene.id, action);
   }
 }
 
