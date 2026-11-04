@@ -77,18 +77,16 @@
         id="scenes"
         label="Scene"
         [open]="layout.sections().scenes"
-        [hasActions]="true"
         (toggled)="toggleSection('scenes')"
       >
-        <app-button actions variant="ghost" [disabled]="ui.busy()" (pressed)="createScene()">
-          Crea scena
-        </app-button>
         <app-scene-list
           [scenes]="shell.scenes()"
           [activeSceneId]="campaign.activeScene()?.id ?? null"
+          [onAirSceneIds]="regia.onAirSceneIds()"
           [busy]="ui.busy()"
           (selectScene)="selectScene($event)"
           (openMapPicker)="openMapPicker()"
+          (deleteScene)="campaign.askDeleteScene($event)"
         />
       </app-sidebar-section>
 
@@ -240,3 +238,22 @@
     }
   }
 </aside>
+
+<app-dialog
+  [open]="campaign.sceneDeleteTarget() !== null"
+  title="Eliminare la scena?"
+  (closed)="campaign.cancelDeleteScene()"
+>
+  @if (campaign.sceneDeleteTarget(); as scene) {
+    <p class="muted">
+      La scena <strong>{{ scene.name }}</strong> verrà eliminata con token,
+      nebbia e disegni. La mappa resta disponibile nell'editor.
+    </p>
+  }
+  <div dialog-actions>
+    <app-button (pressed)="campaign.cancelDeleteScene()">Annulla</app-button>
+    <app-button variant="danger" [disabled]="ui.busy()" (pressed)="campaign.confirmDeleteScene()">
+      Elimina
+    </app-button>
+  </div>
+</app-dialog>

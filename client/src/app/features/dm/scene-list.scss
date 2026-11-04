@@ -57,6 +57,10 @@
   font-size: 0.95rem;
 }
 
+.icon-button--danger {
+  color: var(--color-danger);
+}
+
 .badge {
   @include mx.pill(var(--color-accent), var(--color-accent));
   color: var(--color-accent-contrast);

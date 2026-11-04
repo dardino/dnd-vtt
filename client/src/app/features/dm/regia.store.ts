@@ -58,6 +58,22 @@ export const RegiaStore = signalStore(
       const height = display?.viewportHeight ?? 9;
       return `${width} / ${height}`;
     }),
+    /** Scene presenti nella composizione di almeno uno schermo online. */
+    onAirSceneIds: computed<ReadonlySet<string>>(() => {
+      const ids = new Set<string>();
+      for (const screen of store.screens()) {
+        const state = screen.state;
+        if (state === null) {
+          continue;
+        }
+        for (const layer of [state.composition.base, ...state.composition.overlays]) {
+          if (layer.type === 'map' && layer.scene !== undefined) {
+            ids.add(layer.scene.id);
+          }
+        }
+      }
+      return ids;
+    }),
   })),
   withMethods((store) => {
     const programsApi = inject(ProgramService);

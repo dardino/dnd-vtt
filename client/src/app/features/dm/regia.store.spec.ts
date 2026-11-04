@@ -177,6 +177,33 @@ describe('RegiaStore', () => {
     expect(programsApi.listOnlineDisplays).toHaveBeenCalledWith(CAMPAIGN_ID);
   });
 
+  it('calcola le scene in onda ignorando layer non mappa e schermi senza stato', async () => {
+    programsApi.listOnlineDisplays.mockResolvedValue([
+      display({ id: '0190f000-0000-7000-8000-000000000031', code: 'MAP00001' }),
+      display({ id: '0190f000-0000-7000-8000-000000000032', code: 'BLANK001' }),
+      display({ id: '0190f000-0000-7000-8000-000000000033', code: 'OFFLINE1' }),
+    ]);
+    const blankState = displayState();
+    const blankEnvelope = {
+      display: display(),
+      state: {
+        ...blankState,
+        composition: {
+          base: { ...blankState.composition.base, type: 'blank' },
+          overlays: [],
+        },
+      },
+    } as DisplayStateEnvelope;
+    programsApi.getDisplayState
+      .mockResolvedValueOnce(envelope())
+      .mockResolvedValueOnce(blankEnvelope)
+      .mockRejectedValueOnce(new Error('offline'));
+
+    await store.loadScreens(CAMPAIGN_ID);
+
+    expect(store.onAirSceneIds()).toEqual(new Set([SCENE_ID]));
+  });
+
   it('aggiorna la versione leggendo prima lo stato corrente', async () => {
     programsApi.get.mockResolvedValue(program(7));
 

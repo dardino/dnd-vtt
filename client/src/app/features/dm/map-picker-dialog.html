@@ -1,9 +1,12 @@
 <app-dialog
   [open]="open()"
-  title="Avvia da mappa"
+  title="Crea scena"
   (closed)="requestClose()"
 >
-  <p class="muted">Scegli una mappa creata nell’editor. I mostri e le luci vengono istanziati nella nuova scena.</p>
+  <p class="muted">
+    Scegli la mappa da cui creare la scena. I mostri e le luci vengono istanziati
+    nella nuova scena.
+  </p>
   @if (loading()) {
     <p class="muted">Caricamento mappe…</p>
   } @else if (maps().length === 0) {

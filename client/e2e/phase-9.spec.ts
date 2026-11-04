@@ -315,9 +315,9 @@ test('la console avvia una scena da una mappa e assegna i PG', async ({ page, re
 
   await page.goto(`/dm/campaigns/${campaign}`);
   await expect(page.getByRole('heading', { level: 1, name: CAMPAIGN_NAME })).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Avvia da mappa' }).click();
+  await page.getByRole('button', { name: 'Crea scena', exact: true }).click();
   const picker = page.getByRole('dialog');
-  await expect(picker.getByRole('heading', { name: 'Avvia da mappa' })).toBeVisible();
+  await expect(picker.getByRole('heading', { name: 'Crea scena' })).toBeVisible();
   await picker.locator('.screen-row', { hasText: 'Mappa visione' }).first().click();
 
   const prepare = page.getByRole('dialog');

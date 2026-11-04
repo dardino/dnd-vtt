@@ -142,25 +142,62 @@ describe('DmCampaignStore', () => {
     });
   });
 
-  it('createScene crea, attiva e carica la scena col fog corrente', async () => {
+  it('impedisce di eliminare la scena attiva o in onda', () => {
     h.activeCampaign.set(campaign());
-    store().newSceneFog.set('revealed');
-    const created = scene({ id: CREATED_SCENE_ID, name: 'Scena 2' });
-    h.createSceneApi.mockResolvedValue(created);
-    h.campaignPatch.mockResolvedValue(campaign({ activeSceneId: CREATED_SCENE_ID }));
+    store().activeScene.set(scene());
 
-    await store().createScene();
+    store().askDeleteScene(scene());
+    expect(store().sceneDeleteTarget()).toBeNull();
 
-    expect(h.createSceneApi).toHaveBeenCalledWith(CAMPAIGN_ID, {
-      name: 'Scena 1',
-      widthPx: 1920,
-      heightPx: 1080,
-      fogBase: 'revealed',
-    });
-    expect(h.prependScene).toHaveBeenCalledWith(created);
+    const other = scene({ id: CREATED_SCENE_ID });
+    h.onAirSceneIds.mockReturnValue(new Set([CREATED_SCENE_ID]));
+    store().askDeleteScene(other);
+    expect(store().sceneDeleteTarget()).toBeNull();
+  });
+
+  it('confirmDeleteScene elimina la scena e la toglie dalla lista', async () => {
+    h.activeCampaign.set(campaign());
+    store().activeScene.set(scene());
+    const other = scene({ id: CREATED_SCENE_ID, name: 'Scena 2' });
+    store().sceneDeleteTarget.set(other);
+    h.deleteSceneApi.mockResolvedValue(undefined);
+
+    await store().confirmDeleteScene();
+
+    expect(h.deleteSceneApi).toHaveBeenCalledWith(CREATED_SCENE_ID);
+    expect(h.removeScene).toHaveBeenCalledWith(CREATED_SCENE_ID);
+    expect(h.setStatusMessage).toHaveBeenCalledWith('Scena eliminata: Scena 2');
+    expect(store().sceneDeleteTarget()).toBeNull();
+  });
+
+  it('un errore di eliminazione mostra il notice e lascia la lista', async () => {
+    h.activeCampaign.set(campaign());
+    store().activeScene.set(scene());
+    const other = scene({ id: CREATED_SCENE_ID, name: 'Scena 2' });
+    store().sceneDeleteTarget.set(other);
+    h.deleteSceneApi.mockRejectedValue(new HttpErrorResponse({ status: 404 }));
+
+    await store().confirmDeleteScene();
+
+    expect(h.setNotice).toHaveBeenCalled();
+    expect(h.removeScene).not.toHaveBeenCalled();
+    expect(store().sceneDeleteTarget()).toBeNull();
+  });
+
+  it('se elimina la scena attiva per race riallinea la campagna', async () => {
+    h.activeCampaign.set(campaign());
+    store().activeScene.set(scene());
+    store().sceneDeleteTarget.set(scene());
+    h.deleteSceneApi.mockResolvedValue(undefined);
+    h.campaignGet.mockResolvedValue(campaign({ activeSceneId: null }));
+
+    await store().confirmDeleteScene();
+
+    expect(h.actionStop).toHaveBeenCalled();
+    expect(h.sceneClear).toHaveBeenCalled();
+    expect(store().activeScene()).toBeNull();
+    expect(h.campaignGet).toHaveBeenCalledWith(CAMPAIGN_ID);
     expect(h.setActiveCampaign).toHaveBeenCalled();
-    expect(store().activeScene()).toEqual(created);
-    expect(h.setStatusMessage).toHaveBeenCalledWith('Scena creata: Scena 2');
   });
 
   it('selectScene aggiorna la campagna e ricarica, ignorando la scena corrente', async () => {

@@ -245,6 +245,43 @@ describe('CRUD campagne, scene e attori', () => {
     await closeTestApp(testApp);
   });
 
+  it('elimina una scena e azzera activeSceneId se era attiva', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const campaignId = await createCampaign(app);
+    await createScene(app, campaignId, { name: 'Prima' });
+    const activeId = await createScene(app, campaignId, { name: 'Seconda' });
+    const selected = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/campaigns/${campaignId}`,
+      payload: { activeSceneId: activeId },
+    });
+    expect(selected.statusCode).toBe(200);
+
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/scenes/${activeId}`,
+    });
+    expect(removed.statusCode).toBe(204);
+
+    const list = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${campaignId}/scenes?limit=200`,
+    });
+    expect(list.json().items).toHaveLength(1);
+    expect(list.json().items[0].name).toBe('Prima');
+
+    const missing = await app.inject({ method: 'GET', url: `/api/v1/scenes/${activeId}` });
+    expect(missing.statusCode).toBe(404);
+
+    const campaign = await app.inject({
+      method: 'GET',
+      url: `/api/v1/campaigns/${campaignId}`,
+    });
+    expect(campaign.json().activeSceneId).toBeNull();
+    await closeTestApp(testApp);
+  });
+
   it('deriva le dimensioni della scena da preset e orientation', async () => {
     const testApp = await createTestApp();
     const app = testApp.app;

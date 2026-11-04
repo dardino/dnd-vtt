@@ -130,10 +130,12 @@ export interface DmCampaignStoreHarness {
   addCampaign: ReturnType<typeof vi.fn>;
   setActiveCampaign: ReturnType<typeof vi.fn>;
   prependScene: ReturnType<typeof vi.fn>;
+  removeScene: ReturnType<typeof vi.fn>;
   campaignCreate: ReturnType<typeof vi.fn>;
   campaignGet: ReturnType<typeof vi.fn>;
   campaignPatch: ReturnType<typeof vi.fn>;
-  createSceneApi: ReturnType<typeof vi.fn>;
+  deleteSceneApi: ReturnType<typeof vi.fn>;
+  onAirSceneIds: ReturnType<typeof vi.fn>;
   assetGet: ReturnType<typeof vi.fn>;
   lastRead: ReturnType<typeof vi.fn>;
   lastWrite: ReturnType<typeof vi.fn>;
@@ -178,10 +180,12 @@ export const createDmCampaignStoreHarness = (): DmCampaignStoreHarness => {
   const addCampaign = vi.fn();
   const setActiveCampaign = vi.fn();
   const prependScene = vi.fn();
+  const removeScene = vi.fn();
   const campaignCreate = vi.fn();
   const campaignGet = vi.fn();
   const campaignPatch = vi.fn();
-  const createSceneApi = vi.fn();
+  const deleteSceneApi = vi.fn();
+  const onAirSceneIds = vi.fn(() => new Set<string>());
   const assetGet = vi.fn();
   const lastRead = vi.fn().mockReturnValue(null);
   const lastWrite = vi.fn();
@@ -217,7 +221,7 @@ export const createDmCampaignStoreHarness = (): DmCampaignStoreHarness => {
           create: campaignCreate,
           get: campaignGet,
           patch: campaignPatch,
-          createScene: createSceneApi,
+          deleteScene: deleteSceneApi,
         },
       },
       { provide: AssetService, useValue: { get: assetGet } },
@@ -231,7 +235,7 @@ export const createDmCampaignStoreHarness = (): DmCampaignStoreHarness => {
         useValue: { snapshot: sceneSnapshot, clear: sceneClear, load: sceneLoad },
       },
       { provide: ActionStore, useValue: { start: actionStart, stop: actionStop } },
-      { provide: RegiaStore, useValue: { loadScreens, loadProgram } },
+      { provide: RegiaStore, useValue: { loadScreens, loadProgram, onAirSceneIds } },
       { provide: DiceStore, useValue: { load: diceLoad } },
       { provide: RealtimeService, useValue: { connectDm, disconnect: vi.fn() } },
       {
@@ -250,6 +254,7 @@ export const createDmCampaignStoreHarness = (): DmCampaignStoreHarness => {
           addCampaign,
           setActiveCampaign,
           prependScene,
+          removeScene,
         },
       },
       { provide: DmLayoutStore, useValue: { restore, dockTab: () => 'initiative' } },
@@ -280,10 +285,12 @@ export const createDmCampaignStoreHarness = (): DmCampaignStoreHarness => {
     addCampaign,
     setActiveCampaign,
     prependScene,
+    removeScene,
     campaignCreate,
     campaignGet,
     campaignPatch,
-    createSceneApi,
+    deleteSceneApi,
+    onAirSceneIds,
     assetGet,
     lastRead,
     lastWrite,

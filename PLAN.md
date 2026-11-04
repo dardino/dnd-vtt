@@ -2742,7 +2742,7 @@ Legenda: ✅ criteri di accettazione.
 
 ### Fase 10 — Editor mappe e visione a celle (core completato)
 - libreria mappe + editor `/maps/:mapId`: sfondo, griglia, muri/porte/finestre/muri bassi, luci, spawn, partenze PG, vista iniziale
-- console: “Avvia da mappa” con dialog di scelta e “Prepara scena” per assegnare i PG; niente più upload dal menu Scene
+- console: “Crea scena” con dialog di scelta e “Prepara scena” per assegnare i PG; niente più upload dal menu Scene
 - visione a celle con luce ambientale, torce/lanterne, scurovisione, blindsight/truesight, LOS e porta chiusa/aperta
 - filtro token server-side e `vision`/`doors` nel payload del display; overlay porte
 - collisione su muri e porte chiuse, con override DM (`Alt`/`force`)

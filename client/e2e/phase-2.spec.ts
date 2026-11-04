@@ -1,5 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { openCampaign } from './fixtures.js';
+import {
+  campaignId,
+  createScene,
+  ensureScene,
+  openCampaign,
+} from './fixtures.js';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -32,12 +37,36 @@ test('senza lastCampaignId sceglie da una campagna esistente', async ({ page }) 
   await expect(page.getByRole('heading', { level: 1, name: 'E2E Campagna' })).toBeVisible();
 });
 
-test('crea una scena e la mostra come attiva', async ({ page }) => {
+test('mostra come attiva la scena creata da mappa', async ({ page, request }) => {
+  const id = await campaignId(request);
+  await ensureScene(request, id, { name: 'Scena attiva' });
   await openCampaign(page);
-  await page.getByRole('button', { name: 'Crea scena' }).click();
-  const scene = page.locator('.scene-list__item', { hasText: 'Scena 1' });
+
+  const scene = page.locator('.scene-list__item', { hasText: 'Scena attiva' });
   await expect(scene).toBeVisible();
-  await expect(scene.getByText('attiva')).toBeVisible();
+  await expect(scene.locator('.badge')).toHaveText('attiva');
+});
+
+test('elimina una scena non attiva', async ({ page, request }) => {
+  const id = await campaignId(request);
+  await ensureScene(request, id, { name: 'Scena attiva' });
+  await createScene(request, id, { name: 'Scena da eliminare' });
+  await openCampaign(page);
+
+  const active = page.locator('.scene-list__item', { hasText: 'Scena attiva' });
+  const reserve = page.locator('.scene-list__item', { hasText: 'Scena da eliminare' });
+  await expect(reserve).toBeVisible();
+  await expect(
+    active.getByRole('button', { name: 'Elimina scena Scena attiva' }),
+  ).toBeDisabled();
+
+  await reserve.getByRole('button', { name: 'Elimina scena Scena da eliminare' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('heading', { name: 'Eliminare la scena?' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Elimina' }).click();
+
+  await expect(reserve).toBeHidden();
+  await expect(active.locator('.badge')).toHaveText('attiva');
 });
 
 test('commuta i tre temi e li applica al documento', async ({ page }) => {

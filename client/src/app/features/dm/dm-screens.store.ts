@@ -47,6 +47,7 @@ export const DmScreensStore = signalStore(
           summary,
           startView,
         );
+        await regia.loadScreens(activeCampaign.id);
         ui.setStatusMessage(`In onda su ${display.code}: ${scene.name}`);
       } catch (error) {
         ui.setStatusMessage(messageFor(error));

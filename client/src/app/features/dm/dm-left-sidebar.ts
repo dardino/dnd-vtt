@@ -17,6 +17,7 @@ import { ActionStore } from '../../core/stores/action.store';
 import { httpMessage } from '../../core/api/http-error';
 import { MeasurementService } from '../../core/ui/measurement.service';
 import { Button } from '../../components/button/button';
+import { Dialog } from '../../components/dialog/dialog';
 import { ActorList } from './actor-list';
 import { CampaignShellStore } from './campaign-shell.store';
 import { actorSubtitle } from './dm-actor';
@@ -32,6 +33,7 @@ import { SceneTokensStore } from './scene-tokens.store';
 import { SceneToolsStore } from './scene-tools.store';
 import { SessionCard } from './session-card';
 import { SidebarSection } from './sidebar-section';
+import { RegiaStore } from './regia.store';
 
 /**
  * Pannello sinistro della console DM: dati campagna, scene, griglia, fog,
@@ -43,6 +45,7 @@ import { SidebarSection } from './sidebar-section';
   imports: [
     ActorList,
     Button,
+    Dialog,
     DmAiPanel,
     RouterLink,
     SceneList,
@@ -62,6 +65,7 @@ export class DmLeftSidebar {
   public readonly fog = inject(SceneFogStore);
   public readonly tokensStore = inject(SceneTokensStore);
   public readonly sceneTools = inject(SceneToolsStore);
+  public readonly regia = inject(RegiaStore);
   public readonly aux = inject(DmAuxStore);
   public readonly actions = inject(ActionStore);
   public readonly units = inject(MeasurementService);
@@ -94,10 +98,6 @@ export class DmLeftSidebar {
 
   public async changeAdvancementMode(event: Event): Promise<void> {
     await this.campaign.changeAdvancementMode(event);
-  }
-
-  public async createScene(): Promise<void> {
-    await this.campaign.createScene();
   }
 
   public async selectScene(scene: Scene): Promise<void> {

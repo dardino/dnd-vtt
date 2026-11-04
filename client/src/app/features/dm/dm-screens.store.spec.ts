@@ -99,6 +99,7 @@ interface ScreensHarness {
   state: WritableSignal<SceneSnapshot | null>;
   createDisplay: ReturnType<typeof vi.fn>;
   takeSceneTo: ReturnType<typeof vi.fn>;
+  loadScreens: ReturnType<typeof vi.fn>;
   putProgram: ReturnType<typeof vi.fn>;
   setStatusMessage: ReturnType<typeof vi.fn>;
   setNotice: ReturnType<typeof vi.fn>;
@@ -112,6 +113,7 @@ const createHarness = (): ScreensHarness => {
   const state = signal<SceneSnapshot | null>(snapshot());
   const createDisplay = vi.fn().mockResolvedValue(display());
   const takeSceneTo = vi.fn().mockResolvedValue(display());
+  const loadScreens = vi.fn().mockResolvedValue(undefined);
   const putProgram = vi.fn().mockImplementation(
     (_campaignId: string, mutate: (state: ProgramVersion['state']) => ProgramVersion['state']) =>
       Promise.resolve({ version: 4, state: mutate(program().state) }),
@@ -129,6 +131,7 @@ const createHarness = (): ScreensHarness => {
           createDisplay,
           takeSceneTo,
           putProgram,
+          loadScreens,
         },
       },
       { provide: CampaignShellStore, useValue: { activeCampaign } },
@@ -147,6 +150,7 @@ const createHarness = (): ScreensHarness => {
     state,
     createDisplay,
     takeSceneTo,
+    loadScreens,
     putProgram,
     setStatusMessage,
     setNotice,
@@ -195,10 +199,13 @@ describe('DmScreensStore', () => {
     h.screens.set([summary()]);
 
     h.store.takeScene();
-    await Promise.resolve();
+    await vi.waitFor(() => {
+      expect(h.setStatusMessage).toHaveBeenCalled();
+    });
 
     expect(h.store.takeTargetOpen()).toBe(false);
     expect(h.takeSceneTo).toHaveBeenCalledWith(CAMPAIGN_ID, scene(), summary(), START_VIEW);
+    expect(h.loadScreens).toHaveBeenCalledWith(CAMPAIGN_ID);
     expect(h.setStatusMessage).toHaveBeenCalledWith('In onda su ABCD1234: Ingresso');
   });
 
@@ -225,6 +232,7 @@ describe('DmScreensStore', () => {
       summary('EFGH5678'),
       START_VIEW,
     );
+    expect(h.loadScreens).toHaveBeenCalledWith(CAMPAIGN_ID);
     expect(h.setStatusMessage).toHaveBeenCalledWith('In onda su ABCD1234: Ingresso');
   });
 

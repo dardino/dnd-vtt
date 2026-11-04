@@ -35,12 +35,24 @@ describe('SceneList', () => {
   const create = (
     scenes: readonly Scene[],
     activeSceneId: string | null = ACTIVE_ID,
+    onAirSceneIds: ReadonlySet<string> = new Set(),
   ): ComponentFixture<SceneList> => {
     const fixture = TestBed.createComponent(SceneList);
     fixture.componentRef.setInput('scenes', scenes);
     fixture.componentRef.setInput('activeSceneId', activeSceneId);
+    fixture.componentRef.setInput('onAirSceneIds', onAirSceneIds);
     fixture.detectChanges();
     return fixture;
+  };
+
+  const deleteButton = (item: Element | undefined): HTMLButtonElement => {
+    const button = item?.querySelector(
+      'button[aria-label^="Elimina scena"]',
+    );
+    if (button === null || button === undefined) {
+      throw new Error('pulsante elimina non trovato');
+    }
+    return button as HTMLButtonElement;
   };
 
   it('mostra il messaggio di vuoto senza creare la lista', () => {
@@ -62,10 +74,13 @@ describe('SceneList', () => {
     expect(items).toHaveLength(2);
     expect(items[0]?.classList.contains('is-active')).toBe(true);
     expect(items[0]?.querySelector('.badge')?.textContent).toBe('attiva');
-    expect(items[0]?.querySelector('.icon-button')).toBeNull();
+    expect(items[0]?.querySelector('button[aria-label^="Attiva scena"]')).toBeNull();
+    expect(deleteButton(items[0]).disabled).toBe(true);
+    expect(deleteButton(items[0]).title).toContain('scena attiva');
     expect(items[0]?.querySelector('.scene-list__info')?.textContent).toContain('1920 × 1080');
     expect(items[1]?.classList.contains('is-active')).toBe(false);
     expect(items[1]?.querySelector('.badge')).toBeNull();
+    expect(deleteButton(items[1]).disabled).toBe(false);
     expect(items[1]?.querySelector('.scene-list__info')?.textContent).toContain('1280 × 720');
   });
 
@@ -93,7 +108,7 @@ describe('SceneList', () => {
     expect(emitted.mock.calls[0]?.[0]).toMatchObject({ id: RESERVE_ID, name: 'Riserva' });
   });
 
-  it('emette openMapPicker al click su "Avvia da mappa"', () => {
+  it('emette openMapPicker al click su "Crea scena"', () => {
     const fixture = create([scene()]);
     const emitted = vi.fn<() => void>();
     fixture.componentInstance.openMapPicker.subscribe(emitted);
@@ -106,7 +121,7 @@ describe('SceneList', () => {
     expect(emitted).toHaveBeenCalledTimes(1);
   });
 
-  it('disabilita "Avvia da mappa" quando busy', () => {
+  it('disabilita "Crea scena" quando busy', () => {
     const fixture = create([scene()]);
     fixture.componentRef.setInput('busy', true);
     fixture.detectChanges();
@@ -115,6 +130,35 @@ describe('SceneList', () => {
       'app-button button',
     ) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
+  });
+
+  it('disabilita elimina per una scena in onda', () => {
+    const fixture = create(
+      [scene(), scene({ id: RESERVE_ID, name: 'Riserva' })],
+      ACTIVE_ID,
+      new Set([RESERVE_ID]),
+    );
+    const items = (fixture.nativeElement as HTMLElement)
+      .querySelectorAll('.scene-list__item');
+    const button = deleteButton(items[1]);
+
+    expect(button.disabled).toBe(true);
+    expect(button.title).toContain('in onda');
+  });
+
+  it('emette deleteScene solo per una scena eliminabile', () => {
+    const fixture = create([scene(), scene({ id: RESERVE_ID, name: 'Riserva' })]);
+    const emitted = vi.fn<(value: Scene) => void>();
+    fixture.componentInstance.deleteScene.subscribe(emitted);
+    const items = (fixture.nativeElement as HTMLElement)
+      .querySelectorAll('.scene-list__item');
+
+    deleteButton(items[0]).click();
+    expect(emitted).not.toHaveBeenCalled();
+
+    deleteButton(items[1]).click();
+    expect(emitted).toHaveBeenCalledTimes(1);
+    expect(emitted.mock.calls[0]?.[0]).toMatchObject({ id: RESERVE_ID });
   });
 
   it('mostra il link alla mappa solo quando mapId è presente', () => {

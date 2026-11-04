@@ -91,7 +91,7 @@ describe('MapPickerDialog', () => {
     });
     const rows = rootOf(fixture).querySelectorAll('.screen-row');
 
-    expect(rootOf(fixture).querySelector('.dialog__title')?.textContent).toBe('Avvia da mappa');
+    expect(rootOf(fixture).querySelector('.dialog__title')?.textContent).toBe('Crea scena');
     expect(rows).toHaveLength(2);
     expect(rows[0]?.querySelector('strong')?.textContent).toBe('Ingresso');
     expect(rows[0]?.querySelector('.badge')?.textContent).toBe('quadrata');

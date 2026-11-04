@@ -5,7 +5,6 @@ import type {
   CampaignExport,
   CampaignList,
   CreateCampaign,
-  CreateScene,
   ImportResult,
   Scene,
   SceneList,
@@ -42,14 +41,8 @@ export class CampaignService {
     return page.items;
   }
 
-  public async createScene(
-    campaignId: string,
-    input: CreateScene | string,
-  ): Promise<Scene> {
-    const body = typeof input === 'string' ? { name: input } : input;
-    return firstValueFrom(
-      this.http.post<Scene>(`/api/v1/campaigns/${campaignId}/scenes`, body),
-    );
+  public async deleteScene(sceneId: string): Promise<void> {
+    await firstValueFrom(this.http.delete<void>(`/api/v1/scenes/${sceneId}`));
   }
 
   public async patch(id: string, patch: UpdateCampaign): Promise<Campaign> {

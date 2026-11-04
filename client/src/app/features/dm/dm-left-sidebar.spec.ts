@@ -21,6 +21,7 @@ import { DEFAULT_SECTIONS, DmLayoutStore } from './dm-layout.store';
 import { DmLeftSidebar } from './dm-left-sidebar';
 import { DmSessionStore } from './dm-session.store';
 import { DmUiStore } from './dm-ui.store';
+import { RegiaStore } from './regia.store';
 import { SceneFogStore } from './scene-fog.store';
 import { SceneTokensStore } from './scene-tokens.store';
 import { SceneToolsStore } from './scene-tools.store';
@@ -142,7 +143,6 @@ describe('DmLeftSidebar', () => {
   const start = vi.fn().mockResolvedValue(undefined);
   const stop = vi.fn().mockResolvedValue(undefined);
   const changeAdvancementMode = vi.fn().mockResolvedValue(undefined);
-  const createScene = vi.fn().mockResolvedValue(undefined);
   const selectScene = vi.fn().mockResolvedValue(undefined);
   const openMapPicker = vi.fn().mockResolvedValue(undefined);
   const addActorToMap = vi.fn().mockResolvedValue(undefined);
@@ -191,7 +191,6 @@ describe('DmLeftSidebar', () => {
       start,
       stop,
       changeAdvancementMode,
-      createScene,
       selectScene,
       openMapPicker,
       addActorToMap,
@@ -246,11 +245,18 @@ describe('DmLeftSidebar', () => {
             mode,
             activeScene,
             changeAdvancementMode,
-            createScene,
             selectScene,
             openMapPicker,
+            sceneDeleteTarget: signal<Scene | null>(null),
+            askDeleteScene: vi.fn(),
+            cancelDeleteScene: vi.fn(),
+            confirmDeleteScene: vi.fn(),
             enterCampaign: vi.fn().mockResolvedValue(undefined),
           },
+        },
+        {
+          provide: RegiaStore,
+          useValue: { onAirSceneIds: () => new Set<string>() },
         },
         {
           provide: SceneFogStore,
@@ -365,10 +371,10 @@ describe('DmLeftSidebar', () => {
     scenes.set([scene(), scene({ id: OTHER_SCENE_ID, name: 'Torre' })]);
     const { root } = create();
 
-    const createButton = [...root.querySelectorAll<HTMLButtonElement>('.accordion__actions button')]
-      .find((button) => button.textContent?.includes('Crea scena'));
+    const scenesBody = root.querySelector<HTMLElement>('#sidebar-scenes');
+    const createButton = scenesBody?.querySelector<HTMLButtonElement>('app-button button');
     createButton?.click();
-    expect(createScene).toHaveBeenCalledTimes(1);
+    expect(openMapPicker).toHaveBeenCalledTimes(1);
 
     root.querySelector<HTMLButtonElement>('[aria-label="Attiva scena Torre"]')?.click();
     expect(selectScene).toHaveBeenCalledWith(scenes()[1]);

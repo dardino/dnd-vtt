@@ -26,6 +26,7 @@ import { DmLayoutStore } from './dm-layout.store';
 import { DmSessionStore } from './dm-session.store';
 import { toMapDocument } from './dm-campaign.mapper';
 import { DmUiStore } from './dm-ui.store';
+import { sceneDeleteBlockedReason } from './dm-scene-delete';
 import type { PrepareSceneAssignment } from './prepare-scene-dialog';
 import { RegiaStore } from './regia.store';
 import { SceneToolsStore } from './scene-tools.store';
@@ -47,8 +48,7 @@ export const DmCampaignStore = signalStore(
     activeScene: signal<Scene | null>(null),
     /** Asset della mappa della scena attiva, risolto da `loadMapAsset`. */
     mapImage: signal<SceneMapImage | null>(null),
-    /** Fog applicata alle scene create da qui in avanti. */
-    newSceneFog: signal<'hidden' | 'revealed'>('hidden'),
+    sceneDeleteTarget: signal<Scene | null>(null),
     maps: signal<MapSummary[]>([]),
     mapsLoading: signal(false),
     mapPickerOpen: signal(false),
@@ -129,7 +129,7 @@ export const DmCampaignStore = signalStore(
           shell.setActiveCampaign(known);
         }
         sceneTools.resetVolatile();
-        store.newSceneFog.set(campaign.fogDefault);
+        store.sceneDeleteTarget.set(null);
         lastCampaign.write(campaign.id);
         ui.setNotice(null);
         layout.restore(campaign.id);
@@ -193,13 +193,19 @@ export const DmCampaignStore = signalStore(
       store.prepareAssignments.set({});
     };
 
+    const blockedReason = (scene: Scene): string | null => sceneDeleteBlockedReason(
+      scene,
+      store.activeScene()?.id ?? null,
+      regia.onAirSceneIds(),
+    );
+
     return {
       /** Riporta la console allo stato iniziale alla distruzione della pagina. */
       reset(): void {
         store.mode.set('loading');
         store.activeScene.set(null);
         store.mapImage.set(null);
-        store.newSceneFog.set('hidden');
+        store.sceneDeleteTarget.set(null);
         store.maps.set([]);
         store.mapsLoading.set(false);
         store.mapPickerOpen.set(false);
@@ -255,25 +261,36 @@ export const DmCampaignStore = signalStore(
           ui.setBusy(false);
         }
       },
-      /** Crea una scena vuota, la rende attiva e la carica nel canvas. */
-      async createScene(): Promise<void> {
+      askDeleteScene(scene: Scene): void {
+        if (blockedReason(scene) === null) {
+          store.sceneDeleteTarget.set(scene);
+        }
+      },
+
+      cancelDeleteScene(): void {
+        store.sceneDeleteTarget.set(null);
+      },
+
+      /** Elimina la scena confermata; se era attiva (race) riallinea la campagna. */
+      async confirmDeleteScene(): Promise<void> {
+        const target = store.sceneDeleteTarget();
         const campaign = shell.activeCampaign();
-        if (campaign === null) {
+        if (target === null || campaign === null) {
           return;
         }
+        store.sceneDeleteTarget.set(null);
         ui.setBusy(true);
         try {
-          const scene = await campaignsApi.createScene(campaign.id, {
-            name: `Scena ${shell.scenes().length + 1}`,
-            widthPx: 1920,
-            heightPx: 1080,
-            fogBase: store.newSceneFog(),
-          });
-          shell.prependScene(scene);
-          const refreshed = await campaignsApi.patch(campaign.id, { activeSceneId: scene.id });
-          shell.setActiveCampaign(refreshed);
-          ui.setStatusMessage(`Scena creata: ${scene.name}`);
-          await loadScene(scene);
+          await campaignsApi.deleteScene(target.id);
+          shell.removeScene(target.id);
+          ui.setStatusMessage(`Scena eliminata: ${target.name}`);
+          if (store.activeScene()?.id === target.id) {
+            actions.stop();
+            sceneStore.clear();
+            store.activeScene.set(null);
+            store.mapImage.set(null);
+            shell.setActiveCampaign(await campaignsApi.get(campaign.id));
+          }
         } catch (error) {
           ui.setNotice(messageFor(error));
         } finally {
@@ -381,12 +398,6 @@ export const DmCampaignStore = signalStore(
           ui.setNotice(messageFor(error));
         } finally {
           store.prepareBusy.set(false);
-        }
-      },
-      setNewSceneFog(event: Event): void {
-        const value = (event.target as HTMLSelectElement).value;
-        if (value === 'hidden' || value === 'revealed') {
-          store.newSceneFog.set(value);
         }
       },
       /** Cambia la modalità di avanzamento della campagna attiva. */

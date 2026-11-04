@@ -100,6 +100,12 @@ export const CampaignShellStore = signalStore(
         patchState(store, { scenes: [scene, ...store.scenes()] });
       },
 
+      removeScene(sceneId: string): void {
+        patchState(store, {
+          scenes: store.scenes().filter((scene) => scene.id !== sceneId),
+        });
+      },
+
       addActor(actor: Actor): void {
         patchState(store, { party: [...store.party(), actor] });
       },

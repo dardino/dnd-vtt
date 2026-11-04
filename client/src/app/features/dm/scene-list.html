@@ -1,11 +1,10 @@
 <div class="scene-actions">
   <app-button variant="primary" [disabled]="busy()" (pressed)="openMapPicker.emit()">
-    Avvia da mappa
+    Crea scena
   </app-button>
-  <a class="btn" routerLink="/maps">Crea mappa</a>
 </div>
 @if (scenes().length === 0) {
-  <p class="muted">Nessuna scena: crea una mappa nell’editor e avviala da qui.</p>
+  <p class="muted">Nessuna scena: scegli una mappa e crea la scena da qui.</p>
 } @else {
   <ul class="scene-list">
     @for (scene of scenes(); track scene.id) {
@@ -34,6 +33,14 @@
               title="Modifica mappa"
             ><span aria-hidden="true">✏️</span></a>
           }
+          <button
+            type="button"
+            class="icon-button icon-button--danger"
+            [disabled]="busy() || !canDelete(scene)"
+            [attr.aria-label]="'Elimina scena ' + scene.name"
+            [title]="deleteBlockedReason(scene) ?? 'Elimina scena'"
+            (click)="requestDelete(scene)"
+          ><span aria-hidden="true">🗑️</span></button>
         </span>
       </li>
     }

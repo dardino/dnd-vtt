@@ -185,7 +185,7 @@ su Docker Desktop.
   Restano fuori: provider OpenAI-compatible, streaming SSE e cronologia chat.
 - **Fase 10 core completata**: editor mappe su `/maps` con sfondo, griglia,
   muri/porte/finestre/muri bassi, luci statiche, spawn SRD/attori e partenze PG.
-  La console avvia una scena da una mappa con “Avvia da mappa” e “Prepara scena”;
+  La console crea una scena da una mappa con “Crea scena” e “Prepara scena”;
   la visione è a celle con luce ambientale, torce, scurovisione/blindsight/
   truesight, LOS e porte apribili. Il server filtra i token e il display riceve
   solo `vision` e `doors` visibili. La fog manuale resta disponibile, a celle o
