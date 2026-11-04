@@ -3,14 +3,19 @@ import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import {
   emptyMapDocumentV2,
+  type ImageGraphic,
   type Map,
   type MapDocument,
+  type MapGraphic,
+  type PolygonGraphic,
+  type TextGraphic,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActorService } from '../../core/services/actor.service';
 import { AssetService } from '../../core/services/asset.service';
 import { MapService } from '../../core/services/map.service';
 import { SrdCatalogService } from '../../core/services/srd-catalog.service';
+import type { MapRenderAssets } from './map-image-renderer';
 import { MapEditorPage } from './map-editor.page';
 import { MapRenderService } from './map-render.service';
 
@@ -30,6 +35,53 @@ const mapFor = (doc: MapDocument): Map => ({
   createdAt: '2026-11-04T00:00:00.000Z',
   updatedAt: '2026-11-04T00:00:00.000Z',
 });
+
+const GRAPHIC_ASSET_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
+
+const polygonItem: PolygonGraphic = {
+  kind: 'polygon',
+  id: 'poligono-1',
+  points: [{ x: 1, y: 1 }, { x: 3, y: 1 }, { x: 3, y: 2 }],
+  fill: '#4ea1ff',
+  opacity: 0.35,
+  z: 0,
+};
+
+const textItem: TextGraphic = {
+  kind: 'text',
+  id: 'testo-1',
+  text: 'Sala',
+  fontFamily: 'serif',
+  fontSize: 32,
+  color: '#ffcc00',
+  x: 140,
+  y: 210,
+  opacity: 1,
+  z: 1,
+};
+
+const imageItem: ImageGraphic = {
+  kind: 'image',
+  id: 'immagine-1',
+  assetId: GRAPHIC_ASSET_ID,
+  x: 10,
+  y: 20,
+  scale: 1,
+  rotation: 0,
+  flipH: false,
+  flipV: false,
+  opacity: 1,
+  z: 2,
+};
+
+const docWithGraphics = (items: MapGraphic[]): MapDocument => {
+  const base = emptyMapDocumentV2('Mappa', null, 800, 600);
+  const [background, graphics, constraints, elements] = base.layers;
+  return {
+    ...base,
+    layers: [background, { ...graphics, items }, constraints, elements],
+  };
+};
 
 const getMap = vi.fn();
 const saveMap = vi.fn();
@@ -186,6 +238,33 @@ describe('MapEditorPage save con derivati', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Anteprima non disponibile');
     expect(page.doc()).toEqual(before);
+    fixture.destroy();
+  });
+
+  it('passa al renderer anche poligoni e testi con image null', async () => {
+    const doc = docWithGraphics([polygonItem, textItem, imageItem]);
+    const map = mapFor(doc);
+    const fixture = await loadPage(map);
+    const page = fixture.componentInstance;
+    getAsset.mockRejectedValue(new Error('asset assente'));
+    renderAndUpload.mockResolvedValue({
+      thumbAssetId: THUMB_ID,
+      compositeAssetId: COMPOSITE_ID,
+      warnings: [],
+    });
+    saveMap.mockResolvedValue({ ...map, version: 2 });
+
+    await page.save();
+
+    const assets = renderAndUpload.mock.calls[0]?.[2] as MapRenderAssets;
+    expect(assets.graphics.map((entry) => entry.item.kind)).toEqual([
+      'polygon',
+      'text',
+      'image',
+    ]);
+    expect(assets.graphics[0]).toEqual({ item: polygonItem, image: null });
+    expect(assets.graphics[1]).toEqual({ item: textItem, image: null });
+    expect(assets.graphics[2]).toEqual({ item: imageItem, image: null });
     fixture.destroy();
   });
 });

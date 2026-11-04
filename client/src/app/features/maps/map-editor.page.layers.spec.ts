@@ -20,7 +20,7 @@ const MAP_ID = 'map-layers';
 
 const LAYER_TOOLS: Record<MapLayerKind, readonly string[]> = {
   background: ['select'],
-  graphics: ['select'],
+  graphics: ['select', 'graphicPolygon', 'graphicText'],
   constraints: [
     'select',
     'wall',
@@ -196,6 +196,21 @@ describe('MapEditorPage layers', () => {
       expect(toolNames(page)).toEqual([...LAYER_TOOLS[kind]]);
       // La toolbar mostra gli strumenti del layer più il toggle griglia.
       expect(root.querySelectorAll('.editor__tool')).toHaveLength(LAYER_TOOLS[kind].length + 1);
+
+      const addGraphic = root.querySelector('.editor__add-graphic');
+      const graphicInputs = root.querySelectorAll('input[type="file"][data-role="graphic"]');
+      const toolbarInputs = root.querySelectorAll('.editor__tools input[type="file"]');
+      if (kind === 'graphics') {
+        // L'immagine ha un ingresso unico: il bottone dedicato, mai un tool.
+        expect(toolNames(page)).not.toContain('graphicImage');
+        expect(addGraphic).not.toBeNull();
+        expect(graphicInputs).toHaveLength(1);
+        expect(toolbarInputs).toHaveLength(1);
+      } else {
+        expect(addGraphic, kind).toBeNull();
+        expect(graphicInputs).toHaveLength(0);
+        expect(toolbarInputs).toHaveLength(0);
+      }
     }
 
     fixture.destroy();

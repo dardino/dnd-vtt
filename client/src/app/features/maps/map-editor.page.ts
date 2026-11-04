@@ -22,6 +22,9 @@ import {
   defaultBackgroundTransform,
   elementsLayer,
   graphicsLayer,
+  isImageGraphic,
+  isPolygonGraphic,
+  isTextGraphic,
   lightsOf,
   spawnsOf,
   startsOf,
@@ -30,7 +33,9 @@ import {
   type Asset,
   type BackgroundTransform,
   type BlockedArea,
+  type CellPoint,
   type GridConfig,
+  type ImageGraphic,
   type Light,
   type Map,
   type MapDocument,
@@ -40,8 +45,10 @@ import {
   type MapLayers,
   type MapSpawn,
   type PlayerStart,
+  type PolygonGraphic,
   type SrdMonster,
   type Terrain,
+  type TextGraphic,
   type WallKind,
   type WallSegment,
 } from '@dnd-vtt/shared';
@@ -93,6 +100,11 @@ import {
   type MapCommand,
 } from './map-command';
 import { sortedGraphics } from './map-graphics-renderer';
+import {
+  GRAPHIC_POLYGON_MAX_VERTICES,
+  translatePolygonPoints,
+  validateGraphicField,
+} from './map-graphic-fields';
 import {
   MapGraphicInspectorComponent,
   type GraphicField,
@@ -148,6 +160,8 @@ const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: 
   { tool: 'eraser', icon: 'ink_eraser', label: 'Gomma', hint: 'Rimuove un lato' },
   { tool: 'areaRect', icon: 'check_box_outline_blank', label: 'Area rettangolo', hint: 'Blocca una zona rettangolare' },
   { tool: 'areaPolygon', icon: 'pentagon', label: 'Area poligono', hint: 'Blocca una zona poligonale' },
+  { tool: 'graphicPolygon', icon: 'pentagon', label: 'Poligono', hint: 'Disegna un poligono decorativo sulla griglia' },
+  { tool: 'graphicText', icon: 'title', label: 'Testo', hint: 'Aggiunge un testo decorativo alla mappa' },
   { tool: 'light', icon: 'lightbulb', label: 'Luce', hint: 'Aggiunge una luce statica' },
   { tool: 'spawn', icon: 'pets', label: 'Mostro', hint: 'Aggiunge uno spawn SRD o attore' },
   { tool: 'start', icon: 'flag', label: 'Partenza', hint: 'Aggiunge un punto di partenza PG' },
@@ -157,7 +171,7 @@ const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: 
 /** Strumenti ammessi per ciascun layer, nell'ordine canonico della toolbar. */
 const LAYER_TOOLS: Record<MapLayerKind, readonly EditorTool[]> = {
   background: ['select'],
-  graphics: ['select'],
+  graphics: ['select', 'graphicPolygon', 'graphicText'],
   constraints: [
     'select',
     'wall',
@@ -318,7 +332,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
     const images = this.graphicImages();
     return graphicsLayer(doc).items.map((item) => ({
       item,
-      image: images[item.assetId] ?? null,
+      image: isImageGraphic(item) ? images[item.assetId] ?? null : null,
     }));
   });
 
@@ -481,9 +495,14 @@ export class MapEditorPage implements OnInit, OnDestroy {
       : null;
   });
 
-  /** Inspector filtrato: ogni sezione appartiene al layer attivo. */
-  public readonly inspectorGraphic = computed(() =>
-    this.activeLayer() === 'graphics' ? this.selectedGraphic() : null);
+  /**
+   * Inspector filtrato: ogni sezione appartiene al layer attivo. Poligoni e
+   * testi sono grafiche a tutti gli effetti e usano lo stesso inspector.
+   */
+  public readonly inspectorGraphic = computed<MapGraphic | null>(() => {
+    const graphic = this.activeLayer() === 'graphics' ? this.selectedGraphic() : null;
+    return graphic;
+  });
 
   public readonly inspectorArea = computed(() =>
     this.activeLayer() === 'constraints' ? this.selectedArea() : null);
@@ -536,7 +555,11 @@ export class MapEditorPage implements OnInit, OnDestroy {
       if (doc === null) {
         return;
       }
-      const assetIds = [...new Set(graphicsLayer(doc).items.map((item) => item.assetId))];
+      const assetIds = [
+        ...new Set(
+          graphicsLayer(doc).items.flatMap((item) => (isImageGraphic(item) ? [item.assetId] : [])),
+        ),
+      ];
       untracked(() => {
         for (const assetId of assetIds) {
           void this.loadGraphicImage(assetId);
@@ -1155,6 +1178,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       let z = items.reduce((max, item) => Math.max(max, item.z), -1) + 1;
       const graphics = assets.map<MapGraphic>((asset) => {
         const graphic: MapGraphic = {
+          kind: 'image',
           id: newId(),
           assetId: asset.id,
           x: doc.widthPx / 2,
@@ -1180,30 +1204,137 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
   }
 
-  /** Aggiorna un campo numerico della grafica selezionata, validando i limiti. */
-  public updateGraphicField(field: GraphicField, value: number): void {
-    if (this.contentLocked('graphics') || !Number.isFinite(value)) {
+  /** Poligono disegnato dal canvas: default dello schema, selezione e history. */
+  public addGraphicPolygon(points: CellPoint[]): void {
+    if (
+      this.contentLocked('graphics')
+      || points.length < 3
+      || points.length > GRAPHIC_POLYGON_MAX_VERTICES
+    ) {
       return;
     }
-    const graphic = this.selectedGraphic();
+    if (points.some((point) => !Number.isInteger(point.x) || !Number.isInteger(point.y))) {
+      return;
+    }
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
+    const polygon: PolygonGraphic = {
+      kind: 'polygon',
+      id: newId(),
+      points: points.map((point) => ({ x: point.x, y: point.y })),
+      fill: '#4ea1ff',
+      opacity: 0.35,
+      z: this.nextGraphicZ(doc),
+    };
+    this.execute(arrayInsert('graphic', [polygon]));
+    this.selected.set({ type: 'graphic', id: polygon.id });
+    this.tool.set('select');
+  }
+
+  /** Testo richiesto dal canvas: coordinate intere, default leggibili. */
+  public addGraphicText(point: CellPoint): void {
+    if (this.contentLocked('graphics')) {
+      return;
+    }
+    if (!Number.isInteger(point.x) || !Number.isInteger(point.y)) {
+      return;
+    }
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
+    const text: TextGraphic = {
+      kind: 'text',
+      id: newId(),
+      text: 'Testo',
+      fontFamily: 'sans',
+      fontSize: 24,
+      color: '#ffffff',
+      x: point.x,
+      y: point.y,
+      opacity: 1,
+      z: this.nextGraphicZ(doc),
+    };
+    this.execute(arrayInsert('graphic', [text]));
+    this.selected.set({ type: 'graphic', id: text.id });
+    this.tool.set('select');
+  }
+
+  /** Sposta un poligono di celle intere, clampando senza deformare la forma. */
+  public translateGraphic(event: { id: string; dx: number; dy: number }): void {
+    if (this.contentLocked('graphics')) {
+      return;
+    }
+    if (!Number.isFinite(event.dx) || !Number.isFinite(event.dy)) {
+      return;
+    }
+    const doc = this.doc();
+    const graphic = doc === null
+      ? undefined
+      : graphicsLayer(doc).items.find((item) => item.id === event.id);
+    if (doc === null || graphic === undefined || !isPolygonGraphic(graphic)) {
+      return;
+    }
+    // Con offset la cella massima va calcolata sullo spazio pixel residuo;
+    // senza offset resta il comportamento storico.
+    const maxCell = (sizePx: number, offsetPx: number): number =>
+      offsetPx === 0
+        ? Math.ceil(sizePx / doc.grid.cellSizePx)
+        : Math.floor((sizePx - offsetPx) / doc.grid.cellSizePx);
+    const points = translatePolygonPoints(
+      graphic.points,
+      Math.round(event.dx),
+      Math.round(event.dy),
+      {
+        maxX: maxCell(doc.widthPx, doc.grid.offsetX),
+        maxY: maxCell(doc.heightPx, doc.grid.offsetY),
+      },
+    );
+    const unchanged = points.every((point, index) => {
+      const current = graphic.points[index];
+      return current !== undefined && current.x === point.x && current.y === point.y;
+    });
+    if (unchanged) {
+      return;
+    }
+    this.execute(replaceFields(
+      'graphic',
+      graphic.id,
+      { points: graphic.points },
+      { points },
+    ));
+  }
+
+  /** Aggiorna un campo della grafica selezionata, validando per variante. */
+  public updateGraphicField(field: GraphicField, value: number | string): void {
+    if (this.contentLocked('graphics')) {
+      return;
+    }
+    const graphic = this.inspectorGraphic();
     if (graphic === null) {
       return;
     }
-    if (field === 'scale' && value <= 0) {
+    const validated = validateGraphicField(graphic, field, value);
+    if (validated === null) {
       return;
     }
-    if (field === 'opacity' && (value < 0 || value > 1)) {
+    const current = (graphic as unknown as Record<string, unknown>)[field];
+    if (current === validated) {
       return;
     }
-    const current = graphic[field];
-    if (current === value) {
-      return;
-    }
-    const before: Partial<MapGraphic> = {};
-    const after: Partial<MapGraphic> = {};
-    before[field] = current;
-    after[field] = value;
-    this.execute(replaceFields('graphic', graphic.id, before, after));
+    this.execute(replaceFields(
+      'graphic',
+      graphic.id,
+      { [field]: current } as Partial<MapGraphic>,
+      { [field]: validated } as Partial<MapGraphic>,
+    ));
+  }
+
+  /** Prossimo `z` libero: in cima allo stack esistente. */
+  private nextGraphicZ(doc: MapDocument): number {
+    return graphicsLayer(doc).items.reduce((max, item) => Math.max(max, item.z), -1) + 1;
   }
 
   /** Trascinamento dal canvas: coordinate mondo del centro, senza snap. */
@@ -1212,20 +1343,28 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     const doc = this.doc();
-    const graphic = doc === null
-      ? undefined
-      : graphicsLayer(doc).items.find((item) => item.id === event.id);
-    if (graphic === undefined) {
+    if (doc === null || !Number.isFinite(event.x) || !Number.isFinite(event.y)) {
       return;
     }
-    if (graphic.x === event.x && graphic.y === event.y) {
+    const graphic = graphicsLayer(doc).items.find((item) => item.id === event.id);
+    if (graphic === undefined || isPolygonGraphic(graphic)) {
+      return;
+    }
+    // I testi richiedono coordinate intere per schema; le immagini ammettono
+    // float e mantengono il posizionamento continuo del canvas.
+    const round = isTextGraphic(graphic)
+      ? (value: number): number => Math.round(value)
+      : (value: number): number => value;
+    const x = round(Math.min(doc.widthPx, Math.max(0, round(event.x))));
+    const y = round(Math.min(doc.heightPx, Math.max(0, round(event.y))));
+    if (graphic.x === x && graphic.y === y) {
       return;
     }
     this.execute(replaceFields(
       'graphic',
       graphic.id,
       { x: graphic.x, y: graphic.y },
-      { x: event.x, y: event.y },
+      { x, y },
     ));
   }
 
@@ -1233,13 +1372,13 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (this.contentLocked('graphics')) {
       return;
     }
-    const graphic = this.selectedGraphic();
-    if (graphic === null) {
+    const graphic = this.inspectorGraphic();
+    if (graphic === null || !isImageGraphic(graphic)) {
       return;
     }
     const field = axis === 'h' ? 'flipH' : 'flipV';
-    const before: Partial<MapGraphic> = {};
-    const after: Partial<MapGraphic> = {};
+    const before: Partial<ImageGraphic> = {};
+    const after: Partial<ImageGraphic> = {};
     before[field] = graphic[field];
     after[field] = !graphic[field];
     this.execute(replaceFields('graphic', graphic.id, before, after));
@@ -1802,6 +1941,10 @@ export class MapEditorPage implements OnInit, OnDestroy {
     const cached = this.graphicImages();
     const graphics: MapRenderGraphicAsset[] = [];
     for (const item of graphicsLayer(doc).items) {
+      if (!isImageGraphic(item)) {
+        graphics.push({ item, image: null });
+        continue;
+      }
       const meta = cached[item.assetId] ?? await this.assetRenderSource(item.assetId);
       const image = meta === null || meta === undefined ? null : await loadRenderImage(meta);
       graphics.push({ item, image });

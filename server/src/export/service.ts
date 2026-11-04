@@ -8,6 +8,7 @@ import {
   type ImportResult,
   type Map as MapRecord,
   type MapDocument,
+  type MapGraphic,
   type SceneState,
 } from '@dnd-vtt/shared';
 import { eq } from 'drizzle-orm';
@@ -92,7 +93,11 @@ const remapMapDocument = (
   const imageAssetId = background.imageAssetId === null
     ? null
     : assetMap.get(background.imageAssetId) ?? null;
-  const items = graphics.items.flatMap((item) => {
+  const items = graphics.items.flatMap<MapGraphic>((item) => {
+    // Poligoni e testi non puntano ad asset: restano intatti.
+    if (item.kind !== 'image') {
+      return [item];
+    }
     const assetId = assetMap.get(item.assetId);
     return assetId === undefined ? [] : [{ ...item, assetId }];
   });
@@ -137,7 +142,9 @@ export const exportCampaign = async (
       ids.add(background.imageAssetId);
     }
     for (const graphic of graphics.items) {
-      ids.add(graphic.assetId);
+      if (graphic.kind === 'image') {
+        ids.add(graphic.assetId);
+      }
     }
   }
   for (const scene of bundleScenes) {

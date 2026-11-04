@@ -112,6 +112,7 @@ const background: EditorMapImage = { url: '/bg.png', width: 400, height: 300 };
 
 const graphic = (id: string): MapGraphic => ({
   id,
+  kind: 'image',
   assetId: '0f8fad5b-d9cb-469f-a165-70867728950e',
   x: 10,
   y: 20,

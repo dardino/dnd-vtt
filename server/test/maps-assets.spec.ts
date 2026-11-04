@@ -107,6 +107,39 @@ const graphicsDocument = (
   };
 };
 
+/** Documento con una grafica immagine, un poligono e un testo nello stesso layer. */
+const mixedGraphicsDocument = (
+  name: string,
+  graphicAssetId: string,
+): MapDocument => {
+  const base = emptyMapDocumentV2(name, null, 1280, 720);
+  const [background, graphics, constraints, elements] = base.layers;
+  return {
+    ...base,
+    layers: [
+      background,
+      {
+        ...graphics,
+        items: [
+          mapGraphicSchema.parse({
+            kind: 'image', id: 'graphic-1', assetId: graphicAssetId, x: 10, y: 20,
+          }),
+          mapGraphicSchema.parse({
+            kind: 'polygon',
+            id: 'polygon-1',
+            points: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 3 }],
+          }),
+          mapGraphicSchema.parse({
+            kind: 'text', id: 'text-1', text: 'Sala', x: 5, y: 6,
+          }),
+        ],
+      },
+      constraints,
+      elements,
+    ],
+  };
+};
+
 const legacyDocument = (imageAssetId: string): Record<string, unknown> => ({
   name: 'Mappa legacy',
   imageAssetId,
@@ -430,6 +463,24 @@ describe('conteggio riferimenti asset', () => {
     );
 
     expect(countAssetReferences(testApp.database.db, graphic.id)).toBe(1);
+    await closeTestApp(testApp);
+  });
+
+  it('conta la grafica immagine e ignora polygon e text dello stesso layer', async () => {
+    const testApp = await createTestApp();
+    const campaignId = await createCampaign(testApp.app);
+    const graphic = await storeImage(testApp);
+    // Colore diverso: un PNG identico verrebbe deduplicato per hash e sarebbe
+    // lo stesso asset della grafica, non un asset non correlato.
+    const unrelated = await storeImage(testApp, '#112233');
+    insertMap(
+      testApp.database.db,
+      campaignId,
+      mixedGraphicsDocument('Mappa con grafiche miste', graphic.id),
+    );
+
+    expect(countAssetReferences(testApp.database.db, graphic.id)).toBe(1);
+    expect(countAssetReferences(testApp.database.db, unrelated.id)).toBe(0);
     await closeTestApp(testApp);
   });
 

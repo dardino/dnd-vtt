@@ -18,6 +18,7 @@ import {
   defaultBackgroundTransform,
   DEFAULT_MAP_BACKGROUND_COLOR,
   distanceToSegment,
+  isPolygonGraphic,
   latticePointPx,
   pixelToCell,
   wallSegmentPx,
@@ -40,7 +41,14 @@ import { MeasurementService } from '../../core/ui/measurement.service';
 import { readThemeColors, type CssColorTokens } from '../../core/ui/theme-colors';
 import { drawBlockedAreasLayer, drawGraphicsLayer } from './map-layer-renderers';
 import { hexAlphaToRgba } from './map-color';
+import { GRAPHIC_POLYGON_MAX_VERTICES } from './map-graphic-fields';
 import { MapGridRenderer } from './map-grid-renderer';
+import {
+  graphicContains,
+  polygonContains,
+  SHAPE_AREA_EPSILON,
+  signedPolygonArea,
+} from './map-graphic-hit-test';
 import { sortedGraphics } from './map-graphics-renderer';
 import { MapImageLoader } from './map-image-loader';
 
@@ -68,6 +76,8 @@ export type EditorTool
     | 'eraser'
     | 'areaRect'
     | 'areaPolygon'
+    | 'graphicPolygon'
+    | 'graphicText'
     | 'light'
     | 'spawn'
     | 'start'
@@ -83,11 +93,30 @@ const EDITOR_TOOL_LABELS: Record<EditorTool, string> = {
   eraser: 'gomma',
   areaRect: 'area rettangolo',
   areaPolygon: 'area poligono',
+  graphicPolygon: 'poligono grafico',
+  graphicText: 'testo grafico',
   light: 'luce',
   spawn: 'mostro',
   start: 'punto di partenza',
   loot: 'oggetti',
 };
+
+/** Aggiunge un vertice alla bozza evitando il doppio click sullo stesso punto. */
+const appendDraftVertex = (draft: CellPoint[], point: CellPoint): boolean => {
+  const last = draft[draft.length - 1];
+  if (last !== undefined && last.x === point.x && last.y === point.y) {
+    return false;
+  }
+  draft.push(point);
+  return true;
+};
+
+/** Una bozza è chiudibile solo con almeno tre vertici e area non nulla. */
+const isCompleteDraft = (points: readonly CellPoint[]): boolean =>
+  points.length >= 3 && Math.abs(signedPolygonArea(points)) > SHAPE_AREA_EPSILON;
+
+const copyPoints = (points: readonly CellPoint[]): CellPoint[] =>
+  points.map((point) => ({ ...point }));
 
 export interface EditorSelection {
   type: 'wall' | 'light' | 'spawn' | 'start' | 'graphic' | 'area' | 'loot';
@@ -125,66 +154,23 @@ export interface AreaDrawnEvent {
   points: CellPoint[];
 }
 
+/** Poligono grafico appena disegnato: vertici in coordinate di cella. */
+export interface GraphicPolygonDrawnEvent {
+  points: CellPoint[];
+}
+
+/** Trascinamento di un poligono: delta in celle intere. */
+export interface GraphicTranslatedEvent {
+  id: string;
+  dx: number;
+  dy: number;
+}
+
 interface Camera {
   scale: number;
   x: number;
   y: number;
 }
-
-interface Point2 {
-  x: number;
-  y: number;
-}
-
-const pointOnSegment = (point: Point2, a: Point2, b: Point2): boolean => {
-  const cross = (point.y - a.y) * (b.x - a.x) - (point.x - a.x) * (b.y - a.y);
-  if (Math.abs(cross) > 1e-9) {
-    return false;
-  }
-  return point.x >= Math.min(a.x, b.x) - 1e-9
-    && point.x <= Math.max(a.x, b.x) + 1e-9
-    && point.y >= Math.min(a.y, b.y) - 1e-9
-    && point.y <= Math.max(a.y, b.y) + 1e-9;
-};
-
-/** Area con segno (shoelace): vicina a zero per poligoni degeneri o collineari. */
-const signedPolygonArea = (points: readonly Point2[]): number => {
-  let twiceArea = 0;
-  for (let index = 0; index < points.length; index += 1) {
-    const a = points[index];
-    const b = points[(index + 1) % points.length];
-    if (a === undefined || b === undefined) {
-      continue;
-    }
-    twiceArea += a.x * b.y - b.x * a.y;
-  }
-  return twiceArea / 2;
-};
-
-/** Sotto questa soglia (in celle quadrate) il poligono non copre alcuna zona. */
-const AREA_EPSILON = 1e-6;
-
-/** Ray casting con inclusione esplicita dei bordi: i click sul perimetro contano. */
-const polygonContains = (point: Point2, points: readonly Point2[]): boolean => {
-  let inside = false;
-  for (let index = 0; index < points.length; index += 1) {
-    const a = points[index];
-    const b = points[(index + 1) % points.length];
-    if (a === undefined || b === undefined) {
-      continue;
-    }
-    if (pointOnSegment(point, a, b)) {
-      return true;
-    }
-    if ((a.y > point.y) !== (b.y > point.y)) {
-      const x = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
-      if (point.x < x) {
-        inside = !inside;
-      }
-    }
-  }
-  return inside;
-};
 
 @Component({
   selector: 'app-map-editor-canvas',
@@ -219,6 +205,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public readonly elementMoved = output<{ selection: EditorSelection; cell: CellPoint }>();
   public readonly wallMoved = output<{ id: string; dx: number; dy: number }>();
   public readonly graphicMoved = output<{ id: string; x: number; y: number }>();
+  public readonly graphicTranslated = output<GraphicTranslatedEvent>();
+  public readonly graphicPolygonDrawn = output<GraphicPolygonDrawnEvent>();
+  public readonly graphicTextRequested = output<{ x: number; y: number }>();
   public readonly elementSelected = output<EditorSelection | null>();
   public readonly cameraChanged = output<Camera>();
   public readonly gridLines = signal(0);
@@ -249,6 +238,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
   private areaRectStart: CellPoint | null = null;
   private areaRectCurrent: CellPoint | null = null;
   private areaPolygonDraft: CellPoint[] = [];
+  private graphicPolygonDraft: CellPoint[] = [];
   private freehand: Array<{ x: number; y: number }> | null = null;
   private erasing = false;
   private erased = new Set<string>();
@@ -436,7 +426,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
    * modo confermabile/annullabile tramite la cronologia comandi.
    */
   public onKeyDown(event: KeyboardEvent): void {
-    if (this.handleAreaKey(event)) {
+    if (this.handleDraftKey(event)) {
       return;
     }
     const selection = this.selected();
@@ -459,6 +449,10 @@ export class MapEditorCanvasComponent implements OnDestroy {
       event.preventDefault();
       if (selection.type === 'wall') {
         this.wallMoved.emit({ id: selection.id, ...arrow });
+        return;
+      }
+      if (selection.type === 'graphic') {
+        this.moveSelectedGraphic(selection.id, arrow.dx, arrow.dy);
         return;
       }
       const point = selection.type === 'light'
@@ -541,6 +535,24 @@ export class MapEditorCanvasComponent implements OnDestroy {
         return;
       }
       this.addAreaPolygonVertex(this.nearestLatticePoint(world));
+      return;
+    }
+    if (tool === 'graphicPolygon') {
+      if (!this.graphicsEditable()) {
+        return;
+      }
+      if (mouse?.detail === 2) {
+        this.finishGraphicPolygon();
+        return;
+      }
+      this.addGraphicPolygonVertex(this.nearestLatticePoint(world));
+      return;
+    }
+    if (tool === 'graphicText') {
+      if (!this.graphicsEditable()) {
+        return;
+      }
+      this.graphicTextRequested.emit(this.clampedMapPoint(world));
       return;
     }
     if (tool === 'light' || tool === 'spawn' || tool === 'start' || tool === 'loot') {
@@ -686,18 +698,62 @@ export class MapEditorCanvasComponent implements OnDestroy {
     };
   }
 
+  /** Punto mappa intero dentro i bordi dell'immagine: origine in alto a sinistra. */
+  private clampedMapPoint(world: { x: number; y: number }): { x: number; y: number } {
+    const image = this.image();
+    const maxX = image?.width ?? world.x;
+    const maxY = image?.height ?? world.y;
+    return {
+      x: Math.round(Math.min(maxX, Math.max(0, world.x))),
+      y: Math.round(Math.min(maxY, Math.max(0, world.y))),
+    };
+  }
+
   /** Il layer `elements` deve essere visibile e sbloccato per creare loot. */
   private elementsEditable(): boolean {
     const flags = this.layerFlags()['elements'];
     return flags === undefined || (flags.visible && !flags.locked);
   }
 
+  /** Il layer `graphics` deve essere visibile e sbloccato per creare e spostare. */
+  private graphicsEditable(): boolean {
+    const flags = this.layerFlags()['graphics'];
+    return flags === undefined || (flags.visible && !flags.locked);
+  }
+
+  /** Frecce su una grafica selezionata: pixel per immagini/testi, celle per poligoni. */
+  private moveSelectedGraphic(id: string, dx: number, dy: number): void {
+    if (!this.graphicsEditable()) {
+      return;
+    }
+    const entry = this.graphics().find((candidate) => candidate.item.id === id);
+    if (entry === undefined) {
+      return;
+    }
+    if (isPolygonGraphic(entry.item)) {
+      this.graphicTranslated.emit({ id, dx, dy });
+      return;
+    }
+    const cellSize = this.grid().cellSizePx;
+    this.graphicMoved.emit({
+      id,
+      x: entry.item.x + dx * cellSize,
+      y: entry.item.y + dy * cellSize,
+    });
+  }
+
   /** Enter/doppio click chiude, Esc annulla: le scorciatoie valgono solo in bozza. */
-  private handleAreaKey(event: KeyboardEvent): boolean {
+  private handleDraftKey(event: KeyboardEvent): boolean {
     const drawingRect = this.areaRectStart !== null;
     const drawingPolygon = this.areaPolygonDraft.length > 0;
-    if (!drawingRect && !drawingPolygon) {
+    const drawingGraphicPolygon = this.graphicPolygonDraft.length > 0;
+    if (!drawingRect && !drawingPolygon && !drawingGraphicPolygon) {
       return false;
+    }
+    if (event.key === 'Enter' && drawingGraphicPolygon) {
+      event.preventDefault();
+      this.finishGraphicPolygon();
+      return true;
     }
     if (event.key === 'Enter' && drawingPolygon) {
       event.preventDefault();
@@ -706,26 +762,51 @@ export class MapEditorCanvasComponent implements OnDestroy {
     }
     if (event.key === 'Escape') {
       event.preventDefault();
-      this.cancelAreaDraft();
+      this.cancelDrafts();
       return true;
     }
     return false;
   }
 
-  private addAreaPolygonVertex(point: CellPoint): void {
-    const last = this.areaPolygonDraft[this.areaPolygonDraft.length - 1];
-    if (last !== undefined && last.x === point.x && last.y === point.y) {
+  private addGraphicPolygonVertex(point: CellPoint): void {
+    // Il limite dello schema vale solo per il poligono grafico, non per le aree.
+    if (this.graphicPolygonDraft.length >= GRAPHIC_POLYGON_MAX_VERTICES) {
       return;
     }
-    this.areaPolygonDraft.push(point);
-    this.renderOverlay();
+    if (appendDraftVertex(this.graphicPolygonDraft, point)) {
+      this.renderOverlay();
+    }
+  }
+
+  private finishGraphicPolygon(): void {
+    const points = this.graphicPolygonDraft;
+    this.graphicPolygonDraft = [];
+    if (isCompleteDraft(points)) {
+      this.graphicPolygonDrawn.emit({ points: copyPoints(points) });
+    }
+    this.renderAll();
+  }
+
+  /** Interrompe ogni bozza attiva: aree e poligoni grafici condividono Esc. */
+  private cancelDrafts(): void {
+    this.areaRectStart = null;
+    this.areaRectCurrent = null;
+    this.areaPolygonDraft = [];
+    this.graphicPolygonDraft = [];
+    this.renderAll();
+  }
+
+  private addAreaPolygonVertex(point: CellPoint): void {
+    if (appendDraftVertex(this.areaPolygonDraft, point)) {
+      this.renderOverlay();
+    }
   }
 
   private finishAreaPolygon(): void {
     const points = this.areaPolygonDraft;
     this.areaPolygonDraft = [];
-    if (points.length >= 3 && Math.abs(signedPolygonArea(points)) > AREA_EPSILON) {
-      this.areaDrawn.emit({ shape: 'polygon', points });
+    if (isCompleteDraft(points)) {
+      this.areaDrawn.emit({ shape: 'polygon', points: copyPoints(points) });
     }
     this.renderAll();
   }
@@ -742,13 +823,6 @@ export class MapEditorCanvasComponent implements OnDestroy {
         this.areaDrawn.emit({ shape: 'rect', points: [a, b] });
       }
     }
-    this.renderAll();
-  }
-
-  private cancelAreaDraft(): void {
-    this.areaRectStart = null;
-    this.areaRectCurrent = null;
-    this.areaPolygonDraft = [];
     this.renderAll();
   }
 
@@ -870,33 +944,21 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (flags !== undefined && (!flags.visible || flags.locked)) {
       return null;
     }
+    const grid = this.grid();
     const ordered = sortedGraphics(this.graphics().map((entry) => entry.item)).reverse();
     for (const item of ordered) {
       const entry = this.graphics().find((candidate) => candidate.item.id === item.id);
-      if (entry === undefined || entry.image === null) {
+      if (entry === undefined) {
         continue;
       }
-      if (this.graphicContains(entry, world)) {
+      const natural = entry.image === null
+        ? null
+        : { width: entry.image.width, height: entry.image.height };
+      if (graphicContains(item, natural, world, grid)) {
         return item;
       }
     }
     return null;
-  }
-
-  /** Hit-test nel sistema locale della grafica: rotazione e scala invertite. */
-  private graphicContains(entry: EditorGraphic, world: { x: number; y: number }): boolean {
-    const image = entry.image;
-    if (image === null) {
-      return false;
-    }
-    const radians = (-entry.item.rotation * Math.PI) / 180;
-    const dx = world.x - entry.item.x;
-    const dy = world.y - entry.item.y;
-    const localX = dx * Math.cos(radians) - dy * Math.sin(radians);
-    const localY = dx * Math.sin(radians) + dy * Math.cos(radians);
-    const scale = Math.abs(entry.item.scale);
-    return Math.abs(localX) <= (image.width * scale) / 2
-      && Math.abs(localY) <= (image.height * scale) / 2;
   }
 
   private scheduleRender(): void {
@@ -921,6 +983,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       || this.freehand !== null
       || this.areaRectStart !== null
       || this.areaPolygonDraft.length > 0
+      || this.graphicPolygonDraft.length > 0
     ) {
       this.renderOverlay();
     }
@@ -952,6 +1015,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.areaRectStart = null;
       this.areaRectCurrent = null;
       this.areaPolygonDraft = [];
+      this.graphicPolygonDraft = [];
       this.freehand = null;
       this.erasing = false;
       this.erased.clear();
@@ -1118,10 +1182,12 @@ export class MapEditorCanvasComponent implements OnDestroy {
     drawGraphicsLayer({
       layer,
       graphics: this.graphics(),
+      grid: this.grid(),
       interactive,
       loadImage: (url, onLoad) => this.imageLoader.get(url, onLoad),
       onImageLoaded: () => this.renderGraphics(),
       onDragEnd: (id, x, y) => this.graphicMoved.emit({ id, x, y }),
+      onPolygonDragEnd: (id, dx, dy) => this.graphicTranslated.emit({ id, dx, dy }),
     });
   }
 
@@ -1466,6 +1532,48 @@ export class MapEditorCanvasComponent implements OnDestroy {
     }
   }
 
+  /** Bozza del poligono grafico: linea aperta e vertici agganciati al reticolo. */
+  private renderGraphicPolygonDraft(
+    layer: Konva.Layer,
+    colors: ReturnType<MapEditorCanvasComponent['colors']>,
+  ): void {
+    const draft = this.graphicPolygonDraft;
+    if (draft.length === 0) {
+      return;
+    }
+    const grid = this.grid();
+    const scale = Math.max(this.stage?.scaleX() ?? 1, 0.05);
+    const points = draft.flatMap((point) => {
+      const pixel = latticePointPx(grid, point);
+      return [pixel.x, pixel.y];
+    });
+    if (draft.length > 1) {
+      layer.add(new Konva.Line({
+        points,
+        stroke: colors.select,
+        strokeWidth: 2,
+        strokeScaleEnabled: false,
+        dash: [10, 6],
+        lineJoin: 'round',
+        listening: false,
+      }));
+    }
+    for (const point of draft) {
+      const pixel = latticePointPx(grid, point);
+      layer.add(new Konva.Circle({
+        x: pixel.x,
+        y: pixel.y,
+        radius: 4 / scale,
+        fill: colors.select,
+        stroke: colors.stroke,
+        strokeWidth: 1,
+        strokeScaleEnabled: false,
+        perfectDrawEnabled: false,
+        listening: false,
+      }));
+    }
+  }
+
   private renderOverlay(): void {
     const layer = this.overlayLayer;
     if (layer === null) {
@@ -1514,6 +1622,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       }));
     }
     this.renderAreaDraft(layer, colors);
+    this.renderGraphicPolygonDraft(layer, colors);
     if (
       this.wallStart !== null
       && this.wallCurrent !== null

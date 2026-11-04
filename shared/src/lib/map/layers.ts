@@ -4,9 +4,13 @@ import type {
   ConstraintsLayer,
   ElementsLayer,
   GraphicsLayer,
+  ImageGraphic,
   MapConstraint,
   MapElement,
+  MapGraphic,
   MapLayers,
+  PolygonGraphic,
+  TextGraphic,
 } from '../../schemas/map-layers.js';
 import type { MapSpawn, PlayerStart } from '../../schemas/map-spawn.js';
 import type { Light, WallSegment } from '../../schemas/scene.js';
@@ -30,6 +34,18 @@ export const constraintsLayer = (doc: MapLayersOwner): ConstraintsLayer => doc.l
 export const elementsLayer = (doc: MapLayersOwner): ElementsLayer => doc.layers[3];
 
 const isWall = (constraint: MapConstraint): constraint is WallSegment => 'kind' in constraint;
+
+/** Grafica immagine: unica variante con asset e trasformazione. */
+export const isImageGraphic = (item: MapGraphic): item is ImageGraphic =>
+  item.kind === 'image';
+
+/** Grafica poligonale con vertici in coordinate di reticolo (celle). */
+export const isPolygonGraphic = (item: MapGraphic): item is PolygonGraphic =>
+  item.kind === 'polygon';
+
+/** Grafica di testo con font, dimensione e colore. */
+export const isTextGraphic = (item: MapGraphic): item is TextGraphic =>
+  item.kind === 'text';
 
 /** Muri del layer `constraints`, esclusi filtri e aree bloccate. */
 export const wallsOf = (doc: MapLayersOwner): WallSegment[] =>

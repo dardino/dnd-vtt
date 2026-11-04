@@ -2743,7 +2743,7 @@ Legenda: ✅ criteri di accettazione.
 
 ### Fase 10 — Editor mappe e visione a celle (core completato)
 - libreria mappe + editor `/maps/:mapId`: sfondo, griglia, muri/porte/finestre/muri bassi, luci, spawn, partenze PG, vista iniziale
-- documento mappe v2 a layer (background/graphics/constraints/elements) con migrazione automatica dei documenti v1, thumbnail 640 e composito 4096 WebP generati al salvataggio, scena costruita dal composito con il loot copiato
+- documento mappe v2 a layer (background/graphics/constraints/elements) con grafiche immagine/poligono/testo (poligoni in celle allineati alla griglia, testi con font, dimensione e colore) e migrazione automatica dei documenti v1, thumbnail 640 e composito 4096 WebP generati al salvataggio, scena costruita dal composito con il loot copiato
 - console: “Crea scena” con dialog di scelta e “Prepara scena” per assegnare i PG; niente più upload dal menu Scene
 - visione a celle con luce ambientale, torce/lanterne, scurovisione, blindsight/truesight, LOS e porta chiusa/aperta
 - filtro token server-side e `vision`/`doors` nel payload del display; overlay porte

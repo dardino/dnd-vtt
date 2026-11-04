@@ -3,12 +3,20 @@ import {
   constraintsLayer,
   elementsLayer,
   graphicsLayer,
+  isImageGraphic,
+  isPolygonGraphic,
+  isTextGraphic,
   type MapDocument,
   type MapElement,
   type MapGraphic,
 } from '@dnd-vtt/shared';
 import { blockedAreaPoints, blockedAreaRect } from './map-constraints-renderer';
-import { graphicNodeGeometry, sortedGraphics } from './map-graphics-renderer';
+import {
+  graphicNodeGeometry,
+  graphicPolygonPoints,
+  sortedGraphics,
+} from './map-graphics-renderer';
+import { textFontStack } from './map-text-fonts';
 
 /** Immagine già decodificata, con dimensioni naturali, pronta per il canvas 2D. */
 export interface MapRenderImage {
@@ -79,6 +87,17 @@ export interface MapPolygonCommand {
   fill: string;
   stroke: string;
   strokeWidth: number;
+  opacity: number;
+}
+
+export interface MapTextCommand {
+  kind: 'text';
+  text: string;
+  font: string;
+  x: number;
+  y: number;
+  color: string;
+  opacity: number;
 }
 
 export interface MapLineCommand {
@@ -102,6 +121,7 @@ export type MapDrawCommand = MapBackgroundCommand
   | MapImageCommand
   | MapRectCommand
   | MapPolygonCommand
+  | MapTextCommand
   | MapLineCommand
   | MapMarkerCommand;
 
@@ -190,6 +210,9 @@ const backgroundCommands = (
   return commands;
 };
 
+const POLYGON_STROKE = 'rgba(15, 28, 46, 0.55)';
+const POLYGON_STROKE_WIDTH = 2;
+
 const graphicCommands = (
   doc: MapDocument,
   assets: MapRenderAssets,
@@ -203,6 +226,9 @@ const graphicCommands = (
   // restano coerenti anche se la lista arriva da un caricamento parziale.
   const images = new Map<string, MapRenderImage | null>();
   for (const entry of assets.graphics) {
+    if (!isImageGraphic(entry.item)) {
+      continue;
+    }
     const assetId = entry.item.assetId;
     if (!images.has(assetId)) {
       images.set(assetId, entry.image);
@@ -210,15 +236,40 @@ const graphicCommands = (
   }
   const commands: MapDrawCommand[] = [];
   for (const item of sortedGraphics(layer.items)) {
-    const image = images.get(item.assetId);
-    if (image === undefined || image === null) {
+    if (isImageGraphic(item)) {
+      const image = images.get(item.assetId);
+      if (image === undefined || image === null) {
+        continue;
+      }
+      const geometry = graphicNodeGeometry(item, { width: image.width, height: image.height });
+      commands.push(imageCommand(item.id, {
+        ...geometry,
+        opacity: geometry.opacity * layer.opacity,
+      }));
       continue;
     }
-    const geometry = graphicNodeGeometry(item, { width: image.width, height: image.height });
-    commands.push(imageCommand(item.id, {
-      ...geometry,
-      opacity: geometry.opacity * layer.opacity,
-    }));
+    if (isPolygonGraphic(item)) {
+      commands.push({
+        kind: 'polygon',
+        points: graphicPolygonPoints(item, doc.grid),
+        fill: item.fill,
+        stroke: POLYGON_STROKE,
+        strokeWidth: POLYGON_STROKE_WIDTH,
+        opacity: item.opacity * layer.opacity,
+      });
+      continue;
+    }
+    if (isTextGraphic(item)) {
+      commands.push({
+        kind: 'text',
+        text: item.text,
+        font: `${item.fontSize}px ${textFontStack(item.fontFamily)}`,
+        x: item.x,
+        y: item.y,
+        color: item.color,
+        opacity: item.opacity * layer.opacity,
+      });
+    }
   }
   return commands;
 };
@@ -261,6 +312,7 @@ const constraintCommands = (doc: MapDocument): MapDrawCommand[] => {
       fill: BLOCKED_AREA_FILL,
       stroke: BLOCKED_AREA_STROKE,
       strokeWidth: 2,
+      opacity: 1,
     });
   }
   return commands;

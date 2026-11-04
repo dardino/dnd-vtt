@@ -1,18 +1,41 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import type { MapGraphic } from '@dnd-vtt/shared';
+import { ChangeDetectionStrategy, Component, computed, input, output } from '@angular/core';
+import {
+  isImageGraphic,
+  isPolygonGraphic,
+  isTextGraphic,
+  type ImageGraphic,
+  type MapGraphic,
+  type PolygonGraphic,
+  type TextGraphic,
+} from '@dnd-vtt/shared';
 import type { GraphicZDirection } from './map-command';
+import { validateGraphicField } from './map-graphic-fields';
+import { TEXT_FONT_FAMILIES, TEXT_FONT_LABELS } from './map-text-fonts';
 
-/** Campi numerici modificabili della grafica. */
-export type GraphicField = 'x' | 'y' | 'scale' | 'rotation' | 'opacity';
+/** Campi modificabili dalla grafica, per variante. */
+export type GraphicField
+  = | 'x'
+    | 'y'
+    | 'scale'
+    | 'rotation'
+    | 'opacity'
+    | 'fill'
+    | 'text'
+    | 'fontFamily'
+    | 'fontSize'
+    | 'color';
 
 export interface GraphicFieldChange {
   readonly field: GraphicField;
-  readonly value: number;
+  readonly value: number | string;
 }
 
+const STRING_FIELDS: readonly GraphicField[] = ['fill', 'color', 'text', 'fontFamily'];
+
 /**
- * Inspector presentazionale della grafica selezionata: mostra i campi numerici
- * e risale alla pagina con output tipizzati, senza mutare il documento.
+ * Inspector presentazionale della grafica selezionata: mostra solo i campi
+ * pertinenti alla variante (immagine, poligono o testo) e risale alla pagina
+ * con output tipizzati, senza mutare il documento.
  */
 @Component({
   selector: 'app-map-graphic-inspector',
@@ -28,14 +51,41 @@ export class MapGraphicInspectorComponent {
   public readonly zChanged = output<GraphicZDirection>();
   public readonly removed = output<void>();
 
-  /** Emette solo valori finiti e dentro i limiti del campo. */
+  public readonly fonts = TEXT_FONT_FAMILIES;
+  public readonly fontLabels = TEXT_FONT_LABELS;
+
+  public readonly image = computed<ImageGraphic | null>(() => {
+    const graphic = this.graphic();
+    return isImageGraphic(graphic) ? graphic : null;
+  });
+
+  public readonly polygon = computed<PolygonGraphic | null>(() => {
+    const graphic = this.graphic();
+    return isPolygonGraphic(graphic) ? graphic : null;
+  });
+
+  public readonly text = computed<TextGraphic | null>(() => {
+    const graphic = this.graphic();
+    return isTextGraphic(graphic) ? graphic : null;
+  });
+
+  /** Commit del campo: i valori invalidi non escono e il DOM torna al modello. */
   public commit(field: GraphicField, event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const raw = input.value;
+    const control = event.target as HTMLInputElement | HTMLSelectElement;
+    const raw = control.value;
     // Il binding `[value]` non reagisce a un rifiuto: il modello non cambia.
     const restore = (): void => {
-      input.value = String(this.graphic()[field]);
+      control.value = String(this.currentValue(field));
     };
+    if (STRING_FIELDS.includes(field)) {
+      const validated = validateGraphicField(this.graphic(), field, raw);
+      if (validated === null) {
+        restore();
+        return;
+      }
+      this.fieldChanged.emit({ field, value: validated });
+      return;
+    }
     // Un input `number` invalido espone stringa vuota: non è un valore da committare.
     if (raw.trim() === '') {
       restore();
@@ -46,14 +96,38 @@ export class MapGraphicInspectorComponent {
       restore();
       return;
     }
-    if (field === 'scale' && value <= 0) {
+    const validated = validateGraphicField(this.graphic(), field, value);
+    if (validated === null) {
       restore();
       return;
     }
-    if (field === 'opacity' && (value < 0 || value > 1)) {
-      restore();
-      return;
+    this.fieldChanged.emit({ field, value: validated });
+  }
+
+  /** Valore corrente del campo nella variante selezionata. */
+  private currentValue(field: GraphicField): string | number {
+    const graphic = this.graphic();
+    if (field === 'fill') {
+      return isPolygonGraphic(graphic) ? graphic.fill : '';
     }
-    this.fieldChanged.emit({ field, value });
+    if (field === 'text') {
+      return isTextGraphic(graphic) ? graphic.text : '';
+    }
+    if (field === 'fontFamily') {
+      return isTextGraphic(graphic) ? graphic.fontFamily : '';
+    }
+    if (field === 'fontSize') {
+      return isTextGraphic(graphic) ? graphic.fontSize : 0;
+    }
+    if (field === 'color') {
+      return isTextGraphic(graphic) ? graphic.color : '';
+    }
+    if (field === 'scale' || field === 'rotation') {
+      return isImageGraphic(graphic) ? graphic[field] : 0;
+    }
+    if (field === 'x' || field === 'y') {
+      return isImageGraphic(graphic) || isTextGraphic(graphic) ? graphic[field] : 0;
+    }
+    return graphic.opacity;
   }
 }

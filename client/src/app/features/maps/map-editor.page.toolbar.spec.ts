@@ -37,7 +37,7 @@ const flush = async (fixture: ComponentFixture<MapEditorPage>): Promise<void> =>
 /** Strumenti visibili per layer, nell'ordine della toolbar; la griglia è sempre in coda. */
 const LAYER_TOOLS: Record<MapLayerKind, readonly (string | RegExp)[]> = {
   background: ['Seleziona'],
-  graphics: ['Seleziona'],
+  graphics: ['Seleziona', 'Poligono', 'Testo'],
   constraints: [
     'Seleziona',
     'Muro',
@@ -149,9 +149,11 @@ describe('MapEditorPage toolbar', () => {
   it('mostra gli strumenti del layer attivo e la griglia in coda', async () => {
     for (const kind of LAYER_KINDS) {
       const fixture = await render(kind);
-      const expected = [...LAYER_TOOLS[kind], 'Griglia'];
+      const page = fixture.componentInstance;
       const texts = toolButtons(fixture).map((button) => button.textContent ?? '');
 
+      expect(toolNames(page)).toHaveLength(LAYER_TOOLS[kind].length);
+      const expected = [...LAYER_TOOLS[kind], 'Griglia'];
       expect(texts).toHaveLength(expected.length);
       expected.forEach((label, index) => {
         if (label instanceof RegExp) {
@@ -160,6 +162,38 @@ describe('MapEditorPage toolbar', () => {
           expect(texts[index] ?? '').toContain(label);
         }
       });
+
+      fixture.destroy();
+    }
+  });
+
+  it('espone l’immagine solo dal bottone dedicato, con un solo input file', async () => {
+    for (const kind of LAYER_KINDS) {
+      const fixture = await render(kind);
+      const root = rootOf(fixture);
+      const inputs = root.querySelectorAll('input[type="file"][data-role="graphic"]');
+      const toolbarInputs = root.querySelectorAll('.editor__tools input[type="file"]');
+      const button = root.querySelector<HTMLButtonElement>('.editor__add-graphic');
+
+      expect(toolNames(fixture.componentInstance), kind).not.toContain('graphicImage');
+
+      if (kind === 'graphics') {
+        expect(toolNames(fixture.componentInstance)).toEqual([
+          'select',
+          'graphicPolygon',
+          'graphicText',
+        ]);
+        expect(toolButtons(fixture)).toHaveLength(4);
+        expect(button).not.toBeNull();
+        expect(inputs).toHaveLength(1);
+        expect(toolbarInputs).toHaveLength(1);
+        expect(button?.getAttribute('aria-label') ?? button?.textContent ?? '')
+          .toContain('Aggiungi immagine');
+      } else {
+        expect(button, kind).toBeNull();
+        expect(inputs).toHaveLength(0);
+        expect(toolbarInputs).toHaveLength(0);
+      }
 
       fixture.destroy();
     }
@@ -278,20 +312,26 @@ describe('MapEditorPage toolbar', () => {
     const fixture = await render();
     const page = fixture.componentInstance;
     expect(rootOf(fixture).querySelector('.editor__add-graphic')).toBeNull();
+    expect(rootOf(fixture).querySelectorAll('.editor__tools input[type="file"]')).toHaveLength(0);
 
     page.setActiveLayer('graphics');
     fixture.detectChanges();
     const root = rootOf(fixture);
     const button = root.querySelector<HTMLButtonElement>('.editor__add-graphic');
-    const input = root.querySelector<HTMLInputElement>('input[type="file"][data-role="graphic"]');
+    const inputs = root.querySelectorAll<HTMLInputElement>(
+      'input[type="file"][data-role="graphic"]',
+    );
 
     expect(button).not.toBeNull();
     const name = button?.getAttribute('aria-label') ?? button?.textContent?.trim() ?? '';
     expect(name).toContain('Aggiungi immagine');
-    expect(input).not.toBeNull();
+    expect(inputs).toHaveLength(1);
+    const input = inputs[0];
     expect(input?.accept).toContain('image');
-    // Il bottone non altera il conteggio degli strumenti della toolbar.
-    expect(root.querySelectorAll('.editor__tool')).toHaveLength(page.tools().length + 1);
+    // L'immagine non è uno strumento del canvas: la toolbar resta a tre tool + griglia.
+    expect(toolNames(page)).toEqual(['select', 'graphicPolygon', 'graphicText']);
+    expect(root.querySelectorAll('.editor__tool')).toHaveLength(LAYER_TOOLS.graphics.length + 1);
+    expect(root.querySelectorAll('.editor__tools input[type="file"]')).toHaveLength(1);
 
     fixture.destroy();
   });

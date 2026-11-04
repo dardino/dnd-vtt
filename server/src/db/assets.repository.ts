@@ -84,7 +84,8 @@ const documentReferencesAsset = (raw: string, id: string): boolean => {
     return false;
   }
   const [background, graphics] = document.layers;
-  return background.imageAssetId === id || graphics.items.some((item) => item.assetId === id);
+  return background.imageAssetId === id
+    || graphics.items.some((item) => item.kind === 'image' && item.assetId === id);
 };
 
 /**

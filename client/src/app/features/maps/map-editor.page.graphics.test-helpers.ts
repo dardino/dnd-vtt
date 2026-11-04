@@ -3,6 +3,7 @@ import { By } from '@angular/platform-browser';
 import {
   emptyMapDocument,
   type Asset,
+  type ImageGraphic,
   type MapDocument,
   type MapGraphic,
   type MapLayerKind,
@@ -31,9 +32,10 @@ export const baseDocument = (): MapDocument => emptyMapDocument('Grafica', null,
 
 export const graphicItem = (
   id: string,
-  overrides: Partial<Omit<MapGraphic, 'id'>> = {},
+  overrides: Partial<Omit<ImageGraphic, 'id'>> = {},
 ): MapGraphic => ({
   id,
+  kind: 'image',
   assetId: GRAPHIC_ASSET_ID,
   x: 10,
   y: 20,

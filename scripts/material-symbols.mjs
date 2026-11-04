@@ -64,6 +64,7 @@ const ICONS = [
   'straighten',
   'swap_horiz',
   'swap_vert',
+  'title',
   'undo',
   'vertical_align_bottom',
   'vertical_align_top',

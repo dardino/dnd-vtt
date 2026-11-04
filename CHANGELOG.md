@@ -5,6 +5,14 @@ alto. Ogni voce riassume uno o più commit; la cronologia completa resta in git.
 
 ## 2026-11-04
 
+- **Mappe, grafiche:** il layer `graphics` accetta anche poligoni chiusi
+  allineati alla griglia (3–200 vertici in celle, riempimento esadecimale e
+  opacità) e testi (quattro famiglie locali, 8–200 px, colore) oltre alle
+  immagini; inserimento, spostamento, hit-test, z-order e undo/redo sono
+  condivisi, e poligoni e testi compaiono in editor, thumbnail e composito. Il
+  documento resta v2 e le grafiche storiche senza `kind` sono lette come
+  `image`. Vedi [`docs/map-layers.md`](./docs/map-layers.md) e
+  [#18](https://github.com/dardino/dnd-vtt/issues/18).
 - **Mappe a layer:** documento v2 con la tupla fissa background/graphics/
   constraints/elements, migrazione automatica dei documenti v1 in lettura e
   scrittura sempre v2. L'editor espone il pannello layer (visibilità, blocco,

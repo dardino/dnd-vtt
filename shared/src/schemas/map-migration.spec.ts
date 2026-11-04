@@ -295,9 +295,9 @@ describe('layer, aree bloccate ed elementi', () => {
     ]).success).toBe(false);
   });
 
-  it('applica i default di una grafica e valida asset, scala e z-order', () => {
+  it('applica i default di una grafica storica e valida asset, scala e z-order', () => {
     expect(mapGraphicSchema.parse({ id: 'g-1', assetId: ASSET_ID, x: 10, y: 20 })).toEqual({
-      id: 'g-1', assetId: ASSET_ID, x: 10, y: 20,
+      id: 'g-1', kind: 'image', assetId: ASSET_ID, x: 10, y: 20,
       scale: 1, rotation: 0, flipH: false, flipV: false, opacity: 1, z: 0,
     });
     expect(mapGraphicSchema.safeParse({

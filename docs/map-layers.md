@@ -15,7 +15,7 @@ elements: ordine, unicità e presenza sono garantiti dallo schema.
 | Layer | Contenuto | Dettagli |
 |---|---|---|
 | `background` | un solo raster | `imageAssetId` e `imageTransform` (`x`, `y`, `scale`, `rotation`, `flipH`, `flipV`) |
-| `graphics` | immagini decorative | `MapGraphic`: `assetId`, `x`, `y`, `scale`, `rotation`, `flipH`, `flipV`, `opacity`, `z`; massimo 500 |
+| `graphics` | immagini, poligoni e testi decorativi | unione discriminata `MapGraphic` su `kind`: `image`, `polygon`, `text`; massimo 500 |
 | `constraints` | muri e aree bloccate | `WallSegment` oppure `BlockedArea` (`rect` con due angoli, `polygon` con almeno tre vertici); massimo 4000 |
 | `elements` | luci, spawn, partenze, loot | unione discriminata su `type`; massimo 2000 |
 
@@ -28,6 +28,32 @@ Restano a livello documento `name`, `backgroundColor`, `widthPx`, `heightPx`,
 `fogBase`, `showDoorIcons`, `notes`. Nel DTO `Map` il campo denormalizzato
 `imageAssetId` coincide sempre con `backgroundLayer.imageAssetId` ed è usato da
 liste e conteggio riferimenti; non fa parte del documento.
+
+## Grafiche del layer `graphics`
+
+Ogni voce del layer è un `MapGraphic`, unione discriminata su `kind`. Tutte
+condividono `id`, `opacity` (0..1) e `z` (intero ≥ 0); l'ordine di disegno è
+`z` crescente e, a parità di quota, `id` crescente.
+
+| `kind` | Campi specifici | Coordinate |
+|---|---|---|
+| `image` | `assetId` (uuid), `x`, `y`, `scale`, `rotation`, `flipH`, `flipV` | pixel mappa |
+| `polygon` | `points` (3..200 vertici interi), `fill` (hex) | **celle** della griglia |
+| `text` | `text` (1..120 caratteri, niente newline/controlli), `fontFamily`, `fontSize` (8..200), `color` (hex), `x`, `y` | pixel mappa, angolo in alto a sinistra |
+
+I poligoni sono memorizzati in coordinate di reticolo: il renderer applica
+`offsetX`/`offsetY` e `cellSizePx` della griglia del documento, così restano
+allineati se la griglia cambia. Il testo non è ancorato alla griglia: `x`/`y`
+sono l'angolo in alto a sinistra in pixel e il rendering usa il baseline `top`.
+
+`fontFamily` è una chiave stabile e limitata a `sans`, `serif`, `mono`,
+`display`; viene risolta in stack CSS di soli font locali (nessun CDN o
+`@import`). Il font CSS effettivo è `${fontSize}px ${stack}`.
+
+Le grafiche storiche senza `kind` vengono lette come `image` tramite
+preprocess dello schema, così i documenti precedenti restano validi.
+L'opacità effettiva di ogni grafica è `graphic.opacity × layer.opacity`,
+applicata una sola volta.
 
 ## Migrazione v1 → v2
 
@@ -87,6 +113,11 @@ Al salvataggio il client genera i derivati con un canvas 2D fuori schermo
   griglia, handle, etichette o selezione;
 - **composito**: lato lungo massimo **4096 px**, solo background + graphics
   visibili, con `backgroundColor` come base; è ciò che la scena usa in gioco.
+
+Nel layer `graphics` i derivati disegnano immagini, poligoni e testi nello
+stesso ordine `z` dell'editor. Un asset immagine mancante salta solo quella
+grafica: poligoni e testi non dipendono da asset e restano visibili. Se il
+layer è invisibile, l'intero layer è escluso dai derivati.
 
 La scala è uniforme e non c'è upscale oltre le dimensioni native. I due render
 e i due upload sono indipendenti: un errore produce un warning non bloccante e

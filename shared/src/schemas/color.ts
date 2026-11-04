@@ -14,3 +14,7 @@ export const mapBackgroundColorSchema = z
     ),
     { message: 'Il colore deve essere nel formato rgba(r, g, b, a)' },
   );
+
+/** Colore esadecimale a sei cifre usato dalle grafiche vettoriali e di testo. */
+export const mapHexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+export type MapHexColor = z.infer<typeof mapHexColorSchema>;

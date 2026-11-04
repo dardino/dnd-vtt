@@ -1,12 +1,13 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
-import type { MapGraphic } from '@dnd-vtt/shared';
+import type { ImageGraphic } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MapGraphicInspectorComponent } from './map-graphic-inspector.component';
 
 const GRAPHIC_ASSET_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
-const graphic = (overrides: Partial<MapGraphic> = {}): MapGraphic => ({
+const graphic = (overrides: Partial<ImageGraphic> = {}): ImageGraphic => ({
   id: 'graphic-1',
+  kind: 'image',
   assetId: GRAPHIC_ASSET_ID,
   x: 120,
   y: 80,
@@ -21,7 +22,7 @@ const graphic = (overrides: Partial<MapGraphic> = {}): MapGraphic => ({
 
 type InspectorFixture = ComponentFixture<MapGraphicInspectorComponent>;
 
-const render = (value: MapGraphic = graphic()): InspectorFixture => {
+const render = (value: ImageGraphic = graphic()): InspectorFixture => {
   const fixture = TestBed.createComponent(MapGraphicInspectorComponent);
   fixture.componentRef.setInput('graphic', value);
   fixture.detectChanges();

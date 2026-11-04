@@ -1,6 +1,7 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import {
   defaultGridConfig,
+  type ImageGraphic,
   type MapGraphic,
   type MapLayerKind,
   type Terrain,
@@ -102,8 +103,9 @@ vi.mock('konva', () => ({ default: konva }));
 
 const GRAPHIC_ASSET_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
-const graphic = (id: string, overrides: Partial<Omit<MapGraphic, 'id'>> = {}): MapGraphic => ({
+const graphic = (id: string, overrides: Partial<Omit<ImageGraphic, 'id'>> = {}): MapGraphic => ({
   id,
+  kind: 'image',
   assetId: GRAPHIC_ASSET_ID,
   x: 100,
   y: 100,

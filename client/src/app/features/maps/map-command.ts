@@ -72,6 +72,9 @@ const isCollectionKind = (target: string): target is MapCollectionTarget =>
   || target === 'area'
   || target === 'loot';
 
+/** Discriminante delle grafiche: immagini, poligoni e testi condividono il layer. */
+const GRAPHIC_KINDS: ReadonlySet<string> = new Set(['image', 'polygon', 'text']);
+
 const matchesKind = (kind: MapCollectionTarget, item: LayerItem): boolean => {
   if (kind === 'wall') {
     return 'a' in item && 'b' in item && 'kind' in item;
@@ -80,7 +83,8 @@ const matchesKind = (kind: MapCollectionTarget, item: LayerItem): boolean => {
     return 'shape' in item;
   }
   if (kind === 'graphic') {
-    return 'assetId' in item && 'z' in item;
+    // Non basta `assetId`: poligoni e testi non hanno asset ma sono grafiche.
+    return 'kind' in item && GRAPHIC_KINDS.has(item.kind);
   }
   return 'type' in item && item.type === kind;
 };

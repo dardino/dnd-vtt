@@ -5,6 +5,7 @@ import {
   type ConstraintsLayer,
   type ElementsLayer,
   type GraphicsLayer,
+  type ImageGraphic,
   type MapDocument,
   type MapElement,
   type MapGraphic,
@@ -31,9 +32,10 @@ const image = (width = 100, height = 50): MapRenderImage => ({
 const graphic = (
   id: string,
   z: number,
-  overrides: Partial<Omit<MapGraphic, 'id' | 'z'>> = {},
+  overrides: Partial<Omit<ImageGraphic, 'id' | 'z'>> = {},
 ): MapGraphic => ({
   id,
+  kind: 'image',
   assetId: GRAPHIC_ASSET_ID,
   x: 0,
   y: 0,

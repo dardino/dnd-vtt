@@ -1,4 +1,10 @@
-import type { MapGraphic } from '@dnd-vtt/shared';
+import type {
+  GridConfig,
+  ImageGraphic,
+  MapGraphic,
+  PolygonGraphic,
+  TextGraphic,
+} from '@dnd-vtt/shared';
 
 /** Geometria Konva di una grafica decorativa, in pixel mappa. */
 export interface GraphicNodeGeometry {
@@ -37,7 +43,7 @@ export const sortedGraphics = (items: readonly MapGraphic[]): MapGraphic[] =>
  * dimensioni naturali, offset a metà, flip applicato alla scala e zIndex.
  */
 export const graphicNodeGeometry = (
-  item: MapGraphic,
+  item: ImageGraphic,
   natural: { width: number; height: number },
 ): GraphicNodeGeometry => ({
   x: item.x,
@@ -51,4 +57,41 @@ export const graphicNodeGeometry = (
   rotation: item.rotation,
   opacity: item.opacity,
   zIndex: item.z,
+});
+
+/**
+ * Vertici del poligono convertiti da coordinate di reticolo (celle) a pixel
+ * mappa, nell'ordine piatto richiesto da `Konva.Line`. Non muta l'input.
+ */
+export const graphicPolygonPoints = (
+  item: PolygonGraphic,
+  grid: GridConfig,
+): number[] =>
+  item.points.flatMap((point) => [
+    grid.offsetX + point.x * grid.cellSizePx,
+    grid.offsetY + point.y * grid.cellSizePx,
+  ]);
+
+/** Bounding box stimata del testo, ancorata all'angolo in alto a sinistra. */
+export interface GraphicTextMetrics {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** Larghezza media di un carattere rispetto al font size. */
+const TEXT_CHARACTER_RATIO = 0.62;
+/** Interlinea di una singola riga: il testo non ammette newline. */
+const TEXT_LINE_HEIGHT_RATIO = 1.25;
+
+/**
+ * Stima deterministica del bounding box: dipende solo dal contenuto e dal
+ * font size, così hit-test e selezione non richiedono una misura reale.
+ */
+export const graphicTextMetrics = (item: TextGraphic): GraphicTextMetrics => ({
+  x: item.x,
+  y: item.y,
+  width: Math.max(item.fontSize, item.text.length * item.fontSize * TEXT_CHARACTER_RATIO),
+  height: item.fontSize * TEXT_LINE_HEIGHT_RATIO,
 });

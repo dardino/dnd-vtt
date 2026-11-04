@@ -23,7 +23,12 @@
   color: var(--color-text-muted);
   font-size: var(--text-xs);
 
-  input {
+  &--wide {
+    grid-column: 1 / -1;
+  }
+
+  input,
+  select {
     width: 100%;
     padding: var(--space-1) var(--space-2);
     border: var(--border-width) solid var(--color-border);

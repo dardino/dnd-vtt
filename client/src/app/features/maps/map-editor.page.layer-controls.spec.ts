@@ -65,6 +65,7 @@ const GRAPHIC_ASSET_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
 const graphic: MapGraphic = {
   id: 'graphic-1',
+  kind: 'image',
   assetId: GRAPHIC_ASSET_ID,
   x: 10,
   y: 20,

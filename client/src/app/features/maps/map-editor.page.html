@@ -58,8 +58,8 @@
             [title]="entry.hint"
             (click)="setTool(entry.tool)"
           >
-            <span class="editor__tool-icon material-symbols-outlined" aria-hidden="true">{{ entry.icon }}</span>
             <span>{{ entry.label }}</span>
+            <span class="editor__tool-icon material-symbols-outlined" aria-hidden="true">{{ entry.icon }}</span>
           </button>
         }
         <span class="editor__tool-divider"></span>
@@ -69,8 +69,8 @@
           [class.is-active]="showGrid()"
           (click)="showGrid.set(!showGrid())"
         >
-          <span class="editor__tool-icon material-symbols-outlined" aria-hidden="true">grid_on</span>
           <span>Griglia</span>
+          <span class="editor__tool-icon material-symbols-outlined" aria-hidden="true">grid_on</span>
         </button>
         @if (activeLayer() === 'graphics') {
           <span class="editor__tool-divider"></span>
@@ -122,6 +122,9 @@
           (elementMoved)="moveElement($event)"
           (wallMoved)="moveWall($event)"
           (graphicMoved)="moveGraphic($event)"
+          (graphicTranslated)="translateGraphic($event)"
+          (graphicPolygonDrawn)="addGraphicPolygon($event.points)"
+          (graphicTextRequested)="addGraphicText($event)"
           (elementSelected)="select($event)"
         />
       </div>

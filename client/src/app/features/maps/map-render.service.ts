@@ -67,6 +67,8 @@ const drawCommand = (
       if (firstX === undefined || firstY === undefined) {
         return;
       }
+      ctx.save();
+      ctx.globalAlpha = command.opacity;
       ctx.beginPath();
       ctx.moveTo(firstX, firstY);
       for (let index = 0; index < rest.length; index += 2) {
@@ -82,8 +84,18 @@ const drawCommand = (
       ctx.lineWidth = command.strokeWidth;
       ctx.fill();
       ctx.stroke();
+      ctx.restore();
       return;
     }
+    case 'text':
+      ctx.save();
+      ctx.globalAlpha = command.opacity;
+      ctx.font = command.font;
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = command.color;
+      ctx.fillText(command.text, command.x, command.y);
+      ctx.restore();
+      return;
     case 'line': {
       const [firstX, firstY, ...rest] = command.points;
       if (firstX === undefined || firstY === undefined) {

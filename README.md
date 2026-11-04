@@ -210,7 +210,8 @@ l'Orchestrator come agente principale e affidagli la richiesta.
   blocco e opacità, toolbar filtrata e migrazione automatica dei documenti
   storici. Sfondo singolo con colore `rgba`, picker e foglio bianco per le mappe
   senza immagine; grafica sovrapposta con upload multiplo, transform, flip e
-  z-order; muri/porte/finestre/muri bassi e aree bloccate rettangolari o
+  z-order, poligoni allineati alla griglia e testi con font, dimensione e
+  colore; muri/porte/finestre/muri bassi e aree bloccate rettangolari o
   poligonali con snap sulla griglia quadrata; luci statiche, spawn SRD/attori,
   partenze PG e loot dal catalogo SRD. L'inspector è a sezioni accordion; gli
   oggetti selezionati si spostano con le frecce o con drag & drop, con snap a

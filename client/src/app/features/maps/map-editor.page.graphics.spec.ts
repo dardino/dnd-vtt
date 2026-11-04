@@ -1,8 +1,11 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import {
+  isImageGraphic,
+  type ImageGraphic,
   type Map,
   type MapDocument,
+  type MapGraphic,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActorService } from '../../core/services/actor.service';
@@ -40,6 +43,13 @@ const toMap = (doc: MapDocument): Map => ({
   updatedAt: '2026-11-04T00:00:00.000Z',
   ...doc,
 });
+
+const asImage = (item: MapGraphic | undefined): ImageGraphic => {
+  if (item === undefined || !isImageGraphic(item)) {
+    throw new Error('Grafica immagine attesa');
+  }
+  return item;
+};
 
 describe('MapEditorPage grafiche', () => {
   const getMap = vi.fn();
@@ -89,6 +99,7 @@ describe('MapEditorPage grafiche', () => {
     expect(items).toHaveLength(2);
     const added = items.find((entry) => entry.id !== 'existing');
     expect(added).toMatchObject({
+      kind: 'image',
       assetId: asset.id,
       x: 350,
       y: 350,
@@ -317,7 +328,7 @@ describe('MapEditorPage grafiche', () => {
     page.select({ type: 'graphic', id: g1.id });
     const before = structuredClone(page.doc());
 
-    page.updateGraphicField('x', g1.x);
+    page.updateGraphicField('x', asImage(g1).x);
     expect(page.doc()).toEqual(before);
     expect(page.dirty()).toBe(false);
 
@@ -326,11 +337,11 @@ describe('MapEditorPage grafiche', () => {
     page.updateGraphicField('opacity', -1);
     page.updateGraphicField('y', Number.NaN);
 
-    const current = graphicsOf(page.doc())[0];
-    expect(current?.scale).toBeGreaterThan(0);
-    expect(current?.opacity).toBeGreaterThanOrEqual(0);
-    expect(current?.opacity).toBeLessThanOrEqual(1);
-    expect(current?.y).toBe(g1.y);
+    const current = asImage(graphicsOf(page.doc())[0]);
+    expect(current.scale).toBeGreaterThan(0);
+    expect(current.opacity).toBeGreaterThanOrEqual(0);
+    expect(current.opacity).toBeLessThanOrEqual(1);
+    expect(current.y).toBe(asImage(g1).y);
 
     fixture.destroy();
   });

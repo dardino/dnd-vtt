@@ -1,6 +1,7 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import {
   defaultGridConfig,
+  type ImageGraphic,
   type MapGraphic,
   type MapLayerKind,
   type Terrain,
@@ -201,8 +202,9 @@ interface LayerFlag {
   opacity: number;
 }
 
-const graphic = (id: string, overrides: Partial<Omit<MapGraphic, 'id'>> = {}): MapGraphic => ({
+const graphic = (id: string, overrides: Partial<Omit<ImageGraphic, 'id'>> = {}): MapGraphic => ({
   id,
+  kind: 'image',
   assetId: '0f8fad5b-d9cb-469f-a165-70867728950e',
   x: 0,
   y: 0,

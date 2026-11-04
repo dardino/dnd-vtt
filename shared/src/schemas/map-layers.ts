@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { mapHexColorSchema } from './color.js';
 import { mapSpawnSchema, playerStartSchema } from './map-spawn.js';
 import { lightSchema, wallSegmentSchema } from './scene.js';
 import {
@@ -26,7 +27,8 @@ export const mapLayerBaseSchema = z.strictObject({
 export type MapLayerBase = z.infer<typeof mapLayerBaseSchema>;
 
 /** Immagine decorativa libera, indipendente dalla griglia. */
-export const mapGraphicSchema = z.strictObject({
+export const mapGraphicImageSchema = z.strictObject({
+  kind: z.literal('image'),
   id: z.string().min(1),
   assetId: z.string().uuid(),
   x: z.number(),
@@ -38,6 +40,75 @@ export const mapGraphicSchema = z.strictObject({
   opacity: z.number().min(0).max(1).default(1),
   z: z.number().int().min(0).default(0),
 });
+export type ImageGraphic = z.infer<typeof mapGraphicImageSchema>;
+
+const graphicPointSchema = z.strictObject({
+  x: z.number().int(),
+  y: z.number().int(),
+});
+
+/**
+ * Poligono decorativo con vertici in coordinate di reticolo (celle), non in
+ * pixel: il renderer applica cella e offset della griglia.
+ */
+export const mapGraphicPolygonSchema = z.strictObject({
+  kind: z.literal('polygon'),
+  id: z.string().min(1),
+  points: z.array(graphicPointSchema).min(3).max(200),
+  fill: mapHexColorSchema.default('#4ea1ff'),
+  opacity: z.number().min(0).max(1).default(0.35),
+  z: z.number().int().min(0).default(0),
+});
+export type PolygonGraphic = z.infer<typeof mapGraphicPolygonSchema>;
+
+/** Nuove righe e caratteri di controllo non sono ammessi nel testo libero. */
+const hasControlCharacter = (value: string): boolean => {
+  for (const character of value) {
+    const code = character.codePointAt(0) ?? 0;
+    if (code <= 0x1f || code === 0x7f) {
+      return true;
+    }
+  }
+  return false;
+};
+
+/** Testo decorativo con font, dimensione e colore controllati. */
+export const mapGraphicTextSchema = z.strictObject({
+  kind: z.literal('text'),
+  id: z.string().min(1),
+  text: z.string().min(1).max(120).refine((value) => !hasControlCharacter(value), {
+    message: 'Il testo non può contenere newline o caratteri di controllo',
+  }),
+  fontFamily: z.enum(['sans', 'serif', 'mono', 'display']).default('sans'),
+  fontSize: z.number().int().min(8).max(200).default(24),
+  color: mapHexColorSchema.default('#ffffff'),
+  x: z.number().int(),
+  y: z.number().int(),
+  opacity: z.number().min(0).max(1).default(1),
+  z: z.number().int().min(0).default(0),
+});
+export type TextGraphic = z.infer<typeof mapGraphicTextSchema>;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * Retrocompatibilità: le grafiche storiche non avevano `kind` ed erano tutte
+ * immagini. Il discriminante viene aggiunto solo a un record che non lo espone
+ * già, così un `kind` invalido resta invalido e non viene corretto.
+ */
+const injectGraphicKind = (value: unknown): unknown =>
+  isRecord(value) && !('kind' in value) ? { ...value, kind: 'image' } : value;
+
+/** Grafica decorativa del layer `graphics`: immagine, poligono o testo. */
+export const mapGraphicSchema = z.preprocess(
+  injectGraphicKind,
+  z.discriminatedUnion('kind', [
+    mapGraphicImageSchema,
+    mapGraphicPolygonSchema,
+    mapGraphicTextSchema,
+  ]),
+);
 export type MapGraphic = z.infer<typeof mapGraphicSchema>;
 
 const blockedAreaPointSchema = z.strictObject({

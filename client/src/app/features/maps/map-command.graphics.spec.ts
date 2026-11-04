@@ -3,6 +3,8 @@ import {
   type MapDocument,
   type MapGraphic,
   type MapLayerKind,
+  type PolygonGraphic,
+  type TextGraphic,
 } from '@dnd-vtt/shared';
 import { describe, expect, it } from 'vitest';
 import {
@@ -19,6 +21,7 @@ const GRAPHIC_ASSET_ID = '0f8fad5b-d9cb-469f-a165-70867728950e';
 
 const graphic = (id: string, z: number): MapGraphic => ({
   id,
+  kind: 'image',
   assetId: GRAPHIC_ASSET_ID,
   x: 10,
   y: 20,
@@ -32,6 +35,38 @@ const graphic = (id: string, z: number): MapGraphic => ({
 
 const g1 = graphic('graphic-1', 0);
 const g2 = graphic('graphic-2', 1);
+
+const polygon = (
+  id: string,
+  z: number,
+  overrides: Partial<PolygonGraphic> = {},
+): PolygonGraphic => ({
+  kind: 'polygon',
+  id,
+  points: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }],
+  fill: '#4ea1ff',
+  opacity: 0.35,
+  z,
+  ...overrides,
+});
+
+const text = (
+  id: string,
+  z: number,
+  overrides: Partial<TextGraphic> = {},
+): TextGraphic => ({
+  kind: 'text',
+  id,
+  text: 'Sala',
+  fontFamily: 'sans',
+  fontSize: 24,
+  color: '#ffffff',
+  x: 10,
+  y: 20,
+  opacity: 1,
+  z,
+  ...overrides,
+});
 
 const baseDocument = (): MapDocument => emptyMapDocument('Grafica', null, 1280, 720);
 
@@ -236,6 +271,106 @@ describe('removeGraphic', () => {
 
     const applied = run(doc, command, 'apply');
     expect(graphicsOf(applied).map((entry) => entry.id)).toEqual(['graphic-1']);
+
+    expect(run(applied, command, 'invert')).toEqual(doc);
+  });
+});
+
+describe('collezioni grafiche miste', () => {
+  const mixedGraphics = (): MapDocument =>
+    withGraphics([graphic('image-1', 0), polygon('polygon-1', 1), text('text-1', 2)]);
+
+  it('arrayInsert usa l’indice di collezione anche con immagini, poligoni e testi', () => {
+    const doc = mixedGraphics();
+    const added = polygon('polygon-2', 3);
+    const command = arrayInsert('graphic', [added], 1);
+
+    const applied = run(doc, command, 'apply');
+
+    // L'indice 1 è il secondo graphic dell'array, non la seconda immagine.
+    expect(graphicsOf(applied).map((entry) => entry.id)).toEqual([
+      'image-1',
+      'polygon-2',
+      'polygon-1',
+      'text-1',
+    ]);
+    expect(run(applied, command, 'invert')).toEqual(doc);
+  });
+
+  it('arrayRemove rimuove un poligono e un testo per id e li ripristina', () => {
+    const doc = mixedGraphics();
+
+    const withoutPolygon = run(doc, arrayRemove('graphic', polygon('polygon-1', 1), 1), 'apply');
+    expect(graphicsOf(withoutPolygon).map((entry) => entry.id))
+      .toEqual(['image-1', 'text-1']);
+
+    const withoutText = run(doc, arrayRemove('graphic', text('text-1', 2), 2), 'apply');
+    expect(graphicsOf(withoutText).map((entry) => entry.id))
+      .toEqual(['image-1', 'polygon-1']);
+  });
+
+  it('replaceFields aggiorna fill e opacity del poligono conservando i vertici', () => {
+    const doc = mixedGraphics();
+    const command = replaceFields(
+      'graphic',
+      'polygon-1',
+      { fill: '#4ea1ff', opacity: 0.35 },
+      { fill: '#ff0000', opacity: 0.8 },
+    );
+
+    const applied = run(doc, command, 'apply');
+    expect(graphicsOf(applied)[1]).toMatchObject({
+      id: 'polygon-1',
+      points: [{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 1 }],
+      fill: '#ff0000',
+      opacity: 0.8,
+    });
+
+    expect(run(applied, command, 'invert')).toEqual(doc);
+  });
+
+  it('replaceFields aggiorna i campi del testo e torna indietro con invert', () => {
+    const doc = mixedGraphics();
+    const command = replaceFields(
+      'graphic',
+      'text-1',
+      { text: 'Sala', fontSize: 24, color: '#ffffff', x: 10, y: 20, fontFamily: 'sans' },
+      { text: 'Trono', fontSize: 32, color: '#ffcc00', x: 40, y: 50, fontFamily: 'serif' },
+    );
+
+    const applied = run(doc, command, 'apply');
+    expect(graphicsOf(applied)[2]).toMatchObject({
+      kind: 'text',
+      text: 'Trono',
+      fontSize: 32,
+      color: '#ffcc00',
+      x: 40,
+      y: 50,
+      fontFamily: 'serif',
+    });
+
+    expect(run(applied, command, 'invert')).toEqual(doc);
+  });
+
+  it('moveGraphicZ ordina tipi diversi per z senza mutare l’array', () => {
+    const doc = mixedGraphics();
+    const command = moveGraphicZ('text-1', 'bottom');
+
+    const applied = run(doc, command, 'apply');
+    expect(orderOf(applied)).toEqual(['text-1', 'image-1', 'polygon-1']);
+    expect(zValues(applied)).toEqual([0, 1, 2]);
+
+    expect(run(applied, command, 'invert')).toEqual(doc);
+  });
+
+  it('removeGraphic rimuove un poligono e l’undo lo reinserisce all’indice originale', () => {
+    const doc = mixedGraphics();
+    const removed = polygon('polygon-1', 1);
+    const command = removeGraphic(removed, 1);
+
+    const applied = run(doc, command, 'apply');
+    expect(graphicsOf(applied).map((entry) => entry.id)).toEqual(['image-1', 'text-1']);
+    expect(zValues(applied)).toEqual([0, 1]);
 
     expect(run(applied, command, 'invert')).toEqual(doc);
   });

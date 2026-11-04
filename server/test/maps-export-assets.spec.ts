@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import sharp from 'sharp';
 import type { FastifyInstance } from 'fastify';
 import {
+  isImageGraphic,
   mapDocumentSchema,
   mapGraphicSchema,
   type Asset,
@@ -112,6 +113,39 @@ const withGraphics = (document: MapDocument, assetId: string): MapDocument => {
   };
 };
 
+const withGraphicItems = (
+  document: MapDocument,
+  items: MapDocument['layers'][1]['items'],
+): MapDocument => {
+  const [background, graphics, constraints, elements] = document.layers;
+  return {
+    ...document,
+    layers: [background, { ...graphics, items }, constraints, elements],
+  };
+};
+
+const polygonGraphic = (): MapDocument['layers'][1]['items'][number] => mapGraphicSchema.parse({
+  kind: 'polygon',
+  id: 'polygon-1',
+  points: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 30 }],
+  fill: '#4ea1ff',
+  opacity: 0.35,
+  z: 2,
+});
+
+const textGraphic = (): MapDocument['layers'][1]['items'][number] => mapGraphicSchema.parse({
+  kind: 'text',
+  id: 'text-1',
+  text: 'Sala del trono',
+  fontFamily: 'serif',
+  fontSize: 32,
+  color: '#ffcc80',
+  x: 15,
+  y: 25,
+  opacity: 0.8,
+  z: 3,
+});
+
 const withElements = (
   document: MapDocument,
   items: MapDocument['layers'][3]['items'],
@@ -214,10 +248,14 @@ describe('export e import con grafica e loot', () => {
     const imported = await onlyMapOfCampaign(testApp.app, importedCampaignId);
 
     const importedBackgroundId = imported.layers[0].imageAssetId;
-    const importedGraphicId = imported.layers[1].items[0]?.assetId;
+    const importedGraphic = imported.layers[1].items[0];
+    if (importedGraphic === undefined || !isImageGraphic(importedGraphic)) {
+      throw new Error('Grafica importata mancante');
+    }
+    const importedGraphicId = importedGraphic.assetId;
     expect(importedBackgroundId).not.toBe(background.id);
     expect(importedGraphicId).not.toBe(graphic.id);
-    if (importedBackgroundId === null || importedGraphicId === undefined) {
+    if (importedBackgroundId === null) {
       throw new Error('Riferimenti importati mancanti');
     }
     await expectAssetExists(testApp.app, importedBackgroundId);
@@ -296,11 +334,12 @@ describe('export e import con grafica e loot', () => {
     expectNoSourceReference(imported, [background.id]);
 
     // La grafica, presente nel bundle, resta e viene rimappata.
-    const importedGraphicId = imported.layers[1].items[0]?.assetId;
-    expect(importedGraphicId).not.toBe(graphic.id);
-    if (importedGraphicId === undefined) {
+    const importedGraphic = imported.layers[1].items[0];
+    if (importedGraphic === undefined || !isImageGraphic(importedGraphic)) {
       throw new Error('Grafica importata mancante');
     }
+    const importedGraphicId = importedGraphic.assetId;
+    expect(importedGraphicId).not.toBe(graphic.id);
     expectNoSourceReference(imported, [graphic.id]);
     await expectAssetExists(testApp.app, importedGraphicId);
     await closeTestApp(testApp);
@@ -331,6 +370,112 @@ describe('export e import con grafica e loot', () => {
     const importedBackgroundId = imported.layers[0].imageAssetId;
     expect(importedBackgroundId).not.toBeNull();
     expect(importedBackgroundId).not.toBe(background.id);
+    if (importedBackgroundId === null) {
+      throw new Error('Sfondo importato mancante');
+    }
+    await expectAssetExists(testApp.app, importedBackgroundId);
+    await closeTestApp(testApp);
+  });
+
+  it('conserva polygon e text e rimappa solo l\'asset dell\'immagine', async () => {
+    const testApp = await createTestApp();
+    const campaignId = await createCampaign(testApp.app);
+    const background = await storeImage(testApp, 320, 240, '#335577');
+    const graphic = await storeImage(testApp, 64, 64, '#aa2211');
+    const map = await createMap(testApp.app, campaignId, background.id);
+
+    const document = withGraphicItems(
+      withGraphics(documentOf(map), graphic.id),
+      [
+        mapGraphicSchema.parse({ id: 'image-1', assetId: graphic.id, x: 10, y: 20 }),
+        polygonGraphic(),
+        textGraphic(),
+      ],
+    );
+    await saveMap(testApp.app, map, document);
+
+    const bundle = await exportCampaign(testApp.app, campaignId);
+    const exportedIds = bundle.assets.map((asset) => asset.id);
+    expect(exportedIds).toContain(background.id);
+    expect(exportedIds).toContain(graphic.id);
+    expect(exportedIds).toHaveLength(2);
+
+    const importedCampaignId = await importCampaign(testApp.app, bundle);
+    const imported = await onlyMapOfCampaign(testApp.app, importedCampaignId);
+    const items = imported.layers[1].items;
+
+    expect(items).toHaveLength(3);
+    const importedImage = items.find((item) => item.id === 'image-1');
+    if (importedImage === undefined || !('kind' in importedImage) || importedImage.kind !== 'image') {
+      throw new Error('Immagine importata mancante');
+    }
+    expect(importedImage.assetId).not.toBe(graphic.id);
+    expect(importedImage.assetId).not.toBeUndefined();
+    await expectAssetExists(testApp.app, importedImage.assetId);
+
+    const importedPolygon = items.find((item) => item.id === 'polygon-1');
+    expect(importedPolygon).toMatchObject({
+      kind: 'polygon',
+      points: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 30 }],
+      fill: '#4ea1ff',
+      opacity: 0.35,
+      z: 2,
+    });
+    expect(importedPolygon).not.toHaveProperty('assetId');
+
+    const importedText = items.find((item) => item.id === 'text-1');
+    expect(importedText).toMatchObject({
+      kind: 'text',
+      text: 'Sala del trono',
+      fontFamily: 'serif',
+      fontSize: 32,
+      color: '#ffcc80',
+      x: 15,
+      y: 25,
+      opacity: 0.8,
+      z: 3,
+    });
+    expect(importedText).not.toHaveProperty('assetId');
+
+    expectNoSourceReference(imported, [background.id, graphic.id]);
+    await closeTestApp(testApp);
+  });
+
+  it('scarta solo l\'immagine con asset mancante e conserva polygon e text', async () => {
+    const testApp = await createTestApp();
+    const campaignId = await createCampaign(testApp.app);
+    const background = await storeImage(testApp, 320, 240, '#335577');
+    const graphic = await storeImage(testApp, 64, 64, '#aa2211');
+    const map = await createMap(testApp.app, campaignId, background.id);
+
+    const document = withGraphicItems(
+      withGraphics(documentOf(map), graphic.id),
+      [
+        mapGraphicSchema.parse({ id: 'image-1', assetId: graphic.id, x: 10, y: 20 }),
+        polygonGraphic(),
+        textGraphic(),
+      ],
+    );
+    await saveMap(testApp.app, map, document);
+
+    const bundle = await exportCampaign(testApp.app, campaignId);
+    deleteAssetRow(testApp, graphic.id);
+    const withoutImageAsset = {
+      ...bundle,
+      assets: bundle.assets.filter((asset) => asset.id !== graphic.id),
+    };
+
+    const importedCampaignId = await importCampaign(testApp.app, withoutImageAsset);
+    const imported = await onlyMapOfCampaign(testApp.app, importedCampaignId);
+    const items = imported.layers[1].items;
+
+    // Solo l'immagine perde il proprio asset; poligono e testo restano intatti.
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({ kind: 'polygon', id: 'polygon-1', fill: '#4ea1ff' });
+    expect(items[1]).toMatchObject({ kind: 'text', id: 'text-1', text: 'Sala del trono' });
+    expectNoSourceReference(imported, [graphic.id]);
+
+    const importedBackgroundId = imported.layers[0].imageAssetId;
     if (importedBackgroundId === null) {
       throw new Error('Sfondo importato mancante');
     }
