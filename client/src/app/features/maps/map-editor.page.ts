@@ -17,16 +17,31 @@ import { Router, RouterLink } from '@angular/router';
 import {
   newId,
   sizeCells,
+  backgroundLayer,
+  constraintsLayer,
   defaultBackgroundTransform,
+  elementsLayer,
+  graphicsLayer,
+  lightsOf,
+  spawnsOf,
+  startsOf,
+  wallsOf,
   type Actor,
+  type Asset,
   type BackgroundTransform,
+  type BlockedArea,
   type GridConfig,
   type Light,
   type Map,
   type MapDocument,
+  type MapElement,
+  type MapGraphic,
+  type MapLayerKind,
+  type MapLayers,
   type MapSpawn,
   type PlayerStart,
   type SrdMonster,
+  type Terrain,
   type WallKind,
   type WallSegment,
 } from '@dnd-vtt/shared';
@@ -41,18 +56,40 @@ import { SidebarSection } from '../../components/sidebar-section/sidebar-section
 import { Dialog } from '../../components/dialog/dialog';
 import {
   MapEditorCanvasComponent,
+  type AreaDrawnEvent,
+  type EditorGraphic,
+  type EditorLayerFlag,
   type EditorMapImage,
   type EditorSelection,
   type EditorTool,
   type WallsDrawnEvent,
 } from './map-editor-canvas.component';
+import { MapAreaInspectorComponent } from './map-area-inspector.component';
+import {
+  MapLootDialogComponent,
+  type LootDialogPayload,
+} from './map-loot-dialog.component';
+import {
+  MapLayerPanelComponent,
+  type LayerOpacityCommit,
+} from './map-layer-panel.component';
 import {
   arrayInsert,
   arrayRemove,
+  moveGraphicZ as graphicZCommand,
+  nextGraphicZIndex,
+  removeGraphic as removeGraphicCommand,
   replaceBackground,
   replaceFields,
+  replaceLayer,
+  type GraphicZDirection,
   type MapCommand,
 } from './map-command';
+import { sortedGraphics } from './map-graphics-renderer';
+import {
+  MapGraphicInspectorComponent,
+  type GraphicField,
+} from './map-graphic-inspector.component';
 import { MapHistory } from './map-history';
 import {
   MAP_CELL_SIZE_MAX_PX,
@@ -70,7 +107,7 @@ type MapGridField = Exclude<keyof GridConfig, 'hexOffset'>;
 type MapTerrainField = 'ambientLight' | 'visionEnabled' | 'showDoorIcons';
 type MapTextField = 'name' | 'fogBase' | 'notes' | 'backgroundColor';
 
-type MapEditorSection = 'properties' | 'wall' | 'light' | 'spawn' | 'start' | 'content';
+type MapEditorSection = 'properties' | 'wall' | 'light' | 'spawn' | 'start' | 'loot' | 'content';
 
 const DEFAULT_EDITOR_SECTIONS: Record<MapEditorSection, boolean> = {
   properties: true,
@@ -78,8 +115,12 @@ const DEFAULT_EDITOR_SECTIONS: Record<MapEditorSection, boolean> = {
   light: true,
   spawn: true,
   start: true,
+  loot: true,
   content: true,
 };
+
+/** Elemento loot del layer elements: forma condivisa con il documento v2. */
+type LootElement = Extract<MapElement, { type: 'loot' }>;
 
 const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: string }> = [
   { tool: 'select', icon: 'arrow_selector_tool', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
@@ -89,14 +130,54 @@ const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: 
   { tool: 'window', icon: 'window', label: 'Finestra', hint: 'Blocca il movimento, non la vista' },
   { tool: 'lowWall', icon: 'fence', label: 'Muro basso', hint: 'Si vede sopra, blocca il movimento' },
   { tool: 'eraser', icon: 'ink_eraser', label: 'Gomma', hint: 'Rimuove un lato' },
+  { tool: 'areaRect', icon: 'check_box_outline_blank', label: 'Area rettangolo', hint: 'Blocca una zona rettangolare' },
+  { tool: 'areaPolygon', icon: 'pentagon', label: 'Area poligono', hint: 'Blocca una zona poligonale' },
   { tool: 'light', icon: 'lightbulb', label: 'Luce', hint: 'Aggiunge una luce statica' },
   { tool: 'spawn', icon: 'pets', label: 'Mostro', hint: 'Aggiunge uno spawn SRD o attore' },
   { tool: 'start', icon: 'flag', label: 'Partenza', hint: 'Aggiunge un punto di partenza PG' },
+  { tool: 'loot', icon: 'inventory_2', label: 'Oggetti', hint: 'Aggiunge un oggetto del catalogo SRD' },
 ];
+
+/** Strumenti ammessi per ciascun layer, nell'ordine canonico della toolbar. */
+const LAYER_TOOLS: Record<MapLayerKind, readonly EditorTool[]> = {
+  background: ['select'],
+  graphics: ['select'],
+  constraints: [
+    'select',
+    'wall',
+    'freehand',
+    'door',
+    'window',
+    'lowWall',
+    'eraser',
+    'areaRect',
+    'areaPolygon',
+  ],
+  elements: ['select', 'light', 'spawn', 'start', 'loot'],
+};
+
+/** Stato dei layer logici quando il documento non è ancora caricato. */
+const DEFAULT_LAYER_FLAGS: Record<MapLayerKind, EditorLayerFlag> = {
+  background: { visible: true, locked: false, opacity: 1 },
+  graphics: { visible: true, locked: false, opacity: 1 },
+  constraints: { visible: true, locked: false, opacity: 1 },
+  elements: { visible: true, locked: false, opacity: 1 },
+};
 
 @Component({
   selector: 'app-map-editor-page',
-  imports: [Button, Dialog, FormField, RouterLink, MapEditorCanvasComponent, SidebarSection],
+  imports: [
+    Button,
+    Dialog,
+    FormField,
+    RouterLink,
+    MapEditorCanvasComponent,
+    MapAreaInspectorComponent,
+    MapGraphicInspectorComponent,
+    MapLayerPanelComponent,
+    MapLootDialogComponent,
+    SidebarSection,
+  ],
   templateUrl: './map-editor.page.html',
   styleUrl: './map-editor.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -125,12 +206,145 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly tool = signal<EditorTool>('select');
   public readonly selected = signal<EditorSelection | null>(null);
   public readonly showGrid = signal(true);
+  public readonly activeLayer = signal<MapLayerKind>('background');
+
+  /** Il layer attivo è protetto: nessun comando di contenuto deve passare. */
+  public readonly activeLayerLocked = computed(() => {
+    const doc = this.doc();
+    if (doc === null) {
+      return false;
+    }
+    return doc.layers.find((layer) => layer.kind === this.activeLayer())?.locked ?? false;
+  });
+
   public readonly hasBackground = computed(() => {
     const doc = this.doc();
-    return doc !== null && doc.imageAssetId !== null;
+    return doc !== null && backgroundLayer(doc).imageAssetId !== null;
+  });
+
+  /** Layer background corrente: asset e trasformazione vivono qui in v2. */
+  public readonly background = computed(() => {
+    const doc = this.doc();
+    return doc === null ? null : backgroundLayer(doc);
+  });
+
+  public readonly backgroundAssetId = computed(() => this.background()?.imageAssetId ?? null);
+
+  public readonly backgroundTransform = computed(
+    (): BackgroundTransform => this.background()?.imageTransform ?? defaultBackgroundTransform,
+  );
+
+  public readonly walls = computed<WallSegment[]>(() => {
+    const doc = this.doc();
+    return doc === null ? [] : wallsOf(doc);
+  });
+
+  public readonly lights = computed<Light[]>(() => {
+    const doc = this.doc();
+    return doc === null ? [] : lightsOf(doc);
+  });
+
+  public readonly spawns = computed<MapSpawn[]>(() => {
+    const doc = this.doc();
+    return doc === null ? [] : spawnsOf(doc);
+  });
+
+  public readonly starts = computed<PlayerStart[]>(() => {
+    const doc = this.doc();
+    return doc === null ? [] : startsOf(doc);
+  });
+
+  /** Loot del layer elements, nell'ordine del documento (reattivo a undo/redo). */
+  public readonly loots = computed<LootElement[]>(() => {
+    const doc = this.doc();
+    if (doc === null) {
+      return [];
+    }
+    return elementsLayer(doc).items.filter(
+      (item): item is LootElement => item.type === 'loot',
+    );
+  });
+
+  /** Stato visibilità/lock/opacità di ogni layer logico, come lo consuma il canvas. */
+  public readonly layerFlags = computed<Partial<Record<MapLayerKind, EditorLayerFlag>>>(() => {
+    const doc = this.doc();
+    if (doc === null) {
+      return DEFAULT_LAYER_FLAGS;
+    }
+    const flags: Partial<Record<MapLayerKind, EditorLayerFlag>> = {};
+    for (const layer of doc.layers) {
+      flags[layer.kind] = {
+        visible: layer.visible,
+        locked: layer.locked,
+        opacity: layer.opacity,
+      };
+    }
+    return flags;
+  });
+
+  private readonly graphicImages = signal<Record<string, EditorMapImage>>({});
+  private readonly requestedGraphicAssets = new Set<string>();
+
+  /**
+   * Grafiche del documento risolte con le immagini degli asset. Le richieste
+   * partono da un effect: il computed resta puro e il canvas riceve sempre
+   * `image: null` finché l'asset non è disponibile.
+   */
+  public readonly graphics = computed<EditorGraphic[]>(() => {
+    const doc = this.doc();
+    if (doc === null) {
+      return [];
+    }
+    const images = this.graphicImages();
+    return graphicsLayer(doc).items.map((item) => ({
+      item,
+      image: images[item.assetId] ?? null,
+    }));
+  });
+
+  public readonly selectedGraphic = computed<MapGraphic | null>(() => {
+    const selection = this.selected();
+    if (selection?.type !== 'graphic') {
+      return null;
+    }
+    const doc = this.doc();
+    return doc === null
+      ? null
+      : graphicsLayer(doc).items.find((item) => item.id === selection.id) ?? null;
+  });
+
+  /** Aree bloccate del layer constraints: i muri restano nel terreno del canvas. */
+  public readonly blockedAreas = computed<BlockedArea[]>(() => {
+    const doc = this.doc();
+    if (doc === null) {
+      return [];
+    }
+    return constraintsLayer(doc).items.filter((item): item is BlockedArea => 'shape' in item);
+  });
+
+  /** Terreno derivato per il canvas: in v2 è una proiezione dei layer. */
+  public readonly canvasTerrain = computed<Terrain>(() => {
+    const doc = this.doc();
+    if (doc === null) {
+      return {
+        ambientLight: 'dark',
+        visionLimitFeet: 120,
+        visionEnabled: true,
+        walls: [],
+        lights: [],
+      };
+    }
+    return {
+      ambientLight: doc.ambientLight,
+      visionLimitFeet: doc.visionLimitFeet,
+      visionEnabled: doc.visionEnabled,
+      walls: wallsOf(doc),
+      lights: lightsOf(doc),
+    };
   });
 
   public readonly spawnCell = signal<{ x: number; y: number } | null>(null);
+  public readonly lootCell = signal<{ x: number; y: number } | null>(null);
   public readonly spawnSearch = signal('');
   public readonly spawnTab = signal<'srd' | 'actors'>('srd');
 
@@ -158,7 +372,12 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
   };
 
-  public readonly tools = TOOL_LABELS;
+  /** Toolbar filtrata: solo gli strumenti pertinenti al layer attivo. */
+  public readonly tools = computed(() => {
+    const allowed = LAYER_TOOLS[this.activeLayer()];
+    return TOOL_LABELS.filter((entry) => allowed.includes(entry.tool));
+  });
+
   public readonly isHex = computed(() => this.doc()?.grid.type === 'hex');
   public readonly maxSightFeet = computed(() => {
     const doc = this.doc();
@@ -193,35 +412,74 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   public readonly selectedWall = computed(() => {
     const selection = this.selected();
-    const doc = this.doc();
-    return selection?.type === 'wall' && doc !== null
-      ? doc.terrain.walls.find((wall) => wall.id === selection.id) ?? null
+    return selection?.type === 'wall'
+      ? this.walls().find((wall) => wall.id === selection.id) ?? null
       : null;
   });
 
   public readonly selectedLight = computed(() => {
     const selection = this.selected();
-    const doc = this.doc();
-    return selection?.type === 'light' && doc !== null
-      ? doc.terrain.lights.find((light) => light.id === selection.id) ?? null
+    return selection?.type === 'light'
+      ? this.lights().find((light) => light.id === selection.id) ?? null
       : null;
   });
 
   public readonly selectedSpawn = computed(() => {
     const selection = this.selected();
-    const doc = this.doc();
-    return selection?.type === 'spawn' && doc !== null
-      ? doc.spawns.find((spawn) => spawn.id === selection.id) ?? null
+    return selection?.type === 'spawn'
+      ? this.spawns().find((spawn) => spawn.id === selection.id) ?? null
       : null;
   });
 
   public readonly selectedStart = computed(() => {
     const selection = this.selected();
-    const doc = this.doc();
-    return selection?.type === 'start' && doc !== null
-      ? doc.playerStarts.find((start) => start.id === selection.id) ?? null
+    return selection?.type === 'start'
+      ? this.starts().find((start) => start.id === selection.id) ?? null
       : null;
   });
+
+  public readonly selectedLoot = computed<LootElement | null>(() => {
+    const selection = this.selected();
+    if (selection?.type !== 'loot') {
+      return null;
+    }
+    const doc = this.doc();
+    if (doc === null) {
+      return null;
+    }
+    return elementsLayer(doc).items.find(
+      (item): item is LootElement => item.type === 'loot' && item.id === selection.id,
+    ) ?? null;
+  });
+
+  public readonly selectedArea = computed(() => {
+    const selection = this.selected();
+    return selection?.type === 'area'
+      ? this.blockedAreas().find((area) => area.id === selection.id) ?? null
+      : null;
+  });
+
+  /** Inspector filtrato: ogni sezione appartiene al layer attivo. */
+  public readonly inspectorGraphic = computed(() =>
+    this.activeLayer() === 'graphics' ? this.selectedGraphic() : null);
+
+  public readonly inspectorArea = computed(() =>
+    this.activeLayer() === 'constraints' ? this.selectedArea() : null);
+
+  public readonly inspectorWall = computed(() =>
+    this.activeLayer() === 'constraints' ? this.selectedWall() : null);
+
+  public readonly inspectorLight = computed(() =>
+    this.activeLayer() === 'elements' ? this.selectedLight() : null);
+
+  public readonly inspectorSpawn = computed(() =>
+    this.activeLayer() === 'elements' ? this.selectedSpawn() : null);
+
+  public readonly inspectorStart = computed(() =>
+    this.activeLayer() === 'elements' ? this.selectedStart() : null);
+
+  public readonly inspectorLoot = computed(() =>
+    this.activeLayer() === 'elements' ? this.selectedLoot() : null);
 
   public readonly filteredMonsters = computed(() => {
     const query = this.spawnSearch().trim().toLowerCase();
@@ -250,6 +508,18 @@ export class MapEditorPage implements OnInit, OnDestroy {
       if (!sameMapProperties(current, next)) {
         this.propertiesForm().reset(next);
       }
+    });
+    effect(() => {
+      const doc = this.doc();
+      if (doc === null) {
+        return;
+      }
+      const assetIds = [...new Set(graphicsLayer(doc).items.map((item) => item.assetId))];
+      untracked(() => {
+        for (const assetId of assetIds) {
+          void this.loadGraphicImage(assetId);
+        }
+      });
     });
   }
 
@@ -286,7 +556,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
         * document.grid.feetPerCell,
       ),
     );
-    document.terrain.visionLimitFeet = Math.min(document.terrain.visionLimitFeet, maxSight);
+    document.visionLimitFeet = Math.min(document.visionLimitFeet, maxSight);
     this.doc.set(document);
     this.version.set(map.version);
     this.dirty.set(false);
@@ -294,13 +564,14 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   private async loadImage(map: Map): Promise<void> {
-    if (map.imageAssetId === null) {
+    const imageAssetId = backgroundLayer(map).imageAssetId;
+    if (imageAssetId === null) {
       this.backgroundAsset = null;
       this.image.set({ url: '', width: map.widthPx, height: map.heightPx });
       return;
     }
     try {
-      const asset = await this.assets.get(map.imageAssetId);
+      const asset = await this.assets.get(imageAssetId);
       this.backgroundAsset = {
         assetId: asset.id,
         url: asset.url,
@@ -322,12 +593,13 @@ export class MapEditorPage implements OnInit, OnDestroy {
       this.image.set(null);
       return;
     }
-    if (doc.imageAssetId === null) {
+    const imageAssetId = backgroundLayer(doc).imageAssetId;
+    if (imageAssetId === null) {
       this.backgroundAsset = null;
       this.image.set({ url: '', width: doc.widthPx, height: doc.heightPx });
       return;
     }
-    if (this.backgroundAsset?.assetId === doc.imageAssetId) {
+    if (this.backgroundAsset?.assetId === imageAssetId) {
       this.image.set({
         url: this.backgroundAsset.url,
         width: doc.widthPx,
@@ -337,14 +609,14 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     this.backgroundAsset = null;
     this.image.set({ url: '', width: doc.widthPx, height: doc.heightPx });
-    void this.reloadBackgroundImage(doc.imageAssetId);
+    void this.reloadBackgroundImage(imageAssetId);
   }
 
   private async reloadBackgroundImage(assetId: string): Promise<void> {
     try {
       const asset = await this.assets.get(assetId);
       const doc = this.doc();
-      if (doc === null || doc.imageAssetId !== assetId) {
+      if (doc === null || backgroundLayer(doc).imageAssetId !== assetId) {
         return;
       }
       this.backgroundAsset = {
@@ -356,7 +628,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       this.image.set({ url: asset.url, width: doc.widthPx, height: doc.heightPx });
     } catch {
       const doc = this.doc();
-      if (doc === null || doc.imageAssetId !== assetId) {
+      if (doc === null || backgroundLayer(doc).imageAssetId !== assetId) {
         return;
       }
       this.backgroundAsset = null;
@@ -364,12 +636,134 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
   }
 
+  private async loadGraphicImage(assetId: string): Promise<void> {
+    if (this.requestedGraphicAssets.has(assetId)) {
+      return;
+    }
+    this.requestedGraphicAssets.add(assetId);
+    try {
+      const asset: Asset | undefined = await this.assets.get(assetId);
+      if (asset === undefined) {
+        return;
+      }
+      this.graphicImages.update((current) => ({
+        ...current,
+        [assetId]: { url: asset.url, width: asset.width, height: asset.height },
+      }));
+    } catch {
+      // Asset mancante: la grafica resta senza immagine ma non blocca il render.
+    }
+  }
+
   public setTool(tool: EditorTool): void {
-    if (this.isHex() && ['wall', 'freehand', 'door', 'window', 'lowWall', 'eraser', 'light'].includes(tool)) {
+    /** Con il layer attivo protetto resta attivabile solo la selezione neutra. */
+    if (tool !== 'select' && this.activeLayerLocked()) {
+      return;
+    }
+    if (!this.tools().some((entry) => entry.tool === tool)) {
+      return;
+    }
+    if (this.isHex() && [
+      'wall',
+      'freehand',
+      'door',
+      'window',
+      'lowWall',
+      'eraser',
+      'areaRect',
+      'areaPolygon',
+      'light',
+    ].includes(tool)) {
       this.error.set('Le mappe esagonali usano la fog manuale: muri e luci saranno disponibili in una fase successiva.');
       return;
     }
     this.tool.set(tool);
+  }
+
+  /** Cambia layer attivo e riporta la toolbar alla selezione neutra. */
+  public setActiveLayer(kind: MapLayerKind): void {
+    this.activeLayer.set(kind);
+    this.tool.set('select');
+    this.selected.set(null);
+  }
+
+  public setLayerVisible(kind: MapLayerKind, visible: boolean): void {
+    this.applyLayerVisibility(kind, visible);
+  }
+
+  /** Senza `locked` commuta lo stato corrente; il pannello passa il valore target. */
+  public toggleLayerLock(kind: MapLayerKind, locked?: boolean): void {
+    if (locked !== undefined) {
+      this.applyLayerLock(kind, locked);
+      return;
+    }
+    const layer = this.layerOf(kind);
+    if (layer === null) {
+      return;
+    }
+    this.applyLayerLock(kind, !layer.locked);
+  }
+
+  public commitLayerOpacity(kind: MapLayerKind, event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.applyLayerOpacity(kind, value);
+  }
+
+  /** Output del pannello layer (opacità già numerica). */
+  public setLayerOpacity(event: LayerOpacityCommit): void {
+    this.applyLayerOpacity(event.kind, event.opacity);
+  }
+
+  private applyLayerVisibility(kind: MapLayerKind, visible: boolean): void {
+    const layer = this.layerOf(kind);
+    if (layer === null || layer.visible === visible) {
+      return;
+    }
+    this.execute(replaceLayer(kind, { visible: layer.visible }, { visible }));
+  }
+
+  private applyLayerLock(kind: MapLayerKind, locked: boolean): void {
+    const layer = this.layerOf(kind);
+    if (layer === null || layer.locked === locked) {
+      return;
+    }
+    this.execute(replaceLayer(kind, { locked: layer.locked }, { locked }));
+  }
+
+  private applyLayerOpacity(kind: MapLayerKind, raw: number): void {
+    if (!Number.isFinite(raw)) {
+      return;
+    }
+    const layer = this.layerOf(kind);
+    if (layer === null) {
+      return;
+    }
+    const opacity = Math.min(1, Math.max(0, raw));
+    if (layer.opacity === opacity) {
+      return;
+    }
+    this.execute(replaceLayer(kind, { opacity: layer.opacity }, { opacity }));
+  }
+
+  private layerOf(kind: MapLayerKind): MapLayers[number] | null {
+    const doc = this.doc();
+    if (doc === null) {
+      return null;
+    }
+    return doc.layers.find((layer) => layer.kind === kind) ?? null;
+  }
+
+  /** Il contenuto è protetto se il layer attivo o quello che lo possiede è bloccato. */
+  private contentLocked(owner: MapLayerKind): boolean {
+    if (this.activeLayerLocked()) {
+      return true;
+    }
+    const layer = this.layerOf(owner);
+    if (layer?.locked === true) {
+      return true;
+    }
+    // Una grafica invisibile non è modificabile: l'utente non vedrebbe l'effetto.
+    return owner === 'graphics' && layer?.visible === false;
   }
 
   public select(selection: EditorSelection | null): void {
@@ -385,6 +779,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public onWallsDrawn(event: WallsDrawnEvent): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
     const doc = this.doc();
     if (doc === null) {
       return;
@@ -406,10 +803,14 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public onWallRemoved(id: string): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
     const doc = this.doc();
-    const index = doc?.terrain.walls.findIndex((wall) => wall.id === id) ?? -1;
-    const wall = doc?.terrain.walls[index];
-    if (wall !== undefined) {
+    const items = doc === null ? [] : constraintsLayer(doc).items;
+    const index = items.findIndex((item) => item.id === id);
+    const wall = items[index];
+    if (wall !== undefined && 'a' in wall && 'b' in wall && 'kind' in wall) {
       this.execute(arrayRemove('wall', wall, index));
     }
     if (this.selected()?.type === 'wall' && this.selected()?.id === id) {
@@ -417,7 +818,71 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
   }
 
+  /** Aggiunge un'area disegnata o già composta e la seleziona. */
+  public addArea(area: BlockedArea): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
+    this.execute(arrayInsert('area', [area]));
+    this.selected.set({ type: 'area', id: area.id });
+  }
+
+  /** Il canvas emette solo la geometria: l'id nasce qui, come per i muri. */
+  public onAreaDrawn(event: AreaDrawnEvent): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
+    const points = event.points;
+    if (event.shape === 'rect' && points.length < 2) {
+      return;
+    }
+    if (event.shape === 'polygon' && points.length < 3) {
+      return;
+    }
+    const id = newId();
+    const area: BlockedArea = event.shape === 'rect'
+      ? { id, shape: 'rect', points: [points[0], points[1]] as BlockedArea['points'] }
+      : { id, shape: 'polygon', points: points.map((point) => ({ ...point })) };
+    this.addArea(area);
+  }
+
+  public onAreaRemoved(event: { id: string }): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
+    const doc = this.doc();
+    const items = doc === null ? [] : constraintsLayer(doc).items;
+    const index = items.findIndex((item) => item.id === event.id);
+    const area = items[index];
+    if (area !== undefined && 'shape' in area) {
+      this.execute(arrayRemove('area', area, index));
+    }
+    if (this.selected()?.type === 'area' && this.selected()?.id === event.id) {
+      this.selected.set(null);
+    }
+  }
+
+  public updateAreaLabel(value: string): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
+    const area = this.selectedArea();
+    if (area === null) {
+      return;
+    }
+    const label = value.trim();
+    if (label === (area.label ?? '')) {
+      return;
+    }
+    const before: Partial<BlockedArea> = area.label === undefined ? {} : { label: area.label };
+    const after: Partial<BlockedArea> = label === '' ? {} : { label };
+    this.execute(replaceFields('area', area.id, before, after));
+  }
+
   public placeLight(cell: { x: number; y: number }): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
     if (this.isHex() || !this.inBounds(cell)) {
       return;
     }
@@ -438,14 +903,17 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public placeStart(cell: { x: number; y: number }): void {
-    if (!this.inBounds(cell) || (this.doc()?.playerStarts.length ?? 0) >= 12) {
+    if (this.contentLocked('elements')) {
+      return;
+    }
+    if (!this.inBounds(cell) || this.starts().length >= 12) {
       return;
     }
     const start: PlayerStart = {
       id: newId(),
       x: cell.x,
       y: cell.y,
-      label: `PG ${(this.doc()?.playerStarts.length ?? 0) + 1}`,
+      label: `PG ${this.starts().length + 1}`,
     };
     this.execute(arrayInsert('start', [start]));
     this.selected.set({ type: 'start', id: start.id });
@@ -453,6 +921,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public requestSpawn(cell: { x: number; y: number }): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
     if (!this.inBounds(cell)) {
       return;
     }
@@ -462,6 +933,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public addSrdSpawn(monster: SrdMonster): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
     const cell = this.spawnCell();
     if (cell === null) {
       return;
@@ -484,6 +958,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public addActorSpawn(actor: Actor): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
     const cell = this.spawnCell();
     if (cell === null) {
       return;
@@ -505,8 +982,107 @@ export class MapEditorPage implements OnInit, OnDestroy {
     this.tool.set('select');
   }
 
+  /** Apre il selettore loot sulla cella richiesta dal canvas o dal test. */
+  public requestLoot(cell: { x: number; y: number }): void {
+    const elements = this.layerOf('elements');
+    if (
+      this.contentLocked('elements')
+      || elements?.visible === false
+      || !this.inBounds(cell)
+    ) {
+      return;
+    }
+    this.lootCell.set({ x: cell.x, y: cell.y });
+  }
+
+  /** Chiusura senza conferma: nessuna modifica al documento. */
+  public closeLoot(): void {
+    this.lootCell.set(null);
+  }
+
+  public confirmLoot(payload: LootDialogPayload): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
+    const cell = this.lootCell();
+    if (cell === null) {
+      return;
+    }
+    if (
+      !Number.isInteger(payload.quantity)
+      || payload.quantity < 1
+      || payload.quantity > 999
+    ) {
+      return;
+    }
+    const loot: LootElement = {
+      id: newId(),
+      type: 'loot',
+      itemId: payload.itemId,
+      x: cell.x,
+      y: cell.y,
+      quantity: payload.quantity,
+      visible: payload.visible,
+    };
+    this.execute(arrayInsert('loot', [loot]));
+    this.selected.set({ type: 'loot', id: loot.id });
+    this.tool.set('select');
+    this.lootCell.set(null);
+  }
+
+  /** Quantità e visibilità del loot selezionato, con history e validazione. */
+  public updateLootField(field: 'quantity' | 'visible', value: number | boolean): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
+    const loot = this.selectedLoot();
+    if (loot === null) {
+      return;
+    }
+    if (field === 'quantity') {
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 999) {
+        return;
+      }
+      if (loot.quantity === value) {
+        return;
+      }
+      this.execute(replaceFields('loot', loot.id, { quantity: loot.quantity }, { quantity: value }));
+      return;
+    }
+    const visible = Boolean(value);
+    if (loot.visible === visible) {
+      return;
+    }
+    this.execute(replaceFields('loot', loot.id, { visible: loot.visible }, { visible }));
+  }
+
+  public onLootQuantityChange(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const loot = this.selectedLoot();
+    if (loot === null) {
+      return;
+    }
+    const raw = input.value;
+    const value = Number(raw);
+    if (raw.trim() === '' || !Number.isInteger(value) || value < 1 || value > 999) {
+      input.value = String(loot.quantity);
+      return;
+    }
+    this.updateLootField('quantity', value);
+  }
+
+  public onLootVisibleChange(event: Event): void {
+    this.updateLootField('visible', (event.target as HTMLInputElement).checked);
+  }
+
+  /** Nome leggibile dell'oggetto: il catalogo può non essere ancora caricato. */
+  public lootItemName(loot: LootElement): string {
+    return this.catalogService.catalog()?.items.find((item) => item.id === loot.itemId)?.name
+      ?? loot.itemId;
+  }
+
   public moveElement(event: { selection: EditorSelection; cell: { x: number; y: number } }): void {
-    if (!this.inBounds(event.cell)) {
+    if (this.contentLocked('elements') || !this.inBounds(event.cell)) {
       return;
     }
     const doc = this.doc();
@@ -515,26 +1091,160 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     const after = { x: event.cell.x, y: event.cell.y };
     if (event.selection.type === 'spawn') {
-      const spawn = doc.spawns.find((entry) => entry.id === event.selection.id);
+      const spawn = this.spawns().find((entry) => entry.id === event.selection.id);
       if (spawn !== undefined) {
         this.execute(replaceFields('spawn', spawn.id, { x: spawn.x, y: spawn.y }, after));
       }
     } else if (event.selection.type === 'start') {
-      const start = doc.playerStarts.find((entry) => entry.id === event.selection.id);
+      const start = this.starts().find((entry) => entry.id === event.selection.id);
       if (start !== undefined) {
         this.execute(replaceFields('start', start.id, { x: start.x, y: start.y }, after));
       }
     } else if (event.selection.type === 'light') {
-      const light = doc.terrain.lights.find((entry) => entry.id === event.selection.id);
+      const light = this.lights().find((entry) => entry.id === event.selection.id);
       if (light !== undefined) {
         this.execute(replaceFields('light', light.id, { x: light.x, y: light.y }, after));
       }
     }
   }
 
-  public moveWall(event: { id: string; dx: number; dy: number }): void {
+  /**
+   * Aggiunge una grafica per ogni file caricato. Gli upload sono atomici: se
+   * uno fallisce non entra nulla in documento, dirty o history.
+   */
+  public async addGraphic(event: Event): Promise<void> {
+    if (this.contentLocked('graphics')) {
+      return;
+    }
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+    if (files.length === 0) {
+      return;
+    }
+    try {
+      const assets = await Promise.all(files.map((file) => this.assets.upload(file)));
+      const doc = this.doc();
+      if (doc === null || this.contentLocked('graphics')) {
+        return;
+      }
+      const items = graphicsLayer(doc).items;
+      let z = items.reduce((max, item) => Math.max(max, item.z), -1) + 1;
+      const graphics = assets.map<MapGraphic>((asset) => {
+        const graphic: MapGraphic = {
+          id: newId(),
+          assetId: asset.id,
+          x: doc.widthPx / 2,
+          y: doc.heightPx / 2,
+          scale: 1,
+          rotation: 0,
+          flipH: false,
+          flipV: false,
+          opacity: 1,
+          z,
+        };
+        z += 1;
+        return graphic;
+      });
+      this.execute(arrayInsert('graphic', graphics));
+      const last = graphics[graphics.length - 1];
+      if (last !== undefined) {
+        this.selected.set({ type: 'graphic', id: last.id });
+      }
+      this.tool.set('select');
+    } catch (error) {
+      this.error.set(messageFor(error));
+    }
+  }
+
+  /** Aggiorna un campo numerico della grafica selezionata, validando i limiti. */
+  public updateGraphicField(field: GraphicField, value: number): void {
+    if (this.contentLocked('graphics') || !Number.isFinite(value)) {
+      return;
+    }
+    const graphic = this.selectedGraphic();
+    if (graphic === null) {
+      return;
+    }
+    if (field === 'scale' && value <= 0) {
+      return;
+    }
+    if (field === 'opacity' && (value < 0 || value > 1)) {
+      return;
+    }
+    const current = graphic[field];
+    if (current === value) {
+      return;
+    }
+    const before: Partial<MapGraphic> = {};
+    const after: Partial<MapGraphic> = {};
+    before[field] = current;
+    after[field] = value;
+    this.execute(replaceFields('graphic', graphic.id, before, after));
+  }
+
+  /** Trascinamento dal canvas: coordinate mondo del centro, senza snap. */
+  public moveGraphic(event: { id: string; x: number; y: number }): void {
+    if (this.contentLocked('graphics')) {
+      return;
+    }
     const doc = this.doc();
-    const wall = doc?.terrain.walls.find((entry) => entry.id === event.id);
+    const graphic = doc === null
+      ? undefined
+      : graphicsLayer(doc).items.find((item) => item.id === event.id);
+    if (graphic === undefined) {
+      return;
+    }
+    if (graphic.x === event.x && graphic.y === event.y) {
+      return;
+    }
+    this.execute(replaceFields(
+      'graphic',
+      graphic.id,
+      { x: graphic.x, y: graphic.y },
+      { x: event.x, y: event.y },
+    ));
+  }
+
+  public flipGraphic(axis: 'h' | 'v'): void {
+    if (this.contentLocked('graphics')) {
+      return;
+    }
+    const graphic = this.selectedGraphic();
+    if (graphic === null) {
+      return;
+    }
+    const field = axis === 'h' ? 'flipH' : 'flipV';
+    const before: Partial<MapGraphic> = {};
+    const after: Partial<MapGraphic> = {};
+    before[field] = graphic[field];
+    after[field] = !graphic[field];
+    this.execute(replaceFields('graphic', graphic.id, before, after));
+  }
+
+  public moveGraphicZ(direction: GraphicZDirection): void {
+    if (this.contentLocked('graphics')) {
+      return;
+    }
+    const graphic = this.selectedGraphic();
+    const doc = this.doc();
+    if (graphic === null || doc === null) {
+      return;
+    }
+    const ordered = sortedGraphics(graphicsLayer(doc).items);
+    const index = ordered.findIndex((item) => item.id === graphic.id);
+    if (index < 0 || nextGraphicZIndex(index, ordered.length, direction) === index) {
+      return;
+    }
+    this.execute(graphicZCommand(graphic.id, direction));
+  }
+
+  public moveWall(event: { id: string; dx: number; dy: number }): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
+    const doc = this.doc();
+    const wall = this.walls().find((entry) => entry.id === event.id);
     if (doc === null || wall === undefined) {
       return;
     }
@@ -551,6 +1261,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public updateWall(kind: WallKind, door?: WallSegment['door']): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
     const wall = this.selectedWall();
     if (wall === null) {
       return;
@@ -567,6 +1280,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public updateWallKind(event: Event): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
     this.updateWall((event.target as HTMLSelectElement).value as WallKind);
   }
 
@@ -577,6 +1293,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public updateDoor(event: Event): void {
+    if (this.contentLocked('constraints')) {
+      return;
+    }
     const wall = this.selectedWall();
     if (wall === null) {
       return;
@@ -590,6 +1309,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public updateLightField(field: keyof Light, event: Event): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
     const light = this.selectedLight();
     if (light === null) {
       return;
@@ -601,6 +1323,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public updateSpawnField(field: keyof MapSpawn, event: Event): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
     const spawn = this.selectedSpawn();
     if (spawn === null) {
       return;
@@ -612,6 +1337,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public updateStartLabel(event: Event): void {
+    if (this.contentLocked('elements')) {
+      return;
+    }
     const start = this.selectedStart();
     if (start === null) {
       return;
@@ -717,14 +1445,14 @@ export class MapEditorPage implements OnInit, OnDestroy {
         (Math.max(doc.widthPx, doc.heightPx) / nextGrid.cellSizePx) * nextGrid.feetPerCell,
       ),
     );
-    const nextVision = Math.min(doc.terrain.visionLimitFeet, maxSight);
-    if (nextVision === doc.terrain.visionLimitFeet) {
+    const nextVision = Math.min(doc.visionLimitFeet, maxSight);
+    if (nextVision === doc.visionLimitFeet) {
       this.execute(gridCommand);
       return;
     }
     const visionCommand = replaceFields(
-      'terrain',
-      { visionLimitFeet: doc.terrain.visionLimitFeet },
+      'map',
+      { visionLimitFeet: doc.visionLimitFeet },
       { visionLimitFeet: nextVision },
     );
     this.execute({
@@ -746,13 +1474,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (doc === null) {
       return;
     }
-    if (field === 'showDoorIcons') {
-      const { before, after } = fieldPatch(doc, 'showDoorIcons', Boolean(value));
-      this.execute(replaceFields('map', before, after));
-      return;
-    }
-    const { before, after } = fieldPatch(doc.terrain, field, value);
-    this.execute(replaceFields('terrain', before, after));
+    const normalized = field === 'showDoorIcons' ? Boolean(value) : value;
+    const { before, after } = fieldPatch(doc, field, normalized);
+    this.execute(replaceFields('map', before, after));
   }
 
   private applyVisionLimit(raw: number): void {
@@ -762,16 +1486,25 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     const value = Math.max(1, Math.min(this.maxSightFeet(), Math.round(raw)));
     this.execute(replaceFields(
-      'terrain',
-      { visionLimitFeet: doc.terrain.visionLimitFeet },
+      'map',
+      { visionLimitFeet: doc.visionLimitFeet },
       { visionLimitFeet: value },
     ));
   }
 
   public removeSelected(): void {
     const selection = this.selected();
+    if (selection === null) {
+      return;
+    }
+    const owner: MapLayerKind = selection.type === 'wall' || selection.type === 'area'
+      ? 'constraints'
+      : selection.type === 'graphic' ? 'graphics' : 'elements';
+    if (this.contentLocked(owner)) {
+      return;
+    }
     const doc = this.doc();
-    if (selection === null || doc === null) {
+    if (doc === null) {
       return;
     }
     const command = this.removeCommand(doc, selection);
@@ -782,24 +1515,45 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   private removeCommand(doc: MapDocument, selection: EditorSelection): MapCommand | null {
-    if (selection.type === 'wall') {
-      const index = doc.terrain.walls.findIndex((wall) => wall.id === selection.id);
-      const wall = doc.terrain.walls[index];
-      return wall === undefined ? null : arrayRemove('wall', wall, index);
+    if (selection.type === 'wall' || selection.type === 'area') {
+      const items = constraintsLayer(doc).items;
+      const index = items.findIndex((item) => item.id === selection.id);
+      const item = items[index];
+      if (item === undefined) {
+        return null;
+      }
+      if (selection.type === 'area') {
+        return 'shape' in item ? arrayRemove('area', item, index) : null;
+      }
+      return 'a' in item && 'b' in item && 'kind' in item
+        ? arrayRemove('wall', item, index)
+        : null;
     }
-    if (selection.type === 'light') {
-      const index = doc.terrain.lights.findIndex((light) => light.id === selection.id);
-      const light = doc.terrain.lights[index];
-      return light === undefined ? null : arrayRemove('light', light, index);
+    if (selection.type === 'graphic') {
+      const items = graphicsLayer(doc).items;
+      const index = items.findIndex((item) => item.id === selection.id);
+      const graphic = items[index];
+      return graphic === undefined ? null : removeGraphicCommand(graphic, index);
     }
-    if (selection.type === 'spawn') {
-      const index = doc.spawns.findIndex((spawn) => spawn.id === selection.id);
-      const spawn = doc.spawns[index];
-      return spawn === undefined ? null : arrayRemove('spawn', spawn, index);
+    const items = elementsLayer(doc).items;
+    const index = items.findIndex((item) => item.id === selection.id);
+    const item = items[index];
+    if (item === undefined || !('type' in item)) {
+      return null;
     }
-    const index = doc.playerStarts.findIndex((start) => start.id === selection.id);
-    const start = doc.playerStarts[index];
-    return start === undefined ? null : arrayRemove('start', start, index);
+    if (selection.type === 'light' && item.type === 'light') {
+      return arrayRemove('light', item, index);
+    }
+    if (selection.type === 'spawn' && item.type === 'spawn') {
+      return arrayRemove('spawn', item, index);
+    }
+    if (selection.type === 'start' && item.type === 'start') {
+      return arrayRemove('start', item, index);
+    }
+    if (selection.type === 'loot' && item.type === 'loot') {
+      return arrayRemove('loot', item, index);
+    }
+    return null;
   }
 
   public selectLight(light: Light): void {
@@ -814,6 +1568,11 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   public selectStart(start: PlayerStart): void {
     this.selected.set({ type: 'start', id: start.id });
+    this.tool.set('select');
+  }
+
+  public selectLoot(loot: LootElement): void {
+    this.selected.set({ type: 'loot', id: loot.id });
     this.tool.set('select');
   }
 
@@ -834,6 +1593,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public async replaceBackground(event: Event): Promise<void> {
+    if (this.contentLocked('background')) {
+      return;
+    }
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
@@ -846,6 +1608,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       if (doc === null) {
         return;
       }
+      const current = backgroundLayer(doc);
       this.backgroundAsset = {
         assetId: asset.id,
         url: asset.url,
@@ -854,8 +1617,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
       };
       this.execute(replaceBackground(
         {
-          imageAssetId: doc.imageAssetId,
-          backgroundTransform: doc.backgroundTransform,
+          imageAssetId: current.imageAssetId,
+          backgroundTransform: current.imageTransform,
         },
         {
           imageAssetId: asset.id,
@@ -874,15 +1637,22 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public removeBackground(): void {
+    if (this.contentLocked('background')) {
+      return;
+    }
     const doc = this.doc();
-    if (doc === null || doc.imageAssetId === null) {
+    if (doc === null) {
+      return;
+    }
+    const current = backgroundLayer(doc);
+    if (current.imageAssetId === null) {
       return;
     }
     this.backgroundAsset = null;
     this.execute(replaceBackground(
       {
-        imageAssetId: doc.imageAssetId,
-        backgroundTransform: doc.backgroundTransform,
+        imageAssetId: current.imageAssetId,
+        backgroundTransform: current.imageTransform,
       },
       {
         imageAssetId: null,
@@ -893,11 +1663,18 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public async fitBackgroundCover(): Promise<void> {
-    const doc = this.doc();
-    if (doc === null || doc.imageAssetId === null) {
+    if (this.contentLocked('background')) {
       return;
     }
-    const assetId = doc.imageAssetId;
+    const doc = this.doc();
+    if (doc === null) {
+      return;
+    }
+    const initial = backgroundLayer(doc);
+    if (initial.imageAssetId === null) {
+      return;
+    }
+    const assetId = initial.imageAssetId;
     let size = this.backgroundAsset;
     if (size === null || size.assetId !== assetId) {
       try {
@@ -916,24 +1693,28 @@ export class MapEditorPage implements OnInit, OnDestroy {
       }
     }
     const current = this.doc();
-    if (current === null || current.imageAssetId !== assetId || size === null) {
+    if (current === null || size === null) {
+      return;
+    }
+    const currentBackground = backgroundLayer(current);
+    if (currentBackground.imageAssetId !== assetId) {
       return;
     }
     const transform = coverTransform(current.widthPx, current.heightPx, size.width, size.height);
     if (
-      current.backgroundTransform.x === transform.x
-      && current.backgroundTransform.y === transform.y
-      && current.backgroundTransform.scale === transform.scale
+      currentBackground.imageTransform.x === transform.x
+      && currentBackground.imageTransform.y === transform.y
+      && currentBackground.imageTransform.scale === transform.scale
     ) {
       return;
     }
     this.execute(replaceBackground(
       {
-        imageAssetId: current.imageAssetId,
-        backgroundTransform: current.backgroundTransform,
+        imageAssetId: currentBackground.imageAssetId,
+        backgroundTransform: currentBackground.imageTransform,
       },
       {
-        imageAssetId: current.imageAssetId,
+        imageAssetId: currentBackground.imageAssetId,
         backgroundTransform: transform,
       },
     ));
@@ -1088,16 +1869,16 @@ const coverTransform = (
 };
 
 const toDocument = (map: Map): MapDocument => ({
+  schemaVersion: 2,
   name: map.name,
-  imageAssetId: map.imageAssetId,
-  backgroundTransform: map.backgroundTransform,
   backgroundColor: map.backgroundColor,
   widthPx: map.widthPx,
   heightPx: map.heightPx,
-  grid: map.grid,
-  terrain: map.terrain,
-  spawns: map.spawns,
-  playerStarts: map.playerStarts,
+  grid: structuredClone(map.grid),
+  layers: structuredClone(map.layers),
+  ambientLight: map.ambientLight,
+  visionLimitFeet: map.visionLimitFeet,
+  visionEnabled: map.visionEnabled,
   ...(map.startView === undefined ? {} : { startView: map.startView }),
   fogBase: map.fogBase,
   showDoorIcons: map.showDoorIcons,

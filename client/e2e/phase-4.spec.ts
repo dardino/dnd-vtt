@@ -232,7 +232,14 @@ test('l’editor sostituisce lo sfondo mantenendo le dimensioni della mappa', as
   expect(before).toBeDefined();
   const expectedSize = `${before?.widthPx} × ${before?.heightPx} px`;
   const beforeMap = await request.get(`/api/v1/maps/${before?.id}`);
-  const beforeAssetId = (await beforeMap.json() as { imageAssetId: string | null }).imageAssetId;
+  const beforeMapJson = await beforeMap.json() as {
+    imageAssetId: string | null;
+    layers: { kind: string; imageAssetId: string | null }[];
+  };
+  const beforeAssetId = beforeMapJson.imageAssetId;
+  const backgroundOf = (layers: { kind: string; imageAssetId: string | null }[]) =>
+    layers.find((layer) => layer.kind === 'background')?.imageAssetId ?? null;
+  const beforeLayerAssetId = backgroundOf(beforeMapJson.layers);
 
   await page.addInitScript(
     ([key, value]) => localStorage.setItem(key, value),
@@ -245,7 +252,9 @@ test('l’editor sostituisce lo sfondo mantenendo le dimensioni della mappa', as
   await expect(page.locator('.editor')).toBeVisible({ timeout: 15_000 });
 
   const chooserPromise = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: 'Sfondo' }).click();
+  // Il pannello layer espone anch'esso un controllo "Sfondo": il nome esatto
+  // isola il pulsante della toolbar che apre il file chooser.
+  await page.getByRole('button', { name: 'Sostituisci sfondo', exact: true }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles(await replacementMapFile());
   // Attende che l'upload asincrono abbia applicato il comando di sostituzione.
@@ -264,8 +273,14 @@ test('l’editor sostituisce lo sfondo mantenendo le dimensioni della mappa', as
     heightPx: before?.heightPx,
   });
   const afterMap = await request.get(`/api/v1/maps/${before?.id}`);
-  expect((await afterMap.json() as { imageAssetId: string | null }).imageAssetId)
-    .not.toBe(beforeAssetId);
+  const afterMapJson = await afterMap.json() as {
+    imageAssetId: string | null;
+    layers: { kind: string; imageAssetId: string | null }[];
+  };
+  expect(afterMapJson.imageAssetId).not.toBe(beforeAssetId);
+  // Il campo denormalizzato segue sempre il layer background.
+  expect(backgroundOf(afterMapJson.layers)).toBe(afterMapJson.imageAssetId);
+  expect(backgroundOf(afterMapJson.layers)).not.toBe(beforeLayerAssetId);
 });
 
 test('due console convergono senza conflitti', async ({ page, context, request }) => {
@@ -410,7 +425,9 @@ test('una nuova mappa senza sfondo mostra il foglio bianco della risoluzione sce
     }));
   expect(hasRedSheet).toBe(true);
 
-  await page.getByLabel('Opacità sfondo').evaluate((element) => {
+  // Anche il pannello layer ha "Opacità Sfondo": il match esatto seleziona
+  // solo il range del colore di sfondo della mappa.
+  await page.getByLabel('Opacità sfondo', { exact: true }).evaluate((element) => {
     const input = element as HTMLInputElement;
     input.value = '50';
     input.dispatchEvent(new Event('change', { bubbles: true }));

@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import type { Actor } from '@dnd-vtt/shared';
+import { emptyMapDocumentV2, type Actor, type ElementsLayer, type MapDocument } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   ASSET_ID,
@@ -10,12 +10,39 @@ import {
   asset,
   campaign,
   createDmCampaignStoreHarness,
-  mapDocument,
   mapSummary,
   scene,
   type DmCampaignStoreHarness,
 } from './dm-campaign.store.fixtures';
 import { blankSceneMapImage } from './dm-map-image';
+
+/**
+ * Fixture locale v2: il documento mappa non ha più campi v1 e le partenze
+ * vivono nel layer `elements`.
+ */
+const mapDocument = (overrides: Partial<MapDocument> = {}): MapDocument => ({
+  ...emptyMapDocumentV2('Mappa cripta', null, 1400, 1000),
+  ...overrides,
+});
+
+const withElements = (
+  doc: MapDocument,
+  items: ElementsLayer['items'],
+): MapDocument => {
+  const [background, graphics, constraints, elements] = doc.layers;
+  return {
+    ...doc,
+    layers: [background, graphics, constraints, { ...elements, items }],
+  };
+};
+
+const start = (id: string, x: number, y: number, label: string): ElementsLayer['items'][number] => ({
+  id,
+  type: 'start',
+  x,
+  y,
+  label,
+});
 
 let h: DmCampaignStoreHarness;
 const store = () => h.store;
@@ -256,16 +283,13 @@ describe('DmCampaignStore', () => {
     expect(store().mapPickerOpen()).toBe(false);
   });
 
-  it('chooseMap assegna i PG ai punti di partenza', async () => {
+  it('chooseMap assegna i PG ai punti di partenza del layer elements', async () => {
     h.activeCampaign.set(campaign());
-    h.mapsGet.mockResolvedValue({
-      ...mapDocument(),
-      id: MAP_ID,
-      playerStarts: [
-        { id: 'start-1', x: 1, y: 1, label: 'A' },
-        { id: 'start-2', x: 2, y: 2, label: 'B' },
-      ],
-    });
+    const doc = withElements(mapDocument(), [
+      start('start-1', 1, 1, 'A'),
+      start('start-2', 2, 2, 'B'),
+    ]);
+    h.mapsGet.mockResolvedValue({ ...doc, id: MAP_ID });
     h.party.set([
       { id: 'pc-1', campaignId: CAMPAIGN_ID, kind: 'pc', name: 'Aria' } as Actor,
       { id: 'pc-2', campaignId: CAMPAIGN_ID, kind: 'pc', name: 'Borin' } as Actor,
@@ -277,6 +301,9 @@ describe('DmCampaignStore', () => {
       'pc-1': 'start-1',
       'pc-2': 'start-2',
     });
+    // Il documento preparato resta v2: le partenze non tornano top-level.
+    expect(store().prepareDoc()).toEqual(doc);
+    expect(store().prepareDoc()).not.toHaveProperty('playerStarts');
   });
 
   it('applyAssignment aggiunge e rimuove un PG', () => {

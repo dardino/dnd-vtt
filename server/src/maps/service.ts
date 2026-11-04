@@ -2,13 +2,21 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
 import {
+  backgroundLayer,
   createDefaultSceneState,
-  emptyMapDocument,
+  emptyMapDocumentV2,
+  lightsOf,
+  lootOf,
   newId,
   sceneDimensions,
+  spawnsOf,
   srdMonsterToStatblock,
+  startsOf,
+  wallsOf,
+  withBackgroundLayer,
   type Actor,
   type Asset,
+  type BackgroundTransform,
   type CreateMap,
   type CreateSceneFromMap,
   type CreateSceneFromMapResult,
@@ -20,18 +28,21 @@ import {
   type TokenState,
 } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
-import { deleteAssetFiles, storeAsset } from '../assets/service.js';
+import { storeAsset } from '../assets/service.js';
 import type { AppEnv } from '../config/env.js';
 import { getActor, insertActor } from '../db/actors.repository.js';
-import {
-  countAssetReferences,
-  deleteAsset,
-  getAsset,
-  getStoredAsset,
-} from '../db/assets.repository.js';
+import { getAsset, getStoredAsset } from '../db/assets.repository.js';
 import { getCampaign, updateCampaign } from '../db/campaigns.repository.js';
 import { requireCampaign } from '../campaigns/service.js';
-import { deleteMap, getMap, insertMap, listMaps, updateMapDocument } from '../db/maps.repository.js';
+import { removeUnreferencedAsset } from './derived-assets.js';
+import {
+  deleteMap,
+  getMap,
+  insertMap,
+  listMaps,
+  updateMapDocument,
+  type MapDerivedAssets,
+} from '../db/maps.repository.js';
 import { insertScene } from '../db/scenes.repository.js';
 import { AppError, notFound } from '../errors.js';
 import { currentSrdVersion, loadSrdCatalog } from '../srd/load.js';
@@ -45,24 +56,28 @@ const requireMap = (db: AppDatabase, id: string): Map => {
 };
 
 const mapSummary = (db: AppDatabase, map: Map): MapSummary => {
-  const asset = map.imageAssetId === null ? null : getAsset(db, map.imageAssetId);
+  const imageAssetId = backgroundLayer(map).imageAssetId;
+  const asset = imageAssetId === null ? null : getAsset(db, imageAssetId);
+  const thumbAsset = map.thumbAssetId === null ? null : getAsset(db, map.thumbAssetId);
   return {
     id: map.id,
     campaignId: map.campaignId,
     name: map.name,
-    imageAssetId: map.imageAssetId,
+    imageAssetId,
     imageUrl: asset?.url ?? null,
-    thumbUrl: asset?.thumbUrl ?? null,
+    // La thumb persistita vince su quella dello sfondo; se l'asset è stato
+    // rimosso si ripiega sullo sfondo senza esporre URL rotti.
+    thumbUrl: thumbAsset?.thumbUrl ?? asset?.thumbUrl ?? null,
     backgroundColor: map.backgroundColor,
     widthPx: map.widthPx,
     heightPx: map.heightPx,
     grid: map.grid,
     fogBase: map.fogBase,
     version: map.version,
-    walls: map.terrain.walls.length,
-    lights: map.terrain.lights.length,
-    spawns: map.spawns.length,
-    playerStarts: map.playerStarts.length,
+    walls: wallsOf(map).length,
+    lights: lightsOf(map).length,
+    spawns: spawnsOf(map).length,
+    playerStarts: startsOf(map).length,
     updatedAt: map.updatedAt,
   };
 };
@@ -84,7 +99,7 @@ export const createMap = (db: AppDatabase, campaignId: string, input: CreateMap)
     input.preset ?? '1080p',
     input.orientation ?? 'landscape',
   );
-  return insertMap(db, campaignId, emptyMapDocument(
+  return insertMap(db, campaignId, emptyMapDocumentV2(
     input.name,
     asset?.id ?? null,
     input.widthPx ?? presetDimensions.widthPx,
@@ -106,7 +121,8 @@ const downscaleBackground = async (
   document: MapDocument,
   asset: Asset,
 ): Promise<MapDocument> => {
-  const scale = document.backgroundTransform.scale;
+  const transform = backgroundLayer(document).imageTransform;
+  const scale = transform.scale;
   const factor = Math.min(
     1,
     document.widthPx / asset.width,
@@ -126,11 +142,10 @@ const downscaleBackground = async (
     .webp({ quality: 82 })
     .toBuffer();
   const derived = await storeAsset(env, db, resized);
-  return {
-    ...document,
-    imageAssetId: derived.id,
-    backgroundTransform: { ...document.backgroundTransform, scale: scale / factor },
-  };
+  return withBackgroundLayer(document, derived.id, {
+    ...transform,
+    scale: scale / factor,
+  });
 };
 
 export const putMap = async (
@@ -139,6 +154,7 @@ export const putMap = async (
   id: string,
   version: number,
   document: MapDocument,
+  derived: MapDerivedAssets = {},
 ): Promise<Map> => {
   const current = requireMap(db, id);
   if (current.version !== version) {
@@ -160,18 +176,57 @@ export const putMap = async (
       },
     );
   }
-  const asset = document.imageAssetId === null ? null : getStoredAsset(db, document.imageAssetId);
-  if (document.imageAssetId !== null && asset === null) {
+  const currentAssetId = backgroundLayer(document).imageAssetId;
+  const asset = currentAssetId === null ? null : getStoredAsset(db, currentAssetId);
+  if (currentAssetId !== null && asset === null) {
     throw notFound('Immagine non trovata');
   }
+  // Lo sfondo precedente può essere sostituito o azzerato: va recuperato prima
+  // dell'update per poterlo raccogliere quando nessuno lo referenzia più.
+  const previousBackgroundId = backgroundLayer(current).imageAssetId;
+  const previousBackground = previousBackgroundId === null
+    ? null
+    : getStoredAsset(db, previousBackgroundId);
+  // Tutti i riferimenti derivati vanno validati prima di qualunque scrittura:
+  // un solo asset inesistente annulla l'intero aggiornamento.
+  for (const derivedId of [derived.thumbAssetId, derived.compositeAssetId]) {
+    if (derivedId !== undefined && derivedId !== null && getAsset(db, derivedId) === null) {
+      throw notFound('Asset non trovato');
+    }
+  }
+  const previousDerived: Array<{ assetId: string | null; nextId: string | null }> = [
+    {
+      assetId: current.thumbAssetId,
+      nextId: derived.thumbAssetId === undefined ? current.thumbAssetId : derived.thumbAssetId,
+    },
+    {
+      assetId: current.compositeAssetId,
+      nextId: derived.compositeAssetId === undefined
+        ? current.compositeAssetId
+        : derived.compositeAssetId,
+    },
+  ];
   const next = asset === null ? document : await downscaleBackground(env, db, document, asset);
-  const updated = updateMapDocument(db, id, next, version);
+  const updated = updateMapDocument(db, id, next, version, derived);
   if (updated === null) {
     throw new AppError('state_conflict', 409, 'La mappa è stata modificata altrove');
   }
-  if (asset !== null && asset.id !== next.imageAssetId && countAssetReferences(db, asset.id) === 0) {
-    if (deleteAsset(db, asset.id)) {
-      await deleteAssetFiles(env, asset);
+  if (asset !== null && asset.id !== backgroundLayer(next).imageAssetId) {
+    await removeUnreferencedAsset(env, db, asset);
+  }
+  if (
+    previousBackground !== null
+    && previousBackgroundId !== backgroundLayer(next).imageAssetId
+  ) {
+    await removeUnreferencedAsset(env, db, previousBackground);
+  }
+  for (const entry of previousDerived) {
+    if (entry.assetId === null || entry.assetId === entry.nextId) {
+      continue;
+    }
+    const replaced = getStoredAsset(db, entry.assetId);
+    if (replaced !== null) {
+      await removeUnreferencedAsset(env, db, replaced);
     }
   }
   return updated;
@@ -184,21 +239,23 @@ export const removeMap = (db: AppDatabase, id: string): void => {
 
 export const duplicateMap = (db: AppDatabase, id: string): Map => {
   const source = requireMap(db, id);
+  const [background, graphics, constraints, elements] = source.layers;
   const document: MapDocument = {
+    schemaVersion: 2,
     name: `${source.name} (copia)`,
-    imageAssetId: source.imageAssetId,
-    backgroundTransform: { ...source.backgroundTransform },
     backgroundColor: source.backgroundColor,
     widthPx: source.widthPx,
     heightPx: source.heightPx,
-    grid: source.grid,
-    terrain: {
-      ...source.terrain,
-      walls: source.terrain.walls.map((wall) => ({ ...wall })),
-      lights: source.terrain.lights.map((light) => ({ ...light })),
-    },
-    spawns: source.spawns.map((spawn) => ({ ...spawn, id: newId() })),
-    playerStarts: source.playerStarts.map((start) => ({ ...start, id: newId() })),
+    grid: structuredClone(source.grid),
+    layers: [
+      structuredClone(background),
+      structuredClone(graphics),
+      structuredClone(constraints),
+      structuredClone(elements),
+    ],
+    ambientLight: source.ambientLight,
+    visionLimitFeet: source.visionLimitFeet,
+    visionEnabled: source.visionEnabled,
     ...(source.startView === undefined ? {} : { startView: source.startView }),
     fogBase: source.fogBase,
     showDoorIcons: source.showDoorIcons,
@@ -218,7 +275,7 @@ const createTokens = (
   assignments: PlayerAssignment[],
 ): TokenState[] => {
   const tokens: TokenState[] = [];
-  for (const spawn of map.spawns) {
+  for (const spawn of spawnsOf(map)) {
     const count = Math.max(1, spawn.quantity);
     for (let index = 0; index < count; index += 1) {
       let actor: Actor;
@@ -260,8 +317,9 @@ const createTokens = (
     }
   }
   const assignedStarts = new Set<string>();
+  const starts = startsOf(map);
   for (const assignment of assignments) {
-    const start = map.playerStarts.find((entry) => entry.id === assignment.startId);
+    const start = starts.find((entry) => entry.id === assignment.startId);
     if (start === undefined || assignedStarts.has(start.id)) {
       continue;
     }
@@ -288,6 +346,19 @@ const createTokens = (
   return tokens;
 };
 
+/**
+ * Adatta un asset a riempire la scena (cover): scala massima fra i due assi e
+ * centratura dell'eccedenza su entrambe le direzioni.
+ */
+const coverTransform = (map: Map, asset: Asset): BackgroundTransform => {
+  const scale = Math.max(map.widthPx / asset.width, map.heightPx / asset.height);
+  return {
+    scale,
+    x: (map.widthPx - asset.width * scale) / 2,
+    y: (map.heightPx - asset.height * scale) / 2,
+  };
+};
+
 export const createSceneFromMap = (
   db: AppDatabase,
   campaignId: string,
@@ -302,26 +373,54 @@ export const createSceneFromMap = (
     throw notFound('Mappa non trovata');
   }
   const fogBase = input.fogBase ?? map.fogBase;
+  const background = backgroundLayer(map);
+  const composite = map.compositeAssetId === null ? null : getAsset(tx, map.compositeAssetId);
+  const sceneImage = composite === null
+    ? {
+      imageAssetId: background.imageAssetId,
+      backgroundTransform: { ...background.imageTransform },
+    }
+    : {
+      imageAssetId: composite.id,
+      backgroundTransform: coverTransform(map, composite),
+    };
+  const walls = wallsOf(map).map((wall) => structuredClone(wall));
+  const lights = lightsOf(map).map(({ type: _type, ...light }) => structuredClone(light));
+  const terrain = {
+    ambientLight: map.ambientLight,
+    visionLimitFeet: map.visionLimitFeet,
+    visionEnabled: map.visionEnabled,
+    walls,
+    lights,
+  };
   const state: SceneState = {
-    ...createDefaultSceneState(fogBase, map.terrain),
+    ...createDefaultSceneState(fogBase, terrain),
     backgroundColor: map.backgroundColor,
     grid: map.grid,
     fog: { base: fogBase, ops: [], override: 'none' },
     terrain: {
-      ...map.terrain,
-      walls: map.terrain.walls.map((wall) => ({ ...wall })),
-      lights: map.terrain.lights.map((light) => ({ ...light })),
+      ...terrain,
+      walls: walls.map((wall) => ({ ...wall })),
+      lights: lights.map((light) => ({ ...light })),
     },
     showDoorIcons: map.showDoorIcons,
     ...(map.startView === undefined ? {} : { startView: map.startView }),
   };
   state.tokens = createTokens(tx, map, input.playerAssignments);
+  state.loot = lootOf(map).map(({ id, itemId, x, y, quantity, visible }) => ({
+    id,
+    itemId,
+    x,
+    y,
+    quantity,
+    visible,
+  }));
   const scene = insertScene(tx, campaignId, {
     name: input.name ?? map.name,
     widthPx: map.widthPx,
     heightPx: map.heightPx,
-    ...(map.imageAssetId === null ? {} : { imageAssetId: map.imageAssetId }),
-    backgroundTransform: { ...map.backgroundTransform },
+    ...(sceneImage.imageAssetId === null ? {} : { imageAssetId: sceneImage.imageAssetId }),
+    backgroundTransform: sceneImage.backgroundTransform,
     mapId: map.id,
   }, state);
   updateCampaign(tx, campaignId, { activeSceneId: scene.id });

@@ -68,9 +68,9 @@ export const mapPropertiesFromDocument = (doc: MapDocument): MapPropertiesFormMo
   offsetY: doc.grid.offsetY,
   feetPerCell: doc.grid.feetPerCell,
   diagonalRule: doc.grid.diagonalRule,
-  ambientLight: doc.terrain.ambientLight,
-  visionLimitFeet: doc.terrain.visionLimitFeet,
-  visionEnabled: doc.terrain.visionEnabled,
+  ambientLight: doc.ambientLight,
+  visionLimitFeet: doc.visionLimitFeet,
+  visionEnabled: doc.visionEnabled,
   showDoorIcons: doc.showDoorIcons,
 });
 

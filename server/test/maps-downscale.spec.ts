@@ -6,8 +6,10 @@ import type { FastifyInstance } from 'fastify';
 import sharp from 'sharp';
 import {
   mapDocumentSchema,
+  type BackgroundLayer,
   type BackgroundTransform,
   type Map,
+  type MapDocument,
   type ProgramState,
 } from '@dnd-vtt/shared';
 import { getAsset } from '../src/db/assets.repository.js';
@@ -33,12 +35,41 @@ const createMap = async (
   return response.json<Map>();
 };
 
-const documentFor = (map: Map) => {
+const backgroundOf = (map: Map): BackgroundLayer => map.layers[0];
+
+const documentFor = (map: Map): MapDocument => {
   const document: Record<string, unknown> = { ...map };
-  for (const key of ['id', 'campaignId', 'version', 'createdAt', 'updatedAt']) {
+  // `imageAssetId` è denormalizzato sul DTO ma non fa parte del documento v2:
+  // il riferimento vive nel layer background.
+  for (const key of [
+    'id',
+    'campaignId',
+    'version',
+    'createdAt',
+    'updatedAt',
+    'imageAssetId',
+    'thumbAssetId',
+    'compositeAssetId',
+  ]) {
     delete document[key];
   }
   return mapDocumentSchema.parse(document);
+};
+
+const withBackgroundTransform = (
+  document: MapDocument,
+  backgroundTransform: BackgroundTransform,
+): MapDocument => {
+  const [background, graphics, constraints, elements] = document.layers;
+  return {
+    ...document,
+    layers: [
+      { ...background, imageTransform: { ...backgroundTransform } },
+      graphics,
+      constraints,
+      elements,
+    ],
+  };
 };
 
 const saveMap = async (
@@ -51,7 +82,7 @@ const saveMap = async (
     url: `/api/v1/maps/${map.id}`,
     payload: {
       version: map.version,
-      document: { ...documentFor(map), backgroundTransform },
+      document: withBackgroundTransform(documentFor(map), backgroundTransform),
     },
   });
   expect(response.statusCode).toBe(200);
@@ -152,7 +183,9 @@ describe('downscale sfondo al salvataggio mappa', () => {
     const f = Math.min(1, 1280 / 1920, 720 / 1280);
     expect(derived.width).toBe(Math.round(1920 * f));
     expect(derived.height).toBe(Math.round(1280 * f));
-    expect(saved.backgroundTransform.scale).toBeCloseTo(scale / f, 10);
+    // Il downscale aggiorna il layer background e il campo denormalizzato.
+    expect(backgroundOf(saved).imageAssetId).toBe(saved.imageAssetId);
+    expect(backgroundOf(saved).imageTransform.scale).toBeCloseTo(scale / f, 10);
 
     const derivedSize = (await stat(
       join(testApp.env.uploadDir, 'webp', `${derived.hash}.webp`),
@@ -167,7 +200,8 @@ describe('downscale sfondo al salvataggio mappa', () => {
     const saved = await saveMap(testApp.app, map, { x: 0, y: 0, scale: 2 });
 
     expect(saved.imageAssetId).toBe(original.id);
-    expect(saved.backgroundTransform.scale).toBe(2);
+    expect(backgroundOf(saved).imageAssetId).toBe(original.id);
+    expect(backgroundOf(saved).imageTransform.scale).toBe(2);
     expect(saved.widthPx).toBe(1280);
     expect(saved.heightPx).toBe(720);
     await closeTestApp(testApp);
@@ -250,7 +284,9 @@ describe('downscale sfondo al salvataggio mappa', () => {
     expect(existsSync(join(uploadDir, 'webp', `${derived.hash}.webp`))).toBe(true);
 
     const fetched = await testApp.app.inject({ method: 'GET', url: `/api/v1/maps/${map.id}` });
-    expect(fetched.json<Map>().imageAssetId).toBe(saved.imageAssetId);
+    const fetchedMap = fetched.json<Map>();
+    expect(fetchedMap.imageAssetId).toBe(saved.imageAssetId);
+    expect(backgroundOf(fetchedMap).imageAssetId).toBe(saved.imageAssetId);
     await closeTestApp(testApp);
   });
 });

@@ -1,9 +1,21 @@
 import { z } from 'zod';
 import { DEFAULT_MAP_BACKGROUND_COLOR, mapBackgroundColorSchema } from './color.js';
 import { viewSchema } from './common.js';
-import { defaultGridConfig, gridConfigSchema, terrainSchema, tokenLightSchema } from './scene.js';
 import {
-  backgroundTransformSchema,
+  emptyMapDocumentV2,
+  mapDocumentV2Schema,
+  type MapDocumentV2,
+} from './map-document.js';
+import {
+  mapSpawnSchema,
+  playerStartSchema,
+  spawnSourceSchema,
+  type MapSpawn,
+  type PlayerStart,
+  type SpawnSource,
+} from './map-spawn.js';
+import { gridConfigSchema } from './scene.js';
+import {
   defaultBackgroundTransform,
   orientationSchema,
   resolutionPresetSchema,
@@ -75,51 +87,23 @@ export const sceneDimensions = (
 export const mapViewSchema = viewSchema;
 export type MapView = z.infer<typeof mapViewSchema>;
 
-export const spawnSourceSchema = z.discriminatedUnion('type', [
-  z.strictObject({ type: z.literal('srd'), monsterId: z.string().min(1) }),
-  z.strictObject({ type: z.literal('actor'), actorId: z.string().uuid() }),
-]);
-export type SpawnSource = z.infer<typeof spawnSourceSchema>;
+// Gli schemi di spawn vivono in `map-spawn.ts` per essere condivisi con i layer
+// v2 senza cicli di import. Restano esportati da qui per compatibilità.
+export {
+  mapSpawnSchema,
+  playerStartSchema,
+  spawnSourceSchema,
+};
+export type { MapSpawn, PlayerStart, SpawnSource };
 
-export const mapSpawnSchema = z.strictObject({
-  id: z.string().min(1),
-  kind: z.enum(['monster', 'npc']),
-  x: z.number().int().min(0),
-  y: z.number().int().min(0),
-  source: spawnSourceSchema,
-  label: z.string().min(1).optional(),
-  size: z.number().positive().default(1),
-  hidden: z.boolean().default(false),
-  quantity: z.number().int().min(1).max(20).default(1),
-  light: tokenLightSchema.optional(),
-});
-export type MapSpawn = z.infer<typeof mapSpawnSchema>;
+// La migrazione resta raggiungibile dal modulo pubblico della mappa, oltre che
+// dal barrel, per i chiamanti che leggono documenti storici.
+export { legacyMapDocumentSchema, migrateMapDocument } from './map-legacy.js';
+export type { LegacyMapDocument } from './map-legacy.js';
 
-export const playerStartSchema = z.strictObject({
-  id: z.string().min(1),
-  x: z.number().int().min(0),
-  y: z.number().int().min(0),
-  label: z.string().min(1).optional(),
-});
-export type PlayerStart = z.infer<typeof playerStartSchema>;
-
-export const mapDocumentSchema = z.strictObject({
-  name: z.string().trim().min(1).max(120),
-  imageAssetId: z.string().uuid().nullable(),
-  backgroundTransform: backgroundTransformSchema.default(defaultBackgroundTransform),
-  backgroundColor: mapBackgroundColorSchema.default(DEFAULT_MAP_BACKGROUND_COLOR),
-  widthPx: z.number().int().positive().max(20000),
-  heightPx: z.number().int().positive().max(20000),
-  grid: gridConfigSchema,
-  terrain: terrainSchema,
-  spawns: z.array(mapSpawnSchema).max(500).default([]),
-  playerStarts: z.array(playerStartSchema).max(12).default([]),
-  startView: viewSchema.optional(),
-  fogBase: z.enum(['hidden', 'revealed']).default('hidden'),
-  showDoorIcons: z.boolean().default(true),
-  notes: z.string().default(''),
-});
-export type MapDocument = z.infer<typeof mapDocumentSchema>;
+/** Il documento pubblico è il formato v2 con i quattro layer canonici. */
+export const mapDocumentSchema = mapDocumentV2Schema;
+export type MapDocument = MapDocumentV2;
 
 export const mapSchema = mapDocumentSchema.extend({
   id: z.string().uuid(),
@@ -127,6 +111,13 @@ export const mapSchema = mapDocumentSchema.extend({
   version: z.number().int().min(1),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  // Campo denormalizzato per liste e query: coincide sempre con il layer
+  // background ma resta fuori dal documento v2.
+  imageAssetId: z.string().uuid().nullable(),
+  // Derivati rigenerabili dalla pipeline di rendering: riferimenti opzionali
+  // alle thumbnail e al composito persistiti, mai parte del documento v2.
+  thumbAssetId: z.string().uuid().nullable(),
+  compositeAssetId: z.string().uuid().nullable(),
 });
 export type Map = z.infer<typeof mapSchema>;
 
@@ -174,6 +165,10 @@ export type CreateMap = z.input<typeof createMapSchema>;
 export const putMapSchema = z.strictObject({
   version: z.number().int().min(1),
   document: mapDocumentSchema,
+  // Derivati rigenerabili: `undefined` conserva i riferimenti correnti, `null`
+  // li azzera. Restano fuori dal documento v2.
+  thumbAssetId: z.string().uuid().nullable().optional(),
+  compositeAssetId: z.string().uuid().nullable().optional(),
 });
 export type PutMap = z.infer<typeof putMapSchema>;
 
@@ -198,42 +193,16 @@ export const createSceneFromMapResultSchema = z.strictObject({
 });
 export type CreateSceneFromMapResult = z.infer<typeof createSceneFromMapResultSchema>;
 
-// Rende esplicito che il documento della mappa e lo stato iniziale della scena
-// condividono lo stesso schema di terreno.
-export const mapTerrainDefaults = {
-  ambientLight: 'dark' as const,
-  visionLimitFeet: 120,
-  visionEnabled: true,
-  walls: [],
-  lights: [],
-} satisfies z.input<typeof terrainSchema>;
-
 export const emptyMapDocument = (
   name: string,
   imageAssetId: string | null,
   widthPx: number,
   heightPx: number,
   backgroundTransform: BackgroundTransform = defaultBackgroundTransform,
-): MapDocument => {
-  const maxSightFeet = Math.max(1, Math.round((Math.max(widthPx, heightPx) / 70) * 5));
-  return {
-    name,
-    imageAssetId,
-    backgroundTransform: { ...backgroundTransform },
-    backgroundColor: DEFAULT_MAP_BACKGROUND_COLOR,
-    widthPx,
-    heightPx,
-    grid: { ...defaultGridConfig },
-    terrain: {
-      ...mapTerrainDefaults,
-      visionLimitFeet: Math.min(120, maxSightFeet),
-      walls: [],
-      lights: [],
-    },
-    spawns: [],
-    playerStarts: [],
-    fogBase: 'hidden',
-    showDoorIcons: true,
-    notes: '',
-  };
-};
+): MapDocument => emptyMapDocumentV2(
+  name,
+  imageAssetId,
+  widthPx,
+  heightPx,
+  backgroundTransform,
+);

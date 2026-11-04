@@ -1,0 +1,21 @@
+<div class="area-inspector">
+  <label class="area-field">
+    <span>Etichetta area</span>
+    <input
+      type="text"
+      aria-label="Etichetta area"
+      [value]="area().label ?? ''"
+      (change)="commitLabel($event)"
+    />
+  </label>
+
+  <button
+    type="button"
+    class="area-inspector__remove"
+    aria-label="Rimuovi area"
+    (click)="removed.emit()"
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+    <span>Rimuovi area</span>
+  </button>
+</div>

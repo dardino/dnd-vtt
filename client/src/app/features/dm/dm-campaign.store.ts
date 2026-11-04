@@ -2,6 +2,7 @@ import { inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   isTiledMap,
+  startsOf,
   type Campaign,
   type MapDocument,
   type MapSummary,
@@ -341,8 +342,9 @@ export const DmCampaignStore = signalStore(
           const doc = await mapsApi.get(map.id);
           const assignments: Record<string, string> = {};
           const pcs = shell.party().filter((actor) => actor.kind === 'pc');
+          const starts = startsOf(doc);
           pcs.forEach((actor, index) => {
-            const start = doc.playerStarts[index];
+            const start = starts[index];
             if (start !== undefined) {
               assignments[actor.id] = start.id;
             }

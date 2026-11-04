@@ -2,7 +2,7 @@ import {
   actorPortraitSchema,
   actorStatblockSchema,
   backgroundTransformSchema,
-  mapDocumentSchema,
+  migrateMapDocument,
   type ActionLogEntry,
   type Actor,
   type Asset,
@@ -41,13 +41,15 @@ export const toScene = (row: typeof scenes.$inferSelect): Scene => ({
 });
 
 export const toMap = (row: typeof maps.$inferSelect): Map => {
-  const document = mapDocumentSchema.parse(JSON.parse(row.document) as unknown);
+  const document = migrateMapDocument(JSON.parse(row.document) as unknown);
   return {
     id: row.id,
     campaignId: row.campaignId,
     ...document,
     name: row.name,
-    imageAssetId: row.imageAssetId,
+    imageAssetId: document.layers[0].imageAssetId,
+    thumbAssetId: row.thumbAssetId,
+    compositeAssetId: row.compositeAssetId,
     widthPx: row.widthPx,
     heightPx: row.heightPx,
     version: row.version,

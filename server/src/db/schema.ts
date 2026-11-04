@@ -23,6 +23,8 @@ export const maps = sqliteTable('maps', {
     .references(() => campaigns.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   imageAssetId: text('image_asset_id'),
+  thumbAssetId: text('thumb_asset_id'),
+  compositeAssetId: text('composite_asset_id'),
   widthPx: integer('width_px').notNull(),
   heightPx: integer('height_px').notNull(),
   document: text('document').notNull(),

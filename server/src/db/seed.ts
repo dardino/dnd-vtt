@@ -1,4 +1,3 @@
-import type { MapDocument } from '@dnd-vtt/shared';
 import sharp from 'sharp';
 import type { AppEnv } from '../config/env.js';
 import { storeAsset } from '../assets/service.js';
@@ -8,11 +7,9 @@ import { insertMap } from './maps.repository.js';
 import { createSceneFromMap } from '../maps/service.js';
 import { campaigns } from './schema.js';
 import {
-  DEFAULT_MAP_BACKGROUND_COLOR,
-  defaultBackgroundTransform,
-  defaultGridConfig,
-  defaultTerrain,
+  emptyMapDocumentV2,
   wallSegmentSchema,
+  type MapElement,
   type WallSegment,
 } from '@dnd-vtt/shared';
 
@@ -80,69 +77,54 @@ export const seedDemo = async (env: AppEnv, handle: DatabaseHandle): Promise<See
     advancementMode: 'milestone',
   });
   const asset = await storeAsset(env, handle.db, await demoPng());
-  const document: MapDocument = {
-    name: 'Dungeon di prova',
-    imageAssetId: asset.id,
-    backgroundTransform: { ...defaultBackgroundTransform },
-    backgroundColor: DEFAULT_MAP_BACKGROUND_COLOR,
-    widthPx: 1260,
-    heightPx: 840,
-    grid: { ...defaultGridConfig },
-    terrain: {
-      ...defaultTerrain,
-      ambientLight: 'dark',
-      visionLimitFeet: 90,
-      visionEnabled: true,
-      walls: demoWalls(),
-      lights: [
-        {
-          id: 'torch-entry',
-          x: 3,
-          y: 3,
-          brightFeet: 20,
-          dimFeet: 40,
-          color: '#ffcc80',
-          enabled: true,
-          shape: 'circle',
-          angle: 60,
-        },
-        {
-          id: 'torch-crypt',
-          x: 13,
-          y: 5,
-          brightFeet: 20,
-          dimFeet: 40,
-          color: '#ffcc80',
-          enabled: true,
-          shape: 'circle',
-          angle: 60,
-        },
-      ],
+  const document = emptyMapDocumentV2('Dungeon di prova', asset.id, 1260, 840);
+  document.visionLimitFeet = 90;
+  document.layers[2].items = demoWalls();
+  const elements: MapElement[] = [
+    {
+      id: 'torch-entry',
+      type: 'light',
+      x: 3,
+      y: 3,
+      brightFeet: 20,
+      dimFeet: 40,
+      color: '#ffcc80',
+      enabled: true,
+      shape: 'circle',
+      angle: 60,
     },
-    spawns: [
-      {
-        id: 'goblin-1',
-        kind: 'monster',
-        x: 13,
-        y: 6,
-        source: { type: 'srd', monsterId: 'goblin-warrior' },
-        label: 'Goblin',
-        size: 1,
-        hidden: false,
-        quantity: 1,
-      },
-    ],
-    playerStarts: [
-      { id: 'start-1', x: 2, y: 6, label: 'PG 1' },
-      { id: 'start-2', x: 3, y: 6, label: 'PG 2' },
-      { id: 'start-3', x: 4, y: 6, label: 'PG 3' },
-      { id: 'start-4', x: 5, y: 6, label: 'PG 4' },
-    ],
-    startView: { x: 630, y: 420, zoom: 1 },
-    fogBase: 'hidden',
-    showDoorIcons: true,
-    notes: 'Mappa dimostrativa: la porta a est separa la cripta dalla sala.',
-  };
+    {
+      id: 'torch-crypt',
+      type: 'light',
+      x: 13,
+      y: 5,
+      brightFeet: 20,
+      dimFeet: 40,
+      color: '#ffcc80',
+      enabled: true,
+      shape: 'circle',
+      angle: 60,
+    },
+    {
+      id: 'goblin-1',
+      type: 'spawn',
+      kind: 'monster',
+      x: 13,
+      y: 6,
+      source: { type: 'srd', monsterId: 'goblin-warrior' },
+      label: 'Goblin',
+      size: 1,
+      hidden: false,
+      quantity: 1,
+    },
+    { id: 'start-1', type: 'start', x: 2, y: 6, label: 'PG 1' },
+    { id: 'start-2', type: 'start', x: 3, y: 6, label: 'PG 2' },
+    { id: 'start-3', type: 'start', x: 4, y: 6, label: 'PG 3' },
+    { id: 'start-4', type: 'start', x: 5, y: 6, label: 'PG 4' },
+  ];
+  document.layers[3].items = elements;
+  document.startView = { x: 630, y: 420, zoom: 1 };
+  document.notes = 'Mappa dimostrativa: la porta a est separa la cripta dalla sala.';
   const map = insertMap(handle.db, campaign.id, document);
   const scene = createSceneFromMap(handle.db, campaign.id, {
     mapId: map.id,

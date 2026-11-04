@@ -22,8 +22,11 @@ import {
   pixelToCell,
   wallSegmentPx,
   type BackgroundTransform,
+  type BlockedArea,
   type CellPoint,
   type GridConfig,
+  type MapGraphic,
+  type MapLayerKind,
   type MapSpawn,
   type MapView,
   type PlayerStart,
@@ -35,7 +38,11 @@ import {
 import { canvasKeyboardCommand, isEditableTarget } from '../../core/ui/canvas-keyboard';
 import { MeasurementService } from '../../core/ui/measurement.service';
 import { readThemeColors, type CssColorTokens } from '../../core/ui/theme-colors';
+import { drawBlockedAreasLayer, drawGraphicsLayer } from './map-layer-renderers';
+import { hexAlphaToRgba } from './map-color';
 import { MapGridRenderer } from './map-grid-renderer';
+import { sortedGraphics } from './map-graphics-renderer';
+import { MapImageLoader } from './map-image-loader';
 
 const EDITOR_COLOR_TOKENS = {
   wall: { variable: '--editor-wall', fallback: '#e8dcc4' },
@@ -47,6 +54,8 @@ const EDITOR_COLOR_TOKENS = {
   text: { variable: '--editor-text', fallback: '#eaf4ff' },
   stroke: { variable: '--editor-stroke', fallback: '#0f1c2e' },
   background: { variable: '--editor-bg', fallback: '#111' },
+  blockedArea: { variable: '--editor-blocked-area', fallback: '#ff6363' },
+  blockedAreaStroke: { variable: '--editor-blocked-area-stroke', fallback: '#ff8c5a' },
 } as const satisfies CssColorTokens;
 
 export type EditorTool
@@ -57,9 +66,12 @@ export type EditorTool
     | 'window'
     | 'lowWall'
     | 'eraser'
+    | 'areaRect'
+    | 'areaPolygon'
     | 'light'
     | 'spawn'
-    | 'start';
+    | 'start'
+    | 'loot';
 
 const EDITOR_TOOL_LABELS: Record<EditorTool, string> = {
   select: 'selezione',
@@ -69,13 +81,16 @@ const EDITOR_TOOL_LABELS: Record<EditorTool, string> = {
   window: 'finestra',
   lowWall: 'muretto',
   eraser: 'gomma',
+  areaRect: 'area rettangolo',
+  areaPolygon: 'area poligono',
   light: 'luce',
   spawn: 'mostro',
   start: 'punto di partenza',
+  loot: 'oggetti',
 };
 
 export interface EditorSelection {
-  type: 'wall' | 'light' | 'spawn' | 'start';
+  type: 'wall' | 'light' | 'spawn' | 'start' | 'graphic' | 'area' | 'loot';
   id: string;
 }
 
@@ -85,10 +100,29 @@ export interface EditorMapImage {
   height: number;
 }
 
+/** Stato di visibilità, blocco e opacità di un layer logico del documento. */
+export interface EditorLayerFlag {
+  visible: boolean;
+  locked: boolean;
+  opacity: number;
+}
+
+/** Grafica decorativa già risolta con l'immagine da disegnare. */
+export interface EditorGraphic {
+  item: MapGraphic;
+  image: EditorMapImage | null;
+}
+
 export type WallDraft = Omit<WallSegment, 'id'> & { id?: string };
 
 export interface WallsDrawnEvent {
   walls: WallDraft[];
+}
+
+/** Area appena disegnata: i punti sono già agganciati al reticolo. */
+export interface AreaDrawnEvent {
+  shape: 'rect' | 'polygon';
+  points: CellPoint[];
 }
 
 interface Camera {
@@ -96,6 +130,61 @@ interface Camera {
   x: number;
   y: number;
 }
+
+interface Point2 {
+  x: number;
+  y: number;
+}
+
+const pointOnSegment = (point: Point2, a: Point2, b: Point2): boolean => {
+  const cross = (point.y - a.y) * (b.x - a.x) - (point.x - a.x) * (b.y - a.y);
+  if (Math.abs(cross) > 1e-9) {
+    return false;
+  }
+  return point.x >= Math.min(a.x, b.x) - 1e-9
+    && point.x <= Math.max(a.x, b.x) + 1e-9
+    && point.y >= Math.min(a.y, b.y) - 1e-9
+    && point.y <= Math.max(a.y, b.y) + 1e-9;
+};
+
+/** Area con segno (shoelace): vicina a zero per poligoni degeneri o collineari. */
+const signedPolygonArea = (points: readonly Point2[]): number => {
+  let twiceArea = 0;
+  for (let index = 0; index < points.length; index += 1) {
+    const a = points[index];
+    const b = points[(index + 1) % points.length];
+    if (a === undefined || b === undefined) {
+      continue;
+    }
+    twiceArea += a.x * b.y - b.x * a.y;
+  }
+  return twiceArea / 2;
+};
+
+/** Sotto questa soglia (in celle quadrate) il poligono non copre alcuna zona. */
+const AREA_EPSILON = 1e-6;
+
+/** Ray casting con inclusione esplicita dei bordi: i click sul perimetro contano. */
+const polygonContains = (point: Point2, points: readonly Point2[]): boolean => {
+  let inside = false;
+  for (let index = 0; index < points.length; index += 1) {
+    const a = points[index];
+    const b = points[(index + 1) % points.length];
+    if (a === undefined || b === undefined) {
+      continue;
+    }
+    if (pointOnSegment(point, a, b)) {
+      return true;
+    }
+    if ((a.y > point.y) !== (b.y > point.y)) {
+      const x = ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x;
+      if (point.x < x) {
+        inside = !inside;
+      }
+    }
+  }
+  return inside;
+};
 
 @Component({
   selector: 'app-map-editor-canvas',
@@ -115,14 +204,21 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public readonly selected = input<EditorSelection | null>(null);
   public readonly startView = input<MapView | null>(null);
   public readonly showGrid = input(true);
+  public readonly layerFlags = input<Partial<Record<MapLayerKind, EditorLayerFlag>>>({});
+  public readonly graphics = input<EditorGraphic[]>([]);
+  public readonly blockedAreas = input<BlockedArea[]>([]);
 
   public readonly wallsDrawn = output<WallsDrawnEvent>();
   public readonly wallRemoved = output<string>();
+  public readonly areaDrawn = output<AreaDrawnEvent>();
+  public readonly areaRemoved = output<{ id: string }>();
   public readonly lightPlaced = output<CellPoint>();
   public readonly spawnRequested = output<CellPoint>();
   public readonly startPlaced = output<CellPoint>();
+  public readonly lootRequested = output<CellPoint>();
   public readonly elementMoved = output<{ selection: EditorSelection; cell: CellPoint }>();
   public readonly wallMoved = output<{ id: string; dx: number; dy: number }>();
+  public readonly graphicMoved = output<{ id: string; x: number; y: number }>();
   public readonly elementSelected = output<EditorSelection | null>();
   public readonly cameraChanged = output<Camera>();
   public readonly gridLines = signal(0);
@@ -137,7 +233,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
   private readonly gridRenderer = new MapGridRenderer();
   private stage: Konva.Stage | null = null;
   private mapLayer: Konva.Layer | null = null;
+  private graphicsLayer: Konva.Layer | null = null;
   private gridLayer: Konva.Layer | null = null;
+  private constraintsLayer: Konva.Layer | null = null;
   private wallLayer: Konva.Layer | null = null;
   private lightLayer: Konva.Layer | null = null;
   private actorLayer: Konva.Layer | null = null;
@@ -148,14 +246,25 @@ export class MapEditorCanvasComponent implements OnDestroy {
   private wallStart: WallPoint | null = null;
   private wallCurrent: WallPoint | null = null;
   private wallDraftKind: WallKind | null = null;
+  private areaRectStart: CellPoint | null = null;
+  private areaRectCurrent: CellPoint | null = null;
+  private areaPolygonDraft: CellPoint[] = [];
   private freehand: Array<{ x: number; y: number }> | null = null;
   private erasing = false;
   private erased = new Set<string>();
   private lastTool: EditorTool | null = null;
   private loadedImage: { url: string; element: HTMLImageElement } | null = null;
+  /**
+   * Cache per-canvas: sfondo e grafiche condividono caricamenti e fallimenti,
+   * mentre un'istanza per componente evita di riusare elementi/stati tra
+   * canvas (e tra fixture di test) diversi.
+   */
+  private readonly imageLoader = new MapImageLoader();
   private lastImageUrl: string | null = null;
   private panning: { clientX: number; clientY: number; stageX: number; stageY: number } | null = null;
   private renderFrame: number | null = null;
+  /** Un `onload` può arrivare dopo `ngOnDestroy`: da lì in poi la scena è morta. */
+  private destroyed = false;
 
   public constructor() {
     effect(() => {
@@ -170,6 +279,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.selected();
       this.showGrid();
       this.startView();
+      this.layerFlags();
+      this.graphics();
+      this.blockedAreas();
       if (this.stage !== null) {
         this.renderAll();
       }
@@ -178,6 +290,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
   }
 
   public ngOnDestroy(): void {
+    this.destroyed = true;
     if (this.renderFrame !== null) {
       cancelAnimationFrame(this.renderFrame);
       this.renderFrame = null;
@@ -209,14 +322,18 @@ export class MapEditorCanvasComponent implements OnDestroy {
     });
     this.stage = stage;
     this.mapLayer = new Konva.Layer({ listening: false });
+    this.graphicsLayer = new Konva.Layer({ listening: false });
     this.gridLayer = new Konva.Layer({ listening: false });
+    this.constraintsLayer = new Konva.Layer({ listening: false });
     this.wallLayer = new Konva.Layer({ listening: false });
     this.lightLayer = new Konva.Layer({ listening: false });
     this.actorLayer = new Konva.Layer();
     this.overlayLayer = new Konva.Layer({ listening: false });
     for (const layer of [
       this.mapLayer,
+      this.graphicsLayer,
       this.gridLayer,
+      this.constraintsLayer,
       this.wallLayer,
       this.lightLayer,
       this.actorLayer,
@@ -319,6 +436,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
    * modo confermabile/annullabile tramite la cronologia comandi.
    */
   public onKeyDown(event: KeyboardEvent): void {
+    if (this.handleAreaKey(event)) {
+      return;
+    }
     const selection = this.selected();
     const arrows: Record<string, { dx: number; dy: number }> = {
       ArrowLeft: { dx: -1, dy: 0 },
@@ -408,7 +528,22 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.selectAt(world);
       return;
     }
-    if (tool === 'light' || tool === 'spawn' || tool === 'start') {
+    if (tool === 'areaRect') {
+      const point = this.nearestLatticePoint(world);
+      this.areaRectStart = point;
+      this.areaRectCurrent = point;
+      this.renderOverlay();
+      return;
+    }
+    if (tool === 'areaPolygon') {
+      if (mouse?.detail === 2) {
+        this.finishAreaPolygon();
+        return;
+      }
+      this.addAreaPolygonVertex(this.nearestLatticePoint(world));
+      return;
+    }
+    if (tool === 'light' || tool === 'spawn' || tool === 'start' || tool === 'loot') {
       const cell = pixelToCell(this.grid(), world);
       if (cell.x < 0 || cell.y < 0) {
         return;
@@ -417,8 +552,10 @@ export class MapEditorCanvasComponent implements OnDestroy {
         this.lightPlaced.emit(cell);
       } else if (tool === 'spawn') {
         this.spawnRequested.emit(cell);
-      } else {
+      } else if (tool === 'start') {
         this.startPlaced.emit(cell);
+      } else if (this.elementsEditable()) {
+        this.lootRequested.emit(cell);
       }
       return;
     }
@@ -475,6 +612,11 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.renderOverlay();
       return;
     }
+    if (this.areaRectStart !== null) {
+      this.areaRectCurrent = this.nearestLatticePoint(world);
+      this.renderOverlay();
+      return;
+    }
     if (this.wallDraftKind !== null) {
       this.wallCurrent = this.nearestLatticePoint(world);
       this.renderOverlay();
@@ -489,6 +631,10 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (this.erasing) {
       this.erasing = false;
       this.erased.clear();
+      return;
+    }
+    if (this.areaRectStart !== null) {
+      this.finishAreaRect();
       return;
     }
     if (this.freehand !== null) {
@@ -540,6 +686,72 @@ export class MapEditorCanvasComponent implements OnDestroy {
     };
   }
 
+  /** Il layer `elements` deve essere visibile e sbloccato per creare loot. */
+  private elementsEditable(): boolean {
+    const flags = this.layerFlags()['elements'];
+    return flags === undefined || (flags.visible && !flags.locked);
+  }
+
+  /** Enter/doppio click chiude, Esc annulla: le scorciatoie valgono solo in bozza. */
+  private handleAreaKey(event: KeyboardEvent): boolean {
+    const drawingRect = this.areaRectStart !== null;
+    const drawingPolygon = this.areaPolygonDraft.length > 0;
+    if (!drawingRect && !drawingPolygon) {
+      return false;
+    }
+    if (event.key === 'Enter' && drawingPolygon) {
+      event.preventDefault();
+      this.finishAreaPolygon();
+      return true;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.cancelAreaDraft();
+      return true;
+    }
+    return false;
+  }
+
+  private addAreaPolygonVertex(point: CellPoint): void {
+    const last = this.areaPolygonDraft[this.areaPolygonDraft.length - 1];
+    if (last !== undefined && last.x === point.x && last.y === point.y) {
+      return;
+    }
+    this.areaPolygonDraft.push(point);
+    this.renderOverlay();
+  }
+
+  private finishAreaPolygon(): void {
+    const points = this.areaPolygonDraft;
+    this.areaPolygonDraft = [];
+    if (points.length >= 3 && Math.abs(signedPolygonArea(points)) > AREA_EPSILON) {
+      this.areaDrawn.emit({ shape: 'polygon', points });
+    }
+    this.renderAll();
+  }
+
+  private finishAreaRect(): void {
+    const start = this.areaRectStart;
+    const current = this.areaRectCurrent;
+    this.areaRectStart = null;
+    this.areaRectCurrent = null;
+    if (start !== null && current !== null) {
+      const a = { x: Math.min(start.x, current.x), y: Math.min(start.y, current.y) };
+      const b = { x: Math.max(start.x, current.x), y: Math.max(start.y, current.y) };
+      if (a.x !== b.x && a.y !== b.y) {
+        this.areaDrawn.emit({ shape: 'rect', points: [a, b] });
+      }
+    }
+    this.renderAll();
+  }
+
+  private cancelAreaDraft(): void {
+    this.areaRectStart = null;
+    this.areaRectCurrent = null;
+    this.areaPolygonDraft = [];
+    this.renderAll();
+  }
+
   private wallsFromTrace(points: Array<{ x: number; y: number }>): WallDraft[] {
     const grid = this.grid();
     const lattice = points
@@ -559,6 +771,12 @@ export class MapEditorCanvasComponent implements OnDestroy {
   }
 
   private eraseAt(world: { x: number; y: number }): void {
+    const area = this.areaAt(world);
+    if (area !== null && !this.erased.has(area.id)) {
+      this.erased.add(area.id);
+      this.areaRemoved.emit({ id: area.id });
+      return;
+    }
     const grid = this.grid();
     const threshold = Math.max(8, grid.cellSizePx * 0.18);
     const wall = this.terrain().walls.find((entry) => {
@@ -573,6 +791,37 @@ export class MapEditorCanvasComponent implements OnDestroy {
     }
     this.erased.add(wall.id);
     this.wallRemoved.emit(wall.id);
+  }
+
+  /** Le aree sono selezionabili solo se il layer constraints è visibile e sbloccato. */
+  private areaAt(world: { x: number; y: number }): BlockedArea | null {
+    // La griglia esagonale non è supportata dalle aree: hit-test disabilitato.
+    if (this.grid().type === 'hex') {
+      return null;
+    }
+    const flags = this.layerFlags()['constraints'];
+    if (flags !== undefined && (!flags.visible || flags.locked)) {
+      return null;
+    }
+    return this.blockedAreas().find((area) => this.areaContains(area, world)) ?? null;
+  }
+
+  /** Hit-test nel reticolo: il rettangolo include i bordi, il poligono pure. */
+  private areaContains(area: BlockedArea, world: { x: number; y: number }): boolean {
+    const grid = this.grid();
+    const point = {
+      x: (world.x - grid.offsetX) / grid.cellSizePx,
+      y: (world.y - grid.offsetY) / grid.cellSizePx,
+    };
+    if (area.shape === 'rect') {
+      const [a, b] = area.points;
+      if (a === undefined || b === undefined) {
+        return false;
+      }
+      return point.x >= Math.min(a.x, b.x) && point.x <= Math.max(a.x, b.x)
+        && point.y >= Math.min(a.y, b.y) && point.y <= Math.max(a.y, b.y);
+    }
+    return polygonContains(point, area.points);
   }
 
   private selectAt(world: { x: number; y: number }): void {
@@ -594,12 +843,60 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.elementSelected.emit({ type: 'light', id: light.id });
       return;
     }
+    const area = this.areaAt(world);
+    if (area !== null) {
+      this.elementSelected.emit({ type: 'area', id: area.id });
+      return;
+    }
     const wall = this.terrain().walls.find((entry) => {
       const segment = wallSegmentPx(grid, entry);
       const distance = distanceToSegment(world, segment.a, segment.b);
       return distance <= Math.max(6, grid.cellSizePx * 0.12);
     });
-    this.elementSelected.emit(wall === undefined ? null : { type: 'wall', id: wall.id });
+    if (wall !== undefined) {
+      this.elementSelected.emit({ type: 'wall', id: wall.id });
+      return;
+    }
+    const graphic = this.graphicAt(world);
+    this.elementSelected.emit(graphic === null ? null : { type: 'graphic', id: graphic.id });
+  }
+
+  /**
+   * Grafica sotto il puntatore: vince lo `z` più alto. Il layer deve essere
+   * visibile e sbloccato, altrimenti non è né selezionabile né trascinabile.
+   */
+  private graphicAt(world: { x: number; y: number }): MapGraphic | null {
+    const flags = this.layerFlags()['graphics'];
+    if (flags !== undefined && (!flags.visible || flags.locked)) {
+      return null;
+    }
+    const ordered = sortedGraphics(this.graphics().map((entry) => entry.item)).reverse();
+    for (const item of ordered) {
+      const entry = this.graphics().find((candidate) => candidate.item.id === item.id);
+      if (entry === undefined || entry.image === null) {
+        continue;
+      }
+      if (this.graphicContains(entry, world)) {
+        return item;
+      }
+    }
+    return null;
+  }
+
+  /** Hit-test nel sistema locale della grafica: rotazione e scala invertite. */
+  private graphicContains(entry: EditorGraphic, world: { x: number; y: number }): boolean {
+    const image = entry.image;
+    if (image === null) {
+      return false;
+    }
+    const radians = (-entry.item.rotation * Math.PI) / 180;
+    const dx = world.x - entry.item.x;
+    const dy = world.y - entry.item.y;
+    const localX = dx * Math.cos(radians) - dy * Math.sin(radians);
+    const localY = dx * Math.sin(radians) + dy * Math.cos(radians);
+    const scale = Math.abs(entry.item.scale);
+    return Math.abs(localX) <= (image.width * scale) / 2
+      && Math.abs(localY) <= (image.height * scale) / 2;
   }
 
   private scheduleRender(): void {
@@ -619,7 +916,12 @@ export class MapEditorCanvasComponent implements OnDestroy {
    */
   private renderCameraFrame(): void {
     this.renderGrid();
-    if (this.wallDraftKind !== null || this.freehand !== null) {
+    if (
+      this.wallDraftKind !== null
+      || this.freehand !== null
+      || this.areaRectStart !== null
+      || this.areaPolygonDraft.length > 0
+    ) {
       this.renderOverlay();
     }
   }
@@ -629,6 +931,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
    * selezione, strumento), del resize e dell'immagine.
    */
   private renderAll(): void {
+    if (this.destroyed) {
+      return;
+    }
     if (this.renderScene()) {
       this.renderOverlays();
     }
@@ -644,6 +949,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.wallStart = null;
       this.wallCurrent = null;
       this.wallDraftKind = null;
+      this.areaRectStart = null;
+      this.areaRectCurrent = null;
+      this.areaPolygonDraft = [];
       this.freehand = null;
       this.erasing = false;
       this.erased.clear();
@@ -658,12 +966,14 @@ export class MapEditorCanvasComponent implements OnDestroy {
       return false;
     }
     this.renderMap();
+    this.renderGraphics();
     this.renderGrid();
     return true;
   }
 
   /** Muri, luci, spawn, start e bozze: cambiano solo su input strutturali. */
   private renderOverlays(): void {
+    this.renderConstraints();
     this.renderWalls();
     this.renderLights();
     this.renderActors();
@@ -671,9 +981,22 @@ export class MapEditorCanvasComponent implements OnDestroy {
   }
 
   private renderMap(): void {
+    if (this.destroyed) {
+      return;
+    }
     const layer = this.mapLayer;
     if (layer === null) {
       return;
+    }
+    const flags = this.layerFlags()['background'];
+    if (flags !== undefined) {
+      layer.visible(flags.visible);
+      layer.opacity(flags.opacity);
+      if (!flags.visible) {
+        layer.destroyChildren();
+        layer.draw();
+        return;
+      }
     }
     const image = this.image();
     if (image === null) {
@@ -698,12 +1021,33 @@ export class MapEditorCanvasComponent implements OnDestroy {
       this.drawBackground(layer, image, this.loadedImage.element);
       return;
     }
-    const element = new Image();
-    element.onload = () => {
-      this.loadedImage = { url: image.url, element };
-      this.renderMap();
-    };
-    element.src = image.url;
+    // Cache per URL: due render ravvicinati riusano la stessa `Image` e un
+    // errore è definitivo (niente retry a ogni render).
+    const element = this.imageLoader.get(image.url, () => this.onBackgroundLoaded(image.url));
+    if (element === null) {
+      return;
+    }
+    this.loadedImage = { url: image.url, element };
+    this.drawBackground(layer, image, element);
+  }
+
+  /**
+   * `onload` asincrono dello sfondo: ridisegna solo se l'URL è ancora quello
+   * corrente e la scena è viva. Con `onload` sincrono il loader restituisce
+   * subito l'elemento e questa callback non viene invocata.
+   */
+  private onBackgroundLoaded(url: string): void {
+    if (this.destroyed) {
+      return;
+    }
+    if (this.loadedImage?.url === url) {
+      return;
+    }
+    const image = this.image();
+    if (image === null || image.url !== url) {
+      return;
+    }
+    this.renderMap();
   }
 
   /**
@@ -743,6 +1087,68 @@ export class MapEditorCanvasComponent implements OnDestroy {
     layer.draw();
   }
 
+  /** Visibilità e opacità di un layer logico: i flag assenti lasciano i default. */
+  private applyLayerVisibility(layer: Konva.Layer, kind: MapLayerKind): boolean {
+    const flags = this.layerFlags()[kind];
+    if (flags === undefined) {
+      return true;
+    }
+    layer.visible(flags.visible);
+    layer.opacity(flags.opacity);
+    return flags.visible;
+  }
+
+  /** Grafiche decorative, ordinate per `z` e disegnate come `Konva.Image`. */
+  private renderGraphics(): void {
+    if (this.destroyed) {
+      return;
+    }
+    const layer = this.graphicsLayer;
+    if (layer === null) {
+      return;
+    }
+    layer.destroyChildren();
+    if (!this.applyLayerVisibility(layer, 'graphics')) {
+      layer.draw();
+      return;
+    }
+    const locked = this.layerFlags()['graphics']?.locked === true;
+    const interactive = this.tool() === 'select' && !locked;
+    layer.listening(interactive);
+    drawGraphicsLayer({
+      layer,
+      graphics: this.graphics(),
+      interactive,
+      loadImage: (url, onLoad) => this.imageLoader.get(url, onLoad),
+      onImageLoaded: () => this.renderGraphics(),
+      onDragEnd: (id, x, y) => this.graphicMoved.emit({ id, x, y }),
+    });
+  }
+
+  /** Aree bloccate: layer separato dai muri, riempimento semitrasparente. */
+  private renderConstraints(): void {
+    const layer = this.constraintsLayer;
+    if (layer === null) {
+      return;
+    }
+    layer.destroyChildren();
+    const visible = this.applyLayerVisibility(layer, 'constraints');
+    const locked = this.layerFlags()['constraints']?.locked === true;
+    layer.listening(this.tool() === 'select' && !locked);
+    if (!visible) {
+      layer.draw();
+      return;
+    }
+    const colors = this.colors();
+    drawBlockedAreasLayer({
+      layer,
+      areas: this.blockedAreas(),
+      grid: this.grid(),
+      fill: hexAlphaToRgba(colors.blockedArea, 25),
+      stroke: hexAlphaToRgba(colors.blockedAreaStroke, 90),
+    });
+  }
+
   private renderGrid(): void {
     const layer = this.gridLayer;
     if (layer === null) {
@@ -762,8 +1168,15 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (layer === null) {
       return;
     }
-    layer.listening(this.tool() === 'select');
+    const locked = this.layerFlags()['constraints']?.locked === true;
+    layer.listening(this.tool() === 'select' && !locked);
     layer.destroyChildren();
+    // I muri vivono in un layer Konva proprio ma appartengono al layer logico
+    // `constraints`: visibilità e opacità del documento valgono per entrambi.
+    if (!this.applyLayerVisibility(layer, 'constraints')) {
+      layer.draw();
+      return;
+    }
     const grid = this.grid();
     const selected = this.selected();
     const colors = this.colors();
@@ -816,8 +1229,14 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (layer === null) {
       return;
     }
-    layer.listening(this.tool() === 'select');
+    const visible = this.applyLayerVisibility(layer, 'elements');
+    const locked = this.layerFlags()['elements']?.locked === true;
+    layer.listening(this.tool() === 'select' && !locked);
     layer.destroyChildren();
+    if (!visible) {
+      layer.draw();
+      return;
+    }
     const grid = this.grid();
     const selected = this.selected();
     const colors = this.colors();
@@ -899,7 +1318,14 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (layer === null) {
       return;
     }
+    const visible = this.applyLayerVisibility(layer, 'elements');
+    const locked = this.layerFlags()['elements']?.locked === true;
+    layer.listening(this.tool() === 'select' && !locked);
     layer.destroyChildren();
+    if (!visible) {
+      layer.draw();
+      return;
+    }
     const grid = this.grid();
     const selected = this.selected();
     const colors = this.colors();
@@ -979,6 +1405,67 @@ export class MapEditorCanvasComponent implements OnDestroy {
     layer.draw();
   }
 
+  /** Anteprima delle aree in bozza: rettangolo normalizzato o poligono aperto. */
+  private renderAreaDraft(
+    layer: Konva.Layer,
+    colors: ReturnType<MapEditorCanvasComponent['colors']>,
+  ): void {
+    const grid = this.grid();
+    const scale = Math.max(this.stage?.scaleX() ?? 1, 0.05);
+    if (this.areaRectStart !== null && this.areaRectCurrent !== null) {
+      const a = latticePointPx(grid, this.areaRectStart);
+      const b = latticePointPx(grid, this.areaRectCurrent);
+      const x = Math.min(a.x, b.x);
+      const y = Math.min(a.y, b.y);
+      const width = Math.abs(b.x - a.x);
+      const height = Math.abs(b.y - a.y);
+      if (width > 0 && height > 0) {
+        layer.add(new Konva.Rect({
+          x,
+          y,
+          width,
+          height,
+          stroke: colors.select,
+          strokeWidth: 2,
+          strokeScaleEnabled: false,
+          dash: [10, 6],
+          listening: false,
+        }));
+      }
+    }
+    if (this.areaPolygonDraft.length > 0) {
+      const points = this.areaPolygonDraft.flatMap((point) => {
+        const pixel = latticePointPx(grid, point);
+        return [pixel.x, pixel.y];
+      });
+      if (this.areaPolygonDraft.length > 1) {
+        layer.add(new Konva.Line({
+          points,
+          stroke: colors.select,
+          strokeWidth: 2,
+          strokeScaleEnabled: false,
+          dash: [10, 6],
+          lineJoin: 'round',
+          listening: false,
+        }));
+      }
+      for (const point of this.areaPolygonDraft) {
+        const pixel = latticePointPx(grid, point);
+        layer.add(new Konva.Circle({
+          x: pixel.x,
+          y: pixel.y,
+          radius: 4 / scale,
+          fill: colors.select,
+          stroke: colors.stroke,
+          strokeWidth: 1,
+          strokeScaleEnabled: false,
+          perfectDrawEnabled: false,
+          listening: false,
+        }));
+      }
+    }
+  }
+
   private renderOverlay(): void {
     const layer = this.overlayLayer;
     if (layer === null) {
@@ -1026,6 +1513,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
         listening: false,
       }));
     }
+    this.renderAreaDraft(layer, colors);
     if (
       this.wallStart !== null
       && this.wallCurrent !== null
@@ -1088,7 +1576,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
     | 'spawnHidden'
     | 'start'
     | 'background'
-    | 'secret',
+    | 'secret'
+    | 'blockedArea'
+    | 'blockedAreaStroke',
     string
   > {
     return {

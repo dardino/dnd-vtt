@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import {
   createDefaultSceneState,
   defaultBackgroundTransform,
-  DEFAULT_MAP_BACKGROUND_COLOR,
+  emptyMapDocumentV2,
   type Actor,
   type Asset,
   type Campaign,
@@ -67,19 +67,7 @@ export const scene = (overrides: Partial<Scene> = {}): Scene => ({
 });
 
 export const mapDocument = (overrides: Partial<MapDocument> = {}): MapDocument => ({
-  name: 'Mappa cripta',
-  imageAssetId: null,
-  backgroundTransform: defaultBackgroundTransform,
-  backgroundColor: DEFAULT_MAP_BACKGROUND_COLOR,
-  widthPx: 1400,
-  heightPx: 1000,
-  grid: createDefaultSceneState().grid,
-  terrain: createDefaultSceneState().terrain,
-  spawns: [],
-  playerStarts: [],
-  fogBase: 'hidden',
-  showDoorIcons: true,
-  notes: '',
+  ...emptyMapDocumentV2('Mappa cripta', null, 1400, 1000),
   ...overrides,
 });
 

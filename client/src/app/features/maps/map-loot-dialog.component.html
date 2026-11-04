@@ -1,0 +1,89 @@
+<dialog
+  #dialog
+  class="loot-dialog"
+  role="dialog"
+  aria-modal="true"
+  [attr.aria-labelledby]="titleId"
+  (cancel)="onCancel($event)"
+  (close)="onClose()"
+>
+  <header class="loot-dialog__header">
+    <h2 class="loot-dialog__title" [id]="titleId">Aggiungi oggetto</h2>
+    <button type="button" class="loot-dialog__close" aria-label="Chiudi" (click)="cancel()">
+      <span class="material-symbols-outlined" aria-hidden="true">close</span>
+    </button>
+  </header>
+
+  <div class="loot-dialog__body">
+    <label class="loot-dialog__search">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <input
+        #searchInput
+        type="search"
+        aria-label="Cerca oggetti"
+        placeholder="Cerca per nome o tipo…"
+        [value]="search()"
+        (input)="onSearch($event)"
+      />
+    </label>
+
+    @if (error(); as message) {
+      <p class="loot-dialog__error" role="alert">{{ message }}</p>
+    }
+
+    @if (loading() && items().length === 0) {
+      <p class="loot-dialog__empty muted">Caricamento catalogo…</p>
+    } @else if (items().length === 0) {
+      <p class="loot-dialog__empty muted">Nessun oggetto disponibile.</p>
+    } @else if (filtered().length === 0) {
+      <p class="loot-dialog__empty muted">Nessun oggetto corrisponde alla ricerca.</p>
+    } @else {
+      <ul class="loot-dialog__list">
+        @for (item of filtered(); track item.id) {
+          <li>
+            <button
+              type="button"
+              class="loot-dialog__item"
+              [class.is-selected]="selectedId() === item.id"
+              [attr.aria-pressed]="selectedId() === item.id"
+              (click)="selectItem(item.id)"
+            >
+              <span class="loot-dialog__item-name">{{ item.name }}</span>
+              <span class="loot-dialog__item-type">{{ item.type }}</span>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+
+    <div class="loot-dialog__fields">
+      <label class="loot-dialog__field">
+        <span>Quantità</span>
+        <input
+          type="number"
+          min="1"
+          max="999"
+          step="1"
+          [value]="quantity()"
+          (change)="onQuantity($event)"
+        />
+      </label>
+      <label class="loot-dialog__check">
+        <input type="checkbox" [checked]="visible()" (change)="onVisible($event)" />
+        <span>Visibile ai giocatori</span>
+      </label>
+    </div>
+  </div>
+
+  <footer class="loot-dialog__actions">
+    <button type="button" class="loot-dialog__button" (click)="cancel()">Annulla</button>
+    <button
+      type="button"
+      class="loot-dialog__button loot-dialog__button--primary"
+      [disabled]="!canConfirm()"
+      (click)="confirm()"
+    >
+      Conferma
+    </button>
+  </footer>
+</dialog>

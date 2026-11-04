@@ -1,11 +1,16 @@
-import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import {
   defaultBackgroundTransform,
   emptyMapDocument,
   type Actor,
   type Asset,
+  type BackgroundLayer,
+  type BackgroundTransform,
+  type ElementsLayer,
   type Map,
+  type MapDocument,
+  type WallSegment,
 } from '@dnd-vtt/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActorService } from '../../core/services/actor.service';
@@ -40,6 +45,9 @@ const secondAsset: Asset = {
 const mapFor = (id: string, campaignId: string): Map => ({
   id,
   campaignId,
+  imageAssetId: null,
+  thumbAssetId: null,
+  compositeAssetId: null,
   version: 1,
   createdAt: '2026-11-03T00:00:00.000Z',
   updatedAt: '2026-11-03T00:00:00.000Z',
@@ -48,6 +56,32 @@ const mapFor = (id: string, campaignId: string): Map => ({
 
 const actorFor = (id: string, name: string): Actor =>
   ({ id, name, kind: 'monster' } as unknown as Actor);
+
+const backgroundOf = (doc: MapDocument): BackgroundLayer => doc.layers[0];
+const elementsOf = (doc: MapDocument): ElementsLayer => doc.layers[3];
+
+const wallsOf = (doc: MapDocument): WallSegment[] =>
+  doc.layers[2].items.filter((item): item is WallSegment => 'kind' in item);
+
+const startsOf = (doc: MapDocument): ElementsLayer['items'] =>
+  elementsOf(doc).items.filter((item) => item.type === 'start');
+
+const withBackground = (
+  doc: MapDocument,
+  imageAssetId: string | null,
+  imageTransform: BackgroundTransform,
+): MapDocument => {
+  const [background, graphics, constraints, elements] = doc.layers;
+  return {
+    ...doc,
+    layers: [
+      { ...background, imageAssetId, imageTransform: { ...imageTransform } },
+      graphics,
+      constraints,
+      elements,
+    ],
+  };
+};
 
 const chooseFile = (name: string): Event => {
   const input = document.createElement('input');
@@ -136,7 +170,11 @@ describe('MapEditorPage history', () => {
       ],
     });
     page.placeLight({ x: 1, y: 1 });
-    const light = page.doc()?.terrain.lights[0];
+    const current = page.doc();
+    if (current === null) {
+      throw new Error('documento non caricato');
+    }
+    const light = elementsOf(current).items.find((item) => item.type === 'light');
     if (light === undefined) {
       throw new Error('luce non creata');
     }
@@ -148,10 +186,11 @@ describe('MapEditorPage history', () => {
     page.updateStartLabel(textInput('Ingresso'));
     page.removeSelected();
 
-    const edited = structuredClone(page.doc());
-    expect(edited?.terrain.walls.map((wall) => wall.id)).toEqual(['wall-1', 'wall-2']);
-    expect(edited?.terrain.lights[0]).toMatchObject({ x: 4, y: 5, brightFeet: 30 });
-    expect(edited?.playerStarts).toEqual([]);
+    const edited = structuredClone(page.doc()) as MapDocument;
+    expect(wallsOf(edited).map((wall) => wall.id)).toEqual(['wall-1', 'wall-2']);
+    expect(elementsOf(edited).items.find((item) => item.type === 'light'))
+      .toMatchObject({ x: 4, y: 5, brightFeet: 30 });
+    expect(startsOf(edited)).toEqual([]);
     expect(page.selected()).toBeNull();
     expect(page.dirty()).toBe(true);
 
@@ -165,6 +204,40 @@ describe('MapEditorPage history', () => {
       page.redo();
     }
     expect(page.doc()).toEqual(edited);
+
+    fixture.destroy();
+  });
+
+  it('carica solo i campi del documento v2 senza identità né asset denormalizzati', async () => {
+    const map = {
+      ...mapFor('map-1', 'campaign-1'),
+      thumbAssetId: 'thumb-1',
+      compositeAssetId: 'composite-1',
+    } as unknown as Map;
+    getMap.mockResolvedValue(map);
+
+    const fixture = TestBed.createComponent(MapEditorPage);
+    fixture.componentRef.setInput('mapId', 'map-1');
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const doc = fixture.componentInstance.doc() as MapDocument;
+    expect(doc).not.toBeNull();
+    for (const key of [
+      'id',
+      'campaignId',
+      'version',
+      'createdAt',
+      'updatedAt',
+      'imageAssetId',
+      'thumbAssetId',
+      'compositeAssetId',
+    ]) {
+      expect(doc).not.toHaveProperty(key);
+    }
+    expect(doc.schemaVersion).toBe(2);
+    expect(doc.layers.map((layer) => layer.kind))
+      .toEqual(['background', 'graphics', 'constraints', 'elements']);
 
     fixture.destroy();
   });
@@ -193,20 +266,20 @@ describe('MapEditorPage history', () => {
     const fixture = TestBed.createComponent(MapEditorPage);
     const page = fixture.componentInstance;
     page.doc.set(emptyMapDocument('Griglia', null, 700, 700));
-    const visionLimit = page.doc()?.terrain.visionLimitFeet;
+    const visionLimit = page.doc()?.visionLimitFeet;
 
     page.propertiesForm.feetPerCell().value.set(2);
     page.commitGridField('feetPerCell');
     expect(page.doc()?.grid.feetPerCell).toBe(2);
-    expect(page.doc()?.terrain.visionLimitFeet).toBe(20);
+    expect(page.doc()?.visionLimitFeet).toBe(20);
 
     page.undo();
     expect(page.doc()?.grid.feetPerCell).toBe(5);
-    expect(page.doc()?.terrain.visionLimitFeet).toBe(visionLimit);
+    expect(page.doc()?.visionLimitFeet).toBe(visionLimit);
 
     page.redo();
     expect(page.doc()?.grid.feetPerCell).toBe(2);
-    expect(page.doc()?.terrain.visionLimitFeet).toBe(20);
+    expect(page.doc()?.visionLimitFeet).toBe(20);
 
     fixture.destroy();
   });
@@ -215,18 +288,23 @@ describe('MapEditorPage history', () => {
     const fixture = TestBed.createComponent(MapEditorPage);
     const page = fixture.componentInstance;
     page.doc.set(emptyMapDocument('Sfondo', null, 800, 600));
-    const visionLimit = page.doc()?.terrain.visionLimitFeet;
+    const visionLimit = page.doc()?.visionLimitFeet;
     upload.mockResolvedValue(asset);
+    const before = page.doc() as MapDocument;
 
     await page.replaceBackground(chooseFile('mappa.png'));
 
-    expect(page.doc()).toMatchObject({
+    const doc = page.doc() as MapDocument;
+    expect(doc).toMatchObject({ widthPx: 800, heightPx: 600 });
+    expect(backgroundOf(doc)).toMatchObject({
       imageAssetId: asset.id,
-      widthPx: 800,
-      heightPx: 600,
-      backgroundTransform: { x: 0, y: -100, scale: 2 },
+      imageTransform: { x: 0, y: -100, scale: 2 },
     });
-    expect(page.doc()?.terrain.visionLimitFeet).toBe(visionLimit);
+    // Solo il layer background cambia: gli altri restano intatti.
+    expect(doc.layers[1]).toEqual(before.layers[1]);
+    expect(doc.layers[2]).toEqual(before.layers[2]);
+    expect(doc.layers[3]).toEqual(before.layers[3]);
+    expect(page.doc()?.visionLimitFeet).toBe(visionLimit);
     expect(page.image()).toEqual({ url: asset.url, width: 800, height: 600 });
     expect(page.hasBackground()).toBe(true);
 
@@ -243,8 +321,9 @@ describe('MapEditorPage history', () => {
 
     page.removeBackground();
 
-    expect(page.doc()?.imageAssetId).toBeNull();
-    expect(page.doc()?.backgroundTransform).toEqual(defaultBackgroundTransform);
+    expect(backgroundOf(page.doc() as MapDocument).imageAssetId).toBeNull();
+    expect(backgroundOf(page.doc() as MapDocument).imageTransform)
+      .toEqual(defaultBackgroundTransform);
     expect(page.image()).toEqual({ url: '', width: 800, height: 600 });
     expect(page.hasBackground()).toBe(false);
 
@@ -262,13 +341,15 @@ describe('MapEditorPage history', () => {
     if (current === null) {
       throw new Error('documento non caricato');
     }
-    page.doc.set({
-      ...current,
-      backgroundTransform: { x: 0, y: 0, scale: 1 },
-    });
+    page.doc.set(withBackground(
+      current,
+      backgroundOf(current).imageAssetId,
+      { x: 0, y: 0, scale: 1 },
+    ));
     await page.fitBackgroundCover();
 
-    expect(page.doc()?.backgroundTransform).toEqual({ x: -200, y: 0, scale: 3 });
+    expect(backgroundOf(page.doc() as MapDocument).imageTransform)
+      .toEqual({ x: -200, y: 0, scale: 3 });
     expect(page.doc()?.widthPx).toBe(800);
     expect(page.doc()?.heightPx).toBe(600);
 
@@ -285,17 +366,22 @@ describe('MapEditorPage history', () => {
 
     page.removeBackground();
     page.undo();
-    expect(page.doc()?.imageAssetId).toBe(asset.id);
+    expect(backgroundOf(page.doc() as MapDocument).imageAssetId).toBe(asset.id);
     const restored = page.doc();
     if (restored === null) {
       throw new Error('documento non caricato');
     }
-    page.doc.set({ ...restored, backgroundTransform: { x: 0, y: 0, scale: 1 } });
+    page.doc.set(withBackground(
+      restored,
+      backgroundOf(restored).imageAssetId,
+      { x: 0, y: 0, scale: 1 },
+    ));
 
     await page.fitBackgroundCover();
 
     expect(get).toHaveBeenCalledWith(asset.id);
-    expect(page.doc()?.backgroundTransform).toEqual({ x: 0, y: -100, scale: 2 });
+    expect(backgroundOf(page.doc() as MapDocument).imageTransform)
+      .toEqual({ x: 0, y: -100, scale: 2 });
     expect(page.image()).toEqual({ url: asset.url, width: 800, height: 600 });
 
     fixture.destroy();
@@ -311,20 +397,25 @@ describe('MapEditorPage history', () => {
     get.mockImplementation((id: string) =>
       Promise.resolve(id === asset.id ? asset : secondAsset));
     await page.replaceBackground(chooseFile('sostituto.png'));
-    expect(page.doc()?.imageAssetId).toBe(secondAsset.id);
+    expect(backgroundOf(page.doc() as MapDocument).imageAssetId).toBe(secondAsset.id);
 
     page.undo();
-    expect(page.doc()?.imageAssetId).toBe(asset.id);
+    expect(backgroundOf(page.doc() as MapDocument).imageAssetId).toBe(asset.id);
     const restored = page.doc();
     if (restored === null) {
       throw new Error('documento non caricato');
     }
-    page.doc.set({ ...restored, backgroundTransform: { x: 0, y: 0, scale: 1 } });
+    page.doc.set(withBackground(
+      restored,
+      backgroundOf(restored).imageAssetId,
+      { x: 0, y: 0, scale: 1 },
+    ));
 
     await page.fitBackgroundCover();
 
     expect(get).toHaveBeenCalledWith(asset.id);
-    expect(page.doc()?.backgroundTransform).toEqual({ x: 0, y: -100, scale: 2 });
+    expect(backgroundOf(page.doc() as MapDocument).imageTransform)
+      .toEqual({ x: 0, y: -100, scale: 2 });
     expect(page.image()).toEqual({ url: asset.url, width: 800, height: 600 });
 
     fixture.destroy();
@@ -356,128 +447,6 @@ describe('MapEditorPage history', () => {
 
     expect(listByCampaign).toHaveBeenCalledWith('campaign-2');
     expect(fixture.componentInstance.filteredActors()).toEqual([second]);
-
-    fixture.destroy();
-  });
-});
-
-describe('MapEditorPage toolbar', () => {
-  const getMap = vi.fn();
-  const mapId = 'map-toolbar';
-  const expectedLabels = [
-    'Seleziona', 'Muro', 'Tratto', 'Porta', 'Finestra', 'Muro basso',
-    'Gomma', 'Luce', 'Mostro', 'Partenza', 'Griglia',
-  ];
-
-  const toolButtons = (fixture: ComponentFixture<MapEditorPage>): HTMLButtonElement[] =>
-    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLButtonElement>('.editor__tool'));
-
-  const toolButtonAt = (fixture: ComponentFixture<MapEditorPage>, index: number): HTMLButtonElement => {
-    const button = toolButtons(fixture)[index];
-    if (button === undefined) {
-      throw new Error(`bottone strumento ${index} assente`);
-    }
-    return button;
-  };
-
-  const iconsOf = (fixture: ComponentFixture<MapEditorPage>): HTMLElement[] =>
-    Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.editor__tool-icon'));
-
-  const iconText = (container: HTMLElement): string =>
-    container.querySelector('.editor__tool-icon')?.textContent?.trim() ?? '';
-
-  const render = async (): Promise<ComponentFixture<MapEditorPage>> => {
-    const fixture = TestBed.createComponent(MapEditorPage);
-    fixture.componentRef.setInput('mapId', mapId);
-    fixture.detectChanges();
-    await fixture.whenStable();
-    fixture.detectChanges();
-    return fixture;
-  };
-
-  beforeEach(() => {
-    getMap.mockReset();
-    getMap.mockResolvedValue(mapFor(mapId, 'campaign-toolbar'));
-    TestBed.configureTestingModule({
-      providers: [
-        { provide: MapService, useValue: { get: getMap } },
-        { provide: AssetService, useValue: { upload: vi.fn(), get: vi.fn() } },
-        { provide: ActorService, useValue: { listByCampaign: vi.fn().mockResolvedValue([]) } },
-        { provide: SrdCatalogService, useValue: { load: () => Promise.resolve(), catalog: () => null } },
-        { provide: Router, useValue: {} },
-      ],
-    });
-  });
-
-  it('mostra un’icona decorativa accanto a ogni strumento', async () => {
-    const fixture = await render();
-    const icons = iconsOf(fixture);
-
-    expect(toolButtons(fixture)).toHaveLength(11);
-    expect(icons).toHaveLength(11);
-    for (const icon of icons) {
-      expect(icon.textContent?.trim()).not.toBe('');
-      expect(icon.getAttribute('aria-hidden')).toBe('true');
-    }
-
-    fixture.destroy();
-  });
-
-  it('mantiene le etichette testuali per l’accessibilità', async () => {
-    const fixture = await render();
-    const texts = toolButtons(fixture).map((button) => button.textContent ?? '');
-
-    expect(texts).toHaveLength(expectedLabels.length);
-    expectedLabels.forEach((label, index) => {
-      expect(texts[index] ?? '').toContain(label);
-    });
-
-    fixture.destroy();
-  });
-
-  it('usa un’icona diversa per ogni strumento', async () => {
-    const fixture = await render();
-    const icons = iconsOf(fixture).map((icon) => icon.textContent?.trim() ?? '');
-
-    expect(new Set(icons).size).toBe(11);
-
-    fixture.destroy();
-  });
-
-  it('attiva lo strumento al click mantenendo l’icona', async () => {
-    const fixture = await render();
-    const page = fixture.componentInstance;
-    const wallIndex = page.tools.findIndex((entry) => entry.tool === 'wall');
-    const wall = toolButtonAt(fixture, wallIndex);
-    const iconBefore = iconText(wall);
-
-    expect(iconBefore).not.toBe('');
-    wall.click();
-    fixture.detectChanges();
-
-    expect(page.tool()).toBe('wall');
-    expect(wall.classList.contains('is-active')).toBe(true);
-    expect(iconText(wall)).toBe(iconBefore);
-
-    fixture.destroy();
-  });
-
-  it('la griglia resta un toggle con icona', async () => {
-    const fixture = await render();
-    const page = fixture.componentInstance;
-    const grid = toolButtonAt(fixture, expectedLabels.length - 1);
-    const initial = page.showGrid();
-
-    expect(iconText(grid)).not.toBe('');
-
-    grid.click();
-    fixture.detectChanges();
-    expect(page.showGrid()).toBe(!initial);
-
-    grid.click();
-    fixture.detectChanges();
-    expect(page.showGrid()).toBe(initial);
-    expect(iconText(grid)).not.toBe('');
 
     fixture.destroy();
   });

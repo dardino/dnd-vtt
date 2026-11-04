@@ -1,12 +1,21 @@
-import type {
-  BackgroundTransform,
-  GridConfig,
-  Light,
-  MapDocument,
-  MapSpawn,
-  PlayerStart,
-  Terrain,
-  WallSegment,
+import {
+  backgroundLayer,
+  constraintsLayer,
+  elementsLayer,
+  graphicsLayer,
+  type BackgroundTransform,
+  type BlockedArea,
+  type GridConfig,
+  type Light,
+  type MapConstraint,
+  type MapDocument,
+  type MapElement,
+  type MapGraphic,
+  type MapLayerKind,
+  type MapLayers,
+  type MapSpawn,
+  type PlayerStart,
+  type WallSegment,
 } from '@dnd-vtt/shared';
 import { estimateJsonBytes } from './map-history';
 
@@ -23,47 +32,98 @@ export interface MapCommand {
   invert(doc: MapDocument): void;
 }
 
-/** Elementi delle quattro collezioni modificabili con i comandi generici. */
+/** Elementi delle collezioni modificabili con i comandi generici. */
 export interface MapCollectionItems {
   wall: WallSegment;
   light: Light;
   spawn: MapSpawn;
   start: PlayerStart;
+  graphic: MapGraphic;
+  area: BlockedArea;
+  loot: MapElement & { type: 'loot' };
 }
 
+export type MapCollectionTarget = keyof MapCollectionItems;
+
+/** Collezioni modificabili con i comandi generici, aree incluse. */
 export type MapCollectionKind = keyof MapCollectionItems;
 
-type MapCollectionItem = MapCollectionItems[MapCollectionKind];
+type MapCollectionItem = MapCollectionItems[MapCollectionTarget];
 
-const COLLECTION_NOUNS: Record<MapCollectionKind, string> = {
+/** Elemento del layer reale: i vincoli misti convivono con elementi e grafiche. */
+type LayerItem = MapConstraint | MapElement | MapGraphic;
+
+const COLLECTION_NOUNS: Record<MapCollectionTarget, string> = {
   wall: 'muri',
   light: 'luci',
   spawn: 'spawn',
   start: 'partenze',
+  graphic: 'grafiche',
+  area: 'aree',
+  loot: 'oggetti',
 };
 
-const isCollectionKind = (target: string): target is MapCollectionKind =>
-  target === 'wall' || target === 'light' || target === 'spawn' || target === 'start';
+const isCollectionKind = (target: string): target is MapCollectionTarget =>
+  target === 'wall'
+  || target === 'light'
+  || target === 'spawn'
+  || target === 'start'
+  || target === 'graphic'
+  || target === 'area'
+  || target === 'loot';
 
-/** Ritorna l'array vivo della collezione: le mutazioni finiscono nel documento. */
-const mutableCollectionOf = (
-  doc: MapDocument,
-  kind: MapCollectionKind,
-): MapCollectionItem[] => {
-  switch (kind) {
-    case 'wall':
-      return doc.terrain.walls;
-    case 'light':
-      return doc.terrain.lights;
-    case 'spawn':
-      return doc.spawns;
-    case 'start':
-      return doc.playerStarts;
+const matchesKind = (kind: MapCollectionTarget, item: LayerItem): boolean => {
+  if (kind === 'wall') {
+    return 'a' in item && 'b' in item && 'kind' in item;
   }
+  if (kind === 'area') {
+    return 'shape' in item;
+  }
+  if (kind === 'graphic') {
+    return 'assetId' in item && 'z' in item;
+  }
+  return 'type' in item && item.type === kind;
+};
+
+/** Muri e aree convivono nello stesso array: il layer mescola i due vincoli. */
+const isConstraintsKind = (kind: MapCollectionTarget): boolean =>
+  kind === 'wall' || kind === 'area';
+
+/** Ritorna l'array vivo del layer: le mutazioni finiscono nel documento. */
+const mutableCollectionOf = (doc: MapDocument, kind: MapCollectionTarget): LayerItem[] => {
+  if (isConstraintsKind(kind)) {
+    return constraintsLayer(doc).items;
+  }
+  return kind === 'graphic' ? graphicsLayer(doc).items : elementsLayer(doc).items;
+};
+
+/** Normalizza un elemento di collezione nella forma richiesta dal layer v2. */
+const toLayerItem = (kind: MapCollectionTarget, element: MapCollectionItem): LayerItem => {
+  if (isConstraintsKind(kind)) {
+    return structuredClone(element) as WallSegment | BlockedArea;
+  }
+  if (kind === 'graphic') {
+    return structuredClone(element) as MapGraphic;
+  }
+  return { ...structuredClone(element), type: kind } as unknown as MapElement;
+};
+
+/** Converte l'indice di collezione nell'indice reale dell'array misto del layer. */
+const rawIndex = (
+  items: readonly LayerItem[],
+  kind: MapCollectionTarget,
+  index?: number,
+): number => {
+  if (index === undefined) {
+    return items.length;
+  }
+  const matching = items.filter((item) => matchesKind(kind, item));
+  const target = matching[Math.max(0, index)];
+  return target === undefined ? items.length : items.indexOf(target);
 };
 
 /** Inserisce gli elementi alla posizione richiesta, con clamping ai bordi. */
-export const arrayInsert = <K extends MapCollectionKind>(
+export const arrayInsert = <K extends MapCollectionTarget>(
   kind: K,
   elements: readonly MapCollectionItems[K][],
   index?: number,
@@ -74,8 +134,8 @@ export const arrayInsert = <K extends MapCollectionKind>(
     bytes: estimateJsonBytes(inserted),
     apply: (doc) => {
       const items = mutableCollectionOf(doc, kind);
-      const at = index === undefined ? items.length : Math.max(0, Math.min(index, items.length));
-      items.splice(at, 0, ...inserted.map((element) => structuredClone(element)));
+      const at = rawIndex(items, kind, index);
+      items.splice(at, 0, ...inserted.map((element) => toLayerItem(kind, element)));
     },
     invert: (doc) => {
       const items = mutableCollectionOf(doc, kind);
@@ -93,13 +153,13 @@ export const arrayInsert = <K extends MapCollectionKind>(
  * Rimuove l'elemento per id e lo ricorda con l'indice originale: un id
  * inesistente rende il comando un no-op invece di corrompere lo stato.
  */
-export const arrayRemove = <K extends MapCollectionKind>(
+export const arrayRemove = <K extends MapCollectionTarget>(
   kind: K,
   element: MapCollectionItems[K],
-  index: number,
+  _index: number,
 ): MapCommand => {
-  const removed = structuredClone(element);
-  const originalIndex = Math.max(0, index);
+  const removed = toLayerItem(kind, element);
+  let removedAt: number | null = null;
   return {
     label: `Rimuovi ${COLLECTION_NOUNS[kind]}`,
     bytes: estimateJsonBytes(removed),
@@ -107,27 +167,38 @@ export const arrayRemove = <K extends MapCollectionKind>(
       const items = mutableCollectionOf(doc, kind);
       const position = items.findIndex((item) => item.id === removed.id);
       if (position >= 0) {
+        removedAt = position;
         items.splice(position, 1);
       }
     },
     invert: (doc) => {
+      // Nessun elemento rimosso in `apply`: l'inversione non deve inserirne uno.
+      if (removedAt === null) {
+        return;
+      }
       const items = mutableCollectionOf(doc, kind);
-      items.splice(Math.min(originalIndex, items.length), 0, structuredClone(removed));
+      // Inversione idempotente: un id già presente non viene reinserito due volte.
+      if (items.some((item) => item.id === removed.id)) {
+        return;
+      }
+      items.splice(
+        Math.min(removedAt, items.length),
+        0,
+        structuredClone(removed),
+      );
     },
   };
 };
 
-type FieldScope = 'map' | 'terrain' | 'grid';
+type FieldScope = 'map' | 'grid';
 
-const scopeLabel = (target: MapCollectionKind | FieldScope): string => {
+const scopeLabel = (target: MapCollectionTarget | FieldScope): string => {
   if (isCollectionKind(target)) {
     return COLLECTION_NOUNS[target];
   }
   switch (target) {
     case 'map':
       return 'mappa';
-    case 'terrain':
-      return 'terreno';
     case 'grid':
       return 'griglia';
   }
@@ -149,7 +220,7 @@ const applyPatch = (target: object, remove: object, add: object): void => {
 
 const assignFields = (
   doc: MapDocument,
-  target: MapCollectionKind | FieldScope,
+  target: MapCollectionTarget | FieldScope,
   id: string | null,
   remove: object,
   add: object,
@@ -168,9 +239,6 @@ const assignFields = (
     case 'map':
       applyPatch(doc, remove, add);
       return;
-    case 'terrain':
-      applyPatch(doc.terrain, remove, add);
-      return;
     case 'grid':
       applyPatch(doc.grid, remove, add);
       return;
@@ -178,7 +246,7 @@ const assignFields = (
 };
 
 /** Aggiornamento puntuale di un elemento di collezione, identificato per id. */
-export function replaceFields<K extends MapCollectionKind>(
+export function replaceFields<K extends MapCollectionTarget>(
   kind: K,
   id: string,
   before: Partial<MapCollectionItems[K]>,
@@ -190,12 +258,6 @@ export function replaceFields(
   before: Partial<MapDocument>,
   after: Partial<MapDocument>,
 ): MapCommand;
-/** Aggiornamento dei campi del terreno. */
-export function replaceFields(
-  scope: 'terrain',
-  before: Partial<Terrain>,
-  after: Partial<Terrain>,
-): MapCommand;
 /** Aggiornamento dei campi della griglia. */
 export function replaceFields(
   scope: 'grid',
@@ -203,7 +265,7 @@ export function replaceFields(
   after: Partial<GridConfig>,
 ): MapCommand;
 export function replaceFields(
-  target: MapCollectionKind | FieldScope,
+  target: MapCollectionTarget | FieldScope,
   idOrBefore: string | object,
   beforeOrAfter: object,
   afterMaybe?: object,
@@ -220,6 +282,72 @@ export function replaceFields(
   };
 }
 
+/** Layer canonico del documento: unione dei quattro tipi della tupla. */
+export type MapLayer = MapLayers[number];
+
+const findLayer = (doc: MapDocument, kind: MapLayerKind): MapLayer | undefined =>
+  doc.layers.find((layer) => layer.kind === kind);
+
+/**
+ * Aggiorna i campi di un layer senza toccare i suoi `items`.
+ *
+ * Il patch `before` descrive i soli campi modificati: i valori originali delle
+ * chiavi presenti in `after` ma non in `before` vengono catturati al primo
+ * `apply`, così l'inversione ripristina anche i campi non dichiarati dal
+ * chiamante (es. `opacity` quando si cambia solo `visible`).
+ */
+export const replaceLayer = (
+  kind: MapLayerKind,
+  before: Partial<MapLayer>,
+  after: Partial<MapLayer>,
+): MapCommand => {
+  const from = structuredClone(before);
+  const to = structuredClone(after);
+  const captured: Record<string, unknown> = {};
+
+  const captureMissing = (layer: MapLayer): void => {
+    const record = layer as Record<string, unknown>;
+    for (const key of Object.keys(to)) {
+      if (!(key in from) && !(key in captured)) {
+        captured[key] = structuredClone(record[key]);
+      }
+    }
+  };
+
+  const assign = (
+    doc: MapDocument,
+    remove: Partial<MapLayer>,
+    add: Partial<MapLayer>,
+  ): void => {
+    const layer = findLayer(doc, kind);
+    if (layer !== undefined) {
+      applyPatch(layer, remove, add);
+    }
+  };
+
+  return {
+    label: `Modifica layer ${kind}`,
+    bytes: estimateJsonBytes({ before: from, after: to }),
+    apply: (doc) => {
+      const layer = findLayer(doc, kind);
+      if (layer === undefined) {
+        return;
+      }
+      captureMissing(layer);
+      applyPatch(layer, from, to);
+    },
+    invert: (doc) => {
+      const restored: Record<string, unknown> = { ...from };
+      for (const [key, value] of Object.entries(captured)) {
+        if (!(key in restored)) {
+          restored[key] = structuredClone(value);
+        }
+      }
+      assign(doc, to, restored);
+    },
+  };
+};
+
 /** Stato dello sfondo catturato dai comandi: asset e trasformazione, mai le dimensioni. */
 export interface MapBackgroundState {
   readonly imageAssetId: string | null;
@@ -232,8 +360,9 @@ const cloneBackground = (state: MapBackgroundState): MapBackgroundState => ({
 });
 
 const assignBackground = (doc: MapDocument, state: MapBackgroundState): void => {
-  doc.imageAssetId = state.imageAssetId;
-  doc.backgroundTransform = { ...state.backgroundTransform };
+  const background = backgroundLayer(doc);
+  background.imageAssetId = state.imageAssetId;
+  background.imageTransform = { ...state.backgroundTransform };
 };
 
 /**
@@ -253,3 +382,10 @@ export const replaceBackground = (
     invert: (doc) => assignBackground(doc, from),
   };
 };
+
+export {
+  moveGraphicZ,
+  nextGraphicZIndex,
+  removeGraphic,
+} from './map-command-graphics';
+export type { GraphicZDirection } from './map-command-graphics';

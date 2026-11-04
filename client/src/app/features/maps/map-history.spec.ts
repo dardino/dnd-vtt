@@ -1,7 +1,7 @@
 import {
   emptyMapDocument,
   type MapDocument,
-  type MapSpawn,
+  type MapElement,
   type WallSegment,
 } from '@dnd-vtt/shared';
 import { describe, expect, it } from 'vitest';
@@ -128,15 +128,16 @@ describe('MapHistory', () => {
   });
 
   it('1000 edit su un documento grande non accumulano il documento in history', () => {
-    const base = mapDocument();
-    base.terrain.walls = Array.from({ length: 4000 }, (_, index): WallSegment => ({
+    const empty = mapDocument();
+    const walls = Array.from({ length: 4000 }, (_, index): WallSegment => ({
       id: `wall-${index}`,
       kind: 'wall',
       a: { x: index % 100, y: Math.floor(index / 100) },
       b: { x: (index % 100) + 1, y: Math.floor(index / 100) },
     }));
-    base.spawns = Array.from({ length: 500 }, (_, index): MapSpawn => ({
+    const spawns = Array.from({ length: 500 }, (_, index): MapElement => ({
       id: `spawn-${index}`,
+      type: 'spawn',
       kind: 'monster',
       x: index % 100,
       y: Math.floor(index / 100),
@@ -145,6 +146,16 @@ describe('MapHistory', () => {
       hidden: false,
       quantity: 1,
     }));
+    const [background, graphics, constraints, elements] = empty.layers;
+    const base: MapDocument = {
+      ...empty,
+      layers: [
+        background,
+        graphics,
+        { ...constraints, items: walls },
+        { ...elements, items: spawns },
+      ],
+    };
     const documentBytes = estimateJsonBytes(base);
     const history = new MapHistory();
     let doc = base;

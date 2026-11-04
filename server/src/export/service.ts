@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   campaignExportSchema,
+  migrateMapDocument,
   type CampaignExport,
   type CreateCampaign,
   type ImportResult,
@@ -75,6 +76,37 @@ const remapUnknown = (value: unknown, map: Map<string, string>, key?: string): u
 const remap = <T>(value: T, map: Map<string, string>): T =>
   remapUnknown(value, map) as T;
 
+/**
+ * Rimappa il documento di una mappa importata. Gli attori (spawn non SRD)
+ * seguono `actorMap`; i riferimenti agli asset non possono restare appesi a id
+ * del database di origine: lo sfondo mancante diventa `null` e le grafiche
+ * senza asset disponibile vengono scartate, mantenendo l'ordine degli altri.
+ */
+const remapMapDocument = (
+  document: Record<string, unknown>,
+  actorMap: Map<string, string>,
+  assetMap: Map<string, string>,
+): MapDocument => {
+  const migrated = migrateMapDocument(remap(document, actorMap));
+  const [background, graphics, constraints, elements] = migrated.layers;
+  const imageAssetId = background.imageAssetId === null
+    ? null
+    : assetMap.get(background.imageAssetId) ?? null;
+  const items = graphics.items.flatMap((item) => {
+    const assetId = assetMap.get(item.assetId);
+    return assetId === undefined ? [] : [{ ...item, assetId }];
+  });
+  return {
+    ...migrated,
+    layers: [
+      { ...background, imageAssetId },
+      { ...graphics, items },
+      constraints,
+      elements,
+    ],
+  };
+};
+
 export const exportCampaign = async (
   env: AppEnv,
   db: AppDatabase,
@@ -100,8 +132,12 @@ export const exportCampaign = async (
   }));
   const ids = new Set<string>();
   for (const map of bundleMaps) {
-    if (map.imageAssetId !== null) {
-      ids.add(map.imageAssetId);
+    const [background, graphics] = map.layers;
+    if (background.imageAssetId !== null) {
+      ids.add(background.imageAssetId);
+    }
+    for (const graphic of graphics.items) {
+      ids.add(graphic.assetId);
     }
   }
   for (const scene of bundleScenes) {
@@ -218,25 +254,21 @@ export const importCampaign = async (
     }
 
     for (const map of bundle.maps) {
-      const document: MapDocument = {
-        name: map.name,
-        imageAssetId: map.imageAssetId === null
-          ? null
-          : assetMap.get(map.imageAssetId) ?? null,
-        backgroundTransform: { ...map.backgroundTransform },
-        backgroundColor: map.backgroundColor,
-        widthPx: map.widthPx,
-        heightPx: map.heightPx,
-        grid: map.grid,
-        terrain: map.terrain,
-        spawns: remap(map.spawns, new Map([...actorMap, ...assetMap])),
-        playerStarts: map.playerStarts,
-        ...(map.startView === undefined ? {} : { startView: map.startView }),
-        fogBase: map.fogBase,
-        showDoorIcons: map.showDoorIcons,
-        notes: map.notes,
-      };
-      const createdMap = insertMap(tx, created.id, document);
+      const document: Record<string, unknown> = { ...map };
+      for (const key of [
+        'id',
+        'campaignId',
+        'version',
+        'createdAt',
+        'updatedAt',
+        'imageAssetId',
+        'thumbAssetId',
+        'compositeAssetId',
+      ]) {
+        delete document[key];
+      }
+      const imported = remapMapDocument(document, actorMap, assetMap);
+      const createdMap = insertMap(tx, created.id, imported);
       mapMap.set(map.id, createdMap.id);
     }
 

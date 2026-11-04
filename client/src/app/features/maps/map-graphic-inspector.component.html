@@ -1,0 +1,63 @@
+<div class="graphic-inspector">
+  <div class="graphic-inspector__grid">
+    <label class="graphic-field">
+      <span>X</span>
+      <input type="number" step="1" [value]="graphic().x" (change)="commit('x', $event)" />
+    </label>
+    <label class="graphic-field">
+      <span>Y</span>
+      <input type="number" step="1" [value]="graphic().y" (change)="commit('y', $event)" />
+    </label>
+    <label class="graphic-field">
+      <span>Scala</span>
+      <input type="number" min="0.01" step="0.05" [value]="graphic().scale" (change)="commit('scale', $event)" />
+    </label>
+    <label class="graphic-field">
+      <span>Rotazione</span>
+      <input type="number" step="1" [value]="graphic().rotation" (change)="commit('rotation', $event)" />
+    </label>
+    <label class="graphic-field">
+      <span>Opacità</span>
+      <input type="number" min="0" max="1" step="0.05" [value]="graphic().opacity" (change)="commit('opacity', $event)" />
+    </label>
+  </div>
+
+  <div class="graphic-inspector__actions">
+    <button
+      type="button"
+      aria-label="Ribalta orizzontalmente"
+      [attr.aria-pressed]="graphic().flipH"
+      (click)="flipped.emit('h')"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">swap_horiz</span>
+    </button>
+    <button
+      type="button"
+      aria-label="Ribalta verticalmente"
+      [attr.aria-pressed]="graphic().flipV"
+      (click)="flipped.emit('v')"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">swap_vert</span>
+    </button>
+    <button type="button" aria-label="Porta su" (click)="zChanged.emit('up')">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>
+    </button>
+    <button type="button" aria-label="Porta giù" (click)="zChanged.emit('down')">
+      <span class="material-symbols-outlined" aria-hidden="true">arrow_downward</span>
+    </button>
+    <button type="button" aria-label="Porta in cima" (click)="zChanged.emit('top')">
+      <span class="material-symbols-outlined" aria-hidden="true">vertical_align_top</span>
+    </button>
+    <button type="button" aria-label="Porta in fondo" (click)="zChanged.emit('bottom')">
+      <span class="material-symbols-outlined" aria-hidden="true">vertical_align_bottom</span>
+    </button>
+    <button
+      type="button"
+      class="graphic-inspector__remove"
+      aria-label="Rimuovi grafica"
+      (click)="removed.emit()"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+    </button>
+  </div>
+</div>

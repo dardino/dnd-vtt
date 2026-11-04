@@ -1,5 +1,5 @@
 import { count, eq, inArray, sql } from 'drizzle-orm';
-import type { Asset } from '@dnd-vtt/shared';
+import { migrateMapDocument, type Asset, type MapDocument } from '@dnd-vtt/shared';
 import { v7 as uuidv7 } from 'uuid';
 import type { DbExecutor } from './client.js';
 import { toAsset } from './mappers.js';
@@ -66,6 +66,57 @@ const isJson1Unavailable = (error: unknown): boolean =>
   error instanceof Error && /no such (table|function): json_/i.test(error.message);
 
 /**
+ * Migra e legge il documento senza mai propagare errori: una riga corrotta non
+ * deve impedire il conteggio delle altre mappe.
+ */
+const parseMapDocument = (raw: string): MapDocument | null => {
+  try {
+    return migrateMapDocument(JSON.parse(raw) as unknown);
+  } catch {
+    return null;
+  }
+};
+
+/** Sfondo e grafiche sono gli unici layer del documento che puntano ad asset. */
+const documentReferencesAsset = (raw: string, id: string): boolean => {
+  const document = parseMapDocument(raw);
+  if (document === null) {
+    return false;
+  }
+  const [background, graphics] = document.layers;
+  return background.imageAssetId === id || graphics.items.some((item) => item.assetId === id);
+};
+
+/**
+ * Conta le mappe che puntano all'asset: colonne denormalizzate (sfondo, thumb,
+ * composito) e riferimenti interni al documento, migrato in lettura per le
+ * versioni legacy. Ogni mappa è contata al più una volta.
+ */
+const countMapReferences = (db: DbExecutor, id: string): number => {
+  const rows = db
+    .select({
+      imageAssetId: maps.imageAssetId,
+      thumbAssetId: maps.thumbAssetId,
+      compositeAssetId: maps.compositeAssetId,
+      document: maps.document,
+    })
+    .from(maps)
+    .all();
+  let total = 0;
+  for (const row of rows) {
+    if (
+      row.imageAssetId === id
+      || row.thumbAssetId === id
+      || row.compositeAssetId === id
+      || documentReferencesAsset(row.document, id)
+    ) {
+      total += 1;
+    }
+  }
+  return total;
+};
+
+/**
  * Conta i layer immagine dei program che puntano all'asset. `json_tree` visita
  * base e overlay senza assumere la forma dello stato; il fallback `LIKE` è
  * conservativo (può contare qualche falso positivo, mai un falso negativo) e
@@ -100,9 +151,8 @@ const countProgramReferences = (db: DbExecutor, id: string): number => {
 export const countAssetReferences = (db: DbExecutor, id: string): number => {
   const references = [
     db.select({ total: count() }).from(scenes).where(eq(scenes.imageAssetId, id)).get(),
-    db.select({ total: count() }).from(maps).where(eq(maps.imageAssetId, id)).get(),
     db.select({ total: count() }).from(actors).where(eq(actors.imageAssetId, id)).get(),
   ];
   const tabular = references.reduce((total, row) => total + (row?.total ?? 0), 0);
-  return tabular + countProgramReferences(db, id);
+  return tabular + countMapReferences(db, id) + countProgramReferences(db, id);
 };

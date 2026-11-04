@@ -1,5 +1,5 @@
 import type { FastifyPluginCallback } from 'fastify';
-import { campaignExportSchema } from '@dnd-vtt/shared';
+import { campaignImportSchema } from '@dnd-vtt/shared';
 import { z } from 'zod';
 import { requireDm } from '../auth/auth.js';
 import type { AppEnv } from '../config/env.js';
@@ -25,7 +25,7 @@ export const exportRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallbac
 
     app.post('/campaigns/import', async (request, reply) => {
       requireDm(request, env);
-      const body = parse(campaignExportSchema, request.body);
+      const body = parse(campaignImportSchema, request.body);
       return reply.status(201).send(await importCampaign(env, db, body));
     });
 

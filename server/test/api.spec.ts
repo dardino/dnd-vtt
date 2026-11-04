@@ -46,6 +46,25 @@ const token = (id: string, label = 'Goblin'): TokenState => ({
   visible: true,
 });
 
+// Il DTO della mappa include identità e campi denormalizzati che non fanno
+// parte del documento v2: il PUT accetta solo il documento, quindi li rimuove.
+const documentFromMapDto = (map: Record<string, unknown>): Record<string, unknown> => {
+  const document: Record<string, unknown> = { ...map };
+  for (const key of [
+    'id',
+    'campaignId',
+    'version',
+    'createdAt',
+    'updatedAt',
+    'imageAssetId',
+    'thumbAssetId',
+    'compositeAssetId',
+  ]) {
+    delete document[key];
+  }
+  return document;
+};
+
 describe('avvio e health', () => {
   it('segnala migration_pending quando il database non è migrato', async () => {
     const testApp = await createTestApp({ DATABASE_PATH: ':memory:' });
@@ -299,12 +318,7 @@ describe('CRUD campagne, scene e attori', () => {
     }>();
     const mapId = map.id;
     const version = map.version;
-    const document: Record<string, unknown> = { ...map };
-    delete document['id'];
-    delete document['campaignId'];
-    delete document['version'];
-    delete document['createdAt'];
-    delete document['updatedAt'];
+    const document = documentFromMapDto(map);
     const color = 'rgba(10, 20, 30, 0.5)';
     const saved = await app.inject({
       method: 'PUT',
@@ -449,17 +463,24 @@ describe('CRUD campagne, scene e attori', () => {
     });
     expect(createdMap.statusCode).toBe(201);
     const map = createdMap.json<Record<string, unknown> & { id: string; version: number }>();
-    const document: Record<string, unknown> = { ...map };
-    for (const key of ['id', 'campaignId', 'version', 'createdAt', 'updatedAt']) {
-      delete document[key];
-    }
+    const document = documentFromMapDto(map);
+    const layers = document['layers'] as Array<Record<string, unknown>>;
+    const [background, graphics, constraints, elements] = layers;
     const mapId = map.id;
     const put = await app.inject({
       method: 'PUT',
       url: `/api/v1/maps/${mapId}`,
       payload: {
         version: map.version,
-        document: { ...document, backgroundTransform: { x: 3, y: 4, scale: 0.5 } },
+        document: {
+          ...document,
+          layers: [
+            { ...background, imageTransform: { x: 3, y: 4, scale: 0.5 } },
+            graphics,
+            constraints,
+            elements,
+          ],
+        },
       },
     });
     expect(put.statusCode).toBe(200);

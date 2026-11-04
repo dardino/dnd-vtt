@@ -3,8 +3,10 @@ import { TestBed } from '@angular/core/testing';
 import {
   createDefaultSceneState,
   defaultBackgroundTransform,
+  emptyMapDocumentV2,
   type Actor,
   type Campaign,
+  type MapDocument,
   type Scene,
   type SceneSnapshot,
 } from '@dnd-vtt/shared';
@@ -129,6 +131,7 @@ describe('DmViewStore', () => {
   let programState: WritableSignal<{ blackout: boolean } | null>;
   let measure: WritableSignal<{ feet: number } | null>;
   let formatDistance: ReturnType<typeof vi.fn>;
+  let prepareDoc: WritableSignal<MapDocument | null>;
 
   beforeEach(() => {
     sceneSnapshot = signal<SceneSnapshot | null>(snapshot());
@@ -143,6 +146,7 @@ describe('DmViewStore', () => {
     programState = signal<{ blackout: boolean } | null>(null);
     measure = signal<{ feet: number } | null>(null);
     formatDistance = vi.fn((feet: number) => `${feet} ft`);
+    prepareDoc = signal<MapDocument | null>(null);
 
     TestBed.configureTestingModule({
       providers: [
@@ -165,7 +169,7 @@ describe('DmViewStore', () => {
           useValue: {
             mode,
             activeScene: signal<Scene | null>(scene()),
-            prepareDoc: signal(null),
+            prepareDoc,
           },
         },
         {
@@ -198,6 +202,26 @@ describe('DmViewStore', () => {
     expect(store.backgroundTransform()).toEqual({ x: 12, y: 34, scale: 2 });
     expect(store.snapshot()?.stateVersion).toBe(5);
     expect(store.hasCampaigns()).toBe(true);
+  });
+
+  it('espone le partenze del documento v2 per la preparazione scena', () => {
+    const doc = emptyMapDocumentV2('Prepara', null, 1400, 1000);
+    const [background, graphics, constraints, elements] = doc.layers;
+    prepareDoc.set({
+      ...doc,
+      layers: [
+        background,
+        graphics,
+        constraints,
+        {
+          ...elements,
+          items: [{ id: 'start-1', type: 'start', x: 1, y: 1, label: 'A' }],
+        },
+      ],
+    });
+
+    expect(store.startOptions().map((option) => option.id)).toEqual(['start-1']);
+    expect(store.startOptions()[0]).toMatchObject({ x: 1, y: 1, label: 'A' });
   });
 
   it('riempie dieci slot con i soli PC del party', () => {

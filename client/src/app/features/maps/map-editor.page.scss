@@ -123,6 +123,18 @@
       background: color-mix(in srgb, var(--color-accent) 16%, transparent);
       color: var(--color-text);
     }
+
+    &:disabled,
+    &[aria-disabled='true'] {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    &:disabled:hover,
+    &[aria-disabled='true']:hover {
+      background: transparent;
+      color: var(--color-text-muted);
+    }
   }
 
   &__tool-icon {
@@ -131,6 +143,31 @@
     font-size: var(--text-md);
     line-height: 1;
     text-align: center;
+  }
+
+  &__add-graphic {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border: var(--border-width) dashed var(--color-border);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    text-align: left;
+    cursor: pointer;
+
+    @include mx.hover {
+      &:hover {
+        background: var(--color-bg-hover);
+        color: var(--color-text);
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-focus);
+      outline-offset: 2px;
+    }
   }
 
   &__tool-divider {

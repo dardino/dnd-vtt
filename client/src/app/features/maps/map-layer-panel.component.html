@@ -1,0 +1,65 @@
+<div class="layer-panel">
+  @for (layer of layers(); track layer.kind) {
+    <div
+      class="layer-panel__row"
+      [class.is-active]="isActive(layer.kind)"
+      [attr.data-kind]="layer.kind"
+      tabindex="0"
+      (click)="activate(layer.kind)"
+      (keydown)="onRowKeydown($event, layer.kind)"
+    >
+      <button
+        type="button"
+        class="layer-panel__activate"
+        [attr.aria-pressed]="isActive(layer.kind)"
+        [attr.aria-current]="isActive(layer.kind) ? 'true' : null"
+        [attr.aria-label]="'Attiva layer ' + labels[layer.kind]"
+        (click)="$event.stopPropagation(); activate(layer.kind)"
+      >
+        <span class="layer-panel__icon material-symbols-outlined" aria-hidden="true">{{ iconFor(layer.kind) }}</span>
+        <span class="layer-panel__label">{{ labels[layer.kind] }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="layer-panel__visibility"
+        [attr.aria-pressed]="layer.visible"
+        [attr.aria-label]="visibilityLabel(layer.kind, layer.visible)"
+        (click)="$event.stopPropagation(); toggleVisibility(layer.kind, layer.visible)"
+        (keydown)="onVisibilityKeydown($event, layer.kind, layer.visible)"
+      >
+        <span class="layer-panel__icon material-symbols-outlined" aria-hidden="true">{{ layer.visible ? 'visibility' : 'visibility_off' }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="layer-panel__lock"
+        [attr.aria-pressed]="layer.locked"
+        [attr.aria-label]="lockLabel(layer.kind, layer.locked)"
+        (click)="$event.stopPropagation(); toggleLock(layer.kind, layer.locked)"
+        (keydown)="onLockKeydown($event, layer.kind, layer.locked)"
+      >
+        <span class="layer-panel__icon material-symbols-outlined" aria-hidden="true">{{ layer.locked ? 'lock' : 'lock_open' }}</span>
+      </button>
+
+      <label
+        class="layer-panel__opacity-field"
+        tabindex="-1"
+        (click)="$event.stopPropagation()"
+        (keydown)="$event.stopPropagation()"
+      >
+        <span class="layer-panel__opacity-label">Opacità {{ labels[layer.kind] }}</span>
+        <input
+          class="layer-panel__opacity"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          [value]="layer.opacity"
+          (click)="$event.stopPropagation()"
+          (change)="commitOpacity(layer.kind, $event)"
+        />
+      </label>
+    </div>
+  }
+</div>

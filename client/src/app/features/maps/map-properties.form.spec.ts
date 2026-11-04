@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { emptyMapDocument } from '@dnd-vtt/shared';
 import { describe, expect, it } from 'vitest';
 import {
   MAP_CELL_SIZE_MAX_PX,
@@ -8,6 +9,7 @@ import {
   MAP_NOTES_MAX_LENGTH,
   createMapPropertiesForm,
   emptyMapProperties,
+  mapPropertiesFromDocument,
   type MapPropertiesFormModel,
 } from './map-properties.form';
 
@@ -18,6 +20,28 @@ const createForm = (overrides: Partial<MapPropertiesFormModel> = {}) => {
     createMapPropertiesForm(model, maxSight));
   return { form, model, maxSight };
 };
+
+describe('mapPropertiesFromDocument', () => {
+  it('legge i campi v2 top-level e la griglia dal documento', () => {
+    const doc = {
+      ...emptyMapDocument('Mappa', null, 1400, 1000),
+      ambientLight: 'dim' as const,
+      visionLimitFeet: 60,
+      visionEnabled: false,
+      notes: 'nota',
+    };
+
+    expect(mapPropertiesFromDocument(doc)).toMatchObject({
+      name: 'Mappa',
+      notes: 'nota',
+      ambientLight: 'dim',
+      visionLimitFeet: 60,
+      visionEnabled: false,
+      cellSizePx: 70,
+      feetPerCell: 5,
+    });
+  });
+});
 
 describe('map properties form', () => {
   it('richiede un nome non vuoto e entro il limite', () => {

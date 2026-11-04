@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext } from '@playwright/test';
 import sharp from 'sharp';
 import {
-  emptyMapDocument,
+  emptyMapDocumentV2,
   type MapDocument,
   type PcBuild,
 } from '@dnd-vtt/shared';
@@ -97,7 +97,12 @@ const createMap = async (
   });
   expect(mapResponse.status()).toBe(201);
   const map = await mapResponse.json() as { id: string; version: number };
-  const document: MapDocument = emptyMapDocument('Mappa visione', asset.id, MAP_SIZE, MAP_SIZE);
+  const document: MapDocument = emptyMapDocumentV2(
+    'Mappa visione',
+    asset.id,
+    MAP_SIZE,
+    MAP_SIZE,
+  );
   document.grid = {
     type: 'square',
     cellSizePx: CELL,
@@ -112,13 +117,14 @@ const createMap = async (
     { id: 'door-crypt', kind: 'door' as const, door: 'closed' as const, a: { x: 5, y: 2 }, b: { x: 5, y: 3 } },
     { id: 'wall-south', kind: 'wall' as const, a: { x: 5, y: 3 }, b: { x: 5, y: 9 } },
   ];
-  document.terrain = {
-    ambientLight: 'dark',
-    visionLimitFeet: 120,
-    visionEnabled: true,
-    walls,
-    lights: [{
+  document.ambientLight = 'dark';
+  document.visionLimitFeet = 120;
+  document.visionEnabled = true;
+  document.layers[2].items = walls;
+  document.layers[3].items = [
+    {
       id: 'torch-pc',
+      type: 'light',
       x: 2,
       y: 2,
       brightFeet: 20,
@@ -127,20 +133,21 @@ const createMap = async (
       enabled: true,
       shape: 'circle',
       angle: 60,
-    }],
-  };
-  document.spawns = [{
-    id: 'goblin-hidden',
-    kind: 'monster',
-    x: 8,
-    y: 2,
-    source: { type: 'srd', monsterId: 'goblin-warrior' },
-    label: 'Goblin dietro la porta',
-    size: 1,
-    hidden: false,
-    quantity: 1,
-  }];
-  document.playerStarts = [{ id: 'start-1', x: 2, y: 2, label: 'PG 1' }];
+    },
+    {
+      id: 'goblin-hidden',
+      type: 'spawn',
+      kind: 'monster',
+      x: 8,
+      y: 2,
+      source: { type: 'srd', monsterId: 'goblin-warrior' },
+      label: 'Goblin dietro la porta',
+      size: 1,
+      hidden: false,
+      quantity: 1,
+    },
+    { id: 'start-1', type: 'start', x: 2, y: 2, label: 'PG 1' },
+  ];
   document.startView = { x: 3 * CELL, y: 3 * CELL, zoom: 1 };
   const saved = await request.put(`/api/v1/maps/${map.id}`, {
     data: { version: map.version, document },
@@ -177,6 +184,16 @@ test('la mappa si apre nell’editor con muri, luci e spawn', async ({ page, req
   await expect(page.locator('.editor__status')).toContainText('1 spawn');
   await expect(page.locator('.editor__status')).toContainText('1 partenze');
 
+  // L'editor parte dal layer Sfondo: la toolbar espone solo la selezione.
+  await expect(page.getByRole('button', { name: 'Seleziona', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Muro', exact: true })).toHaveCount(0);
+
+  // Gli strumenti appartengono al layer: i muri si disegnano dal layer Vincoli.
+  const constraintsLayer = page.locator(
+    '.layer-panel__row[data-kind="constraints"] .layer-panel__activate',
+  );
+  await constraintsLayer.click();
+  await expect(constraintsLayer).toHaveAttribute('aria-pressed', 'true');
   await page.getByRole('button', { name: 'Muro', exact: true }).click();
   const canvas = page.locator('.map-editor-canvas');
   await expect(canvas).toBeVisible();
@@ -230,13 +247,15 @@ test('la mappa si apre nell’editor con muri, luci e spawn', async ({ page, req
   await expect(page.locator('.editor__title .badge')).toHaveText('salvata', { timeout: 10_000 });
   const saved = await request.get(`/api/v1/maps/${mapId}`);
   const savedMap = await saved.json() as {
-    terrain: { walls: { a: { x: number; y: number }; b: { x: number; y: number } }[] };
+    layers: { kind: string; items: { a?: { x: number; y: number }; b?: { x: number; y: number } }[] }[];
   };
-  expect(savedMap.terrain.walls).toHaveLength(5);
-  expect(savedMap.terrain.walls.some((wall) =>
-    wall.a.x === 9 && wall.a.y === 9 && wall.b.x === 12 && wall.b.y === 9)).toBe(true);
-  expect(savedMap.terrain.walls.some((wall) =>
-    wall.a.x === 14 && wall.a.y === 11 && wall.b.x === 16 && wall.b.y === 13)).toBe(true);
+  const constraints = savedMap.layers.find((layer) => layer.kind === 'constraints');
+  const savedWalls = constraints?.items ?? [];
+  expect(savedWalls).toHaveLength(5);
+  expect(savedWalls.some((wall) =>
+    wall.a?.x === 9 && wall.a?.y === 9 && wall.b?.x === 12 && wall.b?.y === 9)).toBe(true);
+  expect(savedWalls.some((wall) =>
+    wall.a?.x === 14 && wall.a?.y === 11 && wall.b?.x === 16 && wall.b?.y === 13)).toBe(true);
 });
 
 test('la visione filtra i token, la porta li rivela e la fog manuale li nasconde', async ({ page, request }) => {

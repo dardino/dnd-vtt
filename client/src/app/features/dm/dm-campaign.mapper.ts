@@ -1,32 +1,20 @@
-import type { MapDocument } from '@dnd-vtt/shared';
+import type { Map, MapDocument } from '@dnd-vtt/shared';
 
-/** Riduce la risposta completa della mappa al documento salvabile. */
-export const toMapDocument = (map: {
-  name: string;
-  imageAssetId: string | null;
-  backgroundTransform: MapDocument['backgroundTransform'];
-  backgroundColor: MapDocument['backgroundColor'];
-  widthPx: number;
-  heightPx: number;
-  grid: MapDocument['grid'];
-  terrain: MapDocument['terrain'];
-  spawns: MapDocument['spawns'];
-  playerStarts: MapDocument['playerStarts'];
-  startView?: MapDocument['startView'];
-  fogBase: MapDocument['fogBase'];
-  showDoorIcons: boolean;
-  notes: string;
-}): MapDocument => ({
+/**
+ * Riduce la risposta completa della mappa al documento v2 salvabile. I campi
+ * di identità e i riferimenti denormalizzati restano fuori dal documento.
+ */
+export const toMapDocument = (map: Map): MapDocument => ({
+  schemaVersion: 2,
   name: map.name,
-  imageAssetId: map.imageAssetId,
-  backgroundTransform: map.backgroundTransform,
   backgroundColor: map.backgroundColor,
   widthPx: map.widthPx,
   heightPx: map.heightPx,
-  grid: map.grid,
-  terrain: map.terrain,
-  spawns: map.spawns,
-  playerStarts: map.playerStarts,
+  grid: structuredClone(map.grid),
+  layers: structuredClone(map.layers),
+  ambientLight: map.ambientLight,
+  visionLimitFeet: map.visionLimitFeet,
+  visionEnabled: map.visionEnabled,
   ...(map.startView === undefined ? {} : { startView: map.startView }),
   fogBase: map.fogBase,
   showDoorIcons: map.showDoorIcons,

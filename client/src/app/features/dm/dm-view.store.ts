@@ -5,6 +5,7 @@ import {
   defaultBackgroundTransform,
   fogBrushRadius,
   gridDrawingWidth,
+  startsOf,
   tokenCenterCell,
   type Actor,
   type PublicDoor,
@@ -70,7 +71,10 @@ export const DmViewStore = signalStore(
 
       partyPcs,
 
-      startOptions: computed(() => campaign.prepareDoc()?.playerStarts ?? []),
+      startOptions: computed(() => {
+        const doc = campaign.prepareDoc();
+        return doc === null ? [] : startsOf(doc);
+      }),
 
       /** Porte della scena in forma pubblica per il canvas. */
       dmDoors: computed<PublicDoor[]>(() =>

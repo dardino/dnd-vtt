@@ -44,11 +44,13 @@
 
     <div class="editor__body">
       <nav class="editor__tools" aria-label="Strumenti mappa">
-        @for (entry of tools; track entry.tool) {
+        @for (entry of tools(); track entry.tool) {
           <button
             type="button"
             class="editor__tool"
             [class.is-active]="tool() === entry.tool"
+            [disabled]="activeLayerLocked() && entry.tool !== 'select'"
+            [attr.aria-disabled]="activeLayerLocked() && entry.tool !== 'select' ? 'true' : null"
             [title]="entry.hint"
             (click)="setTool(entry.tool)"
           >
@@ -66,33 +68,88 @@
           <span class="editor__tool-icon material-symbols-outlined" aria-hidden="true">grid_on</span>
           <span>Griglia</span>
         </button>
+        @if (activeLayer() === 'graphics') {
+          <span class="editor__tool-divider"></span>
+          <input
+            #graphicInput
+            class="file-input"
+            type="file"
+            data-role="graphic"
+            multiple
+            accept="image/png,image/jpeg,image/webp"
+            (change)="addGraphic($event)"
+          />
+          <button
+            type="button"
+            class="editor__add-graphic"
+            aria-label="Aggiungi immagine"
+            (click)="graphicInput.click()"
+          >
+            <span class="editor__tool-icon material-symbols-outlined" aria-hidden="true">add_photo_alternate</span>
+            <span>Aggiungi immagine</span>
+          </button>
+        }
       </nav>
 
       <div class="editor__stage">
         <app-map-editor-canvas
           [image]="image()"
           [backgroundColor]="document.backgroundColor"
-          [backgroundTransform]="document.backgroundTransform"
+          [backgroundTransform]="backgroundTransform()"
           [grid]="document.grid"
-          [terrain]="document.terrain"
-          [spawns]="document.spawns"
-          [playerStarts]="document.playerStarts"
+          [terrain]="canvasTerrain()"
+          [spawns]="spawns()"
+          [playerStarts]="starts()"
+          [layerFlags]="layerFlags()"
+          [graphics]="graphics()"
+          [blockedAreas]="blockedAreas()"
           [tool]="tool()"
           [selected]="selected()"
           [startView]="document.startView ?? null"
           [showGrid]="showGrid()"
           (wallsDrawn)="onWallsDrawn($event)"
           (wallRemoved)="onWallRemoved($event)"
+          (areaDrawn)="onAreaDrawn($event)"
+          (areaRemoved)="onAreaRemoved($event)"
           (lightPlaced)="placeLight($event)"
           (spawnRequested)="requestSpawn($event)"
           (startPlaced)="placeStart($event)"
+          (lootRequested)="requestLoot($event)"
           (elementMoved)="moveElement($event)"
           (wallMoved)="moveWall($event)"
+          (graphicMoved)="moveGraphic($event)"
           (elementSelected)="select($event)"
         />
       </div>
 
       <aside class="editor__inspector">
+        <app-map-layer-panel
+          [layers]="document.layers"
+          [active]="activeLayer()"
+          (activated)="setActiveLayer($event)"
+          (visibilityToggled)="setLayerVisible($event.kind, $event.visible)"
+          (lockToggled)="toggleLayerLock($event.kind, $event.locked)"
+          (opacityCommitted)="setLayerOpacity($event)"
+        />
+
+        @if (inspectorGraphic(); as graphic) {
+          <app-map-graphic-inspector
+            [graphic]="graphic"
+            (fieldChanged)="updateGraphicField($event.field, $event.value)"
+            (flipped)="flipGraphic($event)"
+            (zChanged)="moveGraphicZ($event)"
+            (removed)="removeSelected()"
+          />
+        }
+
+        @if (inspectorArea(); as area) {
+          <app-map-area-inspector
+            [area]="area"
+            (labelChanged)="updateAreaLabel($event)"
+            (removed)="removeSelected()"
+          />
+        }
+
         <app-sidebar-section
           id="map-properties"
           label="Mappa"
@@ -277,7 +334,7 @@
               <p id="map-vision-enabled-error" class="field-error" role="alert">{{ error }}</p>
             }
           </div>
-          @if (document.terrain.walls.length > 0) {
+          @if (walls().length > 0) {
             <p class="notice">
               La griglia è la base dei muri: se cambi cella o offset, ricontrolla l’allineamento.
             </p>
@@ -303,7 +360,7 @@
           }
         </app-sidebar-section>
 
-        @if (selectedWall(); as wall) {
+        @if (inspectorWall(); as wall) {
           <app-sidebar-section
             id="map-wall"
             label="Muro selezionato"
@@ -333,7 +390,7 @@
           </app-sidebar-section>
         }
 
-        @if (selectedLight(); as light) {
+        @if (inspectorLight(); as light) {
           <app-sidebar-section
             id="map-light"
             label="Luce selezionata"
@@ -387,7 +444,7 @@
           </app-sidebar-section>
         }
 
-        @if (selectedSpawn(); as spawn) {
+        @if (inspectorSpawn(); as spawn) {
           <app-sidebar-section
             id="map-spawn"
             label="Spawn selezionato"
@@ -427,7 +484,7 @@
           </app-sidebar-section>
         }
 
-        @if (selectedStart(); as start) {
+        @if (inspectorStart(); as start) {
           <app-sidebar-section
             id="map-start"
             label="Partenza PG"
@@ -442,6 +499,47 @@
           </app-sidebar-section>
         }
 
+        @if (inspectorLoot(); as loot) {
+          <app-sidebar-section
+            id="map-loot"
+            label="Oggetto selezionato"
+            [open]="sections().loot"
+            (toggled)="toggleSection('loot')"
+          >
+            <p class="muted">{{ lootItemName(loot) }}</p>
+            <div class="inspector-grid">
+              <label class="field">
+                <span>Cella X</span>
+                <input type="number" [value]="loot.x" readonly />
+              </label>
+              <label class="field">
+                <span>Cella Y</span>
+                <input type="number" [value]="loot.y" readonly />
+              </label>
+              <label class="field">
+                <span>Quantità</span>
+                <input
+                  type="number"
+                  min="1"
+                  max="999"
+                  step="1"
+                  [value]="loot.quantity"
+                  (change)="onLootQuantityChange($event)"
+                />
+              </label>
+              <label class="check">
+                <input
+                  type="checkbox"
+                  [checked]="loot.visible"
+                  (change)="onLootVisibleChange($event)"
+                />
+                <span>Visibile ai giocatori</span>
+              </label>
+            </div>
+            <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
+          </app-sidebar-section>
+        }
+
         <app-sidebar-section
           id="map-content"
           label="Contenuto"
@@ -449,11 +547,11 @@
           (toggled)="toggleSection('content')"
         >
           <h3>Luci</h3>
-          @if (document.terrain.lights.length === 0) {
+          @if (lights().length === 0) {
             <p class="muted">Nessuna luce.</p>
           } @else {
             <ul class="inspector-list">
-              @for (light of document.terrain.lights; track light.id) {
+              @for (light of lights(); track light.id) {
                 <li>
                   <button type="button" (click)="selectLight(light)">
                     ({{ light.x }}, {{ light.y }}) · {{ light.brightFeet }}/{{ light.dimFeet }} ft
@@ -463,11 +561,11 @@
             </ul>
           }
           <h3>Mostri</h3>
-          @if (document.spawns.length === 0) {
+          @if (spawns().length === 0) {
             <p class="muted">Nessuno spawn.</p>
           } @else {
             <ul class="inspector-list">
-              @for (spawn of document.spawns; track spawn.id) {
+              @for (spawn of spawns(); track spawn.id) {
                 <li>
                   <button type="button" (click)="selectSpawn(spawn)">
                     {{ spawn.label ?? spawn.source.type }} · ({{ spawn.x }}, {{ spawn.y }})
@@ -477,14 +575,32 @@
             </ul>
           }
           <h3>Partenze PG</h3>
-          @if (document.playerStarts.length === 0) {
+          @if (starts().length === 0) {
             <p class="muted">Nessun punto di partenza.</p>
           } @else {
             <ul class="inspector-list">
-              @for (start of document.playerStarts; track start.id) {
+              @for (start of starts(); track start.id) {
                 <li>
                   <button type="button" (click)="selectStart(start)">
                     {{ start.label ?? 'PG' }} · ({{ start.x }}, {{ start.y }})
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+          <h3>Oggetti</h3>
+          @if (loots().length === 0) {
+            <p class="muted">Nessun oggetto sulla mappa.</p>
+          } @else {
+            <ul class="inspector-list" aria-label="Oggetti sulla mappa">
+              @for (loot of loots(); track loot.id) {
+                <li>
+                  <button
+                    type="button"
+                    [attr.data-loot-id]="loot.id"
+                    (click)="selectLoot(loot)"
+                  >
+                    {{ lootItemName(loot) }} · ×{{ loot.quantity }} · ({{ loot.x }}, {{ loot.y }})
                   </button>
                 </li>
               }
@@ -495,10 +611,10 @@
     </div>
 
     <footer class="editor__status">
-      <span>{{ document.imageAssetId === null ? 'Nessuno sfondo' : 'Sfondo caricato' }}</span>
+      <span>{{ backgroundAssetId() === null ? 'Nessuno sfondo' : 'Sfondo caricato' }}</span>
       <span>{{ document.widthPx }} × {{ document.heightPx }} px</span>
-      <span>{{ document.terrain.walls.length }} muri · {{ document.terrain.lights.length }} luci</span>
-      <span>{{ document.spawns.length }} spawn · {{ document.playerStarts.length }} partenze</span>
+      <span>{{ walls().length }} muri · {{ lights().length }} luci</span>
+      <span>{{ spawns().length }} spawn · {{ starts().length }} partenze</span>
       <span>{{ isHex() ? 'visione manuale' : 'visione automatica' }}</span>
     </footer>
   } @else if (loading()) {
@@ -573,3 +689,11 @@
     <app-button variant="danger" (pressed)="confirmLeave()">Esci senza salvare</app-button>
   </div>
 </app-dialog>
+
+@if (lootCell() !== null) {
+  <app-map-loot-dialog
+    [open]="true"
+    (confirmed)="confirmLoot($event)"
+    (closed)="closeLoot()"
+  />
+}

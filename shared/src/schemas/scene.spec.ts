@@ -8,6 +8,7 @@ import {
 } from './map.js';
 import { createSceneSchema, updateSceneSchema } from './scene.js';
 import { backgroundTransformSchema, defaultBackgroundTransform } from './scene-size.js';
+import { legacyCompleteMapDocument } from '../test/map-documents.js';
 
 describe('preset di risoluzione', () => {
   it('espone le dimensioni landscape e portrait della tabella', () => {
@@ -37,21 +38,25 @@ describe('backgroundTransform', () => {
 });
 
 describe('schemi mappa e scena', () => {
-  it('mapDocumentSchema applica la trasformazione di default', () => {
-    const doc = mapDocumentSchema.parse({
-      name: 'Mappa',
-      imageAssetId: null,
-      widthPx: 1280,
-      heightPx: 720,
-      grid: {},
-      terrain: {},
-    });
-    expect(doc.backgroundTransform).toEqual(defaultBackgroundTransform);
+  it('mapDocumentSchema è il documento v2 con i quattro layer canonici', () => {
+    const doc = mapDocumentSchema.parse(emptyMapDocument('Mappa', null, 1280, 720));
+    expect(doc.schemaVersion).toBe(2);
+    expect(doc.layers.map((layer) => layer.kind))
+      .toEqual(['background', 'graphics', 'constraints', 'elements']);
+    expect(doc.layers[0].imageTransform).toEqual(defaultBackgroundTransform);
   });
 
-  it('emptyMapDocument include la trasformazione e il colore di default', () => {
+  it('mapDocumentSchema rifiuta un documento v1 con i campi legacy', () => {
+    expect(mapDocumentSchema.safeParse(legacyCompleteMapDocument()).success).toBe(false);
+    for (const field of ['imageAssetId', 'backgroundTransform', 'terrain', 'spawns', 'playerStarts']) {
+      const legacy = { ...emptyMapDocument('Mappa', null, 1280, 720), [field]: null };
+      expect(mapDocumentSchema.safeParse(legacy).success).toBe(false);
+    }
+  });
+
+  it('emptyMapDocument include la trasformazione nel layer background e il colore di default', () => {
     const doc = emptyMapDocument('Mappa', null, 1280, 720);
-    expect(doc.backgroundTransform).toEqual(defaultBackgroundTransform);
+    expect(doc.layers[0].imageTransform).toEqual(defaultBackgroundTransform);
     expect(doc.backgroundColor).toBe('rgba(255, 255, 255, 1)');
     expect(mapDocumentSchema.safeParse({ ...doc, backgroundColor: 'red' }).success).toBe(false);
   });

@@ -50,7 +50,12 @@ export const mapRoutes = (env: AppEnv, db: AppDatabase): FastifyPluginCallback =
     app.put('/maps/:id', async (request, reply) => {
       const { id } = parse(idParamsSchema, request.params);
       const body = parse(putMapSchema, request.body);
-      return reply.send(await putMap(env, db, id, body.version, body.document));
+      return reply.send(await putMap(env, db, id, body.version, body.document, {
+        ...(body.thumbAssetId === undefined ? {} : { thumbAssetId: body.thumbAssetId }),
+        ...(body.compositeAssetId === undefined
+          ? {}
+          : { compositeAssetId: body.compositeAssetId }),
+      }));
     });
 
     app.delete('/maps/:id', async (request, reply) => {
