@@ -425,6 +425,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Richiesta:** spostare l'elemento selezionato (muro, luce, spawn, partenza) con le frecce, una cella o un bordo per volta, e/o con drag & drop; lo snap deve essere alle celle o ai bordi della griglia a seconda del tipo di oggetto.
   - **Fatto quando:** ogni tipo selezionato è spostabile da tastiera e con il mouse, il movimento passa dalla history (`undo`/`redo`), il drop fuori dalla griglia viene ignorato o clampato e i test coprono snap, selezione e annullamento.
 
+- [x] **C15 — Accordion nell'inspector mappe** · S — ✅ 4 novembre 2026
+  - **Richiesta:** sezioni della sidebar dell'editor collassabili come nella console.
+  - **Esito:** `SidebarSection` spostato in `components/` e riusato per Mappa, Muro/Luce/Spawn/Partenza selezionati e Contenuto; stato di apertura locale, `aria-expanded`/`aria-controls`, stile accordion condiviso. Test E2E su apertura/chiusura della sezione Mappa.
+
 ## 7. Tooling e allineamento al piano (P2)
 
 - [x] **T1 — `max-len` a 110** · S · D6

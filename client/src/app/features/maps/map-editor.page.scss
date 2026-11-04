@@ -152,6 +152,14 @@
     border-left: var(--border-width) solid var(--color-border);
     background: var(--color-bg-raised);
     overflow-y: auto;
+
+    h3 {
+      margin: var(--space-2) 0 0;
+      font-size: var(--text-xs);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--color-text-muted);
+    }
   }
 
   &__status {
@@ -172,33 +180,6 @@
   &__empty {
     margin: var(--space-5);
     max-width: 36rem;
-  }
-}
-
-.inspector-section {
-  display: grid;
-  gap: var(--space-2);
-  padding-bottom: var(--space-3);
-  margin-bottom: var(--space-3);
-  border-bottom: var(--border-width) solid var(--color-border);
-
-  &:last-child {
-    border-bottom: 0;
-  }
-
-  h2 {
-    margin: 0;
-    font-size: var(--text-sm);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  h3 {
-    margin: var(--space-2) 0 0;
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-text-muted);
   }
 }
 

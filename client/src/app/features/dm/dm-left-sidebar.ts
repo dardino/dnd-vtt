@@ -32,7 +32,7 @@ import { SceneList } from './scene-list';
 import { SceneTokensStore } from './scene-tokens.store';
 import { SceneToolsStore } from './scene-tools.store';
 import { SessionCard } from './session-card';
-import { SidebarSection } from './sidebar-section';
+import { SidebarSection } from '../../components/sidebar-section/sidebar-section';
 import { RegiaStore } from './regia.store';
 
 /**

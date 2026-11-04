@@ -92,8 +92,12 @@
       </div>
 
       <aside class="editor__inspector">
-        <section class="inspector-section">
-          <h2>Mappa</h2>
+        <app-sidebar-section
+          id="map-properties"
+          label="Mappa"
+          [open]="sections().properties"
+          (toggled)="toggleSection('properties')"
+        >
           <div class="inspector-grid">
             <label class="field">
               <span>Griglia</span>
@@ -296,11 +300,15 @@
           @if (fieldError('notes'); as error) {
             <p id="map-notes-error" class="field-error" role="alert">{{ error }}</p>
           }
-        </section>
+        </app-sidebar-section>
 
         @if (selectedWall(); as wall) {
-          <section class="inspector-section">
-            <h2>Muro selezionato</h2>
+          <app-sidebar-section
+            id="map-wall"
+            label="Muro selezionato"
+            [open]="sections().wall"
+            (toggled)="toggleSection('wall')"
+          >
             <label class="field">
               <span>Tipo</span>
               <select [value]="wall.kind" (change)="updateWallKind($event)">
@@ -321,12 +329,16 @@
               </label>
             }
             <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
-          </section>
+          </app-sidebar-section>
         }
 
         @if (selectedLight(); as light) {
-          <section class="inspector-section">
-            <h2>Luce selezionata</h2>
+          <app-sidebar-section
+            id="map-light"
+            label="Luce selezionata"
+            [open]="sections().light"
+            (toggled)="toggleSection('light')"
+          >
             <div class="inspector-grid">
               <label class="field">
                 <span>Cella X</span>
@@ -371,12 +383,16 @@
               }
             </div>
             <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
-          </section>
+          </app-sidebar-section>
         }
 
         @if (selectedSpawn(); as spawn) {
-          <section class="inspector-section">
-            <h2>Spawn selezionato</h2>
+          <app-sidebar-section
+            id="map-spawn"
+            label="Spawn selezionato"
+            [open]="sections().spawn"
+            (toggled)="toggleSection('spawn')"
+          >
             <label class="field">
               <span>Etichetta</span>
               <input type="text" [value]="spawn.label ?? ''" (change)="updateSpawnField('label', $event)" />
@@ -407,22 +423,30 @@
               Sorgente: {{ spawnSourceLabel(spawn) }}
             </p>
             <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
-          </section>
+          </app-sidebar-section>
         }
 
         @if (selectedStart(); as start) {
-          <section class="inspector-section">
-            <h2>Partenza PG</h2>
+          <app-sidebar-section
+            id="map-start"
+            label="Partenza PG"
+            [open]="sections().start"
+            (toggled)="toggleSection('start')"
+          >
             <label class="field">
               <span>Etichetta</span>
               <input type="text" [value]="start.label ?? ''" (change)="updateStartLabel($event)" />
             </label>
             <app-button variant="danger" (pressed)="removeSelected()">Rimuovi</app-button>
-          </section>
+          </app-sidebar-section>
         }
 
-        <section class="inspector-section">
-          <h2>Contenuto</h2>
+        <app-sidebar-section
+          id="map-content"
+          label="Contenuto"
+          [open]="sections().content"
+          (toggled)="toggleSection('content')"
+        >
           <h3>Luci</h3>
           @if (document.terrain.lights.length === 0) {
             <p class="muted">Nessuna luce.</p>
@@ -465,7 +489,7 @@
               }
             </ul>
           }
-        </section>
+        </app-sidebar-section>
       </aside>
     </div>
 

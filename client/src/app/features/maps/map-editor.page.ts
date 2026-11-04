@@ -37,6 +37,7 @@ import { MapService } from '../../core/services/map.service';
 import { readResource } from '../../core/api/read-resource';
 import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import { Button } from '../../components/button/button';
+import { SidebarSection } from '../../components/sidebar-section/sidebar-section';
 import { Dialog } from '../../components/dialog/dialog';
 import {
   MapEditorCanvasComponent,
@@ -69,6 +70,17 @@ type MapGridField = Exclude<keyof GridConfig, 'hexOffset'>;
 type MapTerrainField = 'ambientLight' | 'visionEnabled' | 'showDoorIcons';
 type MapTextField = 'name' | 'fogBase' | 'notes' | 'backgroundColor';
 
+type MapEditorSection = 'properties' | 'wall' | 'light' | 'spawn' | 'start' | 'content';
+
+const DEFAULT_EDITOR_SECTIONS: Record<MapEditorSection, boolean> = {
+  properties: true,
+  wall: true,
+  light: true,
+  spawn: true,
+  start: true,
+  content: true,
+};
+
 const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: string }> = [
   { tool: 'select', icon: 'arrow_selector_tool', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
   { tool: 'wall', icon: 'wall_art', label: 'Muro', hint: 'Disegna muri sui lati della griglia' },
@@ -84,7 +96,7 @@ const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: 
 
 @Component({
   selector: 'app-map-editor-page',
-  imports: [Button, Dialog, FormField, RouterLink, MapEditorCanvasComponent],
+  imports: [Button, Dialog, FormField, RouterLink, MapEditorCanvasComponent, SidebarSection],
   templateUrl: './map-editor.page.html',
   styleUrl: './map-editor.page.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -164,6 +176,15 @@ export class MapEditorPage implements OnInit, OnDestroy {
 
   public readonly backgroundColorAlpha = computed(() =>
     rgbaAlphaPercent(this.propertiesForm.backgroundColor().value()));
+
+  public readonly sections = signal({ ...DEFAULT_EDITOR_SECTIONS });
+
+  public toggleSection(section: MapEditorSection): void {
+    this.sections.update((current) => ({
+      ...current,
+      [section]: !current[section],
+    }));
+  }
 
   private readonly propertiesFields = this.propertiesForm as unknown as Record<
     keyof MapPropertiesFormModel,

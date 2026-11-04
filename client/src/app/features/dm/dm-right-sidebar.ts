@@ -8,7 +8,7 @@ import { DmUiStore } from './dm-ui.store';
 import { RegiaStore } from './regia.store';
 import { ScreenList } from './screen-list';
 import { SceneTokensStore } from './scene-tokens.store';
-import { SidebarSection } from './sidebar-section';
+import { SidebarSection } from '../../components/sidebar-section/sidebar-section';
 import { TokenList, type TokenHpChange } from './token-list';
 
 /**

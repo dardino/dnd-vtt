@@ -362,6 +362,13 @@ test('una nuova mappa senza sfondo mostra il foglio bianco della risoluzione sce
     .toBeGreaterThan(0);
   await expect(page.locator('.editor__placeholder')).toHaveCount(0);
 
+  const mapSection = page.getByRole('button', { name: 'Mappa', exact: true });
+  await expect(mapSection).toHaveAttribute('aria-expanded', 'true');
+  await mapSection.click();
+  await expect(page.getByRole('combobox', { name: 'Griglia' })).toBeHidden();
+  await mapSection.click();
+  await expect(page.getByRole('combobox', { name: 'Griglia' })).toBeVisible();
+
   const hasWhiteSheet = await page.locator('.map-editor-canvas canvas').evaluateAll((nodes) =>
     nodes.some((node) => {
       const element = node as HTMLCanvasElement;
