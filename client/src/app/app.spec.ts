@@ -23,7 +23,7 @@ describe('App', () => {
     expect(compiled.querySelector('.brand')?.textContent).toContain('D&D VTT');
   });
 
-  it("mostra l'emoji del tema attivo", async () => {
+  it("mostra l'icona del tema attivo", async () => {
     const theme = TestBed.inject(ThemeService);
     const fixture = TestBed.createComponent(App);
     await fixture.whenStable();
@@ -31,12 +31,12 @@ describe('App', () => {
 
     theme.set('dark');
     fixture.detectChanges();
-    expect(toggle?.textContent).toContain('🌙');
+    expect(toggle?.textContent).toContain('dark_mode');
     expect(toggle?.getAttribute('aria-label')).toBe('Tema: dark. Cambia tema');
 
     theme.set('light');
     fixture.detectChanges();
-    expect(toggle?.textContent).toContain('☀️');
+    expect(toggle?.textContent).toContain('light_mode');
     expect(toggle?.getAttribute('aria-label')).toBe('Tema: light. Cambia tema');
   });
 });

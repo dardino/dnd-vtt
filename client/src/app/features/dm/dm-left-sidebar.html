@@ -11,7 +11,7 @@
       [attr.aria-label]="layout.leftOpen() ? 'Riduci pannello campagna' : 'Apri pannello campagna'"
       [title]="layout.leftOpen() ? 'Riduci' : 'Apri'"
       (click)="toggleLeft()"
-    >{{ layout.leftOpen() ? '‹' : '›' }}</button>
+    ><span class="material-symbols-outlined" aria-hidden="true">{{ layout.leftOpen() ? 'chevron_left' : 'chevron_right' }}</span></button>
   </div>
   @if (layout.leftOpen()) {
     <app-sidebar-section

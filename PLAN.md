@@ -59,6 +59,7 @@ Frontend
 - Signals, standalone components, OnPush di default, zoneless (default da v21)
 - **Nessuna libreria UI esterna**: componenti nativi (`button`, `dialog`, `table`, `popover`) incapsulati in `client/src/app/components/`, con stile e comportamento custom; niente Angular Material, niente CDK
 - **Sass** con design token in CSS custom properties: tema `light`, `dark` e `system`, stile "thin" (linee sottili, superfici piatte, densità compatta)
+- **Material Symbols Outlined** self-hosted (subset Apache 2.0, `font-src 'self'`) per tutte le icone dei controlli, con ligature CSS
 - **Signal Forms** (stabili in v22) per il wizard di creazione (personaggio e statblock)
 - `resource()` / `httpResource` per il data fetching legato ai signals
 - **Konva** per stage, layer, zoom, pan, drag e hit-testing

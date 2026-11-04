@@ -11,7 +11,7 @@
       @if (count() !== null) {
         <span class="accordion__count">{{ count() }}</span>
       }
-      <span class="accordion__chevron" aria-hidden="true">{{ open() ? '▾' : '▸' }}</span>
+      <span class="accordion__chevron material-symbols-outlined" aria-hidden="true">{{ open() ? 'keyboard_arrow_down' : 'chevron_right' }}</span>
     </button>
     @if (hasActions()) {
       <div class="accordion__actions">

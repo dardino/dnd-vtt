@@ -6,7 +6,7 @@
     aria-label="Seleziona"
     title="Seleziona"
     (click)="setTool('select')"
-  ><span aria-hidden="true">🖱️</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">arrow_selector_tool</span></button>
   <button
     type="button"
     class="tool"
@@ -14,8 +14,8 @@
     aria-label="Misura distanza"
     title="Misura distanza"
     (click)="setTool('measure')"
-  ><span aria-hidden="true">📏</span></button>
-  <button type="button" class="tool" aria-label="Tira dadi" title="Tira dadi" (click)="openDice.emit()">🎲</button>
+  ><span class="material-symbols-outlined" aria-hidden="true">straighten</span></button>
+  <button type="button" class="tool" aria-label="Tira dadi" title="Tira dadi" (click)="openDice.emit()"><span class="material-symbols-outlined" aria-hidden="true">casino</span></button>
   <button
     type="button"
     class="tool"
@@ -23,7 +23,7 @@
     aria-label="Mostra griglia"
     title="Mostra griglia"
     (click)="toggleGrid()"
-  ><span aria-hidden="true">🔲</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">grid_on</span></button>
   <span class="tool-divider"></span>
   <button
     type="button"
@@ -31,21 +31,21 @@
     aria-label="Zoom avanti"
     title="Zoom avanti"
     (click)="zoomIn.emit()"
-  ><span aria-hidden="true">➕</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">zoom_in</span></button>
   <button
     type="button"
     class="tool"
     aria-label="Zoom indietro"
     title="Zoom indietro"
     (click)="zoomOut.emit()"
-  ><span aria-hidden="true">➖</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">zoom_out</span></button>
   <button
     type="button"
     class="tool"
     aria-label="Adatta mappa"
     title="Adatta mappa"
     (click)="fitMap.emit()"
-  ><span aria-hidden="true">🖼️</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">fit_screen</span></button>
   <span class="tool-divider"></span>
   <button
     type="button"
@@ -54,7 +54,7 @@
     aria-label="Fog: rivela"
     title="Fog: rivela"
     (click)="setTool('fog-reveal')"
-  ><span aria-hidden="true">👁️</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">visibility</span></button>
   <button
     type="button"
     class="tool"
@@ -62,7 +62,7 @@
     aria-label="Fog: nascondi"
     title="Fog: nascondi"
     (click)="setTool('fog-hide')"
-  ><span aria-hidden="true">🌫️</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">visibility_off</span></button>
   <button
     type="button"
     class="tool"
@@ -70,7 +70,7 @@
     aria-label="Fog: rettangolo"
     title="Fog: rettangolo"
     (click)="setTool('fog-rect')"
-  ><span aria-hidden="true">⬜</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">rectangle</span></button>
   <button
     type="button"
     class="tool"
@@ -78,7 +78,7 @@
     aria-label="Fog: lasso"
     title="Fog: lasso (doppio click per chiudere)"
     (click)="setTool('fog-lasso')"
-  ><span aria-hidden="true">🎯</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">lasso_select</span></button>
   <button
     type="button"
     class="tool"
@@ -86,14 +86,14 @@
     aria-label="Disegno"
     title="Disegno"
     (click)="setTool('draw')"
-  ><span aria-hidden="true">✏️</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">draw</span></button>
   <button
     type="button"
     class="tool"
     aria-label="Esporta PNG"
     title="Esporta PNG"
     (click)="exportPng.emit()"
-  ><span aria-hidden="true">📤</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">download</span></button>
   <button
     type="button"
     class="tool"
@@ -101,7 +101,7 @@
     title="Annulla (Ctrl+Z)"
     [disabled]="!canUndo()"
     (click)="undo.emit()"
-  ><span aria-hidden="true">↩️</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">undo</span></button>
   <button
     type="button"
     class="tool"
@@ -109,7 +109,7 @@
     title="Ripeti (Ctrl+Shift+Z)"
     [disabled]="!canRedo()"
     (click)="redo.emit()"
-  ><span aria-hidden="true">↪️</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">redo</span></button>
   <span class="tool-divider"></span>
   <button
     type="button"
@@ -117,5 +117,5 @@
     aria-label="Impostazioni mappa"
     title="Impostazioni mappa"
     (click)="settings.emit()"
-  ><span aria-hidden="true">⚙️</span></button>
+  ><span class="material-symbols-outlined" aria-hidden="true">settings</span></button>
 </nav>

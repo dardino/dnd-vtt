@@ -397,7 +397,7 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] **C8 — Icone emoji coerenti** · M — ✅ 3 novembre 2026
   - **Proposta:** emoji del font in tutti i controlli a icona, senza dipendenze: menu strumenti dell'editor mappe, toolbar scena, liste scene/token/attori, slot vuoti, tema, dialog/toast, frecce indietro, matita e check degli step.
   - **Fatto quando:** ogni icona è decorativa (`aria-hidden`), label/`aria-label`/`title` restano invariati e i glifi tipografici dentro testi, misure e formule non vengono toccati.
-  - **Esito:** `TOOL_LABELS` ha `icon` (10 tool + Griglia), componenti console e condivisi usano emoji con `aria-hidden`, ritocchi `font-size`/`line-height` per la resa; chevron `▾/▸` e `×`/`+`/`−` restano tipografici. Test unit su editor, tema, dialog e toast; E2E `ui-icons` più `phase-4`/`phase-9`.
+  - **Esito:** `TOOL_LABELS` ha `icon` (10 tool + Griglia), componenti console e condivisi usano emoji con `aria-hidden`, ritocchi `font-size`/`line-height` per la resa; chevron `▾/▸` e `×`/`+`/`−` restano tipografici. Test unit su editor, tema, dialog e toast; E2E `ui-icons` più `phase-4`/`phase-9`. **Superato da C11 (Material Symbols).**
 
 - [x] **C9 — Condivisione scheda con QR** · M — ✅ 3 novembre 2026
   - **Proposta:** QR del link giocatore generato lato client, senza servizi esterni, con pannello autonomo su ogni PC.
@@ -407,7 +407,11 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] **C10 — Scene solo da mappa ed eliminazione** · M — ✅ 4 novembre 2026
   - **Proposta:** rimuovere la creazione di scene vuote, rinominare “Avvia da mappa” in “Crea scena” e permettere l’eliminazione delle scene non in onda.
   - **Fatto quando:** “Avvia da mappa” non compare più, “Crea mappa” resta solo nella dialog e una scena attiva/in onda non è eliminabile.
-  - **Esito:** `createScene` generica e `newSceneFog` rimossi; “Crea scena” in sidebar/dialog/stato vuoto; pulsante elimina con conferma e blocco su scena attiva o presente in `RegiaStore.onAirSceneIds`; refresh schermi dopo `takeSceneTo`; test server su DELETE, E2E fase 2/9 e `api.spec`.
+  - **Esito:** `createScene` generica e `newSceneFog` rimossi; "Crea scena" in sidebar/dialog/stato vuoto; pulsante elimina con conferma e blocco su scena attiva o presente in `RegiaStore.onAirSceneIds`; refresh schermi dopo `takeSceneTo`; test server su DELETE, E2E fase 2/9 e `api.spec`.
+
+- [x] **C11 — Material Symbols** · M — ✅ 4 novembre 2026
+  - **Decisione:** sostituire le emoji con **Material Symbols Outlined** scaricati da Google Fonts e serviti localmente, per icone monocrome coerenti con tema e CSP.
+  - **Esito:** subset del font (36 KB) in `client/public/fonts/material-symbols-outlined.v1.woff2`, `@font-face` e classe globale `.material-symbols-outlined`, ligature in editor mappe, toolbar scena, liste scene/token/attori, slot, tema, dialog/toast, frecce, matita, check e chevron. Nessun CDN esterno (`font-src 'self'`); licenza in `LICENSES/MATERIAL-SYMBOLS.md`; `ui-icons.spec.ts` aggiornato.
 
 ## 7. Tooling e allineamento al piano (P2)
 

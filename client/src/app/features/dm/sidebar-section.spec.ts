@@ -58,7 +58,7 @@ describe('SidebarSection', () => {
     expect(trigger.textContent).toContain('Scene');
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     expect(trigger.getAttribute('aria-controls')).toBe('sidebar-scenes');
-    expect(root.querySelector('.accordion__chevron')?.textContent).toBe('▾');
+    expect(root.querySelector('.accordion__chevron')?.textContent).toBe('keyboard_arrow_down');
     expect(root.querySelector('.accordion__count')?.textContent).toBe('3');
     expect(body.id).toBe('sidebar-scenes');
     expect(body.textContent).toContain('Contenuto');
@@ -74,7 +74,7 @@ describe('SidebarSection', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
     expect(root.querySelector('.accordion__body')).toBeNull();
     expect(root.querySelector('.section-body')).toBeNull();
-    expect(root.querySelector('.accordion__chevron')?.textContent).toBe('▸');
+    expect(root.querySelector('.accordion__chevron')?.textContent).toBe('chevron_right');
   });
 
   it('non mostra il contatore quando count è null', () => {

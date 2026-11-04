@@ -9,7 +9,7 @@
     <h2 class="dialog__title" [id]="titleId">{{ title() }}</h2>
     @if (dismissible()) {
       <button class="dialog__close" type="button" aria-label="Chiudi" (click)="close()">
-        <span aria-hidden="true">✖️</span>
+        <span class="material-symbols-outlined" aria-hidden="true">close</span>
       </button>
     }
   </header>

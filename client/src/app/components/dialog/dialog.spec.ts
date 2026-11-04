@@ -47,11 +47,11 @@ describe('Dialog', () => {
     expect(heading?.textContent).toContain('Titolo di prova');
   });
 
-  it("chiude con l'emoji e mantiene l'etichetta", () => {
+  it("chiude con l'icona e mantiene l'etichetta", () => {
     const fixture = create();
     const close = (fixture.nativeElement as HTMLElement).querySelector('.dialog__close');
 
-    expect(close?.textContent).toContain('✖️');
+    expect(close?.textContent).toContain('close');
     expect(close?.getAttribute('aria-label')).toBe('Chiudi');
   });
 

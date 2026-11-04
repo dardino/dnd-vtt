@@ -8,7 +8,7 @@ describe('Toast', () => {
     TestBed.configureTestingModule({ imports: [Toast] });
   });
 
-  it("chiude la notifica con l'emoji", () => {
+  it("chiude la notifica con l'icona", () => {
     const service = TestBed.inject(ToastService);
     const fixture = TestBed.createComponent(Toast);
     fixture.detectChanges();
@@ -19,7 +19,7 @@ describe('Toast', () => {
     const element = fixture.nativeElement as HTMLElement;
     const close = element.querySelector<HTMLButtonElement>('.toast__close');
 
-    expect(close?.textContent).toContain('✖️');
+    expect(close?.textContent).toContain('close');
     expect(close?.getAttribute('aria-label')).toBe('Chiudi notifica');
 
     close?.click();

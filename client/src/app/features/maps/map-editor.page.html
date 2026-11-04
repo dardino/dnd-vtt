@@ -2,7 +2,7 @@
   @if (doc(); as document) {
     <header class="editor__top">
       <div class="editor__title">
-        <a class="editor__back" (click)="back()" role="button" tabindex="0"><span aria-hidden="true">⬅️</span> Mappe</a>
+        <a class="editor__back" (click)="back()" role="button" tabindex="0"><span class="material-symbols-outlined" aria-hidden="true">arrow_back</span> Mappe</a>
         <input
           class="editor__name"
           [formField]="propertiesForm.name"
@@ -52,7 +52,7 @@
             [title]="entry.hint"
             (click)="setTool(entry.tool)"
           >
-            <span class="editor__tool-icon" aria-hidden="true">{{ entry.icon }}</span>
+            <span class="editor__tool-icon material-symbols-outlined" aria-hidden="true">{{ entry.icon }}</span>
             <span>{{ entry.label }}</span>
           </button>
         }
@@ -63,7 +63,7 @@
           [class.is-active]="showGrid()"
           (click)="showGrid.set(!showGrid())"
         >
-          <span class="editor__tool-icon" aria-hidden="true">🔲</span>
+          <span class="editor__tool-icon material-symbols-outlined" aria-hidden="true">grid_on</span>
           <span>Griglia</span>
         </button>
       </nav>

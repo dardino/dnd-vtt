@@ -69,16 +69,16 @@ type MapTerrainField = 'ambientLight' | 'visionEnabled' | 'showDoorIcons';
 type MapTextField = 'name' | 'fogBase' | 'notes';
 
 const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: string }> = [
-  { tool: 'select', icon: '🖱️', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
-  { tool: 'wall', icon: '🧱', label: 'Muro', hint: 'Disegna muri sui lati della griglia' },
-  { tool: 'freehand', icon: '✏️', label: 'Tratto', hint: 'Traccia libero, rasterizzato a edge' },
-  { tool: 'door', icon: '🚪', label: 'Porta', hint: 'Trasforma un lato in porta' },
-  { tool: 'window', icon: '🪟', label: 'Finestra', hint: 'Blocca il movimento, non la vista' },
-  { tool: 'lowWall', icon: '🪵', label: 'Muro basso', hint: 'Si vede sopra, blocca il movimento' },
-  { tool: 'eraser', icon: '🧽', label: 'Gomma', hint: 'Rimuove un lato' },
-  { tool: 'light', icon: '🔦', label: 'Luce', hint: 'Aggiunge una luce statica' },
-  { tool: 'spawn', icon: '👹', label: 'Mostro', hint: 'Aggiunge uno spawn SRD o attore' },
-  { tool: 'start', icon: '🏁', label: 'Partenza', hint: 'Aggiunge un punto di partenza PG' },
+  { tool: 'select', icon: 'arrow_selector_tool', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
+  { tool: 'wall', icon: 'wall_art', label: 'Muro', hint: 'Disegna muri sui lati della griglia' },
+  { tool: 'freehand', icon: 'draw', label: 'Tratto', hint: 'Traccia libero, rasterizzato a edge' },
+  { tool: 'door', icon: 'door_front', label: 'Porta', hint: 'Trasforma un lato in porta' },
+  { tool: 'window', icon: 'window', label: 'Finestra', hint: 'Blocca il movimento, non la vista' },
+  { tool: 'lowWall', icon: 'fence', label: 'Muro basso', hint: 'Si vede sopra, blocca il movimento' },
+  { tool: 'eraser', icon: 'ink_eraser', label: 'Gomma', hint: 'Rimuove un lato' },
+  { tool: 'light', icon: 'lightbulb', label: 'Luce', hint: 'Aggiunge una luce statica' },
+  { tool: 'spawn', icon: 'pets', label: 'Mostro', hint: 'Aggiunge uno spawn SRD o attore' },
+  { tool: 'start', icon: 'flag', label: 'Partenza', hint: 'Aggiunge un punto di partenza PG' },
 ];
 
 @Component({

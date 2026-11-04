@@ -19,7 +19,7 @@
       (click)="theme.cycle()"
       [attr.aria-label]="'Tema: ' + theme.theme() + '. Cambia tema'"
     >
-      <span aria-hidden="true">{{ theme.resolved() === 'dark' ? '🌙' : '☀️' }}</span>
+      <span class="material-symbols-outlined" aria-hidden="true">{{ theme.resolved() === 'dark' ? 'dark_mode' : 'light_mode' }}</span>
       <span>{{ theme.theme() }}</span>
     </button>
   </header>

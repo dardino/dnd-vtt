@@ -23,7 +23,7 @@
               [attr.aria-label]="'Attiva scena ' + scene.name"
               title="Attiva scena"
               (click)="selectScene.emit(scene)"
-            ><span aria-hidden="true">▶️</span></button>
+            ><span class="material-symbols-outlined" aria-hidden="true">play_arrow</span></button>
           }
           @if (scene.mapId; as mapId) {
             <a
@@ -31,7 +31,7 @@
               [routerLink]="['/maps', mapId]"
               [attr.aria-label]="'Modifica mappa di ' + scene.name"
               title="Modifica mappa"
-            ><span aria-hidden="true">✏️</span></a>
+            ><span class="material-symbols-outlined" aria-hidden="true">edit</span></a>
           }
           <button
             type="button"
@@ -40,7 +40,7 @@
             [attr.aria-label]="'Elimina scena ' + scene.name"
             [title]="deleteBlockedReason(scene) ?? 'Elimina scena'"
             (click)="requestDelete(scene)"
-          ><span aria-hidden="true">🗑️</span></button>
+          ><span class="material-symbols-outlined" aria-hidden="true">delete</span></button>
         </span>
       </li>
     }

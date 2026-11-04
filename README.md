@@ -80,6 +80,7 @@ su Docker Desktop.
 - `server/` - Fastify, Drizzle/SQLite, API `/api/v1`, auth DM, upload `sharp`
   con preview e tile per mappe grandi, `action_log` e `ActionService`
 - `LICENSES/SRD-5.2.md` - attribuzione CC BY 4.0
+- `LICENSES/MATERIAL-SYMBOLS.md` - icone Material Symbols (Apache 2.0), font self-hosted
 
 ## Stato
 

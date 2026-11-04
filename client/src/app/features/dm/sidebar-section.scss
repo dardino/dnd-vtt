@@ -62,9 +62,12 @@
 }
 
 .accordion__chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 1rem;
-  font-family: var(--font-mono);
   font-size: var(--text-xs);
+  line-height: 1;
   text-align: center;
 }
 
