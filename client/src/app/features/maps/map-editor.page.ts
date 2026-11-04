@@ -114,9 +114,18 @@ type MapGridField = Exclude<keyof GridConfig, 'hexOffset'>;
 type MapTerrainField = 'ambientLight' | 'visionEnabled' | 'showDoorIcons';
 type MapTextField = 'name' | 'fogBase' | 'notes' | 'backgroundColor';
 
-type MapEditorSection = 'properties' | 'wall' | 'light' | 'spawn' | 'start' | 'loot' | 'content';
+type MapEditorSection
+  = | 'layers'
+    | 'properties'
+    | 'wall'
+    | 'light'
+    | 'spawn'
+    | 'start'
+    | 'loot'
+    | 'content';
 
 const DEFAULT_EDITOR_SECTIONS: Record<MapEditorSection, boolean> = {
+  layers: true,
   properties: true,
   wall: true,
   light: true,

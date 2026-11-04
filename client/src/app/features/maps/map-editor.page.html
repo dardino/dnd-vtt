@@ -127,14 +127,21 @@
       </div>
 
       <aside class="editor__inspector">
-        <app-map-layer-panel
-          [layers]="document.layers"
-          [active]="activeLayer()"
-          (activated)="setActiveLayer($event)"
-          (visibilityToggled)="setLayerVisible($event.kind, $event.visible)"
-          (lockToggled)="toggleLayerLock($event.kind, $event.locked)"
-          (opacityCommitted)="setLayerOpacity($event)"
-        />
+        <app-sidebar-section
+          id="map-layers"
+          label="Livelli"
+          [open]="sections().layers"
+          (toggled)="toggleSection('layers')"
+        >
+          <app-map-layer-panel
+            [layers]="document.layers"
+            [active]="activeLayer()"
+            (activated)="setActiveLayer($event)"
+            (visibilityToggled)="setLayerVisible($event.kind, $event.visible)"
+            (lockToggled)="toggleLayerLock($event.kind, $event.locked)"
+            (opacityCommitted)="setLayerOpacity($event)"
+          />
+        </app-sidebar-section>
 
         @if (inspectorGraphic(); as graphic) {
           <app-map-graphic-inspector
