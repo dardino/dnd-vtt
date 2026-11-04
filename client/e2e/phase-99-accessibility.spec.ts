@@ -1,6 +1,12 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { campaignId, ensureScene } from './fixtures.js';
+import {
+  clickCell,
+  createMapFixture,
+  openMapEditor,
+  selectTool,
+} from './map-editor-helpers.js';
 
 const CAMPAIGN_NAME = 'E2E Accessibilità';
 
@@ -11,8 +17,21 @@ const CAMPAIGN_NAME = 'E2E Accessibilità';
  */
 const WCAG_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
-const audit = async (page: Page, route: string): Promise<void> => {
-  const { violations } = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+interface AuditOptions {
+  /** Limita l'analisi a un sottoalbero: utile per pannelli e dialog. */
+  include?: string;
+}
+
+const audit = async (
+  page: Page,
+  route: string,
+  options: AuditOptions = {},
+): Promise<void> => {
+  let builder = new AxeBuilder({ page }).withTags(WCAG_TAGS);
+  if (options.include !== undefined) {
+    builder = builder.include(options.include);
+  }
+  const { violations } = await builder.analyze();
   const blocking = violations.filter(
     (violation) => violation.impact === 'serious' || violation.impact === 'critical',
   );
@@ -83,4 +102,26 @@ test('lo schermo display non ha violazioni serious o critical', async ({ page, r
   await expect(page.locator('.display__stage')).toBeVisible({ timeout: 15_000 });
 
   await audit(page, '/display/:code');
+});
+
+test('il pannello layer e il dialog loot non hanno violazioni serious o critical', async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90_000);
+  const id = await accessCampaign(request);
+  const map = await createMapFixture(request, id, {
+    name: 'Mappa accessibile',
+    preset: '720p',
+  });
+
+  await openMapEditor(page, map.id);
+  await audit(page, '/maps/:id (pannello layer)', { include: '.layer-panel' });
+
+  await page.locator('.layer-panel__row[data-kind="elements"] .layer-panel__activate').click();
+  await selectTool(page, 'Oggetti', 'loot');
+  await clickCell(page, { x: 2, y: 2 });
+  await expect(page.locator('.loot-dialog')).toBeVisible();
+
+  await audit(page, '/maps/:id (dialog loot)', { include: '.loot-dialog' });
 });

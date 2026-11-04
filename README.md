@@ -34,6 +34,8 @@ server parte comunque e `/api/v1/health` risponde `db: 'migration_pending'`.
 | `npm run db:seed` | inserisce una campagna di prova con mappa demo, scena, luci e goblin |
 | `npm run db:reset` | cancella database/upload locali, migra e ricrea i dati demo (solo sviluppo) |
 | `npm run db:check` | verifica che schema e migrazioni non divergano |
+| `npm run icons:build` | rigenera il subset self-hosted di Material Symbols dalle icone usate |
+| `npm run icons:check` | verifica che il subset copra tutti gli usi letterali delle icone |
 | `npm run srd:import` | rigenera i cataloghi SRD 5.2 da Open5e (richiede rete) |
 
 I cataloghi SRD sono **committati**: l'import serve solo quando si aggiorna la
@@ -203,11 +205,18 @@ l'Orchestrator come agente principale e affidagli la richiesta.
   `/ai/status`, parser regex locale degli statblock e sezione "Chat IA" nella
   sidebar con anteprima e creazione mostro; la chat risponde `503 ai_disabled`.
   Restano fuori: provider OpenAI-compatible, streaming SSE e cronologia chat.
-- **Fase 10 core completata**: editor mappe su `/maps` con sfondo, colore di
-  sfondo `rgba` con picker, foglio bianco per mappe senza immagine, griglia,
-  muri/porte/finestre/muri bassi, luci statiche, spawn SRD/attori e partenze PG.
-  L'inspector è a sezioni accordion; gli oggetti selezionati si spostano con le
-  frecce o con drag & drop, con snap a celle o bordi e history annullabile.
+- **Fase 10 core completata**: editor mappe su `/maps` con documento a layer
+  (background, graphics, constraints, elements), pannello layer con visibilità,
+  blocco e opacità, toolbar filtrata e migrazione automatica dei documenti
+  storici. Sfondo singolo con colore `rgba`, picker e foglio bianco per le mappe
+  senza immagine; grafica sovrapposta con upload multiplo, transform, flip e
+  z-order; muri/porte/finestre/muri bassi e aree bloccate rettangolari o
+  poligonali con snap sulla griglia quadrata; luci statiche, spawn SRD/attori,
+  partenze PG e loot dal catalogo SRD. L'inspector è a sezioni accordion; gli
+  oggetti selezionati si spostano con le frecce o con drag & drop, con snap a
+  celle o bordi e history annullabile. Al salvataggio il client genera thumbnail
+  640 e composito 4096 in WebP: la lista mappe usa la thumbnail, mentre la scena
+  creata dalla mappa usa il composito con transform cover e riceve il loot.
   La console crea una scena esclusivamente da una mappa con “Crea scena” e
   “Prepara scena”, e consente di eliminare le scene non attive e non in onda.
   La visione è a celle con luce ambientale, torce, scurovisione/blindsight/

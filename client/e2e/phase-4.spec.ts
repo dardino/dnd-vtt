@@ -355,7 +355,7 @@ test('le sezioni sono accordion e la scena si attiva solo dal pulsante', async (
   await expect(reserve.locator('.badge')).toHaveText('attiva');
 });
 
-test('una nuova mappa senza sfondo mostra il foglio bianco della risoluzione scelta', async ({ page, request }) => {
+test('una nuova mappa senza sfondo salva una thumbnail col colore scelto', async ({ page, request }) => {
   const id = await campaignId(request, { description: 'Mappa di prova' });
   await page.addInitScript(
     ([key, value]) => localStorage.setItem(key, value),
@@ -441,9 +441,23 @@ test('una nuova mappa senza sfondo mostra il foglio bianco della risoluzione sce
 
   await page.getByRole('button', { name: 'Salva' }).click();
   await expect(page.locator('.editor__title .badge')).toHaveText('salvata');
+
+  // Dal salvataggio la thumbnail viene generata anche per un documento
+  // solo-colore: la card deve mostrare l'immagine, non il foglio CSS.
+  const mapId = /\/maps\/([0-9a-f-]{36})$/.exec(page.url())?.[1];
+  expect(mapId).toBeTruthy();
+  const mapsResponse = await request.get(`/api/v1/campaigns/${id}/maps`);
+  const summary = (await mapsResponse.json() as {
+    items: { id: string; thumbUrl: string | null }[];
+  }).items.find((entry) => entry.id === mapId);
+  const thumbUrl = summary?.thumbUrl ?? null;
+  expect(thumbUrl).not.toBeNull();
+
   await page.getByRole('button', { name: 'Mappe', exact: true }).click();
   const card = page.locator('.map-card', { hasText: 'Mappa bianca' });
-  const preview = card.locator('.map-card__blank');
+  const preview = card.locator('.map-card__preview img');
   await expect(preview).toBeVisible();
-  await expect(preview).toHaveCSS('background-color', 'rgba(255, 0, 0, 0.5)');
+  await expect(preview).toHaveAttribute('src', thumbUrl ?? '');
+  await expect(preview).toHaveAttribute('alt', 'Mappa bianca');
+  await expect(card.locator('.map-card__blank')).toHaveCount(0);
 });

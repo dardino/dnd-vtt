@@ -1,5 +1,11 @@
 # P3 — Refactor history editor mappe a comandi
 
+> Nota: con il documento mappa v2 (issue [#18](https://github.com/dardino/dnd-vtt/issues/18))
+> i percorsi citati sotto (`terrain.walls`, `terrain.lights`, `spawns`,
+> `playerStarts`) sono confluiti nei layer `constraints` ed `elements`. Il
+> progetto dei comandi resta valido; per il modello attuale vedi
+> [`map-layers.md`](./map-layers.md).
+
 Stato attuale: `MapEditorPage` mantiene `history: MapDocument[]` con snapshot completi
 (`structuredClone`) limitati a 50 entry e 32 MB. Undo/redo sostituiscono l'intero
 documento. Funziona, ma ogni modifica paga un clone completo e la history conserva

@@ -5,6 +5,21 @@ alto. Ogni voce riassume uno o più commit; la cronologia completa resta in git.
 
 ## 2026-11-04
 
+- **Mappe a layer:** documento v2 con la tupla fissa background/graphics/
+  constraints/elements, migrazione automatica dei documenti v1 in lettura e
+  scrittura sempre v2. L'editor espone il pannello layer (visibilità, blocco,
+  opacità), la toolbar filtrata per layer, grafica sovrapposta con upload
+  multiplo, transform, flip e z-order, aree bloccate rettangolari e poligonali
+  con snap sulla griglia quadrata e loot dal catalogo SRD. Vedi
+  [`docs/map-layers.md`](./docs/map-layers.md).
+- **Anteprime mappe:** al salvataggio il client genera thumbnail 640 e composito
+  4096 in WebP, li carica come asset e li invia nel `PUT` insieme al documento;
+  un errore di render produce un avviso e non blocca il salvataggio, lasciando i
+  riferimenti precedenti. `MapSummary.thumbUrl` usa la thumbnail persistita con
+  fallback allo sfondo, gli asset derivati sostituiti vengono raccolti quando
+  nessuno li referenzia e la scena creata da mappa usa il composito con
+  transform cover copiando il loot in `SceneState.loot`. Export e import
+  restano compatibili con i bundle v1.
 - **Mappe:** colore di sfondo `rgba` con picker colore e opacità, propagato dalla
   mappa alla `SceneState`, al canvas del tavolo e alla proiezione display;
   anteprime della lista mappe colorate e foglio bianco delle dimensioni scelte
@@ -14,8 +29,11 @@ alto. Ogni voce riassume uno o più commit; la cronologia completa resta in git.
   snap, sempre tramite history con undo/redo.
 - **Scene:** creazione esclusivamente da mappa, eliminazione delle scene non
   attive e non in onda, conferma e refresh degli schermi.
-- **Icone:** Material Symbols Outlined self-hosted (subset di 36 KB) e
-  sostituzione delle emoji in tutta l'interfaccia.
+- **Icone:** Material Symbols Outlined self-hosted con subset generato da
+  `scripts/material-symbols.mjs` (52 icone, `v2.woff2` da 6 KB) e sostituzione
+  delle emoji in tutta l'interfaccia; `icons:check` confronta gli usi letterali
+  nei sorgenti. Il subset precedente era incompleto e rendeva come testo le
+  icone dell'editor (`lock`, `add_photo_alternate`).
 - **Agenti:** workflow Analyzer → Tester → Coder → Reviewer → Committer, con
   regole di test TDD, review read-only e resoconti obbligatori dell'orchestrator.
 - **Documentazione:** backlog aperto migrato nelle issue GitHub #14–#17,

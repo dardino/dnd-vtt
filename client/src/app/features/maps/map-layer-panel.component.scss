@@ -94,7 +94,9 @@
 }
 
 .layer-panel__opacity-label {
-  color: var(--color-text-muted);
+  // Testo funzionale della label: il muted su riga attiva scende sotto 4.5:1
+  // (WCAG 1.4.3) perché il fondo è tinto con l'accent.
+  color: var(--color-text);
   font-size: var(--text-xs);
 }
 

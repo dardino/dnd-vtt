@@ -42,6 +42,10 @@
       </div>
     </header>
 
+    @if (warning(); as message) {
+      <p class="notice" role="status">{{ message }}</p>
+    }
+
     <div class="editor__body">
       <nav class="editor__tools" aria-label="Strumenti mappa">
         @for (entry of tools(); track entry.tool) {

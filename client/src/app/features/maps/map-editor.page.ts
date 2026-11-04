@@ -48,12 +48,19 @@ import {
 import { httpMessage } from '../../core/api/http-error';
 import { ActorService } from '../../core/services/actor.service';
 import { AssetService } from '../../core/services/asset.service';
-import { MapService } from '../../core/services/map.service';
+import { MapService, type MapDerivatives } from '../../core/services/map.service';
 import { readResource } from '../../core/api/read-resource';
 import { SrdCatalogService } from '../../core/services/srd-catalog.service';
 import { Button } from '../../components/button/button';
 import { SidebarSection } from '../../components/sidebar-section/sidebar-section';
 import { Dialog } from '../../components/dialog/dialog';
+import {
+  type MapRenderAssets,
+  type MapRenderGraphicAsset,
+  type MapRenderImage,
+} from './map-image-renderer';
+import { loadRenderImage, renderImageSource } from './map-render-assets';
+import { MapRenderService } from './map-render.service';
 import {
   MapEditorCanvasComponent,
   type AreaDrawnEvent,
@@ -190,6 +197,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
   private readonly actorsApi = inject(ActorService);
   private readonly catalogService = inject(SrdCatalogService);
   private readonly router = inject(Router);
+  /** Facoltativo: le spec legacy della pagina non forniscono il renderer. */
+  private readonly renderer = inject(MapRenderService, { optional: true });
 
   private readonly canvas = viewChild(MapEditorCanvasComponent);
   private readonly backgroundInput = viewChild<ElementRef<HTMLInputElement>>('backgroundInput');
@@ -197,6 +206,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly loading = signal(true);
   public readonly saving = signal(false);
   public readonly error = signal<string | null>(null);
+  /** Avviso non bloccante: i derivati mancano ma il documento è stato salvato. */
+  public readonly warning = signal<string | null>(null);
   public readonly doc = signal<MapDocument | null>(null);
   private readonly propertiesModel = createMapPropertiesModel();
   public readonly version = signal(1);
@@ -358,6 +369,8 @@ export class MapEditorPage implements OnInit, OnDestroy {
   public readonly actors = this.actorList.value;
 
   private readonly history = new MapHistory();
+  /** Ultimo DTO completo ricevuto dal server, usato come base per i derivati. */
+  private loadedMap: Map | null = null;
   private backgroundAsset: {
     assetId: string;
     url: string;
@@ -560,6 +573,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
     this.doc.set(document);
     this.version.set(map.version);
     this.dirty.set(false);
+    this.loadedMap = map;
     this.campaignId.set(map.campaignId);
   }
 
@@ -1727,14 +1741,87 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     this.saving.set(true);
     try {
-      const updated = await this.mapsApi.save(this.mapId(), this.version(), doc);
+      const { derivatives, warning } = await this.prepareDerivatives(doc);
+      this.warning.set(warning);
+      const updated = await this.mapsApi.save(this.mapId(), this.version(), doc, derivatives);
       this.version.set(updated.version);
       this.dirty.set(false);
       this.error.set(null);
+      this.loadedMap = updated;
     } catch (error) {
       this.error.set(messageFor(error));
     } finally {
       this.saving.set(false);
+    }
+  }
+
+  /**
+   * Genera e carica thumbnail e composito. Non lancia: un errore del renderer
+   * produce un avviso e il PUT prosegue senza i derivati mancanti.
+   */
+  private async prepareDerivatives(
+    doc: MapDocument,
+  ): Promise<{ derivatives: MapDerivatives; warning: string | null }> {
+    const derivatives: MapDerivatives = {};
+    const map = this.loadedMap;
+    if (this.renderer === null || map === null) {
+      return { derivatives, warning: null };
+    }
+    try {
+      const assets = await this.renderAssets(doc);
+      const outcome = await this.renderer.renderAndUpload(map, doc, assets);
+      if (outcome.thumbAssetId !== null) {
+        derivatives.thumbAssetId = outcome.thumbAssetId;
+      }
+      if (outcome.compositeAssetId !== null) {
+        derivatives.compositeAssetId = outcome.compositeAssetId;
+      }
+      const warning = outcome.warnings.length > 0 ? outcome.warnings.join(' ') : null;
+      return { derivatives, warning };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : '';
+      return {
+        derivatives,
+        warning: detail === '' ? 'Anteprima non disponibile' : `Anteprima non disponibile: ${detail}`,
+      };
+    }
+  }
+
+  /** Risolve le immagini di sfondo e grafiche per il render fuori schermo. */
+  private async renderAssets(doc: MapDocument): Promise<MapRenderAssets> {
+    const background = await this.backgroundRenderImage(doc);
+    const cached = this.graphicImages();
+    const graphics: MapRenderGraphicAsset[] = [];
+    for (const item of graphicsLayer(doc).items) {
+      const meta = cached[item.assetId] ?? await this.assetRenderSource(item.assetId);
+      const image = meta === null || meta === undefined ? null : await loadRenderImage(meta);
+      graphics.push({ item, image });
+    }
+    return { background, graphics };
+  }
+
+  private async backgroundRenderImage(doc: MapDocument): Promise<MapRenderImage | null> {
+    const layer = backgroundLayer(doc);
+    if (!layer.visible || layer.imageAssetId === null) {
+      return null;
+    }
+    const assetId = layer.imageAssetId;
+    const meta = this.backgroundAsset?.assetId === assetId
+      ? this.backgroundAsset
+      : await this.assetRenderSource(assetId);
+    return meta === null ? null : loadRenderImage(meta);
+  }
+
+  private async assetRenderSource(assetId: string): Promise<{
+    url: string;
+    width: number;
+    height: number;
+  } | null> {
+    try {
+      const asset: Asset | null | undefined = await this.assets.get(assetId);
+      return renderImageSource(asset);
+    } catch {
+      return null;
     }
   }
 

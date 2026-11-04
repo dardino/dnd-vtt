@@ -8,10 +8,17 @@ import type {
   MapDocument,
   MapList,
   MapSummary,
+  PutMap,
 } from '@dnd-vtt/shared';
 import { firstValueFrom } from 'rxjs';
 
 export type CreateMapInput = Pick<CreateMap, 'name' | 'preset' | 'orientation'>;
+
+/** Riferimenti ai derivati da aggiornare nel PUT; `undefined` li conserva. */
+export interface MapDerivatives {
+  thumbAssetId?: string | null;
+  compositeAssetId?: string | null;
+}
 
 @Injectable({ providedIn: 'root' })
 export class MapService {
@@ -34,10 +41,20 @@ export class MapService {
     );
   }
 
-  public async save(id: string, version: number, document: MapDocument): Promise<Map> {
-    return firstValueFrom(
-      this.http.put<Map>(`/api/v1/maps/${id}`, { version, document }),
-    );
+  public async save(
+    id: string,
+    version: number,
+    document: MapDocument,
+    derivatives?: MapDerivatives,
+  ): Promise<Map> {
+    const body: PutMap = { version, document };
+    if (derivatives?.thumbAssetId !== undefined) {
+      body.thumbAssetId = derivatives.thumbAssetId;
+    }
+    if (derivatives?.compositeAssetId !== undefined) {
+      body.compositeAssetId = derivatives.compositeAssetId;
+    }
+    return firstValueFrom(this.http.put<Map>(`/api/v1/maps/${id}`, body));
   }
 
   public async delete(id: string): Promise<void> {
