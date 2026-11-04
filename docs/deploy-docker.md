@@ -159,7 +159,8 @@ mount Windows può avere locking lento o errato.
 - Apri la porta **TCP 3000** solo sul profilo **Privato** di Windows Defender
   Firewall (Regole connessioni in entrata → Nuova regola → Porta → TCP 3000).
 - Non fare port forwarding sul router e non pubblicare l'app su internet: il
-  progetto non è ancora "internet-ready" (vedi S7–S9 in `TODO.md`).
+  progetto non è ancora "internet-ready" (vedi issue
+  [#14](https://github.com/dardino/dnd-vtt/issues/14)).
 - Se cambi IP al server, aggiorna `PUBLIC_URL`/`ALLOWED_ORIGINS` e riavvia il
   container. Un IP statico o una prenotazione DHCP evitano sorprese.
 - `docker compose ps` deve mostrare `0.0.0.0:3000->3000/tcp`.
@@ -223,7 +224,8 @@ in teoria a 720p; Angular + Konva su 700 MHz e 512 MB sono al limite.
 - Il display deve avere accesso di rete al server sulla porta 3000.
 - Test pratico: apri il codice display dal DM, verifica fullscreen, pan/zoom e
   aggiornamento via WebSocket; se gli fps sono inaccettabili, cambia hardware.
-- La validazione sul dispositivo reale è ancora aperta in `TODO.md` (D9).
+- La validazione sul dispositivo reale è ancora aperta nella issue
+  [#15](https://github.com/dardino/dnd-vtt/issues/15).
 
 ## 8. HTTPS con reverse proxy (profilo TLS con Caddy)
 

@@ -1,5 +1,5 @@
 ---
-description: Aggiorna documentazione e TODO, verifica i gate e crea il commit finale
+description: Aggiorna documentazione e CHANGELOG, verifica i gate e crea il commit finale
 mode: subagent
 steps: 40
 color: "#c9a227"
@@ -48,10 +48,10 @@ commit** coerente. Non fai push e non modifichi codice di produzione.
 1. **Controlla il diff:** `git status` e `git diff` devono contenere solo i file
    giustificati dal lavoro approvato. Segnala file generati, `issues/` o
    modifiche estranee.
-2. **Verifica la documentazione:** `TODO.md`, `PLAN.md`, `README.md`, `docs/` e
-   changelog devono descrivere ciò che è stato realmente fatto. Se manca un
-   aggiornamento, aggiorna **solo file `.md`**; se la documentazione è ambigua o
-   il lavoro non è descrivibile, fermati e riporta il problema.
+2. **Verifica la documentazione:** `CHANGELOG.md`, `PLAN.md`, `README.md`,
+   `docs/` e changelog devono descrivere ciò che è stato realmente fatto. Se
+   manca un aggiornamento, aggiorna **solo file `.md`**; se la documentazione è
+   ambigua o il lavoro non è descrivibile, fermati e riporta il problema.
 3. **Verifica i gate:** esegui `npm run check`. Se il lavoro tocca UI, regia,
    E2E o comportamento end-to-end, esegui anche `npm run test:e2e` (o i test E2E
    mirati). Se un gate fallisce, non committare: restituisci `BLOCCATO` con il

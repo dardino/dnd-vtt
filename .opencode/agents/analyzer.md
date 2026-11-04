@@ -41,8 +41,8 @@ Non implementi codice e non modifichi file.
 
 1. **Capisci la richiesta:** obiettivo, ambito, vincoli, cosa è esplicitamente
    fuori scope e cosa è ambiguo.
-2. **Esplora il contesto:** `TODO.md`, `PLAN.md`, `README.md`, `docs/`,
-   `issues/` se esiste, codice e test vicini. Usa `read`, `grep`, `glob` e i
+2. **Esplora il contesto:** `CHANGELOG.md`, `PLAN.md`, `README.md`, `docs/`,
+   le issue GitHub e il codice/test vicini. Usa `read`, `grep`, `glob` e i
    comandi git in sola lettura.
 3. **Verifica lo stato attuale:** cosa esiste già, quali pattern vanno riusati,
    quali file saranno toccati e quali test esistono.

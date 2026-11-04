@@ -2866,7 +2866,7 @@ I tiri seguono la stessa logica: non sono stato della mappa né contenuto in ond
 
 ## 21. Stato migrazione B — 3 novembre 2026
 
-D5 resta **B** (Signal Forms + `resource()` + `@defer`): questa sezione registra lo stato reale rispetto al codice, non cambia l'obiettivo. B1–B3 e S3 sono chiusi; B4 è in corso (B4a/B4b fatti) e B5 resta aperto. L'ordine e i criteri di uscita restano quelli di `TODO.md` §8.
+D5 resta **B** (Signal Forms + `resource()` + `@defer`): questa sezione registra lo stato reale rispetto al codice, non cambia l'obiettivo. B1-B5 e S3 sono chiusi; il backlog residuo è tracciato nelle issue GitHub e in `CHANGELOG.md`.
 
 | Ambito | Previsto dal piano | Stato nel codice (3 novembre 2026) | Task |
 |---|---|---|---|

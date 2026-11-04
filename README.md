@@ -1,7 +1,9 @@
 # D&D VTT
 
 Virtual tabletop locale per D&D 5e: console DM, doppio schermo, mappa con token,
-fog of war, dadi e schede SRD 5.2. Il design completo è in [`PLAN.md`](./PLAN.md).
+fog of war, dadi e schede SRD 5.2. Il design completo è in [`PLAN.md`](./PLAN.md);
+le modifiche sono riassunte in [`CHANGELOG.md`](./CHANGELOG.md). Il backlog
+aperto è tracciato nelle [issue GitHub](https://github.com/dardino/dnd-vtt/issues).
 
 ## Requisiti
 
@@ -81,6 +83,22 @@ su Docker Desktop.
   con preview e tile per mappe grandi, `action_log` e `ActionService`
 - `LICENSES/SRD-5.2.md` - attribuzione CC BY 4.0
 - `LICENSES/MATERIAL-SYMBOLS.md` - icone Material Symbols (Apache 2.0), font self-hosted
+- `CHANGELOG.md` - riepilogo delle modifiche per data
+- `.opencode/agents/` - agenti per il workflow di sviluppo
+
+## Agenti
+
+Il progetto include un flusso di lavoro orchestrato:
+
+- **Orchestrator**: coordina le fasi e comunica i resoconti di avanzamento;
+- **Analyzer**: trasforma la richiesta in step verificabili;
+- **Tester**: scrive ed esegue i test;
+- **Coder**: implementa senza modificare i test e senza commit;
+- **Reviewer**: verifica requisiti, qualità, duplicazioni, CSS e gate;
+- **Committer**: aggiorna la documentazione e crea il commit.
+
+Le definizioni sono in `.opencode/agents/`. Per usare il flusso, seleziona
+l'Orchestrator come agente principale e affidagli la richiesta.
 
 ## Stato
 
@@ -173,21 +191,26 @@ su Docker Desktop.
   verticale. Restano
   fuori dal core: editor PVW con drag/resize degli overlay, camera live/libera
   e pairing QR.
-- **Fase 8 core completato**: link giocatore `/play/:token` con token hashato e
-  revoca automatica dei link precedenti, scheda mobile con HP, condizioni e note
-  private separate da `dmNotes`, matita DM `editingEnabled`. Avvio/chiusura
+- **Fase 8 core completato**: link giocatore `/play/:token` con token hashato,
+  QR code generato lato client e revoca automatica dei link precedenti, scheda
+  mobile con HP, condizioni e note private separate da `dmNotes`, matita DM
+  `editingEnabled`. Avvio/chiusura
   sessioni con durata, export/import JSON della campagna con asset WebP
   incorporati e import sempre come nuova campagna con id rimappati.
-  Restano fuori dal core: coda di approvazione con cooldown, QR, dock Bottino,
+  Restano fuori dal core: coda di approvazione con cooldown, dock Bottino e
   tiri dal telefono e realtime della scheda giocatore.
 - **Fase 9 implementata con fallback**: chat IA non configurata, endpoint
   `/ai/status`, parser regex locale degli statblock e sezione "Chat IA" nella
   sidebar con anteprima e creazione mostro; la chat risponde `503 ai_disabled`.
   Restano fuori: provider OpenAI-compatible, streaming SSE e cronologia chat.
-- **Fase 10 core completata**: editor mappe su `/maps` con sfondo, griglia,
+- **Fase 10 core completata**: editor mappe su `/maps` con sfondo, colore di
+  sfondo `rgba` con picker, foglio bianco per mappe senza immagine, griglia,
   muri/porte/finestre/muri bassi, luci statiche, spawn SRD/attori e partenze PG.
-  La console crea una scena da una mappa con “Crea scena” e “Prepara scena”;
-  la visione è a celle con luce ambientale, torce, scurovisione/blindsight/
+  L'inspector è a sezioni accordion; gli oggetti selezionati si spostano con le
+  frecce o con drag & drop, con snap a celle o bordi e history annullabile.
+  La console crea una scena esclusivamente da una mappa con “Crea scena” e
+  “Prepara scena”, e consente di eliminare le scene non attive e non in onda.
+  La visione è a celle con luce ambientale, torce, scurovisione/blindsight/
   truesight, LOS e porte apribili. Il server filtra i token e il display riceve
   solo `vision` e `doors` visibili. La fog manuale resta disponibile, a celle o
   libera, con override “Rivela/Nascondi tutto” e “Vista automatica”. I muri
@@ -195,3 +218,16 @@ su Docker Desktop.
   ricrea una campagna demo con dungeon, luci, porte, goblin e partenze.
 
 I gate restano `npm run check` e `npm run test:e2e` prima di ogni commit.
+
+## Backlog
+
+Le verifiche che richiedono proxy TLS, hardware o Docker Desktop sono tracciate
+come issue GitHub:
+
+- [#14](https://github.com/dardino/dnd-vtt/issues/14) — HTTPS, reverse proxy e
+  cookie `secure`.
+- [#15](https://github.com/dardino/dnd-vtt/issues/15) — display `/display/:code`
+  su Raspberry Pi 1.
+- [#16](https://github.com/dardino/dnd-vtt/issues/16) — build Docker multi-arch.
+- [#17](https://github.com/dardino/dnd-vtt/issues/17) — scansione Trivy
+  bloccante.

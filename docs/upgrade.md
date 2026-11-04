@@ -106,7 +106,7 @@ Non tentare di "tornare indietro" cancellando le righe da
 
 ## Dopo l'upgrade
 
-- Rileggi `README.md` e `TODO.md` per breaking change o nuovi passi di
+- Rileggi `README.md` e `CHANGELOG.md` per breaking change o nuovi passi di
   configurazione (variabili d'ambiente, firewall, profilo TLS).
 - Se l'upgrade introduce nuove variabili, aggiungile al `.env` prima del
   riavvio: i default restano validi, ma le variabili mancanti non vengono
