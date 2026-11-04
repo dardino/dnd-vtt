@@ -15,6 +15,8 @@
   [attr.data-grid-type]="state().grid.type"
   (dragover)="onDragOver($event)"
   (drop)="onDrop($event)"
+  (pointerdown)="onCanvasPointerDown($event)"
+  (click)="onCanvasClick($event)"
   (keydown)="onKeyDown($event)"
 >
   <div #container class="scene-canvas__stage"></div>

@@ -241,28 +241,11 @@ export const hasLineOfSight = (
   return true;
 };
 
-/** Ultima cella raggiungibile lungo la linea verso il target. */
-export const lastReachableCell = (
-  from: CellPoint,
-  to: CellPoint,
-  terrain: Terrain | undefined,
-): CellPoint => {
-  const blocked = new Set(blockingEdges(terrain, 'movement').map(edgeKey));
-  const cells = cellsAlongLine(from, to);
-  let last = cells[0] ?? from;
-  for (let index = 1; index < cells.length; index += 1) {
-    const previous = cells[index - 1];
-    const current = cells[index];
-    if (previous === undefined || current === undefined) {
-      continue;
-    }
-    if (blockedStep(previous, current, blocked)) {
-      return last;
-    }
-    last = current;
-  }
-  return last;
-};
+/**
+ * Compatibilità: il movimento con validazione del footprint vive in
+ * `movement.ts`, ma gli import esistenti da `./edges.js` restano validi.
+ */
+export { lastReachableCell } from './movement.js';
 
 export const tokenCenterCell = (token: Pick<TokenState, 'x' | 'y' | 'size'>): CellPoint => ({
   x: Math.floor(token.x + token.size / 2),

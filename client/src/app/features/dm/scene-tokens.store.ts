@@ -1,6 +1,7 @@
 import { computed, inject, signal } from '@angular/core';
 import {
   abilityModifier,
+  isFootprintPlaceable,
   newId,
   SIZE_CELLS,
   snapTokenCell,
@@ -100,6 +101,13 @@ export const SceneTokensStore = signalStore(
       }
       const size = SIZE_CELLS[actor.statblock.size];
       const cell = snapTokenCell(gridConfig, { x: pointX, y: pointY }, size);
+      const terrain = sceneStore.snapshot()?.state.terrain;
+      if (!isFootprintPlaceable(cell, size, terrain)) {
+        ui.setStatusMessage(
+          'Impossibile piazzare il token: la cella è occupata da un muro',
+        );
+        return;
+      }
       const hp = actor.hp ?? { current: 1, max: 1, temp: 0 };
       const token: TokenState = {
         id: newId(),

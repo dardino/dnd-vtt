@@ -215,7 +215,10 @@ l'Orchestrator come agente principale e affidagli la richiesta.
   poligonali con snap sulla griglia quadrata; luci statiche, spawn SRD/attori,
   partenze PG e loot dal catalogo SRD. L'inspector è a sezioni accordion; gli
   oggetti selezionati si spostano con le frecce o con drag & drop, con snap a
-  celle o bordi e history annullabile. Al salvataggio il client genera thumbnail
+  celle o bordi e history annullabile. Nella console DM le frecce muovono il
+  token selezionato (Shift = pan, Alt = forza); le celle attraversate da un muro
+  diagonale non sono piazzabili e le porte aperte restano attraversabili.
+  Al salvataggio il client genera thumbnail
   640 e composito 4096 in WebP: la lista mappe usa la thumbnail, mentre la scena
   creata dalla mappa usa il composito con transform cover e riceve il loot.
   La console crea una scena esclusivamente da una mappa con “Crea scena” e

@@ -5,6 +5,13 @@ alto. Ogni voce riassume uno o più commit; la cronologia completa resta in git.
 
 ## 2026-11-04
 
+- **Scene:** movimento e piazzamento rispettano i muri diagonali: una cella
+  attraversata da un muro non ospita attori (editor, drop e `token.add`), mentre
+  una porta aperta resta attraversabile; i token intrappolati possono uscire e
+  la creazione scena ricolloca spawn e partenze invalidi. Nella console DM le
+  frecce muovono il token selezionato, Shift mantiene il pan e Alt forza il
+  movimento; l'undo conserva il `force`. Vedi
+  [`docs/scene-movement.md`](./docs/scene-movement.md).
 - **Mappe, grafiche:** il layer `graphics` accetta anche poligoni chiusi
   allineati alla griglia (3–200 vertici in celle, riempimento esadecimale e
   opacità) e testi (quattro famiglie locali, 8–200 px, colore) oltre alle

@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction, invertAction } from './actions.js';
-import { createDefaultSceneState, type TokenState } from '../../schemas/scene.js';
+import {
+  createDefaultSceneState,
+  type GameAction,
+  type SceneState,
+  type Terrain,
+  type TokenState,
+} from '../../schemas/scene.js';
+import { fixtureTerrain } from './__fixtures__/walls.js';
 
 const token = (overrides: Partial<TokenState> = {}): TokenState => ({
   id: 'token-1',
@@ -168,5 +175,187 @@ describe('invertAction', () => {
       type: 'grid.update',
       grid: state.grid,
     });
+  });
+});
+
+describe('applyAction token.move con terreno', () => {
+  const stateWith = (
+    overrides: Partial<TokenState>,
+    terrain: Terrain = fixtureTerrain(),
+  ): SceneState => applyAction(createDefaultSceneState('hidden', terrain), {
+    type: 'token.add',
+    token: token(overrides),
+  });
+
+  it('rifiuta un movimento verso una cella non piazzabile', () => {
+    const state = stateWith({ x: 10, y: 3 });
+    expect(() => applyAction(state, {
+      type: 'token.move',
+      tokenId: 'token-1',
+      x: 11,
+      y: 4,
+    })).toThrow();
+  });
+
+  it('force ignora la validazione geometrica', () => {
+    const state = stateWith({ x: 10, y: 3 });
+    const moved = applyAction(state, {
+      type: 'token.move',
+      tokenId: 'token-1',
+      x: 11,
+      y: 4,
+      force: true,
+    });
+    expect(moved.tokens[0]).toMatchObject({ x: 11, y: 4 });
+  });
+
+  it('consente la fuga da una cella non piazzabile', () => {
+    // `token.add` rifiuta (11,4): lo stato iniziale va costruito direttamente
+    // per simulare un token già presente in una cella diventata invalida.
+    const state: SceneState = {
+      ...createDefaultSceneState('hidden', fixtureTerrain()),
+      tokens: [token({ x: 11, y: 4 })],
+    };
+    const moved = applyAction(state, {
+      type: 'token.move',
+      tokenId: 'token-1',
+      x: 12,
+      y: 4,
+    });
+    expect(moved.tokens[0]).toMatchObject({ x: 12, y: 4 });
+  });
+
+  it('valida il footprint del token con size 2', () => {
+    const state = stateWith({ x: 9, y: 3, size: 2 });
+    expect(() => applyAction(state, {
+      type: 'token.move',
+      tokenId: 'token-1',
+      x: 10,
+      y: 3,
+    })).toThrow();
+
+    const moved = applyAction(state, {
+      type: 'token.move',
+      tokenId: 'token-1',
+      x: 9,
+      y: 4,
+    });
+    expect(moved.tokens[0]).toMatchObject({ x: 9, y: 4 });
+  });
+
+  it('force ignora anche il footprint con size 2', () => {
+    const state = stateWith({ x: 9, y: 3, size: 2 });
+    const moved = applyAction(state, {
+      type: 'token.move',
+      tokenId: 'token-1',
+      x: 10,
+      y: 3,
+      force: true,
+    });
+    expect(moved.tokens[0]).toMatchObject({ x: 10, y: 3 });
+  });
+
+  it('l’inverso di un move forzato attraversa il muro grazie a force', () => {
+    // Il muro orizzontale (7,5)-(11,5) separa l’origine (8,4) dalla
+    // destinazione (8,6): senza `force` il movimento viene rifiutato.
+    const state = stateWith({ x: 8, y: 4 });
+    const action = {
+      type: 'token.move' as const,
+      tokenId: 'token-1',
+      x: 8,
+      y: 6,
+      force: true,
+    };
+    expect(() => applyAction(state, { ...action, force: undefined })).toThrow(/muro|porta/);
+
+    const moved = applyAction(state, action);
+    expect(moved.tokens[0]).toMatchObject({ x: 8, y: 6 });
+
+    const inverse = invertAction(state, action);
+    const undone = applyAction(moved, inverse);
+    expect(undone.tokens[0]).toMatchObject({ x: 8, y: 4 });
+
+    expect(inverse).toMatchObject({
+      type: 'token.move',
+      tokenId: 'token-1',
+      x: 8,
+      y: 4,
+      force: true,
+    });
+  });
+});
+
+describe('applyAction token.add con terreno', () => {
+  const emptyState = (): SceneState => createDefaultSceneState('hidden', fixtureTerrain());
+
+  it('rifiuta un token nella cella attraversata dal muro diagonale', () => {
+    const state = emptyState();
+
+    expect(() => applyAction(state, {
+      type: 'token.add',
+      token: token({ x: 11, y: 4 }),
+    })).toThrow(/piazz|muro|occupat/i);
+    expect(state.tokens).toHaveLength(0);
+  });
+
+  it('aggiunge un token in una cella valida', () => {
+    const state = applyAction(emptyState(), {
+      type: 'token.add',
+      token: token({ x: 10, y: 3 }),
+    });
+
+    expect(state.tokens).toHaveLength(1);
+    expect(state.tokens[0]).toMatchObject({ x: 10, y: 3 });
+  });
+
+  it('valida l’intero footprint quando il token è size 2', () => {
+    const state = emptyState();
+
+    expect(() => applyAction(state, {
+      type: 'token.add',
+      token: token({ x: 10, y: 3, size: 2 }),
+    })).toThrow(/piazz|muro|occupat/i);
+    expect(state.tokens).toHaveLength(0);
+
+    const placed = applyAction(state, {
+      type: 'token.add',
+      token: token({ x: 10, y: 2, size: 2 }),
+    });
+    expect(placed.tokens).toHaveLength(1);
+  });
+
+  it('accetta la cella di una porta aperta e rifiuta quella di una porta chiusa', () => {
+    const state = emptyState();
+
+    const open = applyAction(state, {
+      type: 'token.add',
+      token: token({ id: 'open', x: 12, y: 3 }),
+    });
+    expect(open.tokens).toHaveLength(1);
+
+    expect(() => applyAction(state, {
+      type: 'token.add',
+      token: token({ id: 'closed', x: 15, y: 3 }),
+    })).toThrow(/piazz|muro|occupat/i);
+  });
+
+  it('non accetta force: token.add non ha una scorciatoia di piazzamento', () => {
+    const state = emptyState();
+    const action = {
+      type: 'token.add',
+      token: token({ x: 11, y: 4 }),
+      force: true,
+    } as unknown as GameAction;
+
+    expect(() => applyAction(state, action)).toThrow(/piazz|muro|occupat/i);
+    expect(state.tokens).toHaveLength(0);
+  });
+
+  it('senza terreno il piazzamento resta libero', () => {
+    const state = applyAction(createDefaultSceneState(), {
+      type: 'token.add',
+      token: token({ x: 11, y: 4 }),
+    });
+    expect(state.tokens).toHaveLength(1);
   });
 });

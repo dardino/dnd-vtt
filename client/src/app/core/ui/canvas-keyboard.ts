@@ -9,6 +9,12 @@ export type CanvasKeyboardCommand
     | { readonly type: 'zoom'; readonly factor: number }
     | { readonly type: 'deselect' };
 
+/** Spostamento di una cella prodotto da una freccia. */
+export interface ArrowDelta {
+  readonly dx: number;
+  readonly dy: number;
+}
+
 const EDITABLE_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
 
 /** True se il target del tasto è un campo editabile. */
@@ -17,6 +23,29 @@ export function isEditableTarget(target: EventTarget | null): boolean {
     return false;
   }
   return target.isContentEditable || EDITABLE_TAGS.has(target.tagName);
+}
+
+/**
+ * Delta di una cella per le quattro frecce. Restituisce `null` per gli altri
+ * tasti e con Ctrl/Meta, così le scorciatoie del browser restano intatte.
+ * Alt e Shift non cambiano il delta: il chiamante decide come usarli.
+ */
+export function arrowDelta(event: KeyboardEvent): ArrowDelta | null {
+  if (event.ctrlKey || event.metaKey) {
+    return null;
+  }
+  switch (event.key) {
+    case 'ArrowLeft':
+      return { dx: -1, dy: 0 };
+    case 'ArrowRight':
+      return { dx: 1, dy: 0 };
+    case 'ArrowUp':
+      return { dx: 0, dy: -1 };
+    case 'ArrowDown':
+      return { dx: 0, dy: 1 };
+    default:
+      return null;
+  }
 }
 
 /**

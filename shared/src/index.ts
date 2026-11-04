@@ -21,6 +21,11 @@ export * from './schemas/auth.js';
 export * from './lib/id.js';
 export * from './lib/scene/actions.js';
 export * from './lib/scene/edges.js';
+export {
+  isCellPlaceable,
+  isFootprintPlaceable,
+  segmentBlocksMovement,
+} from './lib/scene/movement.js';
 export * from './lib/scene/geometry.js';
 export * from './lib/scene/vision.js';
 export * from './lib/scene/grid.js';

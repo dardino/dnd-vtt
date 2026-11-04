@@ -7,14 +7,11 @@ import {
   emptyMapDocumentV2,
   lightsOf,
   lootOf,
-  newId,
   sceneDimensions,
   spawnsOf,
-  srdMonsterToStatblock,
   startsOf,
   wallsOf,
   withBackgroundLayer,
-  type Actor,
   type Asset,
   type BackgroundTransform,
   type CreateMap,
@@ -23,18 +20,16 @@ import {
   type Map,
   type MapDocument,
   type MapSummary,
-  type PlayerAssignment,
   type SceneState,
-  type TokenState,
 } from '@dnd-vtt/shared';
 import type { AppDatabase } from '../db/client.js';
 import { storeAsset } from '../assets/service.js';
 import type { AppEnv } from '../config/env.js';
-import { getActor, insertActor } from '../db/actors.repository.js';
 import { getAsset, getStoredAsset } from '../db/assets.repository.js';
 import { getCampaign, updateCampaign } from '../db/campaigns.repository.js';
 import { requireCampaign } from '../campaigns/service.js';
 import { removeUnreferencedAsset } from './derived-assets.js';
+import { createTokens } from './scene-tokens.js';
 import {
   deleteMap,
   getMap,
@@ -45,7 +40,6 @@ import {
 } from '../db/maps.repository.js';
 import { insertScene } from '../db/scenes.repository.js';
 import { AppError, notFound } from '../errors.js';
-import { currentSrdVersion, loadSrdCatalog } from '../srd/load.js';
 
 const requireMap = (db: AppDatabase, id: string): Map => {
   const map = getMap(db, id);
@@ -262,88 +256,6 @@ export const duplicateMap = (db: AppDatabase, id: string): Map => {
     notes: source.notes,
   };
   return insertMap(db, source.campaignId, document);
-};
-
-const srdMonster = (monsterId: string) => {
-  const catalog = loadSrdCatalog(currentSrdVersion());
-  return catalog.monsters.find((monster) => monster.id === monsterId);
-};
-
-const createTokens = (
-  db: AppDatabase,
-  map: Map,
-  assignments: PlayerAssignment[],
-): TokenState[] => {
-  const tokens: TokenState[] = [];
-  for (const spawn of spawnsOf(map)) {
-    const count = Math.max(1, spawn.quantity);
-    for (let index = 0; index < count; index += 1) {
-      let actor: Actor;
-      if (spawn.source.type === 'srd') {
-        const monster = srdMonster(spawn.source.monsterId);
-        if (monster === undefined) {
-          continue;
-        }
-        actor = insertActor(db, {
-          campaignId: map.campaignId,
-          kind: spawn.kind,
-          name: spawn.label ?? monster.name,
-          statblock: srdMonsterToStatblock(monster),
-          xp: 0,
-        });
-      } else {
-        const candidate = getActor(db, spawn.source.actorId);
-        if (candidate === null || candidate.campaignId !== map.campaignId) {
-          continue;
-        }
-        actor = candidate;
-      }
-      const offset = index % 3;
-      const row = Math.floor(index / 3);
-      tokens.push({
-        id: newId(),
-        actorId: actor.id,
-        label: spawn.label ?? actor.name,
-        x: spawn.x + offset,
-        y: spawn.y + row,
-        size: spawn.size,
-        rotation: 0,
-        elevation: 0,
-        hp: { ...actor.statblock.hp },
-        conditions: [],
-        visible: !spawn.hidden,
-        ...(spawn.light === undefined ? {} : { light: spawn.light }),
-      });
-    }
-  }
-  const assignedStarts = new Set<string>();
-  const starts = startsOf(map);
-  for (const assignment of assignments) {
-    const start = starts.find((entry) => entry.id === assignment.startId);
-    if (start === undefined || assignedStarts.has(start.id)) {
-      continue;
-    }
-    const actor = getActor(db, assignment.actorId);
-    if (actor === null || actor.campaignId !== map.campaignId || actor.kind !== 'pc') {
-      continue;
-    }
-    assignedStarts.add(start.id);
-    tokens.push({
-      id: newId(),
-      actorId: actor.id,
-      label: actor.name,
-      x: start.x,
-      y: start.y,
-      size: 1,
-      rotation: 0,
-      elevation: 0,
-      hp: { ...actor.statblock.hp },
-      conditions: [],
-      visible: true,
-      owner: 'players',
-    });
-  }
-  return tokens;
 };
 
 /**

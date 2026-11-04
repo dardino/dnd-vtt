@@ -3,6 +3,7 @@ import type { GameAction, SceneState, TokenPatch, TokenState } from '../../schem
 import { nextInitiativeTurn } from './initiative.js';
 import { applyHpDelta } from './hp.js';
 import { lastReachableCell } from './edges.js';
+import { isFootprintPlaceable } from './movement.js';
 
 const withPatch = (token: TokenState, patch: TokenPatch): TokenState => {
   const next: TokenState = { ...token };
@@ -93,23 +94,33 @@ const replaceToken = (
 
 export const applyAction = (state: SceneState, action: GameAction): SceneState => {
   switch (action.type) {
-    case 'token.add':
+    case 'token.add': {
       if (state.tokens.some((token) => token.id === action.token.id)) {
         throw new Error(`token già presente: ${action.token.id}`);
       }
+      const cell = {
+        x: Math.round(action.token.x),
+        y: Math.round(action.token.y),
+      };
+      if (!isFootprintPlaceable(cell, action.token.size, state.terrain)) {
+        throw new Error('Impossibile piazzare il token: la cella è occupata da un muro');
+      }
       return { ...state, tokens: [...state.tokens, action.token] };
+    }
     case 'token.move': {
       const token = findToken(state, action.tokenId);
-      if (action.force !== true) {
-        const target = { x: Math.round(action.x), y: Math.round(action.y) };
-        const reachable = lastReachableCell(
-          { x: Math.round(token.x), y: Math.round(token.y) },
-          target,
-          state.terrain,
-        );
-        if (reachable.x !== target.x || reachable.y !== target.y) {
-          throw new Error('Il token non può attraversare un muro o una porta chiusa');
-        }
+      if (action.force === true) {
+        return replaceToken(state, action.tokenId, (entry) => ({ ...entry, x: action.x, y: action.y }));
+      }
+      const target = { x: Math.round(action.x), y: Math.round(action.y) };
+      const reachable = lastReachableCell(
+        { x: Math.round(token.x), y: Math.round(token.y) },
+        target,
+        state.terrain,
+        token.size,
+      );
+      if (reachable.x !== target.x || reachable.y !== target.y) {
+        throw new Error('Il token non può attraversare un muro o una porta chiusa');
       }
       return replaceToken(state, action.tokenId, (entry) => ({ ...entry, x: action.x, y: action.y }));
     }
@@ -235,7 +246,15 @@ export const invertAction = (stateBefore: SceneState, action: GameAction): GameA
       return { type: 'token.remove', tokenId: action.token.id };
     case 'token.move': {
       const token = findToken(stateBefore, action.tokenId);
-      return { type: 'token.move', tokenId: action.tokenId, x: token.x, y: token.y };
+      return {
+        type: 'token.move',
+        tokenId: action.tokenId,
+        x: token.x,
+        y: token.y,
+        // Propaga `force` solo se l'azione originale lo aveva davvero: un
+        // oggetto con `force: undefined` romperebbe i confronti per uguaglianza.
+        ...(action.force === true ? { force: true } : {}),
+      };
     }
     case 'token.light': {
       const token = findToken(stateBefore, action.tokenId);

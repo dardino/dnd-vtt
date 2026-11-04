@@ -20,8 +20,10 @@ import {
   backgroundLayer,
   constraintsLayer,
   defaultBackgroundTransform,
+  defaultTerrain,
   elementsLayer,
   graphicsLayer,
+  isFootprintPlaceable,
   isImageGraphic,
   isPolygonGraphic,
   isTextGraphic,
@@ -135,6 +137,8 @@ type MapEditorSection
     | 'start'
     | 'loot'
     | 'content';
+
+const PLACEMENT_ERROR = 'Impossibile piazzare qui: la cella è occupata da un muro.';
 
 const DEFAULT_EDITOR_SECTIONS: Record<MapEditorSection, boolean> = {
   layers: true,
@@ -812,6 +816,18 @@ export class MapEditorPage implements OnInit, OnDestroy {
     return owner === 'graphics' && layer?.visible === false;
   }
 
+  /** Il footprint è piazzabile rispetto ai muri del documento. */
+  private isPlaceable(cell: { x: number; y: number }, size: number): boolean {
+    const doc = this.doc();
+    if (doc === null) {
+      return false;
+    }
+    return isFootprintPlaceable(cell, size, {
+      ...defaultTerrain,
+      walls: wallsOf(doc),
+    });
+  }
+
   public select(selection: EditorSelection | null): void {
     const current = this.selected();
     if (
@@ -955,6 +971,9 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (!this.inBounds(cell) || this.starts().length >= 12) {
       return;
     }
+    if (!this.isPlaceable(cell, 1)) {
+      return;
+    }
     const start: PlayerStart = {
       id: newId(),
       x: cell.x,
@@ -970,7 +989,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (this.contentLocked('elements')) {
       return;
     }
-    if (!this.inBounds(cell)) {
+    if (!this.inBounds(cell) || !this.isPlaceable(cell, 1)) {
       return;
     }
     this.spawnCell.set(cell);
@@ -986,6 +1005,11 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (cell === null) {
       return;
     }
+    const size = sizeCells(monster.size);
+    if (!this.isPlaceable(cell, size)) {
+      this.error.set(PLACEMENT_ERROR);
+      return;
+    }
     const spawn: MapSpawn = {
       id: newId(),
       kind: 'monster',
@@ -993,7 +1017,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       y: cell.y,
       source: { type: 'srd', monsterId: monster.id },
       label: monster.name,
-      size: sizeCells(monster.size),
+      size,
       hidden: false,
       quantity: 1,
     };
@@ -1011,6 +1035,11 @@ export class MapEditorPage implements OnInit, OnDestroy {
     if (cell === null) {
       return;
     }
+    const size = sizeCells(actor.statblock.size);
+    if (!this.isPlaceable(cell, size)) {
+      this.error.set(PLACEMENT_ERROR);
+      return;
+    }
     const spawn: MapSpawn = {
       id: newId(),
       kind: actor.kind === 'pc' ? 'npc' : actor.kind,
@@ -1018,7 +1047,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       y: cell.y,
       source: { type: 'actor', actorId: actor.id },
       label: actor.name,
-      size: sizeCells(actor.statblock.size),
+      size,
       hidden: false,
       quantity: 1,
     };
@@ -1138,12 +1167,12 @@ export class MapEditorPage implements OnInit, OnDestroy {
     const after = { x: event.cell.x, y: event.cell.y };
     if (event.selection.type === 'spawn') {
       const spawn = this.spawns().find((entry) => entry.id === event.selection.id);
-      if (spawn !== undefined) {
+      if (spawn !== undefined && this.isPlaceable(event.cell, spawn.size)) {
         this.execute(replaceFields('spawn', spawn.id, { x: spawn.x, y: spawn.y }, after));
       }
     } else if (event.selection.type === 'start') {
       const start = this.starts().find((entry) => entry.id === event.selection.id);
-      if (start !== undefined) {
+      if (start !== undefined && this.isPlaceable(event.cell, 1)) {
         this.execute(replaceFields('start', start.id, { x: start.x, y: start.y }, after));
       }
     } else if (event.selection.type === 'light') {

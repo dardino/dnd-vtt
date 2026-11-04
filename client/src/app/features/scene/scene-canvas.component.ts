@@ -38,7 +38,12 @@ import {
   type Viewport,
   type VisionGrid,
 } from '@dnd-vtt/shared';
-import { canvasKeyboardCommand } from '../../core/ui/canvas-keyboard';
+import {
+  arrowDelta,
+  canvasKeyboardCommand,
+  isEditableTarget,
+  type ArrowDelta,
+} from '../../core/ui/canvas-keyboard';
 import { MeasurementService } from '../../core/ui/measurement.service';
 import { readThemeColors, type CssColorTokens } from '../../core/ui/theme-colors';
 import { CanvasInputController } from './canvas-input-controller';
@@ -170,7 +175,9 @@ export class SceneCanvasComponent implements OnDestroy {
 
   public readonly ariaLabel = computed(() =>
     `Scena di gioco, strumento ${SCENE_TOOL_LABELS[this.tool()]}. `
-    + 'Frecce per spostare la vista, + e - per lo zoom, Esc per deselezionare.');
+    + 'Frecce per spostare il token selezionato, Shift+Frecce per spostare la vista, '
+    + 'Alt+Frecce per forzare il movimento oltre i muri, + e - per lo zoom, '
+    + 'Esc per deselezionare.');
 
   private stage: Konva.Stage | null = null;
   private readonly sceneCamera = new SceneCamera();
@@ -280,8 +287,15 @@ export class SceneCanvasComponent implements OnDestroy {
     this.beginInteraction();
   }
 
-  /** Scorciatoie da tastiera: pan, zoom e deselezione. */
+  /** Scorciatoie da tastiera: pan, zoom, deselezione e movimento del token. */
   public onKeyDown(event: KeyboardEvent): void {
+    if (isEditableTarget(event.target) || this.isDialogTarget(event.target)) {
+      return;
+    }
+    const delta = arrowDelta(event);
+    if (delta !== null && this.moveSelectedToken(event, delta)) {
+      return;
+    }
     const command = canvasKeyboardCommand(event);
     if (command === null) {
       return;
@@ -302,6 +316,105 @@ export class SceneCanvasComponent implements OnDestroy {
     this.sceneCamera.panBy(command.dx, command.dy);
     this.applyCamera();
     this.beginInteraction();
+  }
+
+  /** Porta il focus sul canvas senza rubarlo a campi editabili e dialoghi. */
+  public onCanvasPointerDown(event: PointerEvent): void {
+    this.focusCanvas(event.target);
+  }
+
+  public onCanvasClick(event: MouseEvent): void {
+    this.focusCanvas(event.target);
+  }
+
+  private focusCanvas(target: EventTarget | null): void {
+    if (isEditableTarget(target) || this.isDialogTarget(target)) {
+      return;
+    }
+    const host = this.host().nativeElement;
+    if (document.activeElement !== host) {
+      host.focus();
+    }
+  }
+
+  private isDialogTarget(target: EventTarget | null): boolean {
+    return typeof HTMLElement !== 'undefined'
+      && target instanceof HTMLElement
+      && (target.closest('[role="dialog"]') !== null || target.closest('dialog') !== null);
+  }
+
+  /**
+   * Sposta il token selezionato di una cella. Restituisce `false` quando non
+   * gestisce la freccia (Shift, nessuna selezione, strumento o griglia
+   * diversi), così il chiamante ricade sul pan della camera.
+   */
+  private moveSelectedToken(event: KeyboardEvent, delta: ArrowDelta): boolean {
+    if (event.shiftKey) {
+      return false;
+    }
+    const tokenId = this.selectedTokenId();
+    if (
+      tokenId === null
+      || this.tool() !== 'select'
+      || this.readOnly()
+      || this.state().grid.type !== 'square'
+    ) {
+      return false;
+    }
+    const token = this.state().tokens.find((entry) => entry.id === tokenId);
+    if (token === undefined) {
+      return false;
+    }
+    event.preventDefault();
+    const target = this.clampTokenTarget(token, {
+      x: token.x + delta.dx,
+      y: token.y + delta.dy,
+    });
+    if (target === null) {
+      return true;
+    }
+    const force = event.altKey;
+    const next = force
+      ? target
+      : lastReachableCell(
+        { x: token.x, y: token.y },
+        target,
+        this.state().terrain,
+        token.size,
+      );
+    if (next.x !== token.x || next.y !== token.y) {
+      this.tokenMoved.emit({
+        tokenId,
+        x: next.x,
+        y: next.y,
+        ...(force ? { force: true } : {}),
+      });
+    }
+    return true;
+  }
+
+  /**
+   * Mantiene l'origine del token dentro la mappa rispettando il footprint:
+   * `origin + size <= cols/rows`. `null` se il footprint non entra.
+   */
+  private clampTokenTarget(token: TokenState, target: CellPoint): CellPoint | null {
+    const map = this.map();
+    if (map === null) {
+      return target;
+    }
+    const grid = this.state().grid;
+    const span = Math.max(1, Math.ceil(token.size));
+    const cols = Math.ceil((map.width - grid.offsetX) / grid.cellSizePx);
+    const rows = Math.ceil((map.height - grid.offsetY) / grid.cellSizePx);
+    const maxX = cols - span;
+    const maxY = rows - span;
+    if (maxX < 0 || maxY < 0) {
+      return null;
+    }
+    return {
+      x: Math.min(Math.max(target.x, 0), maxX),
+      y: Math.min(Math.max(target.y, 0), maxY),
+    };
   }
 
   public fit(): void {
@@ -805,6 +918,7 @@ export class SceneCanvasComponent implements OnDestroy {
           { x: Math.round(token.x), y: Math.round(token.y) },
           raw,
           this.state().terrain,
+          token.size,
         );
       const next = tokenCenterPx(grid, { ...snapped, size: token.size });
       group.position(next);
