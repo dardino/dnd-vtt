@@ -245,7 +245,7 @@ describe('MapEditorPage history', () => {
 
     expect(page.doc()?.imageAssetId).toBeNull();
     expect(page.doc()?.backgroundTransform).toEqual(defaultBackgroundTransform);
-    expect(page.image()).toBeNull();
+    expect(page.image()).toEqual({ url: '', width: 800, height: 600 });
     expect(page.hasBackground()).toBe(false);
 
     fixture.destroy();
@@ -345,6 +345,7 @@ describe('MapEditorPage history', () => {
 
     expect(listByCampaign).toHaveBeenCalledWith('campaign-1');
     expect(fixture.componentInstance.filteredActors()).toEqual([first]);
+    expect(fixture.componentInstance.image()).toEqual({ url: '', width: 700, height: 700 });
 
     getMap.mockResolvedValue(mapFor('map-2', 'campaign-2'));
     listByCampaign.mockResolvedValue([second]);

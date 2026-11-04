@@ -268,7 +268,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
   private async loadImage(map: Map): Promise<void> {
     if (map.imageAssetId === null) {
       this.backgroundAsset = null;
-      this.image.set(null);
+      this.image.set({ url: '', width: map.widthPx, height: map.heightPx });
       return;
     }
     try {
@@ -282,16 +282,21 @@ export class MapEditorPage implements OnInit, OnDestroy {
       this.image.set({ url: asset.url, width: map.widthPx, height: map.heightPx });
     } catch {
       this.backgroundAsset = null;
-      this.image.set(null);
+      this.image.set({ url: '', width: map.widthPx, height: map.heightPx });
     }
   }
 
   /** Riallinea l'anteprima (stato UI separato) al documento dopo undo/redo. */
   private syncImageFromDoc(): void {
     const doc = this.doc();
-    if (doc === null || doc.imageAssetId === null) {
+    if (doc === null) {
       this.backgroundAsset = null;
       this.image.set(null);
+      return;
+    }
+    if (doc.imageAssetId === null) {
+      this.backgroundAsset = null;
+      this.image.set({ url: '', width: doc.widthPx, height: doc.heightPx });
       return;
     }
     if (this.backgroundAsset?.assetId === doc.imageAssetId) {
@@ -303,7 +308,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
       return;
     }
     this.backgroundAsset = null;
-    this.image.set(null);
+    this.image.set({ url: '', width: doc.widthPx, height: doc.heightPx });
     void this.reloadBackgroundImage(doc.imageAssetId);
   }
 
@@ -327,7 +332,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
         return;
       }
       this.backgroundAsset = null;
-      this.image.set(null);
+      this.image.set({ url: '', width: doc.widthPx, height: doc.heightPx });
     }
   }
 
@@ -815,7 +820,7 @@ export class MapEditorPage implements OnInit, OnDestroy {
         backgroundTransform: { ...defaultBackgroundTransform },
       },
     ));
-    this.image.set(null);
+    this.image.set({ url: '', width: doc.widthPx, height: doc.heightPx });
   }
 
   public async fitBackgroundCover(): Promise<void> {

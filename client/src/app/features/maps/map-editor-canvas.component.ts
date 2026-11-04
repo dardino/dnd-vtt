@@ -639,6 +639,19 @@ export class MapEditorCanvasComponent implements OnDestroy {
       layer.draw();
       return;
     }
+    if (image.url === '') {
+      layer.destroyChildren();
+      layer.add(new Konva.Rect({
+        x: 0,
+        y: 0,
+        width: image.width,
+        height: image.height,
+        fill: '#ffffff',
+        listening: false,
+      }));
+      layer.draw();
+      return;
+    }
     if (this.loadedImage?.url === image.url) {
       this.drawBackground(layer, image, this.loadedImage.element);
       return;

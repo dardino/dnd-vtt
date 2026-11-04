@@ -339,3 +339,44 @@ test('le sezioni sono accordion e la scena si attiva solo dal pulsante', async (
   await reserve.getByRole('button', { name: 'Attiva scena Scena di riserva' }).click();
   await expect(reserve.locator('.badge')).toHaveText('attiva');
 });
+
+test('una nuova mappa senza sfondo mostra il foglio bianco della risoluzione scelta', async ({ page, request }) => {
+  const id = await campaignId(request, { description: 'Mappa di prova' });
+  await page.addInitScript(
+    ([key, value]) => localStorage.setItem(key, value),
+    ['dnd-vtt.lastCampaignId', id] as const,
+  );
+  await page.goto('/maps');
+  await page.getByRole('button', { name: 'Nuova mappa' }).click();
+
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Nome').fill('Mappa bianca');
+  await dialog.getByLabel('Preset').selectOption('720p');
+  await dialog.getByRole('button', { name: 'Crea mappa' }).click();
+
+  await expect(page).toHaveURL(/\/maps\/[0-9a-f-]{36}$/);
+  const canvas = page.locator('.map-editor-canvas');
+  await expect(canvas).toBeVisible();
+  await expect(canvas.locator('canvas')).not.toHaveCount(0);
+  await expect.poll(async () => Number(await canvas.getAttribute('data-grid-lines')))
+    .toBeGreaterThan(0);
+  await expect(page.locator('.editor__placeholder')).toHaveCount(0);
+
+  const hasWhiteSheet = await page.locator('.map-editor-canvas canvas').evaluateAll((nodes) =>
+    nodes.some((node) => {
+      const element = node as HTMLCanvasElement;
+      const context = element.getContext('2d');
+      if (context === null || element.width === 0 || element.height === 0) {
+        return false;
+      }
+      const [red, green, blue, alpha] = context.getImageData(
+        Math.floor(element.width / 3),
+        Math.floor(element.height / 3),
+        1,
+        1,
+      ).data;
+      return (red ?? 0) > 240 && (green ?? 0) > 240
+        && (blue ?? 0) > 240 && (alpha ?? 0) > 0;
+    }));
+  expect(hasWhiteSheet).toBe(true);
+});

@@ -69,29 +69,25 @@
       </nav>
 
       <div class="editor__stage">
-        @if (image(); as mapImage) {
-          <app-map-editor-canvas
-            [image]="mapImage"
-            [backgroundTransform]="document.backgroundTransform"
-            [grid]="document.grid"
-            [terrain]="document.terrain"
-            [spawns]="document.spawns"
-            [playerStarts]="document.playerStarts"
-            [tool]="tool()"
-            [selected]="selected()"
-            [startView]="document.startView ?? null"
-            [showGrid]="showGrid()"
-            (wallsDrawn)="onWallsDrawn($event)"
-            (wallRemoved)="onWallRemoved($event)"
-            (lightPlaced)="placeLight($event)"
-            (spawnRequested)="requestSpawn($event)"
-            (startPlaced)="placeStart($event)"
-            (elementMoved)="moveElement($event)"
-            (elementSelected)="select($event)"
-          />
-        } @else {
-          <p class="muted editor__placeholder">Caricamento immagine…</p>
-        }
+        <app-map-editor-canvas
+          [image]="image()"
+          [backgroundTransform]="document.backgroundTransform"
+          [grid]="document.grid"
+          [terrain]="document.terrain"
+          [spawns]="document.spawns"
+          [playerStarts]="document.playerStarts"
+          [tool]="tool()"
+          [selected]="selected()"
+          [startView]="document.startView ?? null"
+          [showGrid]="showGrid()"
+          (wallsDrawn)="onWallsDrawn($event)"
+          (wallRemoved)="onWallRemoved($event)"
+          (lightPlaced)="placeLight($event)"
+          (spawnRequested)="requestSpawn($event)"
+          (startPlaced)="placeStart($event)"
+          (elementMoved)="moveElement($event)"
+          (elementSelected)="select($event)"
+        />
       </div>
 
       <aside class="editor__inspector">

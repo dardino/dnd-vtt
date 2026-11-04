@@ -413,6 +413,10 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Decisione:** sostituire le emoji con **Material Symbols Outlined** scaricati da Google Fonts e serviti localmente, per icone monocrome coerenti con tema e CSP.
   - **Esito:** subset del font (36 KB) in `client/public/fonts/material-symbols-outlined.v1.woff2`, `@font-face` e classe globale `.material-symbols-outlined`, ligature in editor mappe, toolbar scena, liste scene/token/attori, slot, tema, dialog/toast, frecce, matita, check e chevron. Nessun CDN esterno (`font-src 'self'`); licenza in `LICENSES/MATERIAL-SYMBOLS.md`; `ui-icons.spec.ts` aggiornato.
 
+- [x] **C12 — Foglio bianco nelle mappe senza sfondo** · S — ✅ 4 novembre 2026
+  - **Problema:** una mappa creata senza immagine non istanziava il canvas dell'editor.
+  - **Esito:** il canvas riceve sempre un'immagine "bianca" con le dimensioni del documento (`url: ''`), disegna un rettangolo bianco e mantiene griglia/interazioni; rimosso il placeholder condizionale. Test unit sull'immagine vuota ed E2E che verifica canvas, griglia e pixel bianco.
+
 ## 7. Tooling e allineamento al piano (P2)
 
 - [x] **T1 — `max-len` a 110** · S · D6
