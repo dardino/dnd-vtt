@@ -32,7 +32,7 @@ import {
   type WallPoint,
   type WallSegment,
 } from '@dnd-vtt/shared';
-import { canvasKeyboardCommand } from '../../core/ui/canvas-keyboard';
+import { canvasKeyboardCommand, isEditableTarget } from '../../core/ui/canvas-keyboard';
 import { MeasurementService } from '../../core/ui/measurement.service';
 import { readThemeColors, type CssColorTokens } from '../../core/ui/theme-colors';
 import { MapGridRenderer } from './map-grid-renderer';
@@ -122,13 +122,16 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public readonly spawnRequested = output<CellPoint>();
   public readonly startPlaced = output<CellPoint>();
   public readonly elementMoved = output<{ selection: EditorSelection; cell: CellPoint }>();
+  public readonly wallMoved = output<{ id: string; dx: number; dy: number }>();
   public readonly elementSelected = output<EditorSelection | null>();
   public readonly cameraChanged = output<Camera>();
   public readonly gridLines = signal(0);
   public readonly ariaLabel = computed(() =>
     `Editor mappa, strumento ${EDITOR_TOOL_LABELS[this.tool()]}. `
-    + 'Frecce per spostare la vista, + e - per lo zoom, Esc per deselezionare.');
+    + `${this.selected() === null || this.tool() !== 'select' ? 'Frecce per spostare la vista' : 'Frecce per spostare l\'elemento selezionato'}. `
+    + '+ e - per lo zoom, Esc per deselezionare.');
 
+  private readonly host = viewChild.required<ElementRef<HTMLDivElement>>('host');
   private readonly container = viewChild.required<ElementRef<HTMLDivElement>>('container');
   private readonly units = inject(MeasurementService);
   private readonly gridRenderer = new MapGridRenderer();
@@ -316,6 +319,41 @@ export class MapEditorCanvasComponent implements OnDestroy {
    * modo confermabile/annullabile tramite la cronologia comandi.
    */
   public onKeyDown(event: KeyboardEvent): void {
+    const selection = this.selected();
+    const arrows: Record<string, { dx: number; dy: number }> = {
+      ArrowLeft: { dx: -1, dy: 0 },
+      ArrowRight: { dx: 1, dy: 0 },
+      ArrowUp: { dx: 0, dy: -1 },
+      ArrowDown: { dx: 0, dy: 1 },
+    };
+    const arrow = arrows[event.key];
+    if (
+      arrow !== undefined
+      && selection !== null
+      && this.tool() === 'select'
+      && !isEditableTarget(event.target)
+      && !event.altKey
+      && !event.ctrlKey
+      && !event.metaKey
+    ) {
+      event.preventDefault();
+      if (selection.type === 'wall') {
+        this.wallMoved.emit({ id: selection.id, ...arrow });
+        return;
+      }
+      const point = selection.type === 'light'
+        ? this.terrain().lights.find((entry) => entry.id === selection.id)
+        : selection.type === 'spawn'
+          ? this.spawns().find((entry) => entry.id === selection.id)
+          : this.playerStarts().find((entry) => entry.id === selection.id);
+      if (point !== undefined) {
+        this.elementMoved.emit({
+          selection,
+          cell: { x: point.x + arrow.dx, y: point.y + arrow.dy },
+        });
+      }
+      return;
+    }
     const command = canvasKeyboardCommand(event);
     if (command === null) {
       return;
@@ -359,6 +397,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (stage === null) {
       return;
     }
+    this.host().nativeElement.focus({ preventScroll: true });
     const pointer = stage.getPointerPosition();
     if (pointer === null) {
       return;
@@ -723,6 +762,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (layer === null) {
       return;
     }
+    layer.listening(this.tool() === 'select');
     layer.destroyChildren();
     const grid = this.grid();
     const selected = this.selected();
@@ -731,7 +771,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       const segment = wallSegmentPx(grid, wall);
       const color = colors[wall.kind];
       const isSelected = selected?.type === 'wall' && selected.id === wall.id;
-      layer.add(new Konva.Line({
+      const line = new Konva.Line({
         points: [segment.a.x, segment.a.y, segment.b.x, segment.b.y],
         stroke: isSelected ? colors.select : color,
         strokeWidth: isSelected ? 7 : 5,
@@ -740,8 +780,20 @@ export class MapEditorCanvasComponent implements OnDestroy {
         ...(wall.kind === 'window' || wall.kind === 'lowWall' ? { dash: [8, 6] } : {}),
         opacity: wall.kind === 'door' && wall.door === 'open' ? 0.35 : 1,
         perfectDrawEnabled: false,
-        listening: false,
-      }));
+        listening: isSelected && this.tool() === 'select',
+        draggable: isSelected && this.tool() === 'select',
+      });
+      if (isSelected && this.tool() === 'select') {
+        line.on('dragend', () => {
+          const dx = Math.round(line.x() / grid.cellSizePx);
+          const dy = Math.round(line.y() / grid.cellSizePx);
+          line.position({ x: 0, y: 0 });
+          if (dx !== 0 || dy !== 0) {
+            this.wallMoved.emit({ id: wall.id, dx, dy });
+          }
+        });
+      }
+      layer.add(line);
       if (wall.kind === 'door') {
         layer.add(new Konva.Circle({
           x: (segment.a.x + segment.b.x) / 2,
@@ -764,6 +816,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
     if (layer === null) {
       return;
     }
+    layer.listening(this.tool() === 'select');
     layer.destroyChildren();
     const grid = this.grid();
     const selected = this.selected();
@@ -815,7 +868,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
           perfectDrawEnabled: false,
           listening: false,
         }));
-      layer.add(new Konva.Circle({
+      const marker = new Konva.Circle({
         x: center.x,
         y: center.y,
         radius: 7,
@@ -824,8 +877,19 @@ export class MapEditorCanvasComponent implements OnDestroy {
         strokeWidth: 2,
         strokeScaleEnabled: false,
         perfectDrawEnabled: false,
-        listening: false,
-      }));
+        listening: this.tool() === 'select',
+        draggable: this.tool() === 'select'
+          && selected?.type === 'light'
+          && selected.id === light.id,
+      });
+      marker.on('dragend', () => {
+        const cell = pixelToCell(grid, { x: marker.x(), y: marker.y() });
+        marker.position({ x: center.x, y: center.y });
+        if (cell.x !== light.x || cell.y !== light.y) {
+          this.elementMoved.emit({ selection: { type: 'light', id: light.id }, cell });
+        }
+      });
+      layer.add(marker);
     }
     layer.draw();
   }
@@ -845,7 +909,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
       const group = new Konva.Group({
         x: center.x,
         y: center.y,
-        draggable: this.tool() === 'select',
+        draggable: this.tool() === 'select'
+          && selected?.type === 'spawn'
+          && selected.id === spawn.id,
       });
       group.add(new Konva.Circle({
         x: 0,
@@ -869,6 +935,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       }));
       group.on('dragend', () => {
         const cell = pixelToCell(grid, { x: group.x(), y: group.y() });
+        group.position(center);
         this.elementMoved.emit({ selection: { type: 'spawn', id: spawn.id }, cell });
       });
       layer.add(group);
@@ -878,7 +945,9 @@ export class MapEditorCanvasComponent implements OnDestroy {
       const group = new Konva.Group({
         x: center.x,
         y: center.y,
-        draggable: this.tool() === 'select',
+        draggable: this.tool() === 'select'
+          && selected?.type === 'start'
+          && selected.id === start.id,
       });
       group.add(new Konva.Circle({
         x: 0,
@@ -902,6 +971,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
       }));
       group.on('dragend', () => {
         const cell = pixelToCell(grid, { x: group.x(), y: group.y() });
+        group.position(center);
         this.elementMoved.emit({ selection: { type: 'start', id: start.id }, cell });
       });
       layer.add(group);

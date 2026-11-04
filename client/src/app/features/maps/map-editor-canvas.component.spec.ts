@@ -105,6 +105,8 @@ class FakeLayer {
   public draw(): void {
     // Il layer reale disegna sul canvas; qui basta il conteggio dei nodi.
   }
+
+  public listening(): void {}
 }
 
 interface RenderScheduler {

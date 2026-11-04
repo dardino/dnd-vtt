@@ -373,6 +373,14 @@ export class MapEditorPage implements OnInit, OnDestroy {
   }
 
   public select(selection: EditorSelection | null): void {
+    const current = this.selected();
+    if (
+      current === selection
+      || (current !== null && selection !== null
+        && current.type === selection.type && current.id === selection.id)
+    ) {
+      return;
+    }
     this.selected.set(selection);
   }
 
@@ -522,6 +530,24 @@ export class MapEditorPage implements OnInit, OnDestroy {
         this.execute(replaceFields('light', light.id, { x: light.x, y: light.y }, after));
       }
     }
+  }
+
+  public moveWall(event: { id: string; dx: number; dy: number }): void {
+    const doc = this.doc();
+    const wall = doc?.terrain.walls.find((entry) => entry.id === event.id);
+    if (doc === null || wall === undefined) {
+      return;
+    }
+    const cols = Math.ceil((doc.widthPx - doc.grid.offsetX) / doc.grid.cellSizePx);
+    const rows = Math.ceil((doc.heightPx - doc.grid.offsetY) / doc.grid.cellSizePx);
+    const inside = (point: { x: number; y: number }): boolean =>
+      point.x >= 0 && point.y >= 0 && point.x <= cols && point.y <= rows;
+    const a = { x: wall.a.x + event.dx, y: wall.a.y + event.dy };
+    const b = { x: wall.b.x + event.dx, y: wall.b.y + event.dy };
+    if (!inside(a) || !inside(b)) {
+      return;
+    }
+    this.execute(replaceFields('wall', wall.id, { a: wall.a, b: wall.b }, { a, b }));
   }
 
   public updateWall(kind: WallKind, door?: WallSegment['door']): void {

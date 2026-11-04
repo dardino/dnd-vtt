@@ -421,9 +421,9 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
   - **Richiesta:** parametro `backgroundColor` in rgba con picker (colore + opacità).
   - **Esito:** `MapDocument.backgroundColor` con default bianco e validazione canonica `rgba(r, g, b, a)`; picker colore + range alfa nell'inspector, commit a comandi history, undo/redo; il canvas usa il colore sia per il foglio senza immagine sia sotto immagini trasparenti. Round-trip in create/update/export/import/duplicate/seed; helper puri testati. Il colore viene copiato in `SceneState` alla creazione della scena, renderizzato dal canvas del tavolo e incluso nella proiezione display; l'anteprima delle mappe senza immagine usa il colore come foglio.
 
-- [ ] **C14 — Spostamento oggetti nell'editor mappa** · M — da fare
+- [x] **C14 — Spostamento oggetti nell'editor mappa** · M — ✅ 4 novembre 2026
   - **Richiesta:** spostare l'elemento selezionato (muro, luce, spawn, partenza) con le frecce, una cella o un bordo per volta, e/o con drag & drop; lo snap deve essere alle celle o ai bordi della griglia a seconda del tipo di oggetto.
-  - **Fatto quando:** ogni tipo selezionato è spostabile da tastiera e con il mouse, il movimento passa dalla history (`undo`/`redo`), il drop fuori dalla griglia viene ignorato o clampato e i test coprono snap, selezione e annullamento.
+  - **Esito:** con lo strumento selezione le frecce muovono l'elemento selezionato (spawn/luci/partenze di una cella, muri di un bordo) e, senza selezione, continuano a spostare la camera; il canvas riceve il focus dopo il click. Drag & drop: spawn/partenze alle celle, luci allo snap cella, muro selezionato allo snap bordo. Tutte le modifiche passano dai comandi history (`undo`/`redo`) e vengono rifiutate fuori griglia. Test unit su output tastiera, comandi pagina, undo e limiti; suite verde.
 
 - [x] **C15 — Accordion nell'inspector mappe** · S — ✅ 4 novembre 2026
   - **Richiesta:** sezioni della sidebar dell'editor collassabili come nella console.
