@@ -5,6 +5,7 @@ export * from './schemas/build.js';
 export * from './schemas/scene.js';
 export * from './schemas/scene-size.js';
 export * from './schemas/map.js';
+export * from './schemas/color.js';
 export * from './schemas/campaign.js';
 export * from './schemas/actor.js';
 export * from './schemas/asset.js';

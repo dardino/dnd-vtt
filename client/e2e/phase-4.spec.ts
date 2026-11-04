@@ -414,4 +414,12 @@ test('una nuova mappa senza sfondo mostra il foglio bianco della risoluzione sce
   await expect(page.locator('.map-color__value')).toHaveText('rgba(255, 0, 0, 1)');
   await page.getByRole('button', { name: 'Ripeti', exact: true }).click();
   await expect(page.locator('.map-color__value')).toHaveText('rgba(255, 0, 0, 0.5)');
+
+  await page.getByRole('button', { name: 'Salva' }).click();
+  await expect(page.locator('.editor__title .badge')).toHaveText('salvata');
+  await page.getByRole('button', { name: 'Mappe', exact: true }).click();
+  const card = page.locator('.map-card', { hasText: 'Mappa bianca' });
+  const preview = card.locator('.map-card__blank');
+  await expect(preview).toBeVisible();
+  await expect(preview).toHaveCSS('background-color', 'rgba(255, 0, 0, 0.5)');
 });

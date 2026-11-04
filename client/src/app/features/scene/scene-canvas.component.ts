@@ -524,6 +524,24 @@ export class SceneCanvasComponent implements OnDestroy {
     if (map === null || layer === null) {
       return;
     }
+    if (map.url === '') {
+      layer.destroyChildren();
+      layer.add(new Konva.Rect({
+        x: 0,
+        y: 0,
+        width: map.width,
+        height: map.height,
+        fill: this.state().backgroundColor,
+        listening: false,
+      }));
+      layer.draw();
+      this.tiled.set(false);
+      this.tilesReady.set(true);
+      this.applyViewportOrFit();
+      this.renderFog();
+      this.renderDrawings();
+      return;
+    }
     void this.mapLayerRenderer.renderBase({
       layer,
       map,

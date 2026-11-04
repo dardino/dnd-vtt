@@ -53,6 +53,7 @@ const mapSummary = (db: AppDatabase, map: Map): MapSummary => {
     imageAssetId: map.imageAssetId,
     imageUrl: asset?.url ?? null,
     thumbUrl: asset?.thumbUrl ?? null,
+    backgroundColor: map.backgroundColor,
     widthPx: map.widthPx,
     heightPx: map.heightPx,
     grid: map.grid,
@@ -303,6 +304,7 @@ export const createSceneFromMap = (
   const fogBase = input.fogBase ?? map.fogBase;
   const state: SceneState = {
     ...createDefaultSceneState(fogBase, map.terrain),
+    backgroundColor: map.backgroundColor,
     grid: map.grid,
     fog: { base: fogBase, ops: [], override: 'none' },
     terrain: {

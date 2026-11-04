@@ -282,6 +282,53 @@ describe('CRUD campagne, scene e attori', () => {
     await closeTestApp(testApp);
   });
 
+  it('propaga il colore della mappa alla scena creata', async () => {
+    const testApp = await createTestApp();
+    const app = testApp.app;
+    const campaignId = await createCampaign(app);
+    const created = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/maps`,
+      payload: { name: 'Mappa colore', preset: '720p' },
+    });
+    expect(created.statusCode).toBe(201);
+    const map = created.json<{
+      id: string;
+      version: number;
+      [key: string]: unknown;
+    }>();
+    const mapId = map.id;
+    const version = map.version;
+    const document: Record<string, unknown> = { ...map };
+    delete document['id'];
+    delete document['campaignId'];
+    delete document['version'];
+    delete document['createdAt'];
+    delete document['updatedAt'];
+    const color = 'rgba(10, 20, 30, 0.5)';
+    const saved = await app.inject({
+      method: 'PUT',
+      url: `/api/v1/maps/${mapId}`,
+      payload: { version, document: { ...document, backgroundColor: color } },
+    });
+    expect(saved.statusCode).toBe(200);
+
+    const scene = await app.inject({
+      method: 'POST',
+      url: `/api/v1/campaigns/${campaignId}/scenes/from-map`,
+      payload: { mapId, playerAssignments: [] },
+    });
+    expect(scene.statusCode).toBe(201);
+    const sceneId = scene.json<{ sceneId: string }>().sceneId;
+
+    const snapshot = await app.inject({
+      method: 'GET',
+      url: `/api/v1/scenes/${sceneId}`,
+    });
+    expect(snapshot.json().state.backgroundColor).toBe(color);
+    await closeTestApp(testApp);
+  });
+
   it('deriva le dimensioni della scena da preset e orientation', async () => {
     const testApp = await createTestApp();
     const app = testApp.app;

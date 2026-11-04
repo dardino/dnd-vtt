@@ -15,6 +15,7 @@ import {
   scene,
   type DmCampaignStoreHarness,
 } from './dm-campaign.store.fixtures';
+import { blankSceneMapImage } from './dm-map-image';
 
 let h: DmCampaignStoreHarness;
 const store = () => h.store;
@@ -79,7 +80,7 @@ describe('DmCampaignStore', () => {
     expect(h.restore).toHaveBeenCalledWith(CAMPAIGN_ID);
     expect(h.actionStart).toHaveBeenCalledWith(CAMPAIGN_ID, SCENE_ID);
     expect(store().activeScene()).toEqual(scene());
-    expect(store().mapImage()).toBeNull();
+    expect(store().mapImage()).toEqual(blankSceneMapImage(scene()));
     expect(store().mode()).toBe('ready');
     expect(h.navigate).not.toHaveBeenCalled();
   });
@@ -121,7 +122,7 @@ describe('DmCampaignStore', () => {
     expect(h.sceneLoad).toHaveBeenCalledWith(SCENE_ID);
     expect(h.actionStart).toHaveBeenCalledWith(CAMPAIGN_ID, SCENE_ID);
     expect(store().activeScene()).toEqual(withImage);
-    expect(store().mapImage()).toBeNull();
+    expect(store().mapImage()).toEqual(blankSceneMapImage(withImage));
     expect(h.setNotice).toHaveBeenCalledWith('La mappa della scena non è disponibile.');
   });
 

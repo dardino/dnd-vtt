@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { actorPortraitSchema } from './actor.js';
+import { DEFAULT_MAP_BACKGROUND_COLOR, mapBackgroundColorSchema } from './color.js';
 import { conditionNameSchema, viewSchema } from './common.js';
 import { diceRollSchema } from './dice.js';
 import { fogStateSchema, gridConfigSchema, initiativeEntrySchema, publicDoorSchema, visionGridSchema } from './scene.js';
@@ -122,6 +123,7 @@ export const publicSceneSchema = z.strictObject({
   widthPx: z.number().int().positive(),
   heightPx: z.number().int().positive(),
   imageUrl: z.string().nullable(),
+  backgroundColor: mapBackgroundColorSchema.default(DEFAULT_MAP_BACKGROUND_COLOR),
   backgroundTransform: backgroundTransformSchema.default(defaultBackgroundTransform),
   grid: gridConfigSchema,
   tokens: z.array(publicTokenSchema),

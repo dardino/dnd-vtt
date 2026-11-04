@@ -1,23 +1,21 @@
 <div class="display-layer" [style]="frameStyle()">
   @switch (layer().type) {
     @case ('map') {
-      @if (mapImage(); as map) {
-        @if (sceneState(); as scene) {
-          <app-scene-canvas
-            class="display-layer__canvas"
-            [map]="map"
-            [backgroundTransform]="backgroundTransform()"
-            [state]="scene"
-            [tool]="'select'"
-            [gridVisible]="true"
-            [readOnly]="true"
-            [fogOpacity]="1"
-            [viewport]="layer().viewport ?? null"
-            [vision]="layer().scene?.vision ?? null"
-            [doors]="layer().scene?.doors ?? []"
-            [tokenPortraits]="tokenPortraits()"
-          />
-        }
+      @if (sceneState(); as scene) {
+        <app-scene-canvas
+          class="display-layer__canvas"
+          [map]="mapImage()"
+          [backgroundTransform]="backgroundTransform()"
+          [state]="scene"
+          [tool]="'select'"
+          [gridVisible]="true"
+          [readOnly]="true"
+          [fogOpacity]="1"
+          [viewport]="layer().viewport ?? null"
+          [vision]="layer().scene?.vision ?? null"
+          [doors]="layer().scene?.doors ?? []"
+          [tokenPortraits]="tokenPortraits()"
+        />
       }
     }
     @case ('image') {

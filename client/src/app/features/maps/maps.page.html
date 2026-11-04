@@ -54,7 +54,11 @@
             @if (map.thumbUrl) {
               <img [src]="map.thumbUrl" [alt]="map.name" />
             } @else {
-              <span class="muted">Nessuna anteprima</span>
+              <span
+                class="map-card__blank"
+                [style.background]="map.backgroundColor"
+                [attr.aria-label]="'Foglio ' + map.backgroundColor"
+              ></span>
             }
           </button>
           <div class="map-card__body">

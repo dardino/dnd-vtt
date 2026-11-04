@@ -206,6 +206,7 @@ const publicScene = (
     widthPx: scene.widthPx,
     heightPx: scene.heightPx,
     imageUrl: asset?.url ?? null,
+    backgroundColor: state.backgroundColor,
     backgroundTransform: scene.backgroundTransform,
     grid,
     tokens,

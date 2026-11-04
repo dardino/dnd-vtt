@@ -44,8 +44,18 @@ export class DisplayLayerComponent {
 
   public readonly mapImage = computed<SceneMapImage | null>(() => {
     const scene = this.layer().scene;
-    if (scene === undefined || scene.imageUrl === null) {
+    if (scene === undefined) {
       return null;
+    }
+    if (scene.imageUrl === null) {
+      return {
+        url: '',
+        previewUrl: '',
+        hash: scene.id,
+        width: scene.widthPx,
+        height: scene.heightPx,
+        tiled: false,
+      };
     }
     return {
       url: scene.imageUrl,
@@ -78,6 +88,7 @@ const toSceneState = (scene: PublicScene): SceneState => ({
   grid: scene.grid,
   fog: scene.fog,
   terrain: defaultTerrain,
+  backgroundColor: scene.backgroundColor,
   showDoorIcons: true,
   tokens: scene.tokens.map((token): TokenState => ({
     id: token.id,

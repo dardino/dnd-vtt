@@ -416,11 +416,14 @@ Ordine di esecuzione: **A3 → A2 → A1 → A4**. A3 isola lo stato, A2 rende l
 - [x] **C12 — Foglio bianco nelle mappe senza sfondo** · S — ✅ 4 novembre 2026
   - **Problema:** una mappa creata senza immagine non istanziava il canvas dell'editor.
   - **Esito:** il canvas riceve sempre un'immagine "bianca" con le dimensioni del documento (`url: ''`), disegna un rettangolo bianco e mantiene griglia/interazioni; rimosso il placeholder condizionale. Test unit sull'immagine vuota ed E2E che verifica canvas, griglia e pixel bianco.
-  - **Follow-up:** `backgroundColor` è il colore del foglio nell'editor; non viene ancora copiato in `SceneState`/proiezione quando si crea una scena dalla mappa. Se serve sul tavolo, va aggiunto alla scena e ai renderer.
 
 - [x] **C13 — Colore sfondo mappa rgba** · M — ✅ 4 novembre 2026
   - **Richiesta:** parametro `backgroundColor` in rgba con picker (colore + opacità).
-  - **Esito:** `MapDocument.backgroundColor` con default bianco e validazione canonica `rgba(r, g, b, a)`; picker colore + range alfa nell'inspector, commit a comandi history, undo/redo; il canvas usa il colore sia per il foglio senza immagine sia sotto immagini trasparenti. Round-trip in create/update/export/import/duplicate/seed; helper pursi testati. Constatato che la scena da mappa non eredita ancora il colore (follow-up C12).
+  - **Esito:** `MapDocument.backgroundColor` con default bianco e validazione canonica `rgba(r, g, b, a)`; picker colore + range alfa nell'inspector, commit a comandi history, undo/redo; il canvas usa il colore sia per il foglio senza immagine sia sotto immagini trasparenti. Round-trip in create/update/export/import/duplicate/seed; helper puri testati. Il colore viene copiato in `SceneState` alla creazione della scena, renderizzato dal canvas del tavolo e incluso nella proiezione display; l'anteprima delle mappe senza immagine usa il colore come foglio.
+
+- [ ] **C14 — Spostamento oggetti nell'editor mappa** · M — da fare
+  - **Richiesta:** spostare l'elemento selezionato (muro, luce, spawn, partenza) con le frecce, una cella o un bordo per volta, e/o con drag & drop; lo snap deve essere alle celle o ai bordi della griglia a seconda del tipo di oggetto.
+  - **Fatto quando:** ogni tipo selezionato è spostabile da tastiera e con il mouse, il movimento passa dalla history (`undo`/`redo`), il drop fuori dalla griglia viene ignorato o clampato e i test coprono snap, selezione e annullamento.
 
 ## 7. Tooling e allineamento al piano (P2)
 

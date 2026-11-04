@@ -72,6 +72,7 @@ const displayState = (viewport: Viewport = { x: 0, y: 0, zoom: 1 }): DisplayStat
         widthPx: 1920,
         heightPx: 1080,
         imageUrl: null,
+        backgroundColor: 'rgba(255, 255, 255, 1)',
         backgroundTransform: { x: 0, y: 0, scale: 1 },
         grid: {
           type: 'square',

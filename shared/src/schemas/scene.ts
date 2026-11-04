@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { conditionSchema, paginatedSchema, viewSchema } from './common.js';
+import { DEFAULT_MAP_BACKGROUND_COLOR, mapBackgroundColorSchema } from './color.js';
 import {
   backgroundTransformSchema, defaultBackgroundTransform, orientationSchema, resolutionPresetSchema,
 } from './scene-size.js';
@@ -226,6 +227,7 @@ export const sceneStateSchema = z.strictObject({
   grid: gridConfigSchema,
   fog: fogStateSchema,
   terrain: terrainSchema.default(defaultTerrain),
+  backgroundColor: mapBackgroundColorSchema.default(DEFAULT_MAP_BACKGROUND_COLOR),
   showDoorIcons: z.boolean().default(true),
   startView: viewSchema.optional(),
   tokens: z.array(tokenStateSchema),
@@ -246,6 +248,7 @@ export const createDefaultSceneState = (
     walls: [...terrain.walls],
     lights: [...terrain.lights],
   },
+  backgroundColor: DEFAULT_MAP_BACKGROUND_COLOR,
   showDoorIcons: true,
   tokens: [],
   loot: [],

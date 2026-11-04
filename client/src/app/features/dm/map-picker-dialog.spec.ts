@@ -16,6 +16,7 @@ const summary = (overrides: Partial<MapSummary> = {}): MapSummary => ({
   imageAssetId: null,
   imageUrl: null,
   thumbUrl: null,
+  backgroundColor: 'rgba(255, 255, 255, 1)',
   widthPx: 1920,
   heightPx: 1080,
   grid: {

@@ -90,6 +90,7 @@ export const mapSummary = (overrides: Partial<MapSummary> = {}): MapSummary => (
   imageAssetId: null,
   imageUrl: null,
   thumbUrl: null,
+  backgroundColor: 'rgba(255, 255, 255, 1)',
   widthPx: 1400,
   heightPx: 1000,
   grid: createDefaultSceneState().grid,

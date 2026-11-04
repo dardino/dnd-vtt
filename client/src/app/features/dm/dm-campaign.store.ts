@@ -27,6 +27,7 @@ import { DmSessionStore } from './dm-session.store';
 import { toMapDocument } from './dm-campaign.mapper';
 import { DmUiStore } from './dm-ui.store';
 import { sceneDeleteBlockedReason } from './dm-scene-delete';
+import { blankSceneMapImage } from './dm-map-image';
 import type { PrepareSceneAssignment } from './prepare-scene-dialog';
 import { RegiaStore } from './regia.store';
 import { SceneToolsStore } from './scene-tools.store';
@@ -81,7 +82,7 @@ export const DmCampaignStore = signalStore(
 
     const loadMapAsset = async (scene: Scene): Promise<void> => {
       if (scene.imageAssetId === null) {
-        store.mapImage.set(null);
+        store.mapImage.set(blankSceneMapImage(scene));
         return;
       }
       try {
@@ -97,7 +98,7 @@ export const DmCampaignStore = signalStore(
           tiled: isTiledMap(asset.width, asset.height),
         });
       } catch {
-        store.mapImage.set(null);
+        store.mapImage.set(blankSceneMapImage(scene));
         ui.setNotice('La mappa della scena non è disponibile.');
       }
     };
