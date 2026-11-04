@@ -16,6 +16,7 @@ import Konva from 'konva';
 import {
   cellCenterPx,
   defaultBackgroundTransform,
+  DEFAULT_MAP_BACKGROUND_COLOR,
   distanceToSegment,
   latticePointPx,
   pixelToCell,
@@ -104,6 +105,7 @@ interface Camera {
 })
 export class MapEditorCanvasComponent implements OnDestroy {
   public readonly image = input<EditorMapImage | null>(null);
+  public readonly backgroundColor = input(DEFAULT_MAP_BACKGROUND_COLOR);
   public readonly backgroundTransform = input<BackgroundTransform>(defaultBackgroundTransform);
   public readonly grid = input.required<GridConfig>();
   public readonly terrain = input.required<Terrain>();
@@ -155,6 +157,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
   public constructor() {
     effect(() => {
       this.image();
+      this.backgroundColor();
       this.backgroundTransform();
       this.grid();
       this.terrain();
@@ -646,7 +649,7 @@ export class MapEditorCanvasComponent implements OnDestroy {
         y: 0,
         width: image.width,
         height: image.height,
-        fill: '#ffffff',
+        fill: this.backgroundColor(),
         listening: false,
       }));
       layer.draw();
@@ -681,6 +684,14 @@ export class MapEditorCanvasComponent implements OnDestroy {
       listening: false,
       clip: { x: 0, y: 0, width: image.width, height: image.height },
     });
+    clipped.add(new Konva.Rect({
+      x: 0,
+      y: 0,
+      width: image.width,
+      height: image.height,
+      fill: this.backgroundColor(),
+      listening: false,
+    }));
     clipped.add(new Konva.Image({
       image: element,
       x: transform.x,

@@ -63,10 +63,11 @@ import {
   sameMapProperties,
   type MapPropertiesFormModel,
 } from './map-properties.form';
+import { hexAlphaToRgba, rgbaAlphaPercent, rgbaToHex } from './map-color';
 
 type MapGridField = Exclude<keyof GridConfig, 'hexOffset'>;
 type MapTerrainField = 'ambientLight' | 'visionEnabled' | 'showDoorIcons';
-type MapTextField = 'name' | 'fogBase' | 'notes';
+type MapTextField = 'name' | 'fogBase' | 'notes' | 'backgroundColor';
 
 const TOOL_LABELS: Array<{ tool: EditorTool; icon: string; label: string; hint: string }> = [
   { tool: 'select', icon: 'arrow_selector_tool', label: 'Seleziona', hint: 'Seleziona e sposta elementi' },
@@ -157,6 +158,12 @@ export class MapEditorPage implements OnInit, OnDestroy {
   });
 
   public readonly propertiesForm = createMapPropertiesForm(this.propertiesModel, this.maxSightFeet);
+
+  public readonly backgroundColorHex = computed(() =>
+    rgbaToHex(this.propertiesForm.backgroundColor().value()));
+
+  public readonly backgroundColorAlpha = computed(() =>
+    rgbaAlphaPercent(this.propertiesForm.backgroundColor().value()));
 
   private readonly propertiesFields = this.propertiesForm as unknown as Record<
     keyof MapPropertiesFormModel,
@@ -575,6 +582,21 @@ export class MapEditorPage implements OnInit, OnDestroy {
     }
     const value = field === 'name' ? String(state.value()).trim() : String(state.value());
     this.applyMapField(field, value);
+  }
+
+  public setBackgroundColorHex(event: Event): void {
+    const hex = (event.target as HTMLInputElement).value;
+    this.updateBackgroundColor(hex, this.backgroundColorAlpha());
+  }
+
+  public setBackgroundColorAlpha(event: Event): void {
+    const alpha = Number((event.target as HTMLInputElement).value);
+    this.updateBackgroundColor(this.backgroundColorHex(), alpha);
+  }
+
+  private updateBackgroundColor(hex: string, alphaPercent: number): void {
+    this.propertiesForm.backgroundColor().value.set(hexAlphaToRgba(hex, alphaPercent));
+    this.commitMapField('backgroundColor');
   }
 
   public commitGridField(field: MapGridField): void {
@@ -1022,6 +1044,7 @@ const toDocument = (map: Map): MapDocument => ({
   name: map.name,
   imageAssetId: map.imageAssetId,
   backgroundTransform: map.backgroundTransform,
+  backgroundColor: map.backgroundColor,
   widthPx: map.widthPx,
   heightPx: map.heightPx,
   grid: map.grid,

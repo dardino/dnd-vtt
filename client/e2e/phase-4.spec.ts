@@ -379,4 +379,39 @@ test('una nuova mappa senza sfondo mostra il foglio bianco della risoluzione sce
         && (blue ?? 0) > 240 && (alpha ?? 0) > 0;
     }));
   expect(hasWhiteSheet).toBe(true);
+
+  await page.getByLabel('Colore sfondo').evaluate((element) => {
+    const input = element as HTMLInputElement;
+    input.value = '#ff0000';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  const hasRedSheet = await page.locator('.map-editor-canvas canvas').evaluateAll((nodes) =>
+    nodes.some((node) => {
+      const element = node as HTMLCanvasElement;
+      const context = element.getContext('2d');
+      if (context === null || element.width === 0 || element.height === 0) {
+        return false;
+      }
+      const [red, green, blue, alpha] = context.getImageData(
+        Math.floor(element.width / 3),
+        Math.floor(element.height / 3),
+        1,
+        1,
+      ).data;
+      return (red ?? 0) > 200 && (green ?? 0) < 60
+        && (blue ?? 0) < 60 && (alpha ?? 0) > 0;
+    }));
+  expect(hasRedSheet).toBe(true);
+
+  await page.getByLabel('Opacità sfondo').evaluate((element) => {
+    const input = element as HTMLInputElement;
+    input.value = '50';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await expect(page.locator('.map-color__value')).toHaveText('rgba(255, 0, 0, 0.5)');
+
+  await page.getByRole('button', { name: 'Annulla', exact: true }).click();
+  await expect(page.locator('.map-color__value')).toHaveText('rgba(255, 0, 0, 1)');
+  await page.getByRole('button', { name: 'Ripeti', exact: true }).click();
+  await expect(page.locator('.map-color__value')).toHaveText('rgba(255, 0, 0, 0.5)');
 });

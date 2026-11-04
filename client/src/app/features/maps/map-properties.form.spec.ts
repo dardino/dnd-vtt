@@ -35,6 +35,17 @@ describe('map properties form', () => {
     expect(form.name().invalid()).toBe(true);
   });
 
+  it('valida il colore di sfondo rgba', () => {
+    const { form } = createForm();
+
+    expect(form.backgroundColor().valid()).toBe(true);
+    form.backgroundColor().value.set('rgba(255, 0, 0, 0.5)');
+    expect(form.backgroundColor().valid()).toBe(true);
+
+    form.backgroundColor().value.set('#ff0000');
+    expect(form.backgroundColor().invalid()).toBe(true);
+  });
+
   it('limita le note e la dimensione della cella', () => {
     const { form } = createForm();
     form.notes().value.set('a'.repeat(MAP_NOTES_MAX_LENGTH + 1));

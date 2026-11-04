@@ -187,6 +187,7 @@ export const duplicateMap = (db: AppDatabase, id: string): Map => {
     name: `${source.name} (copia)`,
     imageAssetId: source.imageAssetId,
     backgroundTransform: { ...source.backgroundTransform },
+    backgroundColor: source.backgroundColor,
     widthPx: source.widthPx,
     heightPx: source.heightPx,
     grid: source.grid,

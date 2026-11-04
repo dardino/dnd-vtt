@@ -22,9 +22,7 @@ const konva = vi.hoisted(() => {
       return this.config[name];
     }
 
-    public getChildren(): MockNode[] {
-      return this.children;
-    }
+    public getChildren(): MockNode[] { return this.children; }
 
     public add(node: MockNode): void {
       this.children.push(node);
@@ -57,6 +55,7 @@ const konva = vi.hoisted(() => {
     Circle: class extends MockNode {},
     Group: class extends MockNode {},
     Layer: class extends MockNode {},
+    Rect: class extends MockNode {},
     Line: class extends MockNode {},
     Stage: class extends MockNode {},
     Text: class extends MockNode {},

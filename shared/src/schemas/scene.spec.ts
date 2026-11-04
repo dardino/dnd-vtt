@@ -49,9 +49,11 @@ describe('schemi mappa e scena', () => {
     expect(doc.backgroundTransform).toEqual(defaultBackgroundTransform);
   });
 
-  it('emptyMapDocument include la trasformazione di default', () => {
+  it('emptyMapDocument include la trasformazione e il colore di default', () => {
     const doc = emptyMapDocument('Mappa', null, 1280, 720);
     expect(doc.backgroundTransform).toEqual(defaultBackgroundTransform);
+    expect(doc.backgroundColor).toBe('rgba(255, 255, 255, 1)');
+    expect(mapDocumentSchema.safeParse({ ...doc, backgroundColor: 'red' }).success).toBe(false);
   });
 
   it('createMapSchema default 1080p landscape e sfondo opzionale', () => {

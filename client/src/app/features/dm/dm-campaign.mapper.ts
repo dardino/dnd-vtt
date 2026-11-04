@@ -5,6 +5,7 @@ export const toMapDocument = (map: {
   name: string;
   imageAssetId: string | null;
   backgroundTransform: MapDocument['backgroundTransform'];
+  backgroundColor: MapDocument['backgroundColor'];
   widthPx: number;
   heightPx: number;
   grid: MapDocument['grid'];
@@ -19,6 +20,7 @@ export const toMapDocument = (map: {
   name: map.name,
   imageAssetId: map.imageAssetId,
   backgroundTransform: map.backgroundTransform,
+  backgroundColor: map.backgroundColor,
   widthPx: map.widthPx,
   heightPx: map.heightPx,
   grid: map.grid,

@@ -224,6 +224,7 @@ export const importCampaign = async (
           ? null
           : assetMap.get(map.imageAssetId) ?? null,
         backgroundTransform: { ...map.backgroundTransform },
+        backgroundColor: map.backgroundColor,
         widthPx: map.widthPx,
         heightPx: map.heightPx,
         grid: map.grid,

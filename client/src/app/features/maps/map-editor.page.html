@@ -71,6 +71,7 @@
       <div class="editor__stage">
         <app-map-editor-canvas
           [image]="image()"
+          [backgroundColor]="document.backgroundColor"
           [backgroundTransform]="document.backgroundTransform"
           [grid]="document.grid"
           [terrain]="document.terrain"
@@ -192,6 +193,28 @@
             @if (fieldError('fogBase'); as error) {
               <p id="map-fog-base-error" class="field-error" role="alert">{{ error }}</p>
             }
+            <label class="field map-color-field">
+              <span>Sfondo</span>
+              <span class="map-color">
+                <input
+                  type="color"
+                  [value]="backgroundColorHex()"
+                  (change)="setBackgroundColorHex($event)"
+                  aria-label="Colore sfondo"
+                />
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="1"
+                  [value]="backgroundColorAlpha()"
+                  (change)="setBackgroundColorAlpha($event)"
+                  aria-label="Opacità sfondo"
+                />
+                <span class="muted">{{ backgroundColorAlpha() }}%</span>
+              </span>
+              <code class="map-color__value">{{ propertiesForm.backgroundColor().value() }}</code>
+            </label>
             <label class="field">
               <span>Luce ambientale</span>
               <select

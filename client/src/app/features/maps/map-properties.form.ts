@@ -10,11 +10,16 @@ import {
   validate,
 } from '@angular/forms/signals';
 import type { MapDocument } from '@dnd-vtt/shared';
+import {
+  DEFAULT_MAP_BACKGROUND_COLOR,
+  mapBackgroundColorSchema,
+} from '@dnd-vtt/shared';
 
 export interface MapPropertiesFormModel {
   name: string;
   notes: string;
   fogBase: 'hidden' | 'revealed';
+  backgroundColor: string;
   gridType: 'square' | 'hex';
   cellSizePx: number;
   offsetX: number;
@@ -39,6 +44,7 @@ export const emptyMapProperties = (): MapPropertiesFormModel => ({
   name: '',
   notes: '',
   fogBase: 'hidden',
+  backgroundColor: DEFAULT_MAP_BACKGROUND_COLOR,
   gridType: 'square',
   cellSizePx: 70,
   offsetX: 0,
@@ -55,6 +61,7 @@ export const mapPropertiesFromDocument = (doc: MapDocument): MapPropertiesFormMo
   name: doc.name,
   notes: doc.notes,
   fogBase: doc.fogBase,
+  backgroundColor: doc.backgroundColor,
   gridType: doc.grid.type,
   cellSizePx: doc.grid.cellSizePx,
   offsetX: doc.grid.offsetX,
@@ -71,6 +78,7 @@ const PROPERTY_KEYS = [
   'name',
   'notes',
   'fogBase',
+  'backgroundColor',
   'gridType',
   'cellSizePx',
   'offsetX',
@@ -103,6 +111,10 @@ export const createMapPropertiesForm = (
   maxLength(path.name, MAP_NAME_MAX_LENGTH, {
     message: `Il nome non può superare ${MAP_NAME_MAX_LENGTH} caratteri.`,
   });
+  validate(path.backgroundColor, ({ value }) =>
+    mapBackgroundColorSchema.safeParse(value()).success
+      ? null
+      : { kind: 'color', message: 'Scegli un colore di sfondo valido.' });
   maxLength(path.notes, MAP_NOTES_MAX_LENGTH, {
     message: `Le note non possono superare ${MAP_NOTES_MAX_LENGTH} caratteri.`,
   });

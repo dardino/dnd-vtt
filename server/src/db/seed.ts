@@ -8,6 +8,7 @@ import { insertMap } from './maps.repository.js';
 import { createSceneFromMap } from '../maps/service.js';
 import { campaigns } from './schema.js';
 import {
+  DEFAULT_MAP_BACKGROUND_COLOR,
   defaultBackgroundTransform,
   defaultGridConfig,
   defaultTerrain,
@@ -83,6 +84,7 @@ export const seedDemo = async (env: AppEnv, handle: DatabaseHandle): Promise<See
     name: 'Dungeon di prova',
     imageAssetId: asset.id,
     backgroundTransform: { ...defaultBackgroundTransform },
+    backgroundColor: DEFAULT_MAP_BACKGROUND_COLOR,
     widthPx: 1260,
     heightPx: 840,
     grid: { ...defaultGridConfig },
